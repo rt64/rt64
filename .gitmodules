@@ -1,0 +1,48 @@
+[submodule "src/contrib/DLSS"]
+	path = src/contrib/DLSS
+	url = https://github.com/NVIDIA/DLSS
+[submodule "src/contrib/implot"]
+	path = src/contrib/implot
+	url = https://github.com/epezent/implot
+[submodule "src/contrib/hlslpp"]
+	path = src/contrib/hlslpp
+	url = https://github.com/redorav/hlslpp
+[submodule "src/contrib/xess"]
+	path = src/contrib/xess
+	url = https://github.com/intel/xess
+[submodule "src/contrib/mupen64plus-win32-deps"]
+	path = src/contrib/mupen64plus-win32-deps
+	url = https://github.com/mupen64plus/mupen64plus-win32-deps
+[submodule "src/contrib/mupen64plus-core"]
+	path = src/contrib/mupen64plus-core
+	url = https://github.com/mupen64plus/mupen64plus-core
+[submodule "src/contrib/xxHash"]
+	path = src/contrib/xxHash
+	url = https://github.com/Cyan4973/xxHash
+[submodule "src/contrib/volk"]
+	path = src/contrib/volk
+	url = https://github.com/zeux/volk
+[submodule "src/contrib/Vulkan-Headers"]
+	path = src/contrib/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers
+[submodule "src/contrib/VulkanMemoryAllocator"]
+	path = src/contrib/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "src/contrib/imgui"]
+	path = src/contrib/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "src/contrib/im3d"]
+	path = src/contrib/im3d
+	url = https://github.com/john-chapman/im3d
+[submodule "src/contrib/D3D12MemoryAllocator"]
+	path = src/contrib/D3D12MemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator
+[submodule "src/contrib/dxc"]
+	path = src/contrib/dxc
+	url = https://github.com/rt64/dxc-bin
+[submodule "src/contrib/stb"]
+	path = src/contrib/stb
+	url = https://github.com/nothings/stb
+[submodule "src/contrib/nativefiledialog-extended"]
+	path = src/contrib/nativefiledialog-extended
+	url = https://github.com/btzy/nativefiledialog-extended
