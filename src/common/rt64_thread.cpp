@@ -1,0 +1,62 @@
+//
+// RT64
+//
+
+#include "rt64_thread.h"
+
+#include <cassert>
+
+#if defined(_WIN64)
+#   include <Windows.h>
+#   include "utf8conv/utf8conv.h"
+#elif defined(__linux__)
+#   include <pthread.h>
+#endif
+
+namespace RT64 {
+#   if defined(_WIN32)
+    static int toWindowsPriority(Thread::Priority priority) {
+        switch (priority) {
+        case Thread::Priority::Lowest:
+            return THREAD_PRIORITY_LOWEST;
+        case Thread::Priority::Low:
+            return THREAD_PRIORITY_BELOW_NORMAL;
+        case Thread::Priority::Normal:
+            return THREAD_PRIORITY_NORMAL;
+        case Thread::Priority::High:
+            return THREAD_PRIORITY_ABOVE_NORMAL;
+        case Thread::Priority::Highest:
+            return THREAD_PRIORITY_HIGHEST;
+        default:
+            assert(false && "Unknown thread priority.");
+            return THREAD_PRIORITY_NORMAL;
+        }
+    }
+#   endif
+
+    // Thread
+
+    void Thread::setCurrentThreadName(const std::string &str) {
+#   if defined(_WIN32)
+        std::wstring nameWide = win32::Utf8ToUtf16(str);
+        SetThreadDescription(GetCurrentThread(), nameWide.c_str());
+#   elif defined(__linux__)
+        pthread_setname_np(pthread_self(), str.c_str());
+#   else
+        static_assert(false, "Unimplemented");
+#   endif
+    }
+
+    void Thread::setCurrentThreadPriority(Priority priority) {
+#   if defined(_WIN32)
+        SetThreadPriority(GetCurrentThread(), toWindowsPriority(priority));
+#   elif defined(__linux__)
+        // On Linux, thread priorities can't be changed under the default scheduler policy (SCHED_OTHER) and the other policies
+        // that are available without root privileges are lower priority. Instead you can set the thread's "nice" value, which ranges
+        // from -20 to 19 (lower being higher priority). However, by strict POSIX spec "nice" is meant to be per-process instead of
+        // per-thread. Therefore to avoid issues in case Linux is modified to match the spec in the future, this function does nothing.
+#   else
+        static_assert(false, "Unimplemented");
+#   endif
+    }
+};
