@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "hlsl++.h"
+#include "rt64_hlslpp.h"
 
 #ifdef _WIN32
 #   define DLLEXPORT extern "C" __declspec(dllexport)  

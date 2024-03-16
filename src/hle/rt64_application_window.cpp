@@ -10,6 +10,9 @@
 #if defined(_WIN32)
 #   include <Windows.h>
 #   include <ShellScalingAPI.h>
+#elif defined(__linux__)
+#   define Status int
+#   include <X11/extensions/Xrandr.h>
 #endif
 
 #include "common/rt64_common.h"
@@ -204,7 +207,7 @@ namespace RT64 {
     }
 
     void ApplicationWindow::detectRefreshRate() {
-#   ifdef _WIN32
+#   if defined(_WIN32)
         HMONITOR monitor = MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST);
         MONITORINFOEX info = {};
         info.cbSize = sizeof(info);
@@ -221,9 +224,34 @@ namespace RT64 {
         }
 
         refreshRate = displayMode.dmDisplayFrequency;
-#   else
-        // TODO: Implement for Linux and macOS
-        refreshRate = 60;
+#   elif defined(__linux__)
+        // Sourced from: https://stackoverflow.com/a/66865623
+        XRRScreenResources *screenResources = XRRGetScreenResources(windowHandle.display, windowHandle.window);
+        if (screenResources == nullptr) {
+            fprintf(stderr, "XRRGetScreenResources failed.\n");
+            return;
+        }
+
+        RRMode activeModeID = 0;
+        for (int i = 0; i < screenResources->ncrtc; ++i) {
+            XRRCrtcInfo *crtcInfo = XRRGetCrtcInfo(windowHandle.display, screenResources, screenResources->crtcs[i]);
+            if ((crtcInfo != nullptr) && (crtcInfo->mode != 0L)) {
+                activeModeID = crtcInfo->mode; 
+            }
+        }
+
+        if (activeModeID == 0L) {
+            fprintf(stderr, "Unable to find active mode through XRRGetScreenResources and XRRGetCrtcInfo.\n");
+            return;
+        }
+
+        for (int i = 0; i < screenResources->nmode; ++i) {
+            XRRModeInfo modeInfo = screenResources->modes[i];
+            if (modeInfo.id == activeModeID) {
+                refreshRate = std::lround(modeInfo.dotClock / double(modeInfo.hTotal * modeInfo.vTotal));
+                break;
+            }
+        }
 #   endif
     }
 

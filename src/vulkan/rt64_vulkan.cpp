@@ -1380,7 +1380,6 @@ namespace RT64 {
         dynamicState.pDynamicStates = dynamicStates.data();
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 
-
         thread_local std::vector<VkFormat> renderTargetFormats;
         renderTargetFormats.resize(desc.renderTargetCount);
         for (uint32_t i = 0; i < desc.renderTargetCount; i++) {
@@ -1962,6 +1961,14 @@ namespace RT64 {
             fprintf(stderr, "vkCreateSemaphore failed with error code 0x%X.\n", res);
             return;
         }
+        
+        VkFenceCreateInfo fenceCreateInfo = {};
+        fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        res = vkCreateFence(commandQueue->device->vk, &fenceCreateInfo, nullptr, &acquireNextTextureFence);
+        if (res != VK_SUCCESS) {
+            fprintf(stderr, "vkCreateFence failed with error code 0x%X.\n", res);
+            return;
+        }
 
         // Parent command queue should track this swap chain.
         commandQueue->swapChains.insert(this);
@@ -1973,6 +1980,10 @@ namespace RT64 {
     VulkanSwapChain::~VulkanSwapChain() {
         if (acquireNextTextureSemaphore != VK_NULL_HANDLE) {
             vkDestroySemaphore(commandQueue->device->vk, acquireNextTextureSemaphore, nullptr);
+        }
+
+        if (acquireNextTextureFence != VK_NULL_HANDLE) {
+            vkDestroyFence(commandQueue->device->vk, acquireNextTextureFence, nullptr);
         }
 
         if (presentTransitionSemaphore != VK_NULL_HANDLE) {
@@ -2021,6 +2032,9 @@ namespace RT64 {
         if (isEmpty()) {
             return;
         }
+        
+        // Make sure to wait on any image acquisition semaphores before destroying the swap chain.
+        checkAcquireNextTextureSemaphore();
 
         for (VulkanTexture &texture : textures) {
             if (texture.imageView != VK_NULL_HANDLE) {
@@ -2147,7 +2161,7 @@ namespace RT64 {
 #   endif
     }
 
-    void VulkanSwapChain::acquireNextTexture() {
+    void VulkanSwapChain::checkAcquireNextTextureSemaphore() {
         // We've ended up in a situation where the semaphore must be unsignaled because nothing used the acquired image in-between, so we force a command queue submission.
         if (acquireNextTextureSemaphoreSignaled) {
             const std::scoped_lock queueLock(*commandQueue->queue->mutex);
@@ -2157,9 +2171,15 @@ namespace RT64 {
             submitInfo.pWaitSemaphores = &acquireNextTextureSemaphore;
             submitInfo.pWaitDstStageMask = &waitStages;
             submitInfo.waitSemaphoreCount = 1;
-            vkQueueSubmit(commandQueue->queue->vk, 1, &submitInfo, VK_NULL_HANDLE);
+            vkQueueSubmit(commandQueue->queue->vk, 1, &submitInfo, acquireNextTextureFence);
+            vkWaitForFences(commandQueue->device->vk, 1, &acquireNextTextureFence, VK_TRUE, UINT64_MAX);
+            vkResetFences(commandQueue->device->vk, 1, &acquireNextTextureFence);
             acquireNextTextureSemaphoreSignaled = false;
         }
+    }
+
+    void VulkanSwapChain::acquireNextTexture() {
+        checkAcquireNextTextureSemaphore();
 
         VkResult res = vkAcquireNextImageKHR(commandQueue->device->vk, vk, UINT64_MAX, acquireNextTextureSemaphore, VK_NULL_HANDLE, &textureIndex);
         if (res != VK_SUCCESS) {
@@ -2420,8 +2440,8 @@ namespace RT64 {
             const RenderTextureBarrier &textureBarrier = textureBarriers[i];
             VulkanTexture *interfaceTexture = static_cast<VulkanTexture *>(textureBarrier.texture);
             if (interfaceTexture->textureLayout != textureBarrier.layout) {
-                // If the resource is being transitioned from a present state, we should store it to check later if we need to wait on its image acquisition semaphore.
-                if (interfaceTexture->textureLayout == RenderTextureLayout::PRESENT) {
+                // If the resource is being transitioned after being initialized or from the present state, we should store it to check later if we need to wait on its image acquisition semaphore.
+                if ((interfaceTexture->textureLayout == RenderTextureLayout::UNKNOWN) || (interfaceTexture->textureLayout == RenderTextureLayout::PRESENT)) {
                     fromPresentTransitionSet.insert(interfaceTexture);
                 }
 

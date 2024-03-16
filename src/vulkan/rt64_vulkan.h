@@ -211,6 +211,7 @@ namespace RT64 {
         VkCompositeAlphaFlagBitsKHR pickedAlphaFlag = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         VkSemaphore acquireNextTextureSemaphore = VK_NULL_HANDLE;
         VkSemaphore presentTransitionSemaphore = VK_NULL_HANDLE;
+        VkFence acquireNextTextureFence = VK_NULL_HANDLE;
         std::vector<VulkanTexture> textures;
         bool acquireNextTextureSemaphoreSignaled = false;
         bool presentTransitionSemaphoreSignaled = false;
@@ -228,6 +229,7 @@ namespace RT64 {
         RenderWindow getWindow() const override;
         bool isEmpty() const override;
         void getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const;
+        void checkAcquireNextTextureSemaphore();
         void acquireNextTexture();
     };
 

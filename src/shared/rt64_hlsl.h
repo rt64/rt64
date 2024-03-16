@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-#include "hlsl++.h"
+#include "common/rt64_hlslpp.h"
 
 #define FLOAT4X4_IDENTITY float4x4(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f)
 
