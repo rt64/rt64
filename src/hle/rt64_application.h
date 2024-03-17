@@ -129,6 +129,7 @@ namespace RT64 {
         uint32_t threadsAvailable;
         ProfilingTimer dlApiProfiler = ProfilingTimer(120);
         ProfilingTimer screenApiProfiler = ProfilingTimer(120);
+        bool wineDetected;
 
 #   if RT_ENABLED
         RaytracingConfiguration rtConfig;

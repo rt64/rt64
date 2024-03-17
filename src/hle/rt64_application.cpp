@@ -10,6 +10,7 @@
 #include "common/rt64_dynamic_libraries.h"
 #include "common/rt64_elapsed_timer.h"
 #include "common/rt64_math.h"
+#include "common/rt64_sommelier.h"
 
 #if RT_ENABLED
 #   include "res/bluenoise/LDR_64_64_64_RGB1.h"
@@ -67,6 +68,17 @@ namespace RT64 {
         if (!userPaths.isEmpty() && checkDirectoryCreated(userPaths.dataPath)) {
             RT64_LOG_OPEN(userPaths.logPath.c_str());
         }
+
+#   ifdef _WIN64
+        wineDetected = Sommelier::detectWine();
+
+        // Change the default graphics API when running under Wine to avoid using the D3D12 translation layer when possible. Recreate the default user configuration right afterwards so this new value is assigned.
+        UserConfiguration::DefaultGraphicsAPI = wineDetected ? UserConfiguration::GraphicsAPI::Vulkan : UserConfiguration::GraphicsAPI::D3D12;
+        userConfig = UserConfiguration();
+#   else
+        // Wine can't be detected in other platform's binaries.
+        wineDetected = false;
+#   endif
     }
     
     bool Application::setup(uint32_t threadId) {

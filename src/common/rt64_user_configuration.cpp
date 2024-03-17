@@ -7,10 +7,10 @@
 #include <iomanip>
 
 namespace RT64 {
-#ifdef _WIN64
-    static UserConfiguration::GraphicsAPI DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::D3D12;
+#if defined(_WIN32)
+    UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::D3D12;
 #else
-    static UserConfiguration::GraphicsAPI DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+    UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
 #endif
 
     void to_json(json &j, const UserConfiguration &cfg) {

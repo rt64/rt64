@@ -18,6 +18,8 @@ namespace RT64 {
             OptionCount
         };
 
+        static GraphicsAPI DefaultGraphicsAPI;
+
         enum class Resolution {
             Original,
             WindowIntegerScale,

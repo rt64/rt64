@@ -383,7 +383,8 @@ namespace RT64 {
             const TransformGroup &curProjGroup = curWorkload.drawData.transformGroups[curProjGroupIndex];
             const TransformGroup &prevProjGroup = prevWorkload.drawData.transformGroups[prevProjGroupIndex];
             
-            if (curProjGroup.rotationInterpolation == G_EX_COMPONENT_SKIP && curProjGroup.positionInterpolation == G_EX_COMPONENT_SKIP) {
+            // Only skip the entire projection if the matrix was specified to be ignored.
+            if (curProjGroup.matrixId == G_EX_ID_IGNORE) {
                 continue;
             }
             
