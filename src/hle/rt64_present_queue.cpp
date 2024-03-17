@@ -266,6 +266,7 @@ namespace RT64 {
             }
         }
         
+        bool swapChainValid = true;
         for (int32_t i = 0; i < framesToPresent; i++) {
             uint32_t frameCountersNextPresented = 0;
             if ((framesToPresent > 1) && (usingMSAA || (i > 0))) {
@@ -297,7 +298,7 @@ namespace RT64 {
                 frameCountersNextPresented = frameCounters.count;
             }
 
-            const bool presentFrame = i < framesToPresent;
+            const bool presentFrame = (i < framesToPresent) && swapChainValid;
             if (presentFrame) {
                 // Draw the framebuffer with the VI renderer.
                 const uint32_t textureIndex = ext.swapChain->getTextureIndex();
@@ -412,7 +413,7 @@ namespace RT64 {
                     presentTimestamp = Timestamp();
                 }
 
-                ext.swapChain->present();
+                swapChainValid = ext.swapChain->present();
                 presentProfiler.logAndRestart();
             }
         }

@@ -1949,6 +1949,7 @@ namespace RT64 {
                     ImGui::Text("S2DEX");
                     ImGui::Indent();
                     ImGui::Checkbox("Fix Bilerp Mismatch", &enhancementConfig.s2dex.fixBilerpMismatch);
+                    ImGui::Checkbox("Framebuffer Fast Path", &enhancementConfig.s2dex.framebufferFastPath);
                     ImGui::Unindent();
                     ImGui::Text("Textures");
                     ImGui::Indent();

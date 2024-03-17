@@ -218,7 +218,7 @@ namespace RT64 {
 
         VulkanSwapChain(VulkanCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~VulkanSwapChain() override;
-        void present() override;
+        bool present() override;
         void resize() override;
         bool needsResize() const override;
         uint32_t getWidth() const override;

@@ -1121,11 +1121,9 @@ namespace RT64 {
         }
     }
 
-    void D3D12SwapChain::present() {
+    bool D3D12SwapChain::present() {
         HRESULT res = d3d->Present(1, 0);
-        if (FAILED(res)) {
-            fprintf(stderr, "Present failed with error code 0x%X.\n", res);
-        }
+        return SUCCEEDED(res);
     }
 
     void D3D12SwapChain::resize() {

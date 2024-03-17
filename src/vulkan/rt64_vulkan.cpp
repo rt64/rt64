@@ -2003,7 +2003,7 @@ namespace RT64 {
         commandQueue->swapChains.erase(this);
     }
 
-    void VulkanSwapChain::present() {
+    bool VulkanSwapChain::present() {
         VkPresentInfoKHR presentInfo = {};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.pSwapchains = &vk;
@@ -2016,13 +2016,21 @@ namespace RT64 {
             presentTransitionSemaphoreSignaled = false;
         }
 
+        VkResult res;
         {
             const std::scoped_lock queueLock(*commandQueue->queue->mutex);
-            vkQueuePresentKHR(commandQueue->queue->vk, &presentInfo);
+            res = vkQueuePresentKHR(commandQueue->queue->vk, &presentInfo);
+        }
+
+        // Handle the error silently.
+        if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
+            return false;
         }
 
         // Immediately acquire next image.
         acquireNextTexture();
+
+        return true;
     }
 
     void VulkanSwapChain::resize() {
@@ -2181,9 +2189,9 @@ namespace RT64 {
     void VulkanSwapChain::acquireNextTexture() {
         checkAcquireNextTextureSemaphore();
 
+        // Handle the error silently.
         VkResult res = vkAcquireNextImageKHR(commandQueue->device->vk, vk, UINT64_MAX, acquireNextTextureSemaphore, VK_NULL_HANDLE, &textureIndex);
         if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkAcquireNextImageKHR failed with error code 0x%X.\n", res);
             return;
         }
 
