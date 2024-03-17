@@ -142,7 +142,7 @@ namespace RT64 {
             // Always tags regions in TMEM, regardless of whether it's possible to make a copy or not.
             uint32_t fbEnd = fb->addressStart + fb->imageRowBytes(fb->width) * fb->maxHeight;
             bool syncRequired = (fb->addressStart < addressEnd) && (fbEnd > addressStart);
-            fbManager.insertRegionsTMEM(fb->addressStart, tmemStart, tmemWords, tmemMask, RGBA32, syncRequired, couldMakeTile ? &regionIterators : nullptr);
+            fbManager.insertRegionsTMEM(fb->addressStart, tmemStart, std::min(tmemWords, uint32_t(RDP_TMEM_WORDS)), tmemMask, RGBA32, syncRequired, couldMakeTile ? &regionIterators : nullptr);
 
             if (couldMakeTile) {
                 // Make a new tile copy resource.
@@ -570,6 +570,44 @@ namespace RT64 {
         workload.drawData.loadOperations.emplace_back(operation);
 
         state->updateDrawStatusAttribute(DrawAttribute::Texture);
+    }
+
+    bool RDP::loadTileCopyCheck(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt) {
+        assert(tile < RDP_TILES);
+        auto &t = tiles[tile];
+        t.uls = uls;
+        t.ult = ult;
+        t.lrs = lrs;
+        t.lrt = lrt;
+
+        // Ignored by the hardware.
+        if (t.uls > t.lrs) {
+            return false;
+        }
+
+        const bool gpuCopiesEnabled = state->ext.emulatorConfig->framebuffer.copyWithGPU;
+        if (!gpuCopiesEnabled) {
+            return false;
+        }
+
+        const uint32_t bytesOffset = (t.uls >> 2) << texture.siz >> 1;
+        const uint32_t bytesPerRow = texture.width << texture.siz >> 1;
+        const uint32_t textureStart = texture.address + bytesOffset + bytesPerRow * (t.ult >> 2);
+        const uint32_t rowCount = 1 + ((t.lrt >> 2) - (t.ult >> 2));
+        const uint32_t tileWidth = ((t.lrs >> 2) - (t.uls >> 2));
+        const uint32_t wordsPerRow = (tileWidth >> (4 - t.siz)) + 1;
+        const uint32_t textureEnd = textureStart + (rowCount - 1) * bytesPerRow + (wordsPerRow << 3);
+        const bool RGBA32 = (t.siz == G_IM_SIZ_32b) && (t.fmt == G_IM_FMT_RGBA);
+        const uint32_t lineShift = RGBA32 ? 1 : 0;
+        const uint32_t lineWidth = t.line << ((4 + lineShift) - t.siz);
+        Framebuffer *framebuffer = state->framebufferManager.findMostRecentContaining(textureStart, textureEnd);
+        if (framebuffer != nullptr) {
+            FramebufferTile fbTile;
+            return state->framebufferManager.makeFramebufferTile(framebuffer, textureStart, textureEnd, lineWidth, rowCount, fbTile, RGBA32);
+        }
+        else {
+            return false;
+        }
     }
 
     void RDP::loadBlock(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t dxt) {

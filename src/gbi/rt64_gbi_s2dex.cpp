@@ -310,10 +310,10 @@ namespace RT64 {
                 imageIY0 -= imageHLowered;
             }
 
-            const uint32_t imageTop = state->rsp->fromSegmented(scaleBg.imageAddress);
+            const uint32_t imageAddress = state->rsp->fromSegmented(scaleBg.imageAddress);
             uint16_t imageSrcWsize = (imageSrcW / tmemShift) << 3;
             uint16_t imagePtrX0 = (imageX0 / tmemShift) << 3;
-            uint32_t imagePtr = imageTop + imageSrcWsize * imageIY0 + imagePtrX0;
+            uint32_t imagePtr = imageAddress + imageSrcWsize * imageIY0 + imagePtrX0;
             uint16_t imageS = imageX0 & tmemMask;
             if (imageFlipS) {
                 imageS = -(imageS + imageW);
@@ -323,6 +323,25 @@ namespace RT64 {
             uint8_t loadSiz = (scaleBg.imageSiz == G_IM_SIZ_32b) ? G_IM_SIZ_32b : G_IM_SIZ_16b;
             rdp->setTile(G_TX_LOADTILE, G_IM_FMT_RGBA, loadSiz, tmemSliceWmax, 0, 0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
             rdp->setTile(G_TX_RENDERTILE, scaleBg.imageFmt, scaleBg.imageSiz, tmemSliceWmax, 0, uint8_t(scaleBg.imagePal), G_TX_WRAP | G_TX_MIRROR, G_TX_WRAP | G_TX_MIRROR, 0xF, 0xF, 0, 0);
+
+            // Attempt to use a single tile instead to draw the entire rect at once if there's a framebuffer copy available.
+            // If it fails to find a possible tile copy, fall back to the regular approach.
+            // FIXME: The rest of the code should still run to account for state bleeding without drawing any rectangles.
+            if (state->ext.enhancementConfig->s2dex.framebufferFastPath) {
+                int16_t uls = imageS;
+                int16_t ult = imageT;
+                int16_t lrs = uls + scaleBg.imageW;
+                int16_t lrt = ult + scaleBg.imageH;
+                state->rdp->setTextureImage(G_IM_FMT_RGBA, loadSiz, imageSrcWsize >> 1, imagePtr);
+                state->rdp->setTileSize(G_TX_RENDERTILE, uls, ult, lrs, lrt);
+                if (state->rdp->loadTileCopyCheck(G_TX_LOADTILE, uls, ult, lrs, lrt)) {
+                    int32_t uly = frameY0 & ~0x3;
+                    state->rdp->loadTile(G_TX_LOADTILE, uls, ult, lrs, lrt);
+                    state->rdp->drawTexRect(frameX0, uly, frameX1, uly + frameH, G_TX_RENDERTILE, uls, ult, scaleW, scaleH, false);
+                    return;
+                }
+            }
+
             rdp->setTileSize(G_TX_RENDERTILE, 0, 0, 0, 0);
             
             // Draw the image.
@@ -337,7 +356,7 @@ namespace RT64 {
                         imagePtr += imageSrcWsize * imageSliceH;
                     }
                     else {
-                        imagePtr = imageTop - (imageRemain * imageSrcWsize) + imagePtrX0;
+                        imagePtr = imageAddress - (imageRemain * imageSrcWsize) + imagePtrX0;
                         imageRemain += tmemSrcLines;
                     }
                 }
@@ -352,7 +371,7 @@ namespace RT64 {
                         imageSliceH = std::min(imageSliceH, imageSliceLines);
                     }
 
-                    bg1CycTMEMLoad(*rdp, scaleBg, imageTop, imagePtr, imageRemain, imageSrcWsize, imagePtrX0, tmemSrcLines, tmemSliceWmax, imageSliceH, usesBilerp, flagSplit);
+                    bg1CycTMEMLoad(*rdp, scaleBg, imageAddress, imagePtr, imageRemain, imageSrcWsize, imagePtrX0, tmemSrcLines, tmemSliceWmax, imageSliceH, usesBilerp, flagSplit);
 
                     int16_t framePtrY1 = framePtrY0 + frameSliceH;
                     rdp->drawTexRect(frameX0, framePtrY0 << 2, frameX1, framePtrY1 << 2, G_TX_RENDERTILE, imageS, imageT, scaleW, scaleH, false);
@@ -384,28 +403,40 @@ namespace RT64 {
             const uObjBg_t &bg = bgObject->bg;
             assert(bg.imageLoad == S2DEX_G_BGLT_LOADTILE); // TODO: Only the load tile version is implemented.
             
-            const uint32_t Division = (bg.imageFmt == G_IM_FMT_CI) ? 2 : 1;
-            const uint8_t DrawTileIndex = 0;
-            const uint8_t LoadTileIndex = 7;
             const uint16_t TMEMAddress = 0;
             const uint8_t lineShiftOffset = (bg.imageSiz == G_IM_SIZ_32b) ? 1 : 0;
             const uint16_t bgLine = bg.imageW >> (2 + bg.imageSiz - lineShiftOffset);
-            const uint16_t bgRectCount = bg.imageH / (bg.tmemH / Division); // TODO: Check for remaining pixels for the last Texrect.
             const uint16_t dsdx = 4 << 10;
             const uint16_t dsdy = 4 << 8;
             const uint16_t lrSubstract = 4;
             const uint16_t bgRectLrs = bg.imageW - lrSubstract;
-            const uint16_t bgRectLrt = (bg.tmemH / Division) - lrSubstract;
             const uint32_t savedOtherModeH = rdp->otherMode.H;
             rsp->setTextureImage(bg.imageFmt, bg.imageSiz, bg.imageW >> 2, state->rsp->fromSegmented(bg.imageAddress));
-            rdp->setTile(LoadTileIndex, bg.imageFmt, bg.imageSiz, bgLine, TMEMAddress, static_cast<uint8_t>(bg.imagePal), 0, 0, 0, 0, 0, 0);
-            rdp->setTile(DrawTileIndex, bg.imageFmt, bg.imageSiz, bgLine, TMEMAddress, static_cast<uint8_t>(bg.imagePal), 0, 0, 0, 0, 0, 0);
-            rdp->setTileSize(DrawTileIndex, 0, 0, bgRectLrs, bgRectLrt);
-            
+            rdp->setTile(G_TX_LOADTILE, bg.imageFmt, bg.imageSiz, bgLine, TMEMAddress, static_cast<uint8_t>(bg.imagePal), 0, 0, 0, 0, 0, 0);
+            rdp->setTile(G_TX_RENDERTILE, bg.imageFmt, bg.imageSiz, bgLine, TMEMAddress, static_cast<uint8_t>(bg.imagePal), 0, 0, 0, 0, 0, 0);
+
+            // Attempt to use a single tile instead to draw the entire rect at once if there's a framebuffer copy available.
+            // If it fails to find a possible tile copy, fall back to the regular approach.
+            // FIXME: The rest of the code should still run to account for state bleeding without drawing any rectangles.
+            uint16_t bgRectLrt = bg.imageH - lrSubstract;
+            if (state->ext.enhancementConfig->s2dex.framebufferFastPath) {
+                if (rdp->loadTileCopyCheck(G_TX_LOADTILE, 0, 0, bgRectLrs, bgRectLrt)) {
+                    rdp->setTileSize(G_TX_RENDERTILE, 0, 0, bgRectLrs, bgRectLrt);
+                    rdp->loadTile(G_TX_LOADTILE, 0, 0, bgRectLrs, bgRectLrt);
+                    rdp->drawTexRect(bg.frameX, bg.frameY, bg.frameX + bg.frameW - lrSubstract, bg.frameY + bg.frameH - lrSubstract, G_TX_RENDERTILE, 0, 0, dsdx, dsdy, false);
+                    return;
+                }
+            }
+
+            const uint32_t Division = (bg.imageFmt == G_IM_FMT_CI) ? 2 : 1;
+            const uint16_t bgRectCount = bg.imageH / (bg.tmemH / Division); // TODO: Check for remaining pixels for the last Texrect.
+            bgRectLrt = (bg.tmemH / Division) - lrSubstract;
+            rdp->setTileSize(G_TX_RENDERTILE, 0, 0, bgRectLrs, bgRectLrt);
+
             for (uint16_t r = 0; r < bgRectCount; r++) {
                 const uint16_t bgRectUlt = r * (bg.tmemH / Division);
-                rdp->loadTile(LoadTileIndex, 0, bgRectUlt, bgRectLrs, bgRectUlt + bgRectLrt);
-                rdp->drawTexRect(bg.frameX, bg.frameY + bgRectUlt, bg.frameX + bg.frameW - lrSubstract, bg.frameY + bgRectUlt + bgRectLrt, DrawTileIndex, 0, 0, dsdx, dsdy, false);
+                rdp->loadTile(G_TX_LOADTILE, 0, bgRectUlt, bgRectLrs, bgRectUlt + bgRectLrt);
+                rdp->drawTexRect(bg.frameX, bg.frameY + bgRectUlt, bg.frameX + bg.frameW - lrSubstract, bg.frameY + bgRectUlt + bgRectLrt, G_TX_RENDERTILE, 0, 0, dsdx, dsdy, false);
             }
 
 #       ifdef LOG_BGRECT_METHODS

@@ -13,6 +13,7 @@ namespace RT64 {
         rect.fixRectLR = true;
         f3dex.forceBranch = false;
         s2dex.fixBilerpMismatch = true;
+        s2dex.framebufferFastPath = true;
         textureLOD.scale = false;
     }
 };

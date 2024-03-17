@@ -32,6 +32,7 @@ namespace RT64 {
 
         struct S2DEX {
             bool fixBilerpMismatch;
+            bool framebufferFastPath;
         };
 
         struct TextureLOD {

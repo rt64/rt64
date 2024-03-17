@@ -144,6 +144,7 @@ namespace RT64 {
         void loadBlockOperation(const LoadTile &loadTile, const LoadTexture &loadTexture, bool deferred);
         void loadTLUTOperation(const LoadTile &loadTile, const LoadTexture &loadTexture, bool deferred);
         void loadTile(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
+        bool loadTileCopyCheck(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
         void loadBlock(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t dxt);
         void loadTLUT(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
         void setEnvColor(uint32_t color);

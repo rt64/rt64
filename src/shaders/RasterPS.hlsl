@@ -174,9 +174,8 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
         }
     }
     
-    // Coompute coverage estimation.
-    const float Coverage = (otherMode.cvgDst() == CVG_DST_WRAP) ? 8.0f / 255.0f : 7.0f / 255.0f;
-    float resultCvg = Coverage * (otherMode.cvgXAlpha() ? combinerColor.a : 1.0f);
+    // Compute coverage estimation.
+    float resultCvg = (8.0f / 255.0f) * (otherMode.cvgXAlpha() ? combinerColor.a : 1.0f);
     
     // Discard all pixels without coverage.
     const float CoverageThreshold = 1.0f / 255.0f;
@@ -204,7 +203,11 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
     }
     // Write a full coverage value regardless of the computed coverage.
     else if (otherMode.cvgDst() == CVG_DST_FULL) {
-        resultColor.a = Coverage;
+        resultColor.a = 7.0f / 255.0f;
+    }
+    // Write the coverage value clamped to the full value allowed.
+    else if (otherMode.cvgDst() == CVG_DST_CLAMP) {
+        resultColor.a = min(resultCvg, 7.0f / 255.0f);
     }
     // Write out the computed coverage. It'll be added on wrap mode.
     else {

@@ -215,8 +215,5 @@ namespace RT64 {
 
         void destroyAllTileCopies();
         uint64_t nextWriteTimestamp();
-
-        // The tile values can be 0 to let the manager try to guess the width and height from the address region instead.
-        bool makeFramebufferTile() const;
     };
 };
