@@ -308,10 +308,10 @@ namespace RT64 {
             buildTransformIdMap(curWorkload, curWorkload.transformIdMap, curWorkload.transformIgnoredIds);
 
             // Retrieve the matching maps for the current and previous workload.
-            GameFrameMap::WorkloadMap &curWorkloadMap = frameMap.workloads[w];
+            GameFrameMap::WorkloadMap &curWorkloadMap = frameMap.workloads[workloads[w]];
             const GameFrameMap::WorkloadMap *prevWorkloadMap = nullptr;
-            if (prevFrame.matched && prevFrame.frameMap.workloads[w].mapped) {
-                prevWorkloadMap = &prevFrame.frameMap.workloads[w];
+            if (prevFrame.matched && prevFrame.frameMap.workloads[workloads[w]].mapped) {
+                prevWorkloadMap = &prevFrame.frameMap.workloads[workloads[w]];
             }
 
             // Match the transforms linearly in the order they were submitted.
@@ -333,7 +333,7 @@ namespace RT64 {
             }
 
             if (modifiedVelocityBuffer) {
-                workloadsModified.insert(w);
+                workloadsModified.insert(workloads[w]);
             }
 
             // Any transforms tagged with the empty ID will be instantly marked as used and skipped.
