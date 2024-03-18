@@ -310,8 +310,8 @@ namespace RT64 {
             // Retrieve the matching maps for the current and previous workload.
             GameFrameMap::WorkloadMap &curWorkloadMap = frameMap.workloads[workloads[w]];
             const GameFrameMap::WorkloadMap *prevWorkloadMap = nullptr;
-            if (prevFrame.matched && prevFrame.frameMap.workloads[workloads[w]].mapped) {
-                prevWorkloadMap = &prevFrame.frameMap.workloads[workloads[w]];
+            if (prevFrame.matched && prevFrame.frameMap.workloads[workloadMap.prevWorkloadIndex].mapped) {
+                prevWorkloadMap = &prevFrame.frameMap.workloads[workloadMap.prevWorkloadIndex];
             }
 
             // Match the transforms linearly in the order they were submitted.
