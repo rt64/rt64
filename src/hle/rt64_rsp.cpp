@@ -39,7 +39,8 @@ namespace RT64 {
 
     void RSP::reset() {
         modelMatrixStack.fill(hlslpp::float4x4(0.0f));
-        modelMatrixAddressStack.fill(0);
+        modelMatrixSegmentedAddressStack.fill(0);
+        modelMatrixPhysicalAddressStack.fill(0);
         viewMatrix = hlslpp::float4x4(0.0f);
         projMatrix = hlslpp::float4x4(0.0f);
         viewProjMatrix = hlslpp::float4x4(0.0f);
@@ -142,7 +143,8 @@ namespace RT64 {
                 modelMatrixStack[modelMatrixStackSize - 1] = hlslpp::mul(floatMatrix, modelMatrixStack[modelMatrixStackSize - 1]);
             }
 
-            modelMatrixAddressStack[modelMatrixStackSize - 1] = rdramAddress;
+            modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1] = address;
+            modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1] = rdramAddress;
         }
         
         modelViewProjChanged = true;
@@ -343,15 +345,14 @@ namespace RT64 {
         // ModelViewProj is only updated when a vertex is processed and the flag is enabled.
         auto &worldTransforms = workload.drawData.worldTransforms;
         auto &worldTransformGroups = workload.drawData.worldTransformGroups;
-        auto &worldTransformAddresses = workload.drawData.worldTransformAddresses;
+        auto &worldTransformSegmentedAddresses = workload.drawData.worldTransformSegmentedAddresses;
+        auto &worldTransformPhysicalAddresses = workload.drawData.worldTransformPhysicalAddresses;
         auto &worldTransformVertexIndices = workload.drawData.worldTransformVertexIndices;
+        bool addWorldTransform = (modelViewProjChanged || modelViewProjInserted);
         if (modelViewProjChanged) {
             computeModelViewProj();
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
             worldTransforms.emplace_back(modelMatrixStack[modelMatrixStackSize - 1]);
-            worldTransformGroups.emplace_back(extended.curModelMatrixIdStackIndex);
-            worldTransformAddresses.emplace_back(modelMatrixAddressStack[modelMatrixStackSize - 1]);
-            worldTransformVertexIndices.emplace_back(workload.drawData.vertexCount());
         }
         else if (modelViewProjInserted) {
 #       ifdef LOG_SPECIAL_MATRIX_OPERATIONS
@@ -367,8 +368,12 @@ namespace RT64 {
 
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
             worldTransforms.emplace_back(hlslpp::mul(modelViewProjMatrix, invViewProjMatrix));
+        }
+
+        if (addWorldTransform) {
             worldTransformGroups.emplace_back(extended.curModelMatrixIdStackIndex);
-            worldTransformAddresses.emplace_back(modelMatrixAddressStack[modelMatrixStackSize - 1]);
+            worldTransformSegmentedAddresses.emplace_back(modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1]);
+            worldTransformPhysicalAddresses.emplace_back(modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1]);
             worldTransformVertexIndices.emplace_back(workload.drawData.vertexCount());
         }
 

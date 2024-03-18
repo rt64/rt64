@@ -114,7 +114,8 @@ namespace RT64 {
 
         State *state;
         std::array<hlslpp::float4x4, RSP_MATRIX_STACK_SIZE> modelMatrixStack;
-        std::array<uint32_t, RSP_MATRIX_STACK_SIZE> modelMatrixAddressStack;
+        std::array<uint32_t, RSP_MATRIX_STACK_SIZE> modelMatrixSegmentedAddressStack;
+        std::array<uint32_t, RSP_MATRIX_STACK_SIZE> modelMatrixPhysicalAddressStack;
         int modelMatrixStackSize;
         hlslpp::float4x4 viewMatrix;
         hlslpp::float4x4 projMatrix;

@@ -863,10 +863,12 @@ namespace RT64 {
 
                                     if (ImGui::TreeNode("Min/Max model matrix", "Min/Max model matrix: %u/%u", callDesc.minWorldMatrix, callDesc.maxWorldMatrix)) {
                                         ImGui::Indent();
-                                        ImGui::Text("Min matrix address: 0x%08X", drawData.worldTransformAddresses[callDesc.minWorldMatrix]);
+                                        ImGui::Text("Min matrix segmented address: 0x%08X", drawData.worldTransformSegmentedAddresses[callDesc.minWorldMatrix]);
+                                        ImGui::Text("Min matrix physical address: 0x%08X", drawData.worldTransformPhysicalAddresses[callDesc.minWorldMatrix]);
                                         textTransformGroup("Min matrix group:", drawData.transformGroups[drawData.worldTransformGroups[callDesc.minWorldMatrix]]);
                                         textMatrix("Min matrix:", drawData.worldTransforms[callDesc.minWorldMatrix]);
-                                        ImGui::Text("Max matrix address: 0x%08X", drawData.worldTransformAddresses[callDesc.maxWorldMatrix]);
+                                        ImGui::Text("Max matrix segmented address: 0x%08X", drawData.worldTransformSegmentedAddresses[callDesc.maxWorldMatrix]);
+                                        ImGui::Text("Max matrix physical address: 0x%08X", drawData.worldTransformPhysicalAddresses[callDesc.maxWorldMatrix]);
                                         textTransformGroup("Min matrix group:", drawData.transformGroups[drawData.worldTransformGroups[callDesc.maxWorldMatrix]]);
                                         textMatrix("Max matrix:", drawData.worldTransforms[callDesc.maxWorldMatrix]);
                                         ImGui::Unindent();

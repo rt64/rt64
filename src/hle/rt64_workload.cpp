@@ -84,7 +84,8 @@ namespace RT64 {
         drawData.transformGroups.clear();
         drawData.worldTransformGroups.clear();
         drawData.viewProjTransformGroups.clear();
-        drawData.worldTransformAddresses.clear();
+        drawData.worldTransformSegmentedAddresses.clear();
+        drawData.worldTransformPhysicalAddresses.clear();
         drawData.worldTransformVertexIndices.clear();
 
         // Push an identity matrix into the transforms by default so rects can use them.
@@ -96,7 +97,8 @@ namespace RT64 {
         drawData.transformGroups.push_back(TransformGroup());
         drawData.worldTransformGroups.push_back(0);
         drawData.viewProjTransformGroups.push_back(0);
-        drawData.worldTransformAddresses.push_back(0);
+        drawData.worldTransformSegmentedAddresses.push_back(0);
+        drawData.worldTransformPhysicalAddresses.push_back(0);
         drawData.worldTransformVertexIndices.push_back(0);
         drawData.viewportOrigins.push_back(0);
     }

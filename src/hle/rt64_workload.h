@@ -70,7 +70,8 @@ namespace RT64 {
         std::vector<TransformGroup> transformGroups;
         std::vector<uint32_t> worldTransformGroups;
         std::vector<uint32_t> viewProjTransformGroups;
-        std::vector<uint32_t> worldTransformAddresses;
+        std::vector<uint32_t> worldTransformSegmentedAddresses;
+        std::vector<uint32_t> worldTransformPhysicalAddresses;
         std::vector<uint32_t> worldTransformVertexIndices;
 
         uint32_t vertexCount() const {
@@ -212,6 +213,8 @@ namespace RT64 {
         uint32_t viOriginalRate;
         DebuggerRenderer debuggerRenderer;
         DebuggerCamera debuggerCamera;
+        std::multimap<uint32_t, uint32_t> transformIdMap;
+        std::vector<uint32_t> transformIgnoredIds;
         uint64_t workloadId = 0;
         uint64_t presentId = 0;
         bool paused = false;

@@ -92,6 +92,7 @@ namespace RT64 {
 
     struct D3D12SwapChain : RenderSwapChain {
         IDXGISwapChain3 *d3d = nullptr;
+        HANDLE waitableObject = 0;
         D3D12CommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
         std::vector<D3D12Texture> textures;

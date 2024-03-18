@@ -85,7 +85,8 @@ namespace RT64 {
     };
 
     struct GameCallMap {
-        uint32_t callIndex : 30;
+        uint32_t sceneProjIndex : 10;
+        uint32_t callIndex : 20;
         uint32_t doTransformMatching : 1;
         uint32_t doTileMatching : 1;
     };
@@ -104,7 +105,7 @@ namespace RT64 {
         void match(RenderWorker *worker, WorkloadQueue &workloadQueue, const GameFrame &prevFrame, BufferUploader *velocityUploader, bool &velocityUploaderUsed, bool &tileInterpolationUsed);
         void matchScene(WorkloadQueue &workloadQueue, const GameFrame &prevFrame, const GameScene &curScene, const GameScene &prevScene, std::set<uint32_t> &workloadsModified, bool &tileInterpolationUsed);
         void matchTransform(Workload &curWorkload, const Workload &prevWorkload, GameFrameMap::WorkloadMap &curWorkloadMap, const GameFrameMap::WorkloadMap *prevWorkloadMap, uint32_t curTransformIndex, uint32_t prevTransformIndex, bool &modifiedVelocityBuffer);
-        void buildCallHashMap(const Workload &workload, const Projection &proj, std::multimap<uint64_t, GameCallMap> &hashMap) const;
+        void buildCallHashMap(uint32_t sceneProjIndex, const Workload &workload, const Projection &proj, std::multimap<uint64_t, GameCallMap> &hashMap) const;
         void buildTransformIdMap(const Workload &workload, std::multimap<uint32_t, uint32_t> &idMap, std::vector<uint32_t> &ignoredIdVector) const;
         uint64_t hashFromCall(const GameCall &call, uint32_t matrixIdHash) const;
     };

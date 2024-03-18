@@ -1075,6 +1075,7 @@ namespace RT64 {
         swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         swapChainDesc.SampleDesc.Count = 1;
+        swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 
         IDXGISwapChain1 *swapChain1;
         IDXGIFactory4 *dxgiFactory = commandQueue->device->renderInterface->dxgiFactory;
@@ -1091,6 +1092,8 @@ namespace RT64 {
         }
 
         d3d = static_cast<IDXGISwapChain3 *>(swapChain1);
+        d3d->SetMaximumFrameLatency(1);
+        waitableObject = d3d->GetFrameLatencyWaitableObject();
 
         textures.resize(textureCount);
 
@@ -1122,6 +1125,10 @@ namespace RT64 {
     }
 
     bool D3D12SwapChain::present() {
+        if (waitableObject != NULL) {
+            while (WaitForSingleObjectEx(waitableObject, 0, FALSE));
+        }
+
         HRESULT res = d3d->Present(1, 0);
         return SUCCEEDED(res);
     }
@@ -1136,7 +1143,7 @@ namespace RT64 {
                 textures[i].d3d = nullptr;
             }
 
-            HRESULT res = d3d->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+            HRESULT res = d3d->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
             if (FAILED(res)) {
                 fprintf(stderr, "ResizeBuffers failed with error code 0x%X.\n", res);
                 return;

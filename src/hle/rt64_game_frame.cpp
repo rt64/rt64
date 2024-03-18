@@ -292,7 +292,7 @@ namespace RT64 {
             workloadMap.prevWorkloadIndex = prevFrame.workloads[w];
             workloadMap.mapped = true;
 
-            const Workload &curWorkload = workloadQueue.workloads[workloads[w]];
+            Workload &curWorkload = workloadQueue.workloads[workloads[w]];
             const Workload &prevWorkload = workloadQueue.workloads[workloadMap.prevWorkloadIndex];
             workloadMap.viewProjections.clear();
             workloadMap.viewProjections.resize(curWorkload.drawData.viewProjTransforms.size());
@@ -304,6 +304,45 @@ namespace RT64 {
             workloadMap.prevTransformsMapped.resize(prevWorkload.drawData.worldTransforms.size());
             workloadMap.prevTilesMapped.clear();
             workloadMap.prevTilesMapped.resize(prevWorkload.drawData.rdpTiles.size());
+
+            buildTransformIdMap(curWorkload, curWorkload.transformIdMap, curWorkload.transformIgnoredIds);
+
+            // Retrieve the matching maps for the current and previous workload.
+            GameFrameMap::WorkloadMap &curWorkloadMap = frameMap.workloads[w];
+            const GameFrameMap::WorkloadMap *prevWorkloadMap = nullptr;
+            if (prevFrame.matched && prevFrame.frameMap.workloads[w].mapped) {
+                prevWorkloadMap = &prevFrame.frameMap.workloads[w];
+            }
+
+            // Match the transforms linearly in the order they were submitted.
+            auto curIt = curWorkload.transformIdMap.begin();
+            auto prevIt = prevWorkload.transformIdMap.begin();
+            bool modifiedVelocityBuffer = false;
+            while ((curIt != curWorkload.transformIdMap.end()) && (prevIt != prevWorkload.transformIdMap.end())) {
+                if (curIt->first < prevIt->first) {
+                    curIt++;
+                }
+                else if (curIt->first > prevIt->first) {
+                    prevIt++;
+                }
+                else {
+                    matchTransform(curWorkload, prevWorkload, curWorkloadMap, prevWorkloadMap, curIt->second, prevIt->second, modifiedVelocityBuffer);
+                    curIt++;
+                    prevIt++;
+                }
+            }
+
+            if (modifiedVelocityBuffer) {
+                workloadsModified.insert(w);
+            }
+
+            // Any transforms tagged with the empty ID will be instantly marked as used and skipped.
+            for (uint32_t curIt : curWorkload.transformIgnoredIds) {
+                GameFrameMap::TransformMap &curTransformMap = curWorkloadMap.transforms[curIt];
+                curTransformMap.rigidBody = RigidBody();
+                curTransformMap.prevTransformIndex = 0;
+                curTransformMap.mapped = false;
+            }
         }
         
         for (uint32_t s = 0; s < perspectiveScenes.size(); s++) {
@@ -350,17 +389,42 @@ namespace RT64 {
     }
 
     void GameFrame::matchScene(WorkloadQueue &workloadQueue, const GameFrame &prevFrame, const GameScene &curScene, const GameScene &prevScene, std::set<uint32_t> &workloadsModified, bool &tileInterpolationUsed) {
+        if (curScene.projections.empty() || prevScene.projections.empty()) {
+            return;
+        }
+
+        thread_local std::multimap<uint64_t, GameCallMap> curCallHashMap;
+        thread_local std::multimap<uint64_t, GameCallMap> prevCallHashMap;
+        curCallHashMap.clear();
+        prevCallHashMap.clear();
+
+        // Pick the first projection for reference of the scene.
+        const GameIndices::Projection &firstCurProjIndices = curScene.projections[0];
+        const GameIndices::Projection &firstPrevProjIndices = prevScene.projections[0];
+        GameFrameMap::WorkloadMap &firstCurWorkloadMap = frameMap.workloads[firstCurProjIndices.workloadIndex];
+        Workload &firstCurWorkload = workloadQueue.workloads[firstCurProjIndices.workloadIndex];
+        const FramebufferPair &firstCurFbPair = firstCurWorkload.fbPairs[firstCurProjIndices.fbPairIndex];
+        const Projection &firstCurProj = firstCurFbPair.projections[firstCurProjIndices.projectionIndex];
+        const Workload &firstPrevWorkload = workloadQueue.workloads[firstPrevProjIndices.workloadIndex];
+        const FramebufferPair &firstPrevFbPair = firstPrevWorkload.fbPairs[firstPrevProjIndices.fbPairIndex];
+        const Projection &firstPrevProj = firstPrevFbPair.projections[firstPrevProjIndices.projectionIndex];
+        const GameFrameMap::WorkloadMap *firstPrevWorkloadMap = nullptr;
+        if (prevFrame.matched && prevFrame.frameMap.workloads[firstPrevProjIndices.workloadIndex].mapped) {
+            firstPrevWorkloadMap = &prevFrame.frameMap.workloads[firstPrevProjIndices.workloadIndex];
+        }
+
+        // Build a multimap with all potential compatibilities between draw calls in the projections.
         uint32_t mappedViewProjIndex = UINT32_MAX;
         for (uint32_t p = 0; p < curScene.projections.size(); p++) {
             const GameIndices::Projection &curProjIndices = curScene.projections[p];
             Workload &curWorkload = workloadQueue.workloads[curProjIndices.workloadIndex];
             const FramebufferPair &curFbPair = curWorkload.fbPairs[curProjIndices.fbPairIndex];
             const Projection &curProj = curFbPair.projections[curProjIndices.projectionIndex];
-            GameFrameMap::WorkloadMap &curWorkloadMap = frameMap.workloads[curProjIndices.workloadIndex];
+            buildCallHashMap(p, curWorkload, curProj, curCallHashMap);
 
             // Projection for the entire scene has been matched already, copy the mapping.
             if (mappedViewProjIndex < UINT32_MAX) {
-                curWorkloadMap.viewProjections[curProj.transformsIndex] = curWorkloadMap.viewProjections[mappedViewProjIndex];
+                firstCurWorkloadMap.viewProjections[curProj.transformsIndex] = firstCurWorkloadMap.viewProjections[mappedViewProjIndex];
             }
 
             // Can't map to a previous projection.
@@ -368,221 +432,23 @@ namespace RT64 {
                 continue;
             }
 
-            // We assume projections are detected in the same order between frames in the same scene.
-            bool modifiedVelocityBuffer = false;
-            const GameIndices::Projection &prevProjIndices = prevScene.projections[p];
-            const Workload &prevWorkload = workloadQueue.workloads[prevProjIndices.workloadIndex];
-            const FramebufferPair &prevFbPair = prevWorkload.fbPairs[prevProjIndices.fbPairIndex];
-            const Projection &prevProj = prevFbPair.projections[prevProjIndices.projectionIndex];
-            const hlslpp::float4x4 &curView = curWorkload.drawData.viewTransforms[curProj.transformsIndex];
-            const hlslpp::float4x4 &prevView = prevWorkload.drawData.viewTransforms[prevProj.transformsIndex];
-            const hlslpp::float4x4 &curViewProj = curWorkload.drawData.viewProjTransforms[curProj.transformsIndex];
-            const hlslpp::float4x4 &prevViewProj = prevWorkload.drawData.viewProjTransforms[prevProj.transformsIndex];
-            const uint32_t curProjGroupIndex = curWorkload.drawData.viewProjTransformGroups[curProj.transformsIndex];
-            const uint32_t prevProjGroupIndex = prevWorkload.drawData.viewProjTransformGroups[prevProj.transformsIndex];
-            const TransformGroup &curProjGroup = curWorkload.drawData.transformGroups[curProjGroupIndex];
-            const TransformGroup &prevProjGroup = prevWorkload.drawData.transformGroups[prevProjGroupIndex];
-            
-            // Only skip the entire projection if the matrix was specified to be ignored.
-            if (curProjGroup.matrixId == G_EX_ID_IGNORE) {
-                continue;
-            }
-            
-            // Retrieve the matching maps for the current and previous workload.
-            const GameFrameMap::WorkloadMap *prevWorkloadMap = nullptr;
-            if (prevFrame.matched && prevFrame.frameMap.workloads[prevProjIndices.workloadIndex].mapped) {
-                prevWorkloadMap = &prevFrame.frameMap.workloads[prevProjIndices.workloadIndex];
-            }
-
-            // Prioritize matching all the transforms that have group IDs defined.
-            thread_local std::multimap<uint32_t, uint32_t> curTransformIdMap;
-            thread_local std::multimap<uint32_t, uint32_t> prevTransformIdMap;
-            thread_local std::vector<uint32_t> curTransformIgnoredIds;
-            thread_local std::vector<uint32_t> prevTransformIgnoredIds;
-            buildTransformIdMap(curWorkload, curTransformIdMap, curTransformIgnoredIds);
-            buildTransformIdMap(prevWorkload, prevTransformIdMap, prevTransformIgnoredIds);
-            
-            // Match the transforms linearly in the order they were submitted.
-            auto curIt = curTransformIdMap.begin();
-            auto prevIt = prevTransformIdMap.begin();
-            bool transformIdsMapped = false;
-            while ((curIt != curTransformIdMap.end()) && (prevIt != prevTransformIdMap.end())) {
-                if (curIt->first < prevIt->first) {
-                    curIt++;
-                }
-                else if (curIt->first > prevIt->first) {
-                    prevIt++;
-                }
-                else {
-                    matchTransform(curWorkload, prevWorkload, curWorkloadMap, prevWorkloadMap, curIt->second, prevIt->second, modifiedVelocityBuffer);
-                    transformIdsMapped = true;
-                    curIt++;
-                    prevIt++;
-                }
-            }
-
-            // Any transforms tagged with the empty ID will be instantly marked as used and skipped.
-            for (uint32_t curIt : curTransformIgnoredIds) {
-                GameFrameMap::TransformMap &curTransformMap = curWorkloadMap.transforms[curIt];
-                curTransformMap.rigidBody = RigidBody();
-                curTransformMap.prevTransformIndex = 0;
-                curTransformMap.mapped = false;
-            }
-
-            // Build a multimap with all potential compatibilities between.
-            thread_local std::multimap<uint64_t, GameCallMap> curCallHashMap;
-            thread_local std::multimap<uint64_t, GameCallMap> prevCallHashMap;
-            
-            buildCallHashMap(curWorkload, curProj, curCallHashMap);
-            buildCallHashMap(prevWorkload, prevProj, prevCallHashMap);
-            
-            thread_local std::set<IndexPair> transformCheckSet;
-            thread_local std::set<IndexPair> tileCheckSet;
-            transformCheckSet.clear();
-            tileCheckSet.clear();
-            
-            // Traverse the map and fill the set with all the combinations of transforms to check.
-            for (std::pair<uint64_t, GameCallMap> curIt : curCallHashMap) {
-                auto prevRange = prevCallHashMap.equal_range(curIt.first);
-                for (auto prevIt = prevRange.first; prevIt != prevRange.second; prevIt++) {
-                    const GameCall &curCall = curProj.gameCalls[curIt.second.callIndex];
-                    const GameCall &prevCall = prevProj.gameCalls[prevIt->second.callIndex];
-                    uint32_t curWorldMatrixCount = (curCall.callDesc.maxWorldMatrix - curCall.callDesc.minWorldMatrix) + 1;
-                    uint32_t prevWorldMatrixCount = (prevCall.callDesc.maxWorldMatrix - prevCall.callDesc.minWorldMatrix) + 1;
-                    if ((curWorldMatrixCount == prevWorldMatrixCount) && curIt.second.doTransformMatching && prevIt->second.doTransformMatching) {
-                        for (uint32_t w = 0; w < curWorldMatrixCount; w++) {
-                            const uint32_t curWorldMatrix = curCall.callDesc.minWorldMatrix + w;
-                            const uint32_t curGroupIndex = curWorkload.drawData.worldTransformGroups[curWorldMatrix];
-                            const TransformGroup &curGroup = curWorkload.drawData.transformGroups[curGroupIndex];
-                            const uint32_t prevWorldMatrix = prevCall.callDesc.minWorldMatrix + w;
-                            const uint32_t prevGroupIndex = prevWorkload.drawData.worldTransformGroups[prevWorldMatrix];
-                            const TransformGroup &prevGroup = prevWorkload.drawData.transformGroups[prevGroupIndex];
-                            if ((curGroup.matrixId == prevGroup.matrixId) && ((curGroup.matrixId == G_EX_ID_AUTO) || ((curGroup.matrixId != G_EX_ID_IGNORE) && (curGroup.ordering == G_EX_ORDER_AUTO)))) {
-                                transformCheckSet.emplace(curWorldMatrix, prevWorldMatrix);
-                            }
-                        }
-                    }
-
-                    if ((curCall.callDesc.tileCount == prevCall.callDesc.tileCount) && (curIt.second.doTileMatching && prevIt->second.doTileMatching)) {
-                        for (uint32_t t = 0; t < curCall.callDesc.tileCount; t++) {
-                            const DrawCallTile &curCallTile = curWorkload.drawData.callTiles[curCall.callDesc.tileIndex + t];
-                            const DrawCallTile &prevCallTile = prevWorkload.drawData.callTiles[prevCall.callDesc.tileIndex + t];
-                            if (curCallTile.tmemHashOrID != prevCallTile.tmemHashOrID) {
-                                continue;
-                            }
-
-                            tileCheckSet.emplace(curCall.callDesc.tileIndex + t, prevCall.callDesc.tileIndex + t);
-                        }
-                    }
-                }
-            }
-
-            // Compute all the differences between transforms and insert them into a vector that will be sorted according to the differences.
-            thread_local std::vector<TransformMatchCandidate> matchCandidates;
-            matchCandidates.clear();
-
-            const RigidBody *prevRigidBody;
-            for (const IndexPair &indices : transformCheckSet) {
-                const hlslpp::float4x4 &curTransform = curWorkload.drawData.worldTransforms[indices.first];
-                const hlslpp::float4x4 &prevTransform = prevWorkload.drawData.worldTransforms[indices.second];
-                prevRigidBody = (prevWorkloadMap != nullptr) ? &prevWorkloadMap->transforms[indices.second].rigidBody : nullptr;
-
-                TransformMatchResult matchResult = computeTransformMatch(curTransform, curViewProj, prevTransform, prevViewProj, prevRigidBody);
-                if (matchResult.valid) {
-                    matchCandidates.emplace_back(indices.first, indices.second, matchResult.computeDifference());
-                }
-            }
-
-            std::stable_sort(matchCandidates.begin(), matchCandidates.end());
-            for (const TransformMatchCandidate candidate : matchCandidates) {
-                if (curWorkloadMap.transforms[candidate.curTransformIndex].mapped) {
-                    continue;
-                }
-
-                if (curWorkloadMap.prevTransformsMapped[candidate.prevTransformIndex]) {
-                    continue;
-                }
-
-                matchTransform(curWorkload, prevWorkload, curWorkloadMap, prevWorkloadMap, candidate.curTransformIndex, candidate.prevTransformIndex, modifiedVelocityBuffer);
-            }
-
-            if (modifiedVelocityBuffer) {
-                workloadsModified.insert(curProjIndices.workloadIndex);
-            }
-
-            // Check for tile matches.
-            for (const IndexPair &indices : tileCheckSet) {
-                if (curWorkloadMap.tiles[indices.first].mapped) {
-                    continue;
-                }
-
-                if (curWorkloadMap.prevTilesMapped[indices.second]) {
-                    continue;
-                }
-
-                // Check for tile compatibility.
-                const interop::RDPTile &curTile = curWorkload.drawData.rdpTiles[indices.first];
-                const interop::RDPTile &prevTile = prevWorkload.drawData.rdpTiles[indices.second];
-                if ((curTile.fmt != prevTile.fmt) ||
-                    (curTile.siz != prevTile.siz) ||
-                    (curTile.stride != prevTile.stride) ||
-                    (curTile.masks != prevTile.masks) ||
-                    (curTile.maskt != prevTile.maskt) ||
-                    (curTile.shifts != prevTile.shifts) ||
-                    (curTile.shiftt != prevTile.shiftt) ||
-                    (curTile.cms != prevTile.cms) ||
-                    (curTile.cmt != prevTile.cmt))
-                {
-                    continue;
-                }
-
-                GameFrameMap::TileMap &curTileMap = curWorkloadMap.tiles[indices.first];
-                if (prevWorkloadMap != nullptr) {
-                    const GameFrameMap::TileMap &prevTileMap = prevWorkloadMap->tiles[indices.second];
-                    curTileMap = prevTileMap;
-                }
-
-                auto modulo = [](int a, int b) {
-                    int r = a % b;
-                    return r < 0 ? r + b : r;
-                };
-                
-                const float deltaUls = curTile.uls - prevTile.uls;
-                const float deltaUlt = curTile.ult - prevTile.ult;
-                const float deltaLrs = curTile.lrs - prevTile.lrs;
-                const float deltaLrt = curTile.lrt - prevTile.lrt;
-                const bool tileScrolled = (deltaUls != 0.0f) || (deltaUlt != 0.0f) || (deltaLrs != 0.0f) || (deltaLrt != 0.0f);
-                const int integerUls = std::lround(curTile.uls);
-                const int integerUlt = std::lround(curTile.ult);
-                const int integerLrs = std::lround(curTile.lrs);
-                const int integerLrt = std::lround(curTile.lrt);
-                const int expectedUls = std::lround(prevTile.uls + curTileMap.deltaUls);
-                const int expectedUlt = std::lround(prevTile.ult + curTileMap.deltaUlt);
-                const int expectedLrs = std::lround(prevTile.lrs + curTileMap.deltaLrs);
-                const int expectedLrt = std::lround(prevTile.lrt + curTileMap.deltaLrt);
-                const bool wrappedUls = (curTile.cms == G_TX_WRAP) && (modulo(integerUls, curTile.masks * 4) == modulo(expectedUls, curTile.masks * 4));
-                const bool wrappedUlt = (curTile.cmt == G_TX_WRAP) && (modulo(integerUlt, curTile.maskt * 4) == modulo(expectedUlt, curTile.maskt * 4));
-                const bool wrappedLrs = (curTile.cms == G_TX_WRAP) && (modulo(integerLrs, curTile.masks * 4) == modulo(expectedLrs, curTile.masks * 4));
-                const bool wrappedLrt = (curTile.cmt == G_TX_WRAP) && (modulo(integerLrt, curTile.maskt * 4) == modulo(expectedLrt, curTile.maskt * 4));
-                curTileMap.prevUls = curTile.uls - curTileMap.deltaUls;
-                curTileMap.prevUlt = curTile.ult - curTileMap.deltaUlt;
-                curTileMap.prevLrs = curTile.lrs - curTileMap.deltaLrs;
-                curTileMap.prevLrt = curTile.lrt - curTileMap.deltaLrt;
-                curTileMap.deltaUls = wrappedUls || (abs(deltaUls) >= curTile.masks * 2) ? curTileMap.deltaUls : deltaUls;
-                curTileMap.deltaUlt = wrappedUlt || (abs(deltaUlt) >= curTile.maskt * 2) ? curTileMap.deltaUlt : deltaUlt;
-                curTileMap.deltaLrs = wrappedLrs || (abs(deltaLrs) >= curTile.masks * 2) ? curTileMap.deltaLrs : deltaLrs;
-                curTileMap.deltaLrt = wrappedLrt || (abs(deltaLrt) >= curTile.maskt * 2) ? curTileMap.deltaLrt : deltaLrt;
-                curTileMap.mapped = true;
-                curWorkloadMap.prevTilesMapped[indices.second] = true;
-                tileInterpolationUsed = tileInterpolationUsed || tileScrolled;
-            }
-
             if (mappedViewProjIndex == UINT32_MAX) {
-                GameFrameMap::ViewProjectionMap &viewProjMap = curWorkloadMap.viewProjections[curProj.transformsIndex];
+                GameFrameMap::ViewProjectionMap &viewProjMap = firstCurWorkloadMap.viewProjections[curProj.transformsIndex];
                 if (viewProjMap.mapped) {
                     mappedViewProjIndex = curProj.transformsIndex;
                     continue;
                 }
+
+                const GameIndices::Projection &prevProjIndices = prevScene.projections[p];
+                const Workload &prevWorkload = workloadQueue.workloads[prevProjIndices.workloadIndex];
+                const FramebufferPair &prevFbPair = prevWorkload.fbPairs[prevProjIndices.fbPairIndex];
+                const Projection &prevProj = prevFbPair.projections[prevProjIndices.projectionIndex];
+                const hlslpp::float4x4 &curView = curWorkload.drawData.viewTransforms[curProj.transformsIndex];
+                const hlslpp::float4x4 &prevView = prevWorkload.drawData.viewTransforms[prevProj.transformsIndex];
+                const uint32_t curProjGroupIndex = curWorkload.drawData.viewProjTransformGroups[curProj.transformsIndex];
+                const uint32_t prevProjGroupIndex = prevWorkload.drawData.viewProjTransformGroups[prevProj.transformsIndex];
+                const TransformGroup &curProjGroup = curWorkload.drawData.transformGroups[curProjGroupIndex];
+                const TransformGroup &prevProjGroup = prevWorkload.drawData.transformGroups[prevProjGroupIndex];
 
                 // Cameras usually look better with simple interpolation, so default decomposition to off.
                 bool projectionDecompose = false;
@@ -601,12 +467,12 @@ namespace RT64 {
                     viewProjMap.mapped = (curProjGroup.matrixId == prevProjGroup.matrixId);
                 }
                 else {
-                    viewProjMap.mapped = (transformIdsMapped || !matchCandidates.empty()) && (curProjGroup.matrixId == G_EX_ID_AUTO);
+                    viewProjMap.mapped = (curProjGroup.matrixId == G_EX_ID_AUTO);
                 }
 
                 if (viewProjMap.mapped) {
-                    if (prevWorkloadMap != nullptr) {
-                        const GameFrameMap::ViewProjectionMap &prevViewProjMap = prevWorkloadMap->viewProjections[prevProj.transformsIndex];
+                    if (firstPrevWorkloadMap != nullptr) {
+                        const GameFrameMap::ViewProjectionMap &prevViewProjMap = firstPrevWorkloadMap->viewProjections[prevProj.transformsIndex];
                         viewProjMap.rigidBody = prevViewProjMap.rigidBody;
                     }
 
@@ -623,6 +489,167 @@ namespace RT64 {
                     mappedViewProjIndex = curProj.transformsIndex;
                 }
             }
+        }
+
+        for (uint32_t p = 0; p < prevScene.projections.size(); p++) {
+            const GameIndices::Projection &prevProjIndices = prevScene.projections[p];
+            const Workload &prevWorkload = workloadQueue.workloads[prevProjIndices.workloadIndex];
+            const FramebufferPair &prevFbPair = prevWorkload.fbPairs[prevProjIndices.fbPairIndex];
+            const Projection &prevProj = prevFbPair.projections[prevProjIndices.projectionIndex];
+            buildCallHashMap(p, prevWorkload, prevProj, prevCallHashMap);
+        }
+
+        // FIXME: Transform set needs to be done per unique workload detected.
+        thread_local std::set<IndexPair> transformCheckSet;
+        thread_local std::set<IndexPair> tileCheckSet;
+        transformCheckSet.clear();
+        tileCheckSet.clear();
+
+        // Traverse the map and fill the set with all the combinations of transforms to check.
+        for (std::pair<uint64_t, GameCallMap> curIt : curCallHashMap) {
+            auto prevRange = prevCallHashMap.equal_range(curIt.first);
+            for (auto prevIt = prevRange.first; prevIt != prevRange.second; prevIt++) {
+                const GameIndices::Projection &curProjIndices = curScene.projections[curIt.second.sceneProjIndex];
+                const Workload &curWorkload = workloadQueue.workloads[curProjIndices.workloadIndex];
+                const FramebufferPair &curFbPair = curWorkload.fbPairs[curProjIndices.fbPairIndex];
+                const Projection &curProj = curFbPair.projections[curProjIndices.projectionIndex];
+                const GameCall &curCall = curProj.gameCalls[curIt.second.callIndex];
+                const GameIndices::Projection &prevProjIndices = prevScene.projections[prevIt->second.sceneProjIndex];
+                const Workload &prevWorkload = workloadQueue.workloads[prevProjIndices.workloadIndex];
+                const FramebufferPair &prevFbPair = prevWorkload.fbPairs[prevProjIndices.fbPairIndex];
+                const Projection &prevProj = prevFbPair.projections[prevProjIndices.projectionIndex];
+                const GameCall &prevCall = prevProj.gameCalls[prevIt->second.callIndex];
+                const uint32_t curWorldMatrixCount = (curCall.callDesc.maxWorldMatrix - curCall.callDesc.minWorldMatrix) + 1;
+                const uint32_t prevWorldMatrixCount = (prevCall.callDesc.maxWorldMatrix - prevCall.callDesc.minWorldMatrix) + 1;
+                if ((curWorldMatrixCount == prevWorldMatrixCount) && curIt.second.doTransformMatching && prevIt->second.doTransformMatching) {
+                    for (uint32_t w = 0; w < curWorldMatrixCount; w++) {
+                        const uint32_t curWorldMatrix = curCall.callDesc.minWorldMatrix + w;
+                        const uint32_t curGroupIndex = curWorkload.drawData.worldTransformGroups[curWorldMatrix];
+                        const TransformGroup &curGroup = curWorkload.drawData.transformGroups[curGroupIndex];
+                        const uint32_t prevWorldMatrix = prevCall.callDesc.minWorldMatrix + w;
+                        const uint32_t prevGroupIndex = prevWorkload.drawData.worldTransformGroups[prevWorldMatrix];
+                        const TransformGroup &prevGroup = prevWorkload.drawData.transformGroups[prevGroupIndex];
+                        if ((curGroup.matrixId == prevGroup.matrixId) && ((curGroup.matrixId == G_EX_ID_AUTO) || ((curGroup.matrixId != G_EX_ID_IGNORE) && (curGroup.ordering == G_EX_ORDER_AUTO)))) {
+                            transformCheckSet.emplace(curWorldMatrix, prevWorldMatrix);
+                        }
+                    }
+                }
+
+                if ((curCall.callDesc.tileCount == prevCall.callDesc.tileCount) && (curIt.second.doTileMatching && prevIt->second.doTileMatching)) {
+                    for (uint32_t t = 0; t < curCall.callDesc.tileCount; t++) {
+                        const DrawCallTile &curCallTile = curWorkload.drawData.callTiles[curCall.callDesc.tileIndex + t];
+                        const DrawCallTile &prevCallTile = prevWorkload.drawData.callTiles[prevCall.callDesc.tileIndex + t];
+                        if (curCallTile.tmemHashOrID != prevCallTile.tmemHashOrID) {
+                            continue;
+                        }
+
+                        tileCheckSet.emplace(curCall.callDesc.tileIndex + t, prevCall.callDesc.tileIndex + t);
+                    }
+                }
+            }
+        }
+
+        // Compute all the differences between transforms and insert them into a vector that will be sorted according to the differences.
+        thread_local std::vector<TransformMatchCandidate> matchCandidates;
+        matchCandidates.clear();
+
+        const RigidBody *prevRigidBody;
+        const hlslpp::float4x4 &firstCurViewProj = firstCurWorkload.drawData.viewProjTransforms[firstCurProj.transformsIndex];
+        const hlslpp::float4x4 &firstPrevViewProj = firstPrevWorkload.drawData.viewProjTransforms[firstPrevProj.transformsIndex];
+        for (const IndexPair &indices : transformCheckSet) {
+            const hlslpp::float4x4 &curTransform = firstCurWorkload.drawData.worldTransforms[indices.first];
+            const hlslpp::float4x4 &prevTransform = firstPrevWorkload.drawData.worldTransforms[indices.second];
+            prevRigidBody = (firstPrevWorkloadMap != nullptr) ? &firstPrevWorkloadMap->transforms[indices.second].rigidBody : nullptr;
+
+            TransformMatchResult matchResult = computeTransformMatch(curTransform, firstCurViewProj, prevTransform, firstPrevViewProj, prevRigidBody);
+            if (matchResult.valid) {
+                matchCandidates.emplace_back(indices.first, indices.second, matchResult.computeDifference());
+            }
+        }
+
+        bool modifiedVelocityBuffer = false;
+        std::stable_sort(matchCandidates.begin(), matchCandidates.end());
+        for (const TransformMatchCandidate candidate : matchCandidates) {
+            if (firstCurWorkloadMap.transforms[candidate.curTransformIndex].mapped) {
+                continue;
+            }
+
+            if (firstCurWorkloadMap.prevTransformsMapped[candidate.prevTransformIndex]) {
+                continue;
+            }
+
+            matchTransform(firstCurWorkload, firstPrevWorkload, firstCurWorkloadMap, firstPrevWorkloadMap, candidate.curTransformIndex, candidate.prevTransformIndex, modifiedVelocityBuffer);
+        }
+
+        if (modifiedVelocityBuffer) {
+            workloadsModified.insert(firstCurProjIndices.workloadIndex);
+        }
+
+        // Check for tile matches.
+        for (const IndexPair &indices : tileCheckSet) {
+            if (firstCurWorkloadMap.tiles[indices.first].mapped) {
+                continue;
+            }
+
+            if (firstCurWorkloadMap.prevTilesMapped[indices.second]) {
+                continue;
+            }
+
+            // Check for tile compatibility.
+            const interop::RDPTile &curTile = firstCurWorkload.drawData.rdpTiles[indices.first];
+            const interop::RDPTile &prevTile = firstPrevWorkload.drawData.rdpTiles[indices.second];
+            if ((curTile.fmt != prevTile.fmt) ||
+                (curTile.siz != prevTile.siz) ||
+                (curTile.stride != prevTile.stride) ||
+                (curTile.masks != prevTile.masks) ||
+                (curTile.maskt != prevTile.maskt) ||
+                (curTile.shifts != prevTile.shifts) ||
+                (curTile.shiftt != prevTile.shiftt) ||
+                (curTile.cms != prevTile.cms) ||
+                (curTile.cmt != prevTile.cmt))
+            {
+                continue;
+            }
+
+            GameFrameMap::TileMap &curTileMap = firstCurWorkloadMap.tiles[indices.first];
+            if (firstPrevWorkloadMap != nullptr) {
+                const GameFrameMap::TileMap &prevTileMap = firstPrevWorkloadMap->tiles[indices.second];
+                curTileMap = prevTileMap;
+            }
+
+            auto modulo = [](int a, int b) {
+                int r = a % b;
+                return r < 0 ? r + b : r;
+                };
+
+            const float deltaUls = curTile.uls - prevTile.uls;
+            const float deltaUlt = curTile.ult - prevTile.ult;
+            const float deltaLrs = curTile.lrs - prevTile.lrs;
+            const float deltaLrt = curTile.lrt - prevTile.lrt;
+            const bool tileScrolled = (deltaUls != 0.0f) || (deltaUlt != 0.0f) || (deltaLrs != 0.0f) || (deltaLrt != 0.0f);
+            const int integerUls = std::lround(curTile.uls);
+            const int integerUlt = std::lround(curTile.ult);
+            const int integerLrs = std::lround(curTile.lrs);
+            const int integerLrt = std::lround(curTile.lrt);
+            const int expectedUls = std::lround(prevTile.uls + curTileMap.deltaUls);
+            const int expectedUlt = std::lround(prevTile.ult + curTileMap.deltaUlt);
+            const int expectedLrs = std::lround(prevTile.lrs + curTileMap.deltaLrs);
+            const int expectedLrt = std::lround(prevTile.lrt + curTileMap.deltaLrt);
+            const bool wrappedUls = (curTile.cms == G_TX_WRAP) && (modulo(integerUls, curTile.masks * 4) == modulo(expectedUls, curTile.masks * 4));
+            const bool wrappedUlt = (curTile.cmt == G_TX_WRAP) && (modulo(integerUlt, curTile.maskt * 4) == modulo(expectedUlt, curTile.maskt * 4));
+            const bool wrappedLrs = (curTile.cms == G_TX_WRAP) && (modulo(integerLrs, curTile.masks * 4) == modulo(expectedLrs, curTile.masks * 4));
+            const bool wrappedLrt = (curTile.cmt == G_TX_WRAP) && (modulo(integerLrt, curTile.maskt * 4) == modulo(expectedLrt, curTile.maskt * 4));
+            curTileMap.prevUls = curTile.uls - curTileMap.deltaUls;
+            curTileMap.prevUlt = curTile.ult - curTileMap.deltaUlt;
+            curTileMap.prevLrs = curTile.lrs - curTileMap.deltaLrs;
+            curTileMap.prevLrt = curTile.lrt - curTileMap.deltaLrt;
+            curTileMap.deltaUls = wrappedUls || (abs(deltaUls) >= curTile.masks * 2) ? curTileMap.deltaUls : deltaUls;
+            curTileMap.deltaUlt = wrappedUlt || (abs(deltaUlt) >= curTile.maskt * 2) ? curTileMap.deltaUlt : deltaUlt;
+            curTileMap.deltaLrs = wrappedLrs || (abs(deltaLrs) >= curTile.masks * 2) ? curTileMap.deltaLrs : deltaLrs;
+            curTileMap.deltaLrt = wrappedLrt || (abs(deltaLrt) >= curTile.maskt * 2) ? curTileMap.deltaLrt : deltaLrt;
+            curTileMap.mapped = true;
+            firstCurWorkloadMap.prevTilesMapped[indices.second] = true;
+            tileInterpolationUsed = tileInterpolationUsed || tileScrolled;
         }
     }
 
@@ -669,9 +696,7 @@ namespace RT64 {
         }
     }
     
-    void GameFrame::buildCallHashMap(const Workload &workload, const Projection &proj, std::multimap<uint64_t, GameCallMap> &hashMap) const {
-        hashMap.clear();
-
+    void GameFrame::buildCallHashMap(uint32_t sceneProjIndex, const Workload &workload, const Projection &proj, std::multimap<uint64_t, GameCallMap> &hashMap) const {
         for (uint32_t c = 0; c < proj.gameCallCount; c++) {
             const GameCall &call = proj.gameCalls[c];
             uint32_t matrixIdHash = 0;
@@ -687,7 +712,7 @@ namespace RT64 {
                 doTileMatching = doTileMatching || (group.tileInterpolation != G_EX_COMPONENT_SKIP);
             }
 
-            hashMap.emplace(hashFromCall(call, matrixIdHash), GameCallMap{ c, doTransformMatching, doTileMatching });
+            hashMap.emplace(hashFromCall(call, matrixIdHash), GameCallMap{ sceneProjIndex, c, doTransformMatching, doTileMatching });
         }
     }
 
