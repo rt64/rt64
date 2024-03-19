@@ -1531,6 +1531,7 @@ namespace RT64 {
 
         // Present.
         bool presentWait = false;
+        bool displayTiming = false;
     };
 
     struct RenderInterfaceCapabilities {

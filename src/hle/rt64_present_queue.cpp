@@ -448,6 +448,8 @@ namespace RT64 {
 
         int processCursor = -1;
         bool skipPresent = false;
+        uint32_t displayTimingRate = UINT32_MAX;
+        const bool displayTiming = ext.device->getCapabilities().displayTiming;
         while (presentThreadRunning) {
             {
                 std::unique_lock<std::mutex> cursorLock(cursorMutex);
@@ -473,7 +475,20 @@ namespace RT64 {
                     ext.swapChain->resize();
                     swapChainFramebuffers.clear();
                     ext.appWindow->detectRefreshRate();
-                    ext.sharedResources->setSwapChainConfig(ext.swapChain->getWidth(), ext.swapChain->getHeight(), ext.appWindow->getRefreshRate());
+                    ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
+                    ext.sharedResources->setSwapChainRate(std::min(ext.appWindow->getRefreshRate(), displayTimingRate));
+                }
+
+                if (displayTiming) {
+                    uint32_t newDisplayTimingRate = ext.swapChain->getRefreshRate();
+                    if (newDisplayTimingRate == 0) {
+                        newDisplayTimingRate = UINT32_MAX;
+                    }
+
+                    if (newDisplayTimingRate != displayTimingRate) {
+                        ext.sharedResources->setSwapChainRate(std::min(ext.appWindow->getRefreshRate(), newDisplayTimingRate));
+                        displayTimingRate = newDisplayTimingRate;
+                    }
                 }
 
                 skipPresent = skipPresent || ext.swapChain->isEmpty();

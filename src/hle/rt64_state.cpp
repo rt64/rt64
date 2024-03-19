@@ -2142,13 +2142,18 @@ namespace RT64 {
                     ImGui::NewLine();
 
                     const RenderDeviceCapabilities &capabilities = ext.device->getCapabilities();
-                    ImGui::Text("Display Refresh Rate: %d\n", ext.appWindow->getRefreshRate());
+                    ImGui::Text("Display Refresh Rate (OS): %d\n", ext.appWindow->getRefreshRate());
+                    if (capabilities.displayTiming) {
+                        ImGui::Text("Display Refresh Rate (RHI): %d\n", ext.swapChain->getRefreshRate());
+                    }
+
                     ImGui::Text("Raytracing: %d", capabilities.raytracing);
                     ImGui::Text("Raytracing State Update: %d", capabilities.raytracingStateUpdate);
                     ImGui::Text("Sample Locations: %d", capabilities.sampleLocations);
                     ImGui::Text("Descriptor Indexing: %d", capabilities.descriptorIndexing);
                     ImGui::Text("Scalar Block Layout: %d", capabilities.scalarBlockLayout);
                     ImGui::Text("Present Wait: %d", capabilities.presentWait);
+                    ImGui::Text("Display Timing: %d", capabilities.displayTiming);
                     ImGui::EndTabItem();
                 }
 

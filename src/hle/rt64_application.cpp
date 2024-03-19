@@ -217,7 +217,8 @@ namespace RT64 {
         sharedQueueResources = std::make_unique<SharedQueueResources>();
         sharedQueueResources->setUserConfig(userConfig, false);
         sharedQueueResources->setEnhancementConfig(enhancementConfig);
-        sharedQueueResources->setSwapChainConfig(swapChain->getWidth(), swapChain->getHeight(), appWindow->getRefreshRate());
+        sharedQueueResources->setSwapChainSize(swapChain->getWidth(), swapChain->getHeight());
+        sharedQueueResources->setSwapChainRate(appWindow->getRefreshRate());
         sharedQueueResources->renderTargetManager.setMultisampling(multisampling);
 
         WorkloadQueue::External workloadExt;
@@ -253,6 +254,7 @@ namespace RT64 {
         stateExt.appWindow = appWindow.get();
         stateExt.interpreter = interpreter.get();
         stateExt.device = device.get();
+        stateExt.swapChain = swapChain.get();
         stateExt.framebufferGraphicsWorker = framebufferGraphicsWorker.get();
         stateExt.shaderLibrary = shaderLibrary.get();
         stateExt.drawDataUploader = drawDataUploader.get();

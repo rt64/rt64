@@ -34,7 +34,7 @@ namespace RT64 {
         uint32_t targetRate = 0;
         UserConfiguration userConfig;
         EnhancementConfiguration enhancementConfig;
-        bool swapChainConfigChanged = false;
+        bool swapChainSizeChanged = false;
         bool rtConfigChanged = true;
         bool userConfigChanged = true;
         bool fbConfigChanged = true;
@@ -57,12 +57,16 @@ namespace RT64 {
         std::condition_variable interpolatedCondition;
         std::mutex workloadMutex;
 
-        void setSwapChainConfig(uint32_t width, uint32_t height, uint32_t rate) {
+        void setSwapChainSize(uint32_t width, uint32_t height) {
             std::scoped_lock<std::mutex> configurationLock(configurationMutex);
             swapChainWidth = width;
             swapChainHeight = height;
+            swapChainSizeChanged = true;
+        }
+
+        void setSwapChainRate(uint32_t rate) {
+            std::scoped_lock<std::mutex> configurationLock(configurationMutex);
             swapChainRate = rate;
-            swapChainConfigChanged = true;
         }
 
         void setUserConfig(const UserConfiguration &newUserConfig, bool discardFBs) {

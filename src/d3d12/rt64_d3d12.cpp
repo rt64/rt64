@@ -1209,6 +1209,10 @@ namespace RT64 {
         return (width == 0) || (height == 0);
     }
 
+    uint32_t D3D12SwapChain::getRefreshRate() const {
+        return 0;
+    }
+
     // D3D12Framebuffer
     
     D3D12Framebuffer::D3D12Framebuffer(D3D12Device *device, const RenderFramebufferDesc &desc) {

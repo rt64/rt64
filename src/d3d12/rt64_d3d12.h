@@ -115,6 +115,7 @@ namespace RT64 {
         RenderTexture *getTexture(uint32_t index) override;
         RenderWindow getWindow() const override;
         bool isEmpty() const override;
+        uint32_t getRefreshRate() const override;
         void getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const;
         void setTextures();
     };

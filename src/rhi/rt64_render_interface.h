@@ -81,6 +81,9 @@ namespace RT64 {
         virtual RenderTexture *getTexture(uint32_t index) = 0;
         virtual RenderWindow getWindow() const = 0;
         virtual bool isEmpty() const = 0;
+
+        // Only valid if displayTiming is enabled in capabilities.
+        virtual uint32_t getRefreshRate() const = 0;
     };
 
     struct RenderFramebuffer {

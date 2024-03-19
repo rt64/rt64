@@ -43,6 +43,7 @@ namespace RT64 {
             ApplicationWindow *appWindow;
             Interpreter *interpreter;
             RenderDevice *device;
+            RenderSwapChain *swapChain;
             RenderWorker *framebufferGraphicsWorker;
             ShaderLibrary *shaderLibrary;
             BufferUploader *drawDataUploader;

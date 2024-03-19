@@ -120,8 +120,8 @@ namespace RT64 {
 
     void WorkloadQueue::threadConfigurationUpdate(WorkloadConfiguration &workloadConfig) {
         const std::scoped_lock lock(ext.sharedResources->configurationMutex);
-        const bool sizeChanged = ext.sharedResources->swapChainConfigChanged;
-        ext.sharedResources->swapChainConfigChanged = false;
+        const bool sizeChanged = ext.sharedResources->swapChainSizeChanged;
+        ext.sharedResources->swapChainSizeChanged = false;
 
         // Compute the aspect ratio to be used for the frame.
         // TODO: Derive aspect ratio source from VI mode.

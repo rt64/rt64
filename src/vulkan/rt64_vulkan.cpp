@@ -71,6 +71,7 @@ namespace RT64 {
         VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME,
         VK_KHR_PRESENT_ID_EXTENSION_NAME,
         VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
+        VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME,
     };
 
     // Common functions.
@@ -2156,6 +2157,17 @@ namespace RT64 {
         return (width == 0) || (height == 0);
     }
 
+    uint32_t VulkanSwapChain::getRefreshRate() const {
+        VkRefreshCycleDurationGOOGLE refreshCycle = {};
+        VkResult res = vkGetRefreshCycleDurationGOOGLE(commandQueue->device->vk, vk, &refreshCycle);
+        if (res != VK_SUCCESS) {
+            fprintf(stderr, "vkGetRefreshCycleDurationGOOGLE failed with error code 0x%X.\n", res);
+            return 0;
+        }
+
+        return std::lround(1000000000.0 / refreshCycle.refreshDuration);
+    }
+
     void VulkanSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
 #   if defined(_WIN64)
         RECT rect;
@@ -3581,6 +3593,7 @@ namespace RT64 {
         capabilities.descriptorIndexing = descriptorIndexing;
         capabilities.scalarBlockLayout = scalarBlockLayout;
         capabilities.presentWait = presentWait;
+        capabilities.displayTiming = supportedOptionalExtensions.find(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME) != supportedOptionalExtensions.end();
 
         // Fill Vulkan-only capabilities.
         loadStoreOpNoneSupported = supportedOptionalExtensions.find(VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME) != supportedOptionalExtensions.end();
