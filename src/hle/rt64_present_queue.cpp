@@ -472,6 +472,7 @@ namespace RT64 {
                     ext.presentGraphicsWorker->wait();
                     ext.swapChain->resize();
                     swapChainFramebuffers.clear();
+                    ext.appWindow->detectRefreshRate();
                     ext.sharedResources->setSwapChainConfig(ext.swapChain->getWidth(), ext.swapChain->getHeight(), ext.appWindow->getRefreshRate());
                 }
 

@@ -202,6 +202,7 @@ namespace RT64 {
         RenderWindow renderWindow = {};
         uint32_t textureIndex = 0;
         uint32_t textureCount = 0;
+        uint64_t presentCount = 0;
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;

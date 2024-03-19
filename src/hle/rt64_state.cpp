@@ -1958,6 +1958,7 @@ namespace RT64 {
                     ImGui::EndTabItem();
                 }
 
+#           if SCRIPT_ENABLED
                 if (ImGui::BeginTabItem("Script")) {
                     ImGui::BeginChild("##script");
                     ImGui::Text("Script log");
@@ -1971,7 +1972,9 @@ namespace RT64 {
                     ImGui::EndChild();
                     ImGui::EndTabItem();
                 }
+#           endif
 
+#           if RT_ENABLED
                 if (ImGui::BeginTabItem("Scenes")) {
                     sceneLibraryInspector.inspectLibrary(sceneLibrary, ext.appWindow->windowHandle);
                     inspectorMode = !sceneLibraryInspector.selectedPresetName.empty() ? InspectorMode::Scene : InspectorMode::None;
@@ -1996,17 +1999,6 @@ namespace RT64 {
                     ImGui::EndTabItem();
                 }
 
-                if (ImGui::BeginTabItem("Debugger", nullptr, debuggerSelected ? ImGuiTabItemFlags_SetSelected : 0)) {
-                    DrawCallKey callKey;
-                    bool createCallMod;
-                    debuggerInspector.inspect(lastScreenVI, workload, framebufferManager, *ext.textureCache, callKey, createCallMod, ext.appWindow->windowHandle);
-                    if (createCallMod) {
-                        drawCallLibraryInspector.promptForNew(callKey);
-                    }
-
-                    ImGui::EndTabItem();
-                }
-
                 if (ImGui::BeginTabItem("Game")) {
                     ImGui::Checkbox("Estimate Sun", &gameConfig.estimateSunLight);
                     ImGui::BeginDisabled(!gameConfig.estimateSunLight);
@@ -2017,6 +2009,18 @@ namespace RT64 {
                     ImGui::BeginDisabled(!gameConfig.rspLightAsDiffuse);
                     ImGui::DragFloat("RSP Lights Intensity", &gameConfig.rspLightIntensity, 0.01f, 0.0f, FLT_MAX);
                     ImGui::EndDisabled();
+
+                    ImGui::EndTabItem();
+                }
+#           endif
+
+                if (ImGui::BeginTabItem("Debugger", nullptr, debuggerSelected ? ImGuiTabItemFlags_SetSelected : 0)) {
+                    DrawCallKey callKey;
+                    bool createCallMod;
+                    debuggerInspector.inspect(lastScreenVI, workload, framebufferManager, *ext.textureCache, callKey, createCallMod, ext.appWindow->windowHandle);
+                    if (createCallMod) {
+                        drawCallLibraryInspector.promptForNew(callKey);
+                    }
 
                     ImGui::EndTabItem();
                 }
@@ -2125,6 +2129,7 @@ namespace RT64 {
                         ext.sharedQueueResources->setRtConfig(rtConfig);
                     }
 #               endif
+                    ImGui::NewLine();
 
                     bool ubershadersOnly = ext.workloadQueue->ubershadersOnly;
                     ImGui::Checkbox("Ubershaders Only", &ubershadersOnly);
@@ -2134,6 +2139,16 @@ namespace RT64 {
                     ImGui::Checkbox("Ubershaders Visible", &ubershadersVisible);
                     ext.workloadQueue->ubershadersVisible = ubershadersVisible;
 
+                    ImGui::NewLine();
+
+                    const RenderDeviceCapabilities &capabilities = ext.device->getCapabilities();
+                    ImGui::Text("Display Refresh Rate: %d\n", ext.appWindow->getRefreshRate());
+                    ImGui::Text("Raytracing: %d", capabilities.raytracing);
+                    ImGui::Text("Raytracing State Update: %d", capabilities.raytracingStateUpdate);
+                    ImGui::Text("Sample Locations: %d", capabilities.sampleLocations);
+                    ImGui::Text("Descriptor Indexing: %d", capabilities.descriptorIndexing);
+                    ImGui::Text("Scalar Block Layout: %d", capabilities.scalarBlockLayout);
+                    ImGui::Text("Present Wait: %d", capabilities.presentWait);
                     ImGui::EndTabItem();
                 }
 

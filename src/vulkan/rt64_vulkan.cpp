@@ -68,7 +68,9 @@ namespace RT64 {
         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
         VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
         VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME,
-        VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME
+        VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME,
+        VK_KHR_PRESENT_ID_EXTENSION_NAME,
+        VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
     };
 
     // Common functions.
@@ -2015,7 +2017,16 @@ namespace RT64 {
             presentInfo.waitSemaphoreCount = 1;
             presentTransitionSemaphoreSignaled = false;
         }
-
+        
+        const bool presentWait = commandQueue->device->capabilities.presentWait;
+        VkPresentIdKHR presentId = {};
+        if (presentWait) {
+            presentId.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
+            presentId.swapchainCount = 1;
+            presentId.pPresentIds = &presentCount;
+            presentInfo.pNext = &presentId;
+        }
+        
         VkResult res;
         {
             const std::scoped_lock queueLock(*commandQueue->queue->mutex);
@@ -2025,6 +2036,12 @@ namespace RT64 {
         // Handle the error silently.
         if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
             return false;
+        }
+
+        // Increse the present counter if successful and wait for the presentation to finish.
+        if (presentWait) {
+            while (vkWaitForPresentKHR(commandQueue->device->vk, vk, presentCount, 0) == VK_TIMEOUT);
+            presentCount++;
         }
 
         // Immediately acquire next image.
@@ -2076,6 +2093,9 @@ namespace RT64 {
             fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
             return;
         }
+
+        // Reset present counter.
+        presentCount = 1;
 
         if (createInfo.oldSwapchain != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(commandQueue->device->vk, createInfo.oldSwapchain, nullptr);
@@ -3320,22 +3340,6 @@ namespace RT64 {
             return;
         }
 
-        // Store properties.
-        vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
-
-        // Check for supported features.
-        VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
-        indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-
-        VkPhysicalDeviceScalarBlockLayoutFeatures layoutFeatures = {};
-        layoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
-        layoutFeatures.pNext = &indexingFeatures;
-
-        VkPhysicalDeviceFeatures2 deviceFeatures = {};
-        deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        deviceFeatures.pNext = &layoutFeatures;
-        vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
-
         // Check for extensions.
         uint32_t extensionCount;
         vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
@@ -3370,6 +3374,38 @@ namespace RT64 {
             fprintf(stderr, "Unable to create device. Required extensions are missing.\n");
             return;
         }
+
+        // Store properties.
+        vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+
+        // Check for supported features.
+        void *featuresChain = nullptr;
+        VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
+        indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        featuresChain = &indexingFeatures;
+
+        VkPhysicalDeviceScalarBlockLayoutFeatures layoutFeatures = {};
+        layoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
+        layoutFeatures.pNext = featuresChain;
+        featuresChain = &layoutFeatures;
+
+        VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = {};
+        VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures = {};
+        const bool presentWaitSupported = supportedOptionalExtensions.find(VK_KHR_PRESENT_ID_EXTENSION_NAME) != supportedOptionalExtensions.end() && supportedOptionalExtensions.find(VK_KHR_PRESENT_WAIT_EXTENSION_NAME) != supportedOptionalExtensions.end();
+        if (presentWaitSupported) {
+            presentIdFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
+            presentIdFeatures.pNext = featuresChain;
+            featuresChain = &presentIdFeatures;
+
+            presentWaitFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR;
+            presentWaitFeatures.pNext = featuresChain;
+            featuresChain = &presentWaitFeatures;
+        }
+
+        VkPhysicalDeviceFeatures2 deviceFeatures = {};
+        deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        deviceFeatures.pNext = featuresChain;
+        vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
 
         void *createDeviceChain = nullptr;
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures = {};
@@ -3420,6 +3456,15 @@ namespace RT64 {
         if (scalarBlockLayout) {
             layoutFeatures.pNext = createDeviceChain;
             createDeviceChain = &layoutFeatures;
+        }
+
+        const bool presentWait = presentIdFeatures.presentId && presentWaitFeatures.presentWait;
+        if (presentWait) {
+            presentIdFeatures.pNext = createDeviceChain;
+            createDeviceChain = &presentIdFeatures;
+
+            presentWaitFeatures.pNext = createDeviceChain;
+            createDeviceChain = &presentWaitFeatures;
         }
 
         // Retrieve the information for the queue families.
@@ -3550,6 +3595,7 @@ namespace RT64 {
         capabilities.sampleLocations = sampleLocationsSupported;
         capabilities.descriptorIndexing = descriptorIndexing;
         capabilities.scalarBlockLayout = scalarBlockLayout;
+        capabilities.presentWait = presentWait;
 
         // Fill Vulkan-only capabilities.
         loadStoreOpNoneSupported = supportedOptionalExtensions.find(VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME) != supportedOptionalExtensions.end();

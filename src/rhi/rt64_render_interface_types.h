@@ -1528,6 +1528,9 @@ namespace RT64 {
         // Bindless resources.
         bool descriptorIndexing = false;
         bool scalarBlockLayout = false;
+
+        // Present.
+        bool presentWait = false;
     };
 
     struct RenderInterfaceCapabilities {
