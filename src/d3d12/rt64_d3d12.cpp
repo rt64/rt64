@@ -3048,6 +3048,7 @@ namespace RT64 {
         // Fill capabilities.
         capabilities.descriptorIndexing = true;
         capabilities.scalarBlockLayout = true;
+        capabilities.presentWait = true;
 
         // Create descriptor heaps allocator.
         descriptorHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, ShaderDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
