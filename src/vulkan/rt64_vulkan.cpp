@@ -2018,15 +2018,6 @@ namespace RT64 {
             presentTransitionSemaphoreSignaled = false;
         }
         
-        const bool presentWait = commandQueue->device->capabilities.presentWait;
-        VkPresentIdKHR presentId = {};
-        if (presentWait) {
-            presentId.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
-            presentId.swapchainCount = 1;
-            presentId.pPresentIds = &presentCount;
-            presentInfo.pNext = &presentId;
-        }
-        
         VkResult res;
         {
             const std::scoped_lock queueLock(*commandQueue->queue->mutex);
@@ -2036,12 +2027,6 @@ namespace RT64 {
         // Handle the error silently.
         if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
             return false;
-        }
-
-        // Increse the present counter if successful and wait for the presentation to finish.
-        if (presentWait) {
-            while (vkWaitForPresentKHR(commandQueue->device->vk, vk, presentCount, 0) == VK_TIMEOUT);
-            presentCount++;
         }
 
         // Immediately acquire next image.
