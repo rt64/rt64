@@ -58,7 +58,6 @@ namespace RT64 {
 
         enum class RefreshRate {
             Original,
-            OriginalDelay,
             Display,
             Manual,
             OptionCount
@@ -127,7 +126,6 @@ namespace RT64 {
 
     NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::RefreshRate, {
         { UserConfiguration::RefreshRate::Original, "Original" },
-        { UserConfiguration::RefreshRate::OriginalDelay, "OriginalDelay" },
         { UserConfiguration::RefreshRate::Display, "Display" },
         { UserConfiguration::RefreshRate::Manual, "Manual" }
     });

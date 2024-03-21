@@ -1905,7 +1905,7 @@ namespace RT64 {
 
                     genConfigChanged = ImGui::InputDouble("Extended GBI Aspect Percentage", &userConfig.extAspectPercentage) || genConfigChanged;
                     genConfigChanged = ImGui::Combo("Upscale 2D Mode", reinterpret_cast<int *>(&userConfig.upscale2D), "Original\0Scaled Only\0All\0") || genConfigChanged;
-                    genConfigChanged = ImGui::Combo("Refresh Rate Mode", reinterpret_cast<int *>(&userConfig.refreshRate), "Original\0Original (Delay)\0Display\0Manual\0") || genConfigChanged;
+                    genConfigChanged = ImGui::Combo("Refresh Rate Mode", reinterpret_cast<int *>(&userConfig.refreshRate), "Original\0Display\0Manual\0") || genConfigChanged;
                     const bool manualRefreshRate = (userConfig.refreshRate == UserConfiguration::RefreshRate::Manual);
                     if (manualRefreshRate) {
                         genConfigChanged = ImGui::InputInt("Refresh Rate Target", &userConfig.refreshRateTarget) || genConfigChanged;

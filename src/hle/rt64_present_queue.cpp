@@ -381,40 +381,28 @@ namespace RT64 {
             }
 
             if (presentFrame) {
-                // Attempt to fix framepacing issues in this mode.
-                bool forceFramepacingDelay = false;
-                bool delayWithOriginalRate = (refreshRate == UserConfiguration::RefreshRate::OriginalDelay);
-                if (delayWithOriginalRate && (targetRate == 0) && (viOriginalRate > 0)) {
+                if (targetRate < viOriginalRate) {
                     targetRate = viOriginalRate;
-                    forceFramepacingDelay = true;
                 }
-                
-                // Attempt to maintain a consistent frame pacing according to the rate the user is targetting.
-                // This should not be required when targetting the display rate and using V-Sync.
-                if (forceFramepacingDelay || ((targetRate > viOriginalRate) && (targetRate < ext.sharedResources->swapChainRate))) {
-                    if (presentTimestamp != Timestamp()) {
-                        Timestamp currentTimestamp = Timer::current();
-                        int64_t deltaMicro = Timer::deltaMicroseconds(presentTimestamp, currentTimestamp);
-                        int64_t targetRateMicro = 1000000 / targetRate;
-                        
-                        // The OS only provides about one millisecond of accuracy by default. Since we also
-                        // want to wait slightly less than the target time, we substract from it and wait 1
-                        // millisecond less than the floor of the micrseconds value.
-                        int64_t msToWait = (targetRateMicro - deltaMicro - 500) / 1000;
-                        if (msToWait > 1) {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(msToWait - 1));
-                        }
-                    }
 
-                    presentTimestamp = Timer::current();
-                }
-                // Discard the previous measurement.
-                else {
-                    presentTimestamp = Timestamp();
+                // Wait until the approximate time the next present should be at the current intended rate.
+                if ((presentTimestamp != Timestamp()) && (targetRate > 0)) {
+                    Timestamp currentTimestamp = Timer::current();
+                    int64_t deltaMicro = Timer::deltaMicroseconds(presentTimestamp, currentTimestamp);
+                    int64_t targetRateMicro = 1000000 / targetRate;
+
+                    // The OS only provides about one millisecond of accuracy by default. Since we also
+                    // want to wait slightly less than the target time, we substract from it and wait 1
+                    // millisecond less than the floor of the micrseconds value.
+                    int64_t msToWait = (targetRateMicro - deltaMicro - 500) / 1000;
+                    if (msToWait > 1) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(msToWait - 1));
+                    }
                 }
 
                 swapChainValid = ext.swapChain->present();
                 presentProfiler.logAndRestart();
+                presentTimestamp = Timer::current();
             }
         }
     }
