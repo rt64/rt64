@@ -63,6 +63,8 @@ namespace RT64 {
         curLightCount = 0;
         curLookAtIndex = 0;
         projectionIndex = -1;
+        projectionMatrixSegmentedAddress = 0;
+        projectionMatrixPhysicalAddress = 0;
         projectionMatrixChanged = false;
         projectionMatrixInversed = false;
         viewportChanged = false;
@@ -126,6 +128,8 @@ namespace RT64 {
                 }
             }
 
+            projectionMatrixSegmentedAddress = address;
+            projectionMatrixPhysicalAddress = rdramAddress;
             projectionMatrixChanged = true;
             projectionMatrixInversed = false;
         }
@@ -318,6 +322,9 @@ namespace RT64 {
             DrawData &drawData = workload.drawData;
             uint32_t transformsIndex = uint32_t(drawData.viewTransforms.size());
             curViewProjIndex = transformsIndex;
+
+            uint32_t physicalAddress = projectionMatrixPhysicalAddress;
+            workload.physicalAddressTransformMap[physicalAddress] = drawData.viewProjTransformGroups.size();
             drawData.viewTransforms.emplace_back(viewMatrix);
             drawData.projTransforms.emplace_back(projMatrix);
             drawData.viewProjTransforms.emplace_back(viewProjMatrix);
@@ -371,9 +378,11 @@ namespace RT64 {
         }
 
         if (addWorldTransform) {
+            uint32_t physicalAddress = modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1];
+            workload.physicalAddressTransformMap[physicalAddress] = worldTransformGroups.size();
             worldTransformGroups.emplace_back(extended.curModelMatrixIdStackIndex);
             worldTransformSegmentedAddresses.emplace_back(modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1]);
-            worldTransformPhysicalAddresses.emplace_back(modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1]);
+            worldTransformPhysicalAddresses.emplace_back(physicalAddress);
             worldTransformVertexIndices.emplace_back(workload.drawData.vertexCount());
         }
 
@@ -936,39 +945,63 @@ namespace RT64 {
         state->updateDrawStatusAttribute(DrawAttribute::ExtendedType);
     }
 
-    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order) {
+    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, bool idIsAddress, bool editGroup) {
         assert((!push || !proj) && "Push can't be used for projection matrices.");
+        assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
-        TransformGroup *dstGroup;
-        if (proj) {
-            dstGroup = &extended.viewProjMatrixId;
-            extended.viewProjMatrixIdChanged = true;
-        }
-        else {
-            if (push) {
-                if (extended.modelMatrixIdStackSize < extended.modelMatrixIdStack.size()) {
-                    extended.modelMatrixIdStackSize++;
+        TransformGroup *dstGroup = nullptr;
+        if (idIsAddress && editGroup) {
+            const uint32_t rdramAddress = fromSegmented(id);
+            const int workloadCursor = state->ext.workloadQueue->writeCursor;
+            Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
+            auto it = workload.physicalAddressTransformMap.find(rdramAddress);
+            if (it != workload.physicalAddressTransformMap.end()) {
+                if (proj && (it->second < workload.drawData.viewProjTransformGroups.size())) {
+                    uint32_t groupIndex = workload.drawData.viewProjTransformGroups[it->second];
+                    dstGroup = &workload.drawData.transformGroups[groupIndex];
                 }
-                else {
-                    assert(false && "Stack is full.");
+                else if (it->second < workload.drawData.worldTransformGroups.size()) {
+                    uint32_t groupIndex = workload.drawData.worldTransformGroups[it->second];
+                    dstGroup = &workload.drawData.transformGroups[groupIndex];
                 }
             }
+        }
+        else {
+            if (proj) {
+                dstGroup = &extended.viewProjMatrixId;
+                extended.viewProjMatrixIdChanged = true;
+            }
+            else {
+                if (push) {
+                    if (extended.modelMatrixIdStackSize < extended.modelMatrixIdStack.size()) {
+                        extended.modelMatrixIdStackSize++;
+                    }
+                    else {
+                        assert(false && "Stack is full.");
+                    }
+                }
 
-            const int stackIndex = extended.modelMatrixIdStackSize - 1;
-            dstGroup = &extended.modelMatrixIdStack[stackIndex];
-            extended.modelMatrixIdStackChanged = true;
+                const int stackIndex = extended.modelMatrixIdStackSize - 1;
+                dstGroup = &extended.modelMatrixIdStack[stackIndex];
+                extended.modelMatrixIdStackChanged = true;
+            }
         }
 
-        dstGroup->matrixId = id;
-        dstGroup->decompose = decompose;
-        dstGroup->positionInterpolation = pos;
-        dstGroup->rotationInterpolation = rot;
-        dstGroup->scaleInterpolation = scale;
-        dstGroup->skewInterpolation = skew;
-        dstGroup->perspectiveInterpolation = persp;
-        dstGroup->vertexInterpolation = vert;
-        dstGroup->tileInterpolation = tile;
-        dstGroup->ordering = order;
+        if (dstGroup != nullptr) {
+            if (!idIsAddress && !editGroup) {
+                dstGroup->matrixId = id;
+            }
+
+            dstGroup->decompose = decompose;
+            dstGroup->positionInterpolation = pos;
+            dstGroup->rotationInterpolation = rot;
+            dstGroup->scaleInterpolation = scale;
+            dstGroup->skewInterpolation = skew;
+            dstGroup->perspectiveInterpolation = persp;
+            dstGroup->vertexInterpolation = vert;
+            dstGroup->tileInterpolation = tile;
+            dstGroup->ordering = order;
+        }
     }
 
     void RSP::popMatrixId(uint8_t count) {

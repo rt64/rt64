@@ -9,18 +9,23 @@
 namespace RT64 {
     // ProfilingTimer
 
-    ProfilingTimer::ProfilingTimer(size_t historySize) {
-        assert(historySize > 0);
-        history.resize(historySize, 0.0);
+    ProfilingTimer::ProfilingTimer() {
         historyIndex = 0;
         accumulation = 0.0;
         startedTimestamp = {};
     }
 
-    void ProfilingTimer::clear() {
-        size_t previousSize = history.size();
+    ProfilingTimer::ProfilingTimer(size_t historySize) : ProfilingTimer() {
+        setCount(historySize);
+    }
+
+    void ProfilingTimer::setCount(size_t historyCount) {
         history.clear();
-        history.resize(previousSize, 0);
+        history.resize(historyCount, 0);
+    }
+
+    void ProfilingTimer::clear() {
+        setCount(history.size());
         historyIndex = 0;
         accumulation = 0.0;
     }
@@ -41,6 +46,7 @@ namespace RT64 {
     }
 
     void ProfilingTimer::log() {
+        assert(!history.empty());
         history[historyIndex] = accumulation;
         historyIndex = (historyIndex + 1) % history.size();
     }
@@ -70,6 +76,7 @@ namespace RT64 {
     }
 
     double ProfilingTimer::average() const {
+        assert(!history.empty());
         return std::accumulate(history.begin(), history.end(), 0.0) / history.size();
     }
 };

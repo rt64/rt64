@@ -47,7 +47,8 @@
 #define G_EX_FORCESCALELOD_V1       0x000010
 #define G_EX_FORCEBRANCH_V1         0x000011
 #define G_EX_SETRENDERTORAM_V1      0x000012
-#define G_EX_MAX                    0x000013
+#define G_EX_EDITGROUPBYADDRESS_V1  0x000013
+#define G_EX_MAX                    0x000014
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -248,9 +249,7 @@ typedef union {
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIXGROUP_V1, 24, 0), \
         id, \
-        \
-        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | \
-          PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17), \
+        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17), \
         0 \
     )
 
@@ -303,6 +302,14 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETRENDERTORAM_V1, 24, 0), \
         PARAM(render, 1, 0) \
+    )
+
+#define gEXEditGroupByAddress(cmd, address, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_EDITGROUPBYADDRESS_V1, 24, 0), \
+        address, \
+        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17), \
+        0 \
     )
 
 #endif // RT64_EXTENDED_GBI

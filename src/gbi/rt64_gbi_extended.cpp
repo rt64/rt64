@@ -129,7 +129,7 @@ namespace RT64 {
             state->rsp->endVertexTestZ();
         }
 
-        void matrixGroupV1(State *state, DisplayList **dl) {
+        void matrixGroupCommand(State *state, DisplayList **dl, bool idIsAddress, bool editGroup) {
             const uint32_t id = (*dl)->w1;
             *dl = *dl + 1;
             const uint8_t push = (*dl)->p0(0, 1);
@@ -143,8 +143,11 @@ namespace RT64 {
             const uint8_t vert = (*dl)->p0(13, 2);
             const uint8_t tile = (*dl)->p0(15, 2);
             const uint8_t order = (*dl)->p0(17, 2);
-            
-            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order);
+            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, idIsAddress, editGroup);
+        }
+
+        void matrixGroupV1(State *state, DisplayList **dl) {
+            matrixGroupCommand(state, dl, false, false);
         }
 
         void popMatrixGroupV1(State *state, DisplayList **dl) {
@@ -175,6 +178,10 @@ namespace RT64 {
         void setRenderToRAMV1(State *state, DisplayList **dl) {
             const uint8_t render = (*dl)->p1(0, 1);
             state->setRenderToRAM(render);
+        }
+
+        void editGroupByAddressV1(State *state, DisplayList **dl) {
+            matrixGroupCommand(state, dl, true, true);
         }
 
         void noOpHook(State *state, DisplayList **dl) {
@@ -252,6 +259,7 @@ namespace RT64 {
             Map[G_EX_FORCESCALELOD_V1] = &forceScaleLODV1;
             Map[G_EX_FORCEBRANCH_V1] = &forceBranchV1;
             Map[G_EX_SETRENDERTORAM_V1] = &setRenderToRAMV1;
+            Map[G_EX_EDITGROUPBYADDRESS_V1] = &editGroupByAddressV1;
             MapInitialized = true;
         }
     }

@@ -25,6 +25,7 @@ namespace RT64 {
         scriptLights.clear();
         fbChangePool.reset();
         fbStorage.reset();
+        physicalAddressTransformMap.clear();
 
         // Always make sure there's at least one framebuffer pair, even if it's not configured yet, since a game can technically send
         // information to the RSP before it draws anything to a color image.

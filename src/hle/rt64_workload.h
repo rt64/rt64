@@ -214,6 +214,7 @@ namespace RT64 {
         DebuggerRenderer debuggerRenderer;
         DebuggerCamera debuggerCamera;
         std::multimap<uint32_t, uint32_t> transformIdMap;
+        std::map<uint32_t, uint32_t> physicalAddressTransformMap;
         std::vector<uint32_t> transformIgnoredIds;
         uint64_t workloadId = 0;
         uint64_t presentId = 0;

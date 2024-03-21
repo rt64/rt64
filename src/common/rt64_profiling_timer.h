@@ -15,7 +15,9 @@ namespace RT64 {
         double accumulation;
         Timestamp startedTimestamp;
 
-        ProfilingTimer(size_t historySize);
+        ProfilingTimer();
+        ProfilingTimer(size_t historyCount);
+        void setCount(size_t historyCount);
         void clear();
         void reset();
         void start();

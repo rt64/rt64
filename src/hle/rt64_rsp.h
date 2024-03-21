@@ -128,6 +128,8 @@ namespace RT64 {
         uint16_t curLightIndex;
         uint16_t curLookAtIndex;
         uint8_t curLightCount;
+        uint32_t projectionMatrixSegmentedAddress;
+        uint32_t projectionMatrixPhysicalAddress;
         bool projectionMatrixChanged;
         bool projectionMatrixInversed;
         bool viewportChanged;
@@ -246,7 +248,7 @@ namespace RT64 {
         void setViewportAlign(uint16_t ori, int16_t offx, int16_t offy);
         void vertexTestZ(uint8_t vtxIndex);
         void endVertexTestZ();
-        void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order);
+        void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, bool idIsAddress, bool editGroup);
         void popMatrixId(uint8_t count);
         void forceBranch(bool force);
         void clearExtended();
