@@ -381,12 +381,8 @@ namespace RT64 {
             }
 
             if (presentFrame) {
-                if (targetRate < viOriginalRate) {
-                    targetRate = viOriginalRate;
-                }
-
                 // Wait until the approximate time the next present should be at the current intended rate.
-                if ((presentTimestamp != Timestamp()) && (targetRate > 0)) {
+                if ((presentTimestamp != Timestamp()) && (targetRate > 0) && (targetRate > viOriginalRate)) {
                     Timestamp currentTimestamp = Timer::current();
                     int64_t deltaMicro = Timer::deltaMicroseconds(presentTimestamp, currentTimestamp);
                     int64_t targetRateMicro = 1000000 / targetRate;
