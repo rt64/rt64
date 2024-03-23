@@ -171,10 +171,11 @@ namespace RT64 {
 
             // TODO: This scissor state probably needs to be pulled from the one tracked
             // by the RSP instead of the RDP, which is not currently implemented yet.
-            int32_t scissorX0 = rdp->scissorRect.ulx;
-            int32_t scissorY0 = rdp->scissorRect.uly;
-            int32_t scissorX1 = rdp->scissorRect.lrx;
-            int32_t scissorY1 = rdp->scissorRect.lry;
+            const FixedRect &scissorRect = rdp->scissorRectStack[rdp->scissorStackSize - 1];
+            int32_t scissorX0 = scissorRect.ulx;
+            int32_t scissorY0 = scissorRect.uly;
+            int32_t scissorX1 = scissorRect.lrx;
+            int32_t scissorY1 = scissorRect.lry;
             int16_t pixX0 = int16_t(std::max(scissorX0 - frameX0, 0));
             int16_t pixY0 = int16_t(std::max(scissorY0 - frameY0, 0));
             int16_t pixX1 = int16_t(std::max(frameW - scissorX1 + frameX0, 0));

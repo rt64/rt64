@@ -192,8 +192,8 @@ namespace RT64 {
         }
 
         pss <<
-            ",  out float4 resultColor : SV_TARGET0"
-            ",  out float4 resultAlpha : SV_TARGET1";
+            ", [[vk::location(0)]] [[vk::index(0)]] out float4 resultColor : SV_TARGET0"
+            ", [[vk::location(0)]] [[vk::index(1)]] out float4 resultAlpha : SV_TARGET1";
 
         if (desc.outputDepth()) {
             pss << ", out float resultDepth : SV_DEPTH";

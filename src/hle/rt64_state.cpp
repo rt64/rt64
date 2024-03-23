@@ -109,7 +109,7 @@ namespace RT64 {
         drawCall.otherMode = { 0, 0 };
         drawCall.geometryMode = 0;
         drawCall.objRenderMode = 0;
-        drawCall.fillColorU32 = 0;
+        drawCall.fillColor = 0;
         drawCall.tileIndex = 0;
         drawCall.tileCount = 0;
         drawCall.loadIndex = 0;
@@ -152,7 +152,7 @@ namespace RT64 {
         const bool gpuCopiesEnabled = ext.emulatorConfig->framebuffer.copyWithGPU;
         bool textureCheck = false;
         if (drawStatus.isChanged(DrawAttribute::Combine)) {
-            drawCall.colorCombiner = rdp->colorCombiner;
+            drawCall.colorCombiner = rdp->colorCombinerStack[rdp->colorCombinerStackSize - 1];
             textureCheck = true;
         }
 
@@ -162,32 +162,32 @@ namespace RT64 {
         }
 
         if (drawStatus.isChanged(DrawAttribute::GeometryMode)) {
-            drawCall.geometryMode = rsp->geometryMode;
+            drawCall.geometryMode = rsp->geometryModeStack[rsp->geometryModeStackSize - 1];
         }
 
         if (drawStatus.isChanged(DrawAttribute::PrimColor)) {
-            drawCall.rdpParams.primColor = rdp->primColor;
-            drawCall.rdpParams.primLOD = rdp->primLOD;
+            drawCall.rdpParams.primColor = rdp->primColorStack[rdp->primColorStackSize - 1];
+            drawCall.rdpParams.primLOD = rdp->primLODStack[rdp->primColorStackSize - 1];
         }
 
         if (drawStatus.isChanged(DrawAttribute::PrimDepth)) {
-            drawCall.rdpParams.primDepth = rdp->primDepth;
+            drawCall.rdpParams.primDepth = rdp->primDepthStack[rdp->primDepthStackSize - 1];
         }
 
         if (drawStatus.isChanged(DrawAttribute::EnvColor)) {
-            drawCall.rdpParams.envColor = rdp->envColor;
+            drawCall.rdpParams.envColor = rdp->envColorStack[rdp->envColorStackSize - 1];
         }
 
         if (drawStatus.isChanged(DrawAttribute::FogColor)) {
-            drawCall.rdpParams.fogColor = rdp->fogColor;
+            drawCall.rdpParams.fogColor = rdp->fogColorStack[rdp->fogColorStackSize - 1];
         }
 
         if (drawStatus.isChanged(DrawAttribute::FillColor)) {
-            drawCall.fillColorU32 = rdp->fillColorU32;
+            drawCall.fillColor = rdp->fillColorStack[rdp->fillColorStackSize - 1];
         }
 
         if (drawStatus.isChanged(DrawAttribute::BlendColor)) {
-            drawCall.rdpParams.blendColor = rdp->blendColor;
+            drawCall.rdpParams.blendColor = rdp->blendColorStack[rdp->blendColorStackSize - 1];
         }
 
         if (drawStatus.isChanged(DrawAttribute::Convert)) {
@@ -205,8 +205,8 @@ namespace RT64 {
         }
 
         if (drawStatus.isChanged(DrawAttribute::Scissor)) {
-            drawCall.scissorRect = rdp->scissorRect;
-            drawCall.scissorMode = rdp->scissorMode;
+            drawCall.scissorRect = rdp->scissorRectStack[rdp->scissorStackSize - 1];
+            drawCall.scissorMode = rdp->scissorModeStack[rdp->scissorStackSize - 1];
             drawCall.scissorLeftOrigin = rdp->extended.scissorLeftOrigin;
             drawCall.scissorRightOrigin = rdp->extended.scissorRightOrigin;
         }
@@ -407,7 +407,7 @@ namespace RT64 {
         if (addLightsOnFlush) {
             Projection &proj = fbPair.projections[fbPair.projectionCount - 1];
             const GBI *curGBI = ext.interpreter->hleGBI;
-            const bool usesPointLighting = curGBI->flags.pointLighting && (rsp->geometryMode & G_POINT_LIGHTING);
+            const bool usesPointLighting = curGBI->flags.pointLighting && (rsp->geometryModeStack[rsp->geometryModeStackSize - 1] & G_POINT_LIGHTING);
             for (int i = 0; i < rsp->lightCount; i++) {
                 proj.lightManager.processLight(this, i, usesPointLighting);
             }

@@ -1316,10 +1316,10 @@ namespace RT64 {
 
                                 hlslpp::float4 fillColor;
                                 if (fbPair.colorImage.siz == G_IM_SIZ_32b) {
-                                    fillColor = ColorConverter::RGBA32::toRGBAF(callDesc.fillColorU32);
+                                    fillColor = ColorConverter::RGBA32::toRGBAF(callDesc.fillColor);
                                 }
                                 else {
-                                    fillColor = ColorConverter::RGBA16::toRGBAF(callDesc.fillColorU32 & 0xFFFF);
+                                    fillColor = ColorConverter::RGBA16::toRGBAF(callDesc.fillColor & 0xFFFF);
                                 }
 
                                 const auto &rdp = callDesc.rdpParams;

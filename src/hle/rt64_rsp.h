@@ -23,6 +23,7 @@
 
 #define RSP_MAX_LIGHTS              7
 #define RSP_MATRIX_STACK_SIZE       32
+#define RSP_EXTENDED_STACK_SIZE     16
 #define RSP_MAX_VERTICES            256
 #define RSP_MAX_SEGMENTS            16
 #define RSP_MATRIX_ID_STACK_SIZE    256
@@ -64,6 +65,14 @@ namespace RT64 {
             uint16_t ci;
             int16_t z;
             int16_t t, s;
+        };
+
+        struct VertexEXV1 {
+            Vertex v;
+            int16_t yp;
+            int16_t xp;
+            uint16_t pad;
+            int16_t zp;
         };
 
         struct RawLight {
@@ -112,31 +121,41 @@ namespace RT64 {
             float t;
         };
 
+        struct TextureState {
+            uint8_t tile = 0;
+            uint8_t levels = 0;
+            uint8_t on = 0;
+            uint16_t sc = 0;
+            uint16_t tc = 0;
+        };
+
         State *state;
         std::array<hlslpp::float4x4, RSP_MATRIX_STACK_SIZE> modelMatrixStack;
         std::array<uint32_t, RSP_MATRIX_STACK_SIZE> modelMatrixSegmentedAddressStack;
         std::array<uint32_t, RSP_MATRIX_STACK_SIZE> modelMatrixPhysicalAddressStack;
         int modelMatrixStackSize;
-        hlslpp::float4x4 viewMatrix;
-        hlslpp::float4x4 projMatrix;
-        hlslpp::float4x4 viewProjMatrix;
-        hlslpp::float4x4 invViewProjMatrix;
-        hlslpp::float4x4 modelViewProjMatrix;
+        std::array<hlslpp::float4x4, RSP_EXTENDED_STACK_SIZE> viewMatrixStack;
+        std::array<hlslpp::float4x4, RSP_EXTENDED_STACK_SIZE> projMatrixStack;
+        std::array<hlslpp::float4x4, RSP_EXTENDED_STACK_SIZE> viewProjMatrixStack;
+        std::array<hlslpp::float4x4, RSP_EXTENDED_STACK_SIZE> invViewProjMatrixStack;
+        std::array<uint32_t, RSP_EXTENDED_STACK_SIZE> projectionMatrixSegmentedAddressStack;
+        std::array<uint32_t, RSP_EXTENDED_STACK_SIZE> projectionMatrixPhysicalAddressStack;
+        int projectionMatrixStackSize;
         uint16_t curViewProjIndex;
         uint16_t curTransformIndex;
         uint16_t curFogIndex;
         uint16_t curLightIndex;
         uint16_t curLookAtIndex;
         uint8_t curLightCount;
-        uint32_t projectionMatrixSegmentedAddress;
-        uint32_t projectionMatrixPhysicalAddress;
         bool projectionMatrixChanged;
         bool projectionMatrixInversed;
         bool viewportChanged;
+        hlslpp::float4x4 modelViewProjMatrix;
         bool modelViewProjChanged;
         bool modelViewProjInserted;
         int projectionIndex;
-        interop::RSPViewport viewport;
+        std::array<interop::RSPViewport, RSP_EXTENDED_STACK_SIZE> viewportStack;
+        int viewportStackSize;
         std::array<Vertex, RSP_MAX_VERTICES> vertices;
         std::array<uint32_t, RSP_MAX_VERTICES> indices;
         std::bitset<RSP_MAX_VERTICES> used;
@@ -151,8 +170,11 @@ namespace RT64 {
         bool lightsChanged;
         bool lookAtChanged;
         interop::RSPLookAt lookAt;
-        interop::OtherMode otherMode;
-        uint32_t geometryMode;
+        std::array<interop::OtherMode, RSP_EXTENDED_STACK_SIZE> otherModeStack;
+        int otherModeStackSize;
+        std::array<uint32_t, RSP_EXTENDED_STACK_SIZE> geometryModeStack;
+        int geometryModeStackSize;
+        TextureState textureState;
         uint32_t objRenderMode;
         interop::RSPFog fog;
         bool NoN;
@@ -172,14 +194,6 @@ namespace RT64 {
             // Seems to hold an id corresponding to the last command run.
             int8_t data_02AE;
         } S2D;
-
-        struct {
-            uint8_t tile = 0;
-            uint8_t levels = 0;
-            uint8_t on = 0;
-            uint16_t sc = 0;
-            uint16_t tc = 0;
-        } texture;
 
         struct {
             // For stateful methods.
@@ -210,6 +224,8 @@ namespace RT64 {
         void setSegment(uint32_t seg, uint32_t address);
         void matrix(uint32_t address, uint8_t params);
         void popMatrix(uint32_t count);
+        void pushProjectionMatrix();
+        void popProjectionMatrix();
         void insertMatrix(uint32_t address, uint32_t value);
         void forceMatrix(uint32_t address);
         void computeModelViewProj();
@@ -217,15 +233,21 @@ namespace RT64 {
         void setModelViewProjChanged(bool changed);
         void setVertex(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
         void setVertexPD(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
+        void setVertexEXV1(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
         void setVertexColorPD(uint32_t address);
+        template<bool addEmptyVelocity>
         void setVertexCommon(uint8_t dstIndex, uint8_t dstMax);
         void modifyVertex(uint16_t dstIndex, uint16_t dstAttribute, uint32_t value);
         void setGeometryMode(uint32_t mask);
+        void pushGeometryMode();
+        void popGeometryMode();
         void clearGeometryMode(uint32_t mask);
         void modifyGeometryMode(uint32_t offMask, uint32_t onMask);
         void setObjRenderMode(uint32_t value);
         void setViewport(uint32_t address);
         void setViewport(uint32_t address, uint16_t ori, int16_t offx, int16_t offy);
+        void pushViewport();
+        void popViewport();
         void setLight(uint8_t index, uint32_t address);
         void setLightColor(uint8_t index, uint32_t value);
         void setLightCount(uint8_t count);
@@ -238,6 +260,8 @@ namespace RT64 {
         void branchW(uint32_t branchDl, uint16_t vtxIndex, uint32_t wValue, DisplayList **dl);
         void setTexture(uint8_t tile, uint8_t level, uint8_t on, uint16_t sc, uint16_t tc);
         void setOtherMode(uint32_t high, uint32_t low);
+        void pushOtherMode();
+        void popOtherMode();
         void setOtherModeL(uint32_t size, uint32_t off, uint32_t data);
         void setOtherModeH(uint32_t size, uint32_t off, uint32_t data);
         void setColorImage(uint8_t fmt, uint8_t siz, uint16_t width, uint32_t segAddress);

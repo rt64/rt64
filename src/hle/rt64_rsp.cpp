@@ -38,24 +38,25 @@ namespace RT64 {
     }
 
     void RSP::reset() {
+        modelMatrixStackSize = 1;
+        projectionMatrixStackSize = 1;
+        viewportStackSize = 1;
+        geometryModeStackSize = 1;
+        otherModeStackSize = 1;
         modelMatrixStack.fill(hlslpp::float4x4(0.0f));
         modelMatrixSegmentedAddressStack.fill(0);
         modelMatrixPhysicalAddressStack.fill(0);
-        viewMatrix = hlslpp::float4x4(0.0f);
-        projMatrix = hlslpp::float4x4(0.0f);
-        viewProjMatrix = hlslpp::float4x4(0.0f);
-        invViewProjMatrix = hlslpp::float4x4(0.0f);
-        modelViewProjMatrix = hlslpp::float4x4(0.0f);
+        viewMatrixStack[0] = hlslpp::float4x4(0.0f);
+        projMatrixStack[0] = hlslpp::float4x4(0.0f);
+        viewProjMatrixStack[0] = hlslpp::float4x4(0.0f);
+        invViewProjMatrixStack[0] = hlslpp::float4x4(0.0f);
         vertices.fill({ 0 });
         indices.fill(0);
         used.reset();
         lights.fill({ 0 });
         segments.fill(0);
-
-        memset(&viewport, 0, sizeof(viewport));
-        memset(&texture, 0, sizeof(texture));
-
-        modelMatrixStackSize = 1;
+        viewportStack[0] = {};
+        textureState = {};
         curViewProjIndex = 0;
         curTransformIndex = 0;
         curFogIndex = 0;
@@ -63,11 +64,10 @@ namespace RT64 {
         curLightCount = 0;
         curLookAtIndex = 0;
         projectionIndex = -1;
-        projectionMatrixSegmentedAddress = 0;
-        projectionMatrixPhysicalAddress = 0;
         projectionMatrixChanged = false;
         projectionMatrixInversed = false;
         viewportChanged = false;
+        modelViewProjMatrix = hlslpp::float4x4(0.0f);
         modelViewProjChanged = false;
         modelViewProjInserted = false;
         lightCount = 0;
@@ -81,9 +81,9 @@ namespace RT64 {
         fog.offset = 0.0f;
         lookAt.x = { 0.0f, 0.0f, 0.0f };
         lookAt.y = { 0.0f, 0.0f, 0.0f };
-        otherMode.L = 0x0;
-        otherMode.H = 0x080CFF;
-        geometryMode = G_CLIPPING;
+        otherModeStack[0].L = 0x0;
+        otherModeStack[0].H = 0x080CFF;
+        geometryModeStack[0] = G_CLIPPING;
         fogChanged = true;
         lookAtChanged = true;
 
@@ -105,6 +105,11 @@ namespace RT64 {
         const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
 
         // Projection matrix.
+        hlslpp::float4x4 &viewMatrix = viewMatrixStack[projectionMatrixStackSize - 1];
+        hlslpp::float4x4 &projMatrix = projMatrixStack[projectionMatrixStackSize - 1];
+        hlslpp::float4x4 &viewProjMatrix = viewProjMatrixStack[projectionMatrixStackSize - 1];
+        uint32_t &projectionMatrixSegmentedAddress = projectionMatrixSegmentedAddressStack[projectionMatrixStackSize - 1];
+        uint32_t &projectionMatrixPhysicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
         if (params & projMask) {
             if (params & loadMask) {
                 viewProjMatrix = floatMatrix;
@@ -162,6 +167,27 @@ namespace RT64 {
             }
         }
     }
+
+    void RSP::pushProjectionMatrix() {
+        if (projectionMatrixStackSize < RSP_EXTENDED_STACK_SIZE) {
+            viewMatrixStack[projectionMatrixStackSize] = viewMatrixStack[projectionMatrixStackSize - 1];
+            projMatrixStack[projectionMatrixStackSize] = projMatrixStack[projectionMatrixStackSize - 1];
+            viewProjMatrixStack[projectionMatrixStackSize] = viewProjMatrixStack[projectionMatrixStackSize - 1];
+            invViewProjMatrixStack[projectionMatrixStackSize] = invViewProjMatrixStack[projectionMatrixStackSize - 1];
+            projectionMatrixSegmentedAddressStack[projectionMatrixStackSize] = projectionMatrixSegmentedAddressStack[projectionMatrixStackSize - 1];
+            projectionMatrixPhysicalAddressStack[projectionMatrixStackSize] = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
+            projectionMatrixStackSize++;
+        }
+    }
+
+    void RSP::popProjectionMatrix() {
+        if (projectionMatrixStackSize > 1) {
+            projectionMatrixStackSize--;
+            modelViewProjChanged = true;
+            projectionMatrixChanged = true;
+            projectionMatrixInversed = false;
+        }
+    }
     
     void RSP::insertMatrix(uint32_t address, uint32_t value) {
 #   ifdef LOG_SPECIAL_MATRIX_OPERATIONS
@@ -187,6 +213,7 @@ namespace RT64 {
         // Figure out which matrix should be modified and compute a relative address to it.
         uint32_t relAddr = 0;
         hlslpp::float4x4 *dstMat = nullptr;
+        hlslpp::float4x4 &viewProjMatrix = viewProjMatrixStack[projectionMatrixStackSize - 1];
         if (dstAddr >= (ModelViewProjAddress + MatrixSize)) {
             assert(false && "Undefined behavior due to destination address extending outside of the allowed bounds.");
             return;
@@ -239,6 +266,7 @@ namespace RT64 {
     }
 
     void RSP::computeModelViewProj() {
+        const hlslpp::float4x4 &viewProjMatrix = viewProjMatrixStack[projectionMatrixStackSize - 1];
         modelViewProjMatrix = hlslpp::mul(modelMatrixStack[modelMatrixStackSize - 1], viewProjMatrix);
         modelViewProjInserted = false;
         modelViewProjChanged = false;
@@ -267,7 +295,7 @@ namespace RT64 {
         const uint32_t rdramAddress = fromSegmented(address);
         const Vertex *dlVerts = reinterpret_cast<const Vertex *>(state->fromRDRAM(rdramAddress));
         memcpy(&vertices[dstIndex], dlVerts, sizeof(Vertex) * vtxCount);
-        setVertexCommon(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
     }
     
     void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
@@ -291,7 +319,27 @@ namespace RT64 {
             dst.color.a = col[0];
         }
 
-        setVertexCommon(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
+    }
+
+    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
+        assert(dstIndex < RSP_MAX_VERTICES);
+        assert((dstIndex + vtxCount) <= RSP_MAX_VERTICES);
+
+        const int workloadCursor = state->ext.workloadQueue->writeCursor;
+        Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
+        const uint32_t rdramAddress = fromSegmented(address);
+        const VertexEXV1 *dlVerts = reinterpret_cast<const VertexEXV1 *>(state->fromRDRAM(rdramAddress));
+        auto &velShorts = workload.drawData.velShorts;
+        for (uint32_t i = 0; i < vtxCount; i++) {
+            const VertexEXV1 &src = dlVerts[i];
+            velShorts.emplace_back(src.v.x - src.xp);
+            velShorts.emplace_back(src.v.y - src.yp);
+            velShorts.emplace_back(src.v.z - src.zp);
+            vertices[dstIndex + i] = src.v;
+        }
+
+        setVertexCommon<false>(dstIndex, dstIndex + vtxCount);
     }
 
     void RSP::setVertexColorPD(uint32_t address) {
@@ -299,6 +347,7 @@ namespace RT64 {
     }
 
     Projection::Type RSP::getCurrentProjectionType() const {
+        const hlslpp::float4x4 &projMatrix = projMatrixStack[projectionMatrixStackSize - 1];
         const bool perspProj = (projMatrix[3][3] == 0.0f) && (abs(projMatrix[1][1]) > 1e-6f);
         if (perspProj) {
             return Projection::Type::Perspective;
@@ -323,13 +372,13 @@ namespace RT64 {
             uint32_t transformsIndex = uint32_t(drawData.viewTransforms.size());
             curViewProjIndex = transformsIndex;
 
-            uint32_t physicalAddress = projectionMatrixPhysicalAddress;
+            uint32_t physicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
             workload.physicalAddressTransformMap[physicalAddress] = drawData.viewProjTransformGroups.size();
-            drawData.viewTransforms.emplace_back(viewMatrix);
-            drawData.projTransforms.emplace_back(projMatrix);
-            drawData.viewProjTransforms.emplace_back(viewProjMatrix);
+            drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
+            drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
+            drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
             drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdIndex);
-            drawData.rspViewports.emplace_back(viewport);
+            drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
             drawData.viewportOrigins.emplace_back(extended.viewportOrigin);
             projectionMatrixChanged = false;
             viewportChanged = false;
@@ -338,6 +387,7 @@ namespace RT64 {
         projectionIndex = fbPair.changeProjection(curViewProjIndex, type);
     }
 
+    template<bool addEmptyVelocity>
     void RSP::setVertexCommon(uint8_t dstIndex, uint8_t dstMax) {
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
@@ -369,12 +419,12 @@ namespace RT64 {
             modelViewProjInserted = false;
 
             if (!projectionMatrixInversed) {
-                invViewProjMatrix = hlslpp::inverse(viewProjMatrix);
+                invViewProjMatrixStack[projectionMatrixStackSize - 1] = hlslpp::inverse(viewProjMatrixStack[projectionMatrixStackSize - 1]);
                 projectionMatrixInversed = true;
             }
 
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
-            worldTransforms.emplace_back(hlslpp::mul(modelViewProjMatrix, invViewProjMatrix));
+            worldTransforms.emplace_back(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]));
         }
 
         if (addWorldTransform) {
@@ -394,6 +444,7 @@ namespace RT64 {
 
         // We push a new set of lights if a vertex actually uses it.
         const GBI *curGBI = state->ext.interpreter->hleGBI;
+        uint32_t &geometryMode = geometryModeStack[geometryModeStackSize - 1];
         const bool usesLighting = (geometryMode & G_LIGHTING);
         const bool usesPointLighting = curGBI->flags.pointLighting && (geometryMode & G_POINT_LIGHTING);
         if (usesLighting) {
@@ -511,9 +562,6 @@ namespace RT64 {
             posShorts.emplace_back(v.x);
             posShorts.emplace_back(v.y);
             posShorts.emplace_back(v.z);
-            velShorts.emplace_back(0);
-            velShorts.emplace_back(0);
-            velShorts.emplace_back(0);
             normColBytes.emplace_back(v.color.r);
             normColBytes.emplace_back(v.color.g);
             normColBytes.emplace_back(v.color.b);
@@ -526,26 +574,33 @@ namespace RT64 {
             lookAtIndices.emplace_back(curLookAtIndex);
             indices[i] = uint32_t(globalIndex) + (i - dstIndex);
             used[i] = false;
+
+            if constexpr (addEmptyVelocity) {
+                velShorts.emplace_back(0);
+                velShorts.emplace_back(0);
+                velShorts.emplace_back(0);
+            }
         }
 
         for (uint32_t i = dstIndex; i < dstMax; i++) {
             auto &v = vertices[i];
             const hlslpp::float4 tfPos = hlslpp::mul(hlslpp::float4(v.x, v.y, v.z, 1.0f), mvp);
+            const interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
             posTransformed.emplace_back(tfPos);
             posScreen.emplace_back((tfPos.xyz / hlslpp::float3(tfPos.w, -tfPos.w, tfPos.w)) * viewport.scale + viewport.translate);
         }
 
         if (usesTextureGen) {
-            const float TextureSc = static_cast<float>(texture.sc);
-            const float TextureTc = static_cast<float>(texture.tc);
+            const float TextureSc = static_cast<float>(textureState.sc);
+            const float TextureTc = static_cast<float>(textureState.tc);
             for (uint32_t i = dstIndex; i < dstMax; i++) {
                 tcFloats.emplace_back(TextureSc);
                 tcFloats.emplace_back(TextureTc);
             }
         }
         else {
-            const int32_t TextureSc = (int32_t)(texture.sc);
-            const int32_t TextureTc = (int32_t)(texture.tc);
+            const int32_t TextureSc = (int32_t)(textureState.sc);
+            const int32_t TextureTc = (int32_t)(textureState.tc);
             const double Divisor = 65536.0f * 32.0f;
             for (uint32_t i = dstIndex; i < dstMax; i++) {
                 tcFloats.emplace_back((float)((double)((vertices[i].s) * TextureSc) / Divisor));
@@ -674,16 +729,31 @@ namespace RT64 {
     }
 
     void RSP::setGeometryMode(uint32_t mask) {
-        geometryMode |= mask;
+        geometryModeStack[geometryModeStackSize - 1] |= mask;
         state->updateDrawStatusAttribute(DrawAttribute::GeometryMode);
     }
 
+    void RSP::pushGeometryMode() {
+        if (geometryModeStackSize < RSP_EXTENDED_STACK_SIZE) {
+            geometryModeStack[geometryModeStackSize] = geometryModeStack[geometryModeStackSize - 1];
+            geometryModeStackSize++;
+        }
+    }
+
+    void RSP::popGeometryMode() {
+        if (geometryModeStackSize > 1) {
+            geometryModeStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::GeometryMode);
+        }
+    }
+
     void RSP::clearGeometryMode(uint32_t mask) {
-        geometryMode &= ~mask;
+        geometryModeStack[geometryModeStackSize - 1] &= ~mask;
         state->updateDrawStatusAttribute(DrawAttribute::GeometryMode);
     }
 
     void RSP::modifyGeometryMode(uint32_t offMask, uint32_t onMask) {
+        uint32_t &geometryMode = geometryModeStack[geometryModeStackSize - 1];
         geometryMode &= offMask;
         geometryMode |= onMask;
         state->updateDrawStatusAttribute(DrawAttribute::GeometryMode);
@@ -701,6 +771,7 @@ namespace RT64 {
     void RSP::setViewport(uint32_t address, uint16_t ori, int16_t offx, int16_t offy) {
         const uint32_t rdramAddress = fromSegmented(address);
         const Vp_t *vp = reinterpret_cast<const Vp_t *>(state->fromRDRAM(rdramAddress));
+        interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
         viewport.scale.x = float(vp->vscale[1]) / 4.0f;
         viewport.scale.y = float(vp->vscale[0]) / 4.0f;
         viewport.scale.z = float(vp->vscale[3]) / DepthRange;
@@ -709,6 +780,20 @@ namespace RT64 {
         viewport.translate.z = float(vp->vtrans[3]) / DepthRange;
         extended.viewportOrigin = ori;
         viewportChanged = true;
+    }
+
+    void RSP::pushViewport() {
+        if (viewportStackSize < RSP_EXTENDED_STACK_SIZE) {
+            viewportStack[viewportStackSize] = viewportStack[viewportStackSize - 1];
+            viewportStackSize++;
+        }
+    }
+
+    void RSP::popViewport() {
+        if (viewportStackSize > 1) {
+            viewportStackSize--;
+            viewportChanged = true;
+        }
     }
     
     void RSP::setLight(uint8_t index, uint32_t address) {
@@ -768,26 +853,44 @@ namespace RT64 {
     }
     
     void RSP::setTexture(uint8_t tile, uint8_t level, uint8_t on, uint16_t sc, uint16_t tc) {
-        texture.tile = tile;
-        texture.levels = level + 1;
-        texture.on = on;
-        texture.sc = sc;
-        texture.tc = tc;
+        textureState.tile = tile;
+        textureState.levels = level + 1;
+        textureState.on = on;
+        textureState.sc = sc;
+        textureState.tc = tc;
     }
 
     void RSP::setOtherMode(uint32_t high, uint32_t low) {
+        interop::OtherMode &otherMode = otherModeStack[otherModeStackSize - 1];
         otherMode.H = high;
         otherMode.L = low;
         state->rdp->setOtherMode(otherMode.H, otherMode.L);
     }
 
+    void RSP::pushOtherMode() {
+        if (otherModeStackSize < RSP_EXTENDED_STACK_SIZE) {
+            otherModeStack[otherModeStackSize] = otherModeStack[otherModeStackSize - 1];
+            otherModeStackSize++;
+        }
+    }
+
+    void RSP::popOtherMode() {
+        if (otherModeStackSize > 1) {
+            otherModeStackSize--;
+            const interop::OtherMode &otherMode = otherModeStack[otherModeStackSize - 1];
+            state->rdp->setOtherMode(otherMode.H, otherMode.L);
+        }
+    }
+
     void RSP::setOtherModeL(uint32_t size, uint32_t off, uint32_t data) {
+        interop::OtherMode &otherMode = otherModeStack[otherModeStackSize - 1];
         const uint32_t mask = (((uint64_t)(1) << size) - 1) << off;
         otherMode.L = (otherMode.L & (~mask)) | data;
         state->rdp->setOtherMode(otherMode.H, otherMode.L);
     }
 
     void RSP::setOtherModeH(uint32_t size, uint32_t off, uint32_t data) {
+        interop::OtherMode &otherMode = otherModeStack[otherModeStackSize - 1];
         const uint32_t mask = (((uint64_t)(1) << size) - 1) << off;
         otherMode.H = (otherMode.H & (~mask)) | data;
         state->rdp->setOtherMode(otherMode.H, otherMode.L);
@@ -811,6 +914,7 @@ namespace RT64 {
         assert(cycleType != G_CYC_COPY);
 
         // Don't draw anything if both tris are being culled.
+        const uint32_t &geometryMode = geometryModeStack[geometryModeStackSize - 1];
         if ((geometryMode & cullBothMask) == cullBothMask) {
             return;
         }
@@ -829,10 +933,10 @@ namespace RT64 {
 
         // Check if the texture needs to be updated.
         auto &drawCall = state->drawCall;
-        if ((drawCall.textureOn != texture.on) || (drawCall.textureTile != texture.tile) || (drawCall.textureLevels != texture.levels)) {
-            drawCall.textureOn = texture.on;
-            drawCall.textureTile = texture.tile;
-            drawCall.textureLevels = texture.levels;
+        if ((drawCall.textureOn != textureState.on) || (drawCall.textureTile != textureState.tile) || (drawCall.textureLevels != textureState.levels)) {
+            drawCall.textureOn = textureState.on;
+            drawCall.textureTile = textureState.tile;
+            drawCall.textureLevels = textureState.levels;
             state->updateDrawStatusAttribute(DrawAttribute::Texture);
         }
 
@@ -892,9 +996,9 @@ namespace RT64 {
             visibleTri = (N.z >= 0.0f);
         }
 
-        const auto &scissor = state->rdp->scissorRect;
-        if (visibleTri && !scissor.isNull()) {
-            fbPair.scissorRect.merge(scissor);
+        const FixedRect &scissorRect = state->rdp->scissorRectStack[state->rdp->scissorStackSize - 1];
+        if (visibleTri && !scissorRect.isNull()) {
+            fbPair.scissorRect.merge(scissorRect);
 
             FixedRect drawRect;
             for (int i = 0; i < 3; i++) {
@@ -905,10 +1009,10 @@ namespace RT64 {
                 drawRect.lry = std::max(drawRect.lry, int32_t(hlslpp::ceil(v.y).x * 4.0f));
             }
 
-            drawRect = scissor.intersection(drawRect);
+            drawRect = scissorRect.intersection(drawRect);
             if (!drawRect.isNull()) {
                 fbPair.drawColorRect.merge(drawRect);
-                if (otherMode.zUpd()) {
+                if (otherModeStack[otherModeStackSize - 1].zUpd()) {
                     fbPair.drawDepthRect.merge(drawRect);
                 }
             }

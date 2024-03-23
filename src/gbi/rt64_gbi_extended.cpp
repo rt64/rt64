@@ -184,6 +184,101 @@ namespace RT64 {
             matrixGroupCommand(state, dl, true, true);
         }
 
+        void vertexV1(State *state, DisplayList **dl) {
+            uint8_t vtxCount = (*dl)->p0(12, 8);
+            uint8_t dstIndex = (*dl)->p0(1, 7) - vtxCount;
+            *dl = *dl + 1;
+            state->rsp->setVertexEXV1((*dl)->w1, vtxCount, dstIndex);
+        }
+
+        void pushViewportV1(State *state, DisplayList **dl) {
+            state->rsp->pushViewport();
+        }
+
+        void popViewportV1(State *state, DisplayList **dl) {
+            state->rsp->popViewport();
+        }
+
+        void pushScissorV1(State *state, DisplayList **dl) {
+            state->rdp->pushScissor();
+        }
+
+        void popScissorV1(State *state, DisplayList **dl) {
+            state->rdp->popScissor();
+        }
+
+        void pushOtherModeV1(State *state, DisplayList **dl) {
+            state->rsp->pushOtherMode();
+        }
+
+        void popOtherModeV1(State *state, DisplayList **dl) {
+            state->rsp->popOtherMode();
+        }
+
+        void pushCombineV1(State *state, DisplayList **dl) {
+            state->rdp->pushCombine();
+        }
+
+        void popCombineV1(State *state, DisplayList **dl) {
+            state->rdp->popCombine();
+        }
+
+        void pushProjectionMatrixV1(State *state, DisplayList **dl) {
+            state->rsp->pushProjectionMatrix();
+        }
+
+        void popProjectionMatrixV1(State *state, DisplayList **dl) {
+            state->rsp->popProjectionMatrix();
+        }
+
+        void pushEnvColorV1(State *state, DisplayList **dl) {
+            state->rdp->pushEnvColor();
+        }
+
+        void popEnvColorV1(State *state, DisplayList **dl) {
+            state->rdp->popEnvColor();
+        }
+
+        void pushBlendColorV1(State *state, DisplayList **dl) {
+            state->rdp->pushBlendColor();
+        }
+
+        void popBlendColorV1(State *state, DisplayList **dl) {
+            state->rdp->popBlendColor();
+        }
+
+        void pushFogColorV1(State *state, DisplayList **dl) {
+            state->rdp->pushFogColor();
+        }
+
+        void popFogColorV1(State *state, DisplayList **dl) {
+            state->rdp->popFogColor();
+        }
+
+        void pushFillColorV1(State *state, DisplayList **dl) {
+            state->rdp->pushFillColor();
+        }
+
+        void popFillColorV1(State *state, DisplayList **dl) {
+            state->rdp->popFillColor();
+        }
+
+        void pushPrimColorV1(State *state, DisplayList **dl) {
+            state->rdp->pushPrimColor();
+        }
+
+        void popPrimColorV1(State *state, DisplayList **dl) {
+            state->rdp->popPrimColor();
+        }
+
+        void pushGeometryModeV1(State *state, DisplayList **dl) {
+            state->rsp->pushGeometryMode();
+        }
+
+        void popGeometryModeV1(State *state, DisplayList **dl) {
+            state->rsp->popGeometryMode();
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -260,6 +355,29 @@ namespace RT64 {
             Map[G_EX_FORCEBRANCH_V1] = &forceBranchV1;
             Map[G_EX_SETRENDERTORAM_V1] = &setRenderToRAMV1;
             Map[G_EX_EDITGROUPBYADDRESS_V1] = &editGroupByAddressV1;
+            Map[G_EX_VERTEX_V1] = &vertexV1;
+            Map[G_EX_PUSHVIEWPORT_V1] = &pushViewportV1;
+            Map[G_EX_POPVIEWPORT_V1] = &popViewportV1;
+            Map[G_EX_PUSHSCISSOR_V1] = &pushScissorV1;
+            Map[G_EX_POPSCISSOR_V1] = &popScissorV1;
+            Map[G_EX_PUSHOTHERMODE_V1] = &pushOtherModeV1;
+            Map[G_EX_POPOTHERMODE_V1] = &popOtherModeV1;
+            Map[G_EX_PUSHCOMBINE_V1] = &pushCombineV1;
+            Map[G_EX_POPCOMBINE_V1] = &popCombineV1;
+            Map[G_EX_PUSHPROJMATRIX_V1] = &pushProjectionMatrixV1;
+            Map[G_EX_POPPROJMATRIX_V1] = &popProjectionMatrixV1;
+            Map[G_EX_PUSHENVCOLOR_V1] = &pushEnvColorV1;
+            Map[G_EX_POPENVCOLOR_V1] = &popEnvColorV1;
+            Map[G_EX_PUSHBLENDCOLOR_V1] = &pushBlendColorV1;
+            Map[G_EX_POPBLENDCOLOR_V1] = &popBlendColorV1;
+            Map[G_EX_PUSHFOGCOLOR_V1] = &pushFogColorV1;
+            Map[G_EX_POPFOGCOLOR_V1] = &popFogColorV1;
+            Map[G_EX_PUSHFILLCOLOR_V1] = &pushFillColorV1;
+            Map[G_EX_POPFILLCOLOR_V1] = &popFillColorV1;
+            Map[G_EX_PUSHPRIMCOLOR_V1] = &pushPrimColorV1;
+            Map[G_EX_POPPRIMCOLOR_V1] = &popPrimColorV1;
+            Map[G_EX_PUSHGEOMETRYMODE_V1] = &pushGeometryModeV1;
+            Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             MapInitialized = true;
         }
     }

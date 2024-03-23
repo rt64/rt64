@@ -75,16 +75,23 @@ namespace RT64 {
     }
 
     void RDP::reset() {
-        colorCombiner = { 0, 0 };
-        colorCombinerTexcoord = false;
+        colorCombinerStackSize = 1;
+        envColorStackSize = 1;
+        primColorStackSize = 1;
+        primDepthStackSize = 1;
+        blendColorStackSize = 1;
+        fogColorStackSize = 1;
+        fillColorStackSize = 1;
+        scissorStackSize = 1;
+        colorCombinerStack[0] = { 0, 0 };
         otherMode = { 0, 0 };
-        envColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-        primColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-        primLOD = { 0.0f, 0.0f };
-        primDepth = { 0.0f, 0.0f };
-        fogColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-        fillColorU32 = 0;
-        blendColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+        envColorStack[0] = {0.0f, 0.0f, 0.0f, 0.0f};
+        primColorStack[0] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        primLODStack[0] = { 0.0f, 0.0f };
+        primDepthStack[0] = { 0.0f, 0.0f };
+        fogColorStack[0] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        fillColorStack[0] = 0;
+        blendColorStack[0] = { 0.0f, 0.0f, 0.0f, 0.0f };
         keyCenter = { 0.0f, 0.0f, 0.0f };
         keyScale = { 0.0f, 0.0f, 0.0f };
         convertK[0] = 0;
@@ -93,8 +100,8 @@ namespace RT64 {
         convertK[3] = 0;
         convertK[4] = 0;
         convertK[5] = 0;
-        scissorRect = { 0, 0, 8192, 8192 };
-        scissorMode = 0;
+        scissorRectStack[0] = { 0, 0, 8192, 8192 };
+        scissorModeStack[0] = 0;
         pendingCommandCurrentBytes = 0;
         pendingCommandRemainingBytes = 0;
 
@@ -261,9 +268,24 @@ namespace RT64 {
     }
 
     void RDP::setCombine(uint64_t combine) {
+        interop::ColorCombiner &colorCombiner = colorCombinerStack[colorCombinerStackSize - 1];
         colorCombiner.L = combine & 0xFFFFFFFFULL;
         colorCombiner.H = (combine >> 32ULL) & 0xFFFFFFFFULL;
         state->updateDrawStatusAttribute(DrawAttribute::Combine);
+    }
+
+    void RDP::pushCombine() {
+        if (colorCombinerStackSize < RDP_EXTENDED_STACK_SIZE) {
+            colorCombinerStack[colorCombinerStackSize] = colorCombinerStack[colorCombinerStackSize - 1];
+            colorCombinerStackSize++;
+        }
+    }
+
+    void RDP::popCombine() {
+        if (colorCombinerStackSize > 1) {
+            colorCombinerStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::Combine);
+        }
     }
 
     void RDP::setTile(uint8_t tile, uint8_t fmt, uint8_t siz, uint16_t line, uint16_t tmem, uint8_t palette, uint8_t cmt, uint8_t cms, uint8_t maskt, uint8_t masks, uint8_t shiftt, uint8_t shifts) {
@@ -730,47 +752,119 @@ namespace RT64 {
     }
 
     void RDP::setEnvColor(uint32_t color) {
-        hlslpp::float4 *dst = &envColor;
-        dst->x = ((color >> 24) & 0xFF) / 255.0f;
-        dst->y = ((color >> 16) & 0xFF) / 255.0f;
-        dst->z = ((color >> 8) & 0xFF) / 255.0f;
-        dst->w = ((color >> 0) & 0xFF) / 255.0f;
+        hlslpp::float4 &envColor = envColorStack[envColorStackSize - 1];
+        envColor.x = ((color >> 24) & 0xFF) / 255.0f;
+        envColor.y = ((color >> 16) & 0xFF) / 255.0f;
+        envColor.z = ((color >> 8) & 0xFF) / 255.0f;
+        envColor.w = ((color >> 0) & 0xFF) / 255.0f;
         state->updateDrawStatusAttribute(DrawAttribute::EnvColor);
+    }
+
+    void RDP::pushEnvColor() {
+        if (envColorStackSize < RDP_EXTENDED_STACK_SIZE) {
+            envColorStack[envColorStackSize] = envColorStack[envColorStackSize - 1];
+            envColorStackSize++;
+        }
+    }
+
+    void RDP::popEnvColor() {
+        if (envColorStackSize > 1) {
+            envColorStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::EnvColor);
+        }
     }
     
     void RDP::setPrimColor(uint8_t lodFrac, uint8_t lodMin, uint32_t color) {
+        hlslpp::float2 &primLOD = primLODStack[primColorStackSize - 1];
         primLOD.x = lodFrac / 256.0f;
         primLOD.y = lodMin / 32.0f;
 
-        hlslpp::float4 *dst = &primColor;
-        dst->x = ((color >> 24) & 0xFF) / 255.0f;
-        dst->y = ((color >> 16) & 0xFF) / 255.0f;
-        dst->z = ((color >> 8) & 0xFF) / 255.0f;
-        dst->w = ((color >> 0) & 0xFF) / 255.0f;
+        hlslpp::float4 &primColor = primColorStack[primColorStackSize - 1];
+        primColor.x = ((color >> 24) & 0xFF) / 255.0f;
+        primColor.y = ((color >> 16) & 0xFF) / 255.0f;
+        primColor.z = ((color >> 8) & 0xFF) / 255.0f;
+        primColor.w = ((color >> 0) & 0xFF) / 255.0f;
         state->updateDrawStatusAttribute(DrawAttribute::PrimColor);
     }
 
+    void RDP::pushPrimColor() {
+        if (primColorStackSize < RDP_EXTENDED_STACK_SIZE) {
+            primColorStack[primColorStackSize] = primColorStack[primColorStackSize - 1];
+            primLODStack[primColorStackSize] = primLODStack[primColorStackSize - 1];
+            primColorStackSize++;
+        }
+    }
+
+    void RDP::popPrimColor() {
+        if (primColorStackSize > 1) {
+            primColorStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::PrimColor);
+        }
+    }
+
     void RDP::setBlendColor(uint32_t color) {
-        hlslpp::float4 *dst = &blendColor;
-        dst->x = ((color >> 24) & 0xFF) / 255.0f;
-        dst->y = ((color >> 16) & 0xFF) / 255.0f;
-        dst->z = ((color >> 8) & 0xFF) / 255.0f;
-        dst->w = ((color >> 0) & 0xFF) / 255.0f;
+        hlslpp::float4 &blendColor = blendColorStack[blendColorStackSize - 1];
+        blendColor.x = ((color >> 24) & 0xFF) / 255.0f;
+        blendColor.y = ((color >> 16) & 0xFF) / 255.0f;
+        blendColor.z = ((color >> 8) & 0xFF) / 255.0f;
+        blendColor.w = ((color >> 0) & 0xFF) / 255.0f;
         state->updateDrawStatusAttribute(DrawAttribute::BlendColor);
     }
 
+    void RDP::pushBlendColor() {
+        if (blendColorStackSize < RDP_EXTENDED_STACK_SIZE) {
+            blendColorStack[blendColorStackSize] = blendColorStack[blendColorStackSize - 1];
+            blendColorStackSize++;
+        }
+    }
+
+    void RDP::popBlendColor() {
+        if (blendColorStackSize > 1) {
+            blendColorStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::BlendColor);
+        }
+    }
+
     void RDP::setFogColor(uint32_t color) {
-        hlslpp::float4 *dst = &fogColor;
-        dst->x = ((color >> 24) & 0xFF) / 255.0f;
-        dst->y = ((color >> 16) & 0xFF) / 255.0f;
-        dst->z = ((color >> 8) & 0xFF) / 255.0f;
-        dst->w = ((color >> 0) & 0xFF) / 255.0f;
+        hlslpp::float4 &fogColor = fogColorStack[fogColorStackSize - 1];
+        fogColor.x = ((color >> 24) & 0xFF) / 255.0f;
+        fogColor.y = ((color >> 16) & 0xFF) / 255.0f;
+        fogColor.z = ((color >> 8) & 0xFF) / 255.0f;
+        fogColor.w = ((color >> 0) & 0xFF) / 255.0f;
         state->updateDrawStatusAttribute(DrawAttribute::FogColor);
     }
 
+    void RDP::pushFogColor() {
+        if (fogColorStackSize < RDP_EXTENDED_STACK_SIZE) {
+            fogColorStack[fogColorStackSize] = fogColorStack[fogColorStackSize - 1];
+            fogColorStackSize++;
+        }
+    }
+
+    void RDP::popFogColor() {
+        if (fogColorStackSize > 1) {
+            fogColorStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::FogColor);
+        }
+    }
+
     void RDP::setFillColor(uint32_t color) {
-        fillColorU32 = color;
+        fillColorStack[fillColorStackSize - 1] = color;
         state->updateDrawStatusAttribute(DrawAttribute::FillColor);
+    }
+
+    void RDP::pushFillColor() {
+        if (fillColorStackSize < RDP_EXTENDED_STACK_SIZE) {
+            fillColorStack[fillColorStackSize] = fillColorStack[fillColorStackSize - 1];
+            fillColorStackSize++;
+        }
+    }
+
+    void RDP::popFillColor() {
+        if (fillColorStackSize > 1) {
+            fillColorStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::FillColor);
+        }
     }
 
     void RDP::setOtherMode(uint32_t high, uint32_t low) {
@@ -782,6 +876,7 @@ namespace RT64 {
     void RDP::setPrimDepth(uint16_t z, uint16_t dz) {
         const float Fixed15ToFloat = 1.0f / 32767.0f;
         const float Fixed16ToFloat = 1.0f / 65535.0f;
+        hlslpp::float2 &primDepth = primDepthStack[primDepthStackSize - 1];
         primDepth.x = (z & 0x7FFFU) * Fixed15ToFloat;
         primDepth.y = (dz & 0xFFFFU) * Fixed16ToFloat;
         state->updateDrawStatusAttribute(DrawAttribute::PrimDepth);
@@ -792,14 +887,30 @@ namespace RT64 {
     }
     
     void RDP::setScissor(uint8_t mode, int32_t ulx, int32_t uly, int32_t lrx, int32_t lry, const ExtendedAlignment &extAlignment) {
+        FixedRect &scissorRect = scissorRectStack[scissorStackSize - 1];
         scissorRect.ulx = std::clamp(movedFromOrigin(ulx + extAlignment.leftOffset, extAlignment.leftOrigin), extAlignment.leftBound, extAlignment.rightBound);
         scissorRect.uly = std::clamp(uly + extAlignment.topOffset, extAlignment.topBound, extAlignment.bottomBound);
         scissorRect.lrx = std::clamp(movedFromOrigin(lrx + extAlignment.rightOffset, extAlignment.rightOrigin), extAlignment.leftBound, extAlignment.rightBound);
         scissorRect.lry = std::clamp(lry + extAlignment.bottomOffset, extAlignment.topBound, extAlignment.bottomBound);
-        scissorMode = mode;
+        scissorModeStack[scissorStackSize - 1] = mode;
         extended.scissorLeftOrigin = extAlignment.leftOrigin;
         extended.scissorRightOrigin = extAlignment.rightOrigin;
         state->updateDrawStatusAttribute(DrawAttribute::Scissor);
+    }
+
+    void RDP::pushScissor() {
+        if (scissorStackSize < RDP_EXTENDED_STACK_SIZE) {
+            scissorRectStack[scissorStackSize] = scissorRectStack[scissorStackSize - 1];
+            scissorModeStack[scissorStackSize] = scissorModeStack[scissorStackSize - 1];
+            scissorStackSize++;
+        }
+    }
+
+    void RDP::popScissor() {
+        if (scissorStackSize > 1) {
+            scissorStackSize--;
+            state->updateDrawStatusAttribute(DrawAttribute::Scissor);
+        }
     }
 
     void RDP::setConvert(int32_t k0, int32_t k1, int32_t k2, int32_t k3, int32_t k4, int32_t k5) {
@@ -931,9 +1042,9 @@ namespace RT64 {
         triColorFloats.insert(triColorFloats.end(), col, col + triCount * ColFloatsPerTri);
         drawCall.triangleCount += triCount;
 
-        const auto &scissor = state->rdp->scissorRect;
-        if (!scissor.isNull()) {
-            fbPair.scissorRect.merge(scissor);
+        const FixedRect &scissorRect = state->rdp->scissorRectStack[scissorStackSize - 1];
+        if (!scissorRect.isNull()) {
+            fbPair.scissorRect.merge(scissorRect);
 
             FixedRect drawRect;
             for (uint32_t i = 0; i < triCount * 3; i++) {
@@ -943,7 +1054,7 @@ namespace RT64 {
                 drawRect.lry = std::max(drawRect.lry, int32_t(ceilf(pos[i * PosFloatsPerVertex + 1]) * 4.0f));
             }
 
-            const FixedRect intRect = scissor.intersection(drawRect);
+            const FixedRect intRect = scissorRect.intersection(drawRect);
             if (!intRect.isNull()) {
                 fbPair.drawColorRect.merge(intRect);
                 if (otherMode.zUpd()) {
@@ -983,6 +1094,7 @@ namespace RT64 {
             fbPair.changeProjection(0, Projection::Type::Rectangle);
         }
 
+        const FixedRect &scissorRect = state->rdp->scissorRectStack[scissorStackSize - 1];
         if (!scissorRect.isNull()) {
             fbPair.scissorRect.merge(scissorRect);
 

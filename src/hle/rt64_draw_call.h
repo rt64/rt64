@@ -85,7 +85,7 @@ namespace RT64 {
         interop::ColorCombiner colorCombiner;
         interop::OtherMode otherMode;
         interop::RDPParams rdpParams;
-        uint32_t fillColorU32;
+        uint32_t fillColor;
         uint32_t tileIndex;
         uint32_t tileCount;
         uint32_t loadIndex;

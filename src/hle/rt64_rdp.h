@@ -27,6 +27,7 @@
 #define RDP_TMEM_MASK128            255
 #define RDP_TILES                   8
 #define RDP_ADDRESS_MASK            0xFFFFFF
+#define RDP_EXTENDED_STACK_SIZE     16
 
 #ifdef __GNUC__
 #   define __forceinline __attribute__((always_inline)) inline
@@ -100,18 +101,25 @@ namespace RT64 {
         GBI *gbi;
         std::array<uint8_t, 256> commandWordLengths;
         State *state;
-        interop::ColorCombiner colorCombiner;
-        bool colorCombinerTexcoord;
         interop::OtherMode otherMode;
-        hlslpp::float4 envColor;
-        hlslpp::float4 primColor;
-        hlslpp::float2 primLOD;
-        hlslpp::float2 primDepth;
-        hlslpp::float4 blendColor;
-        hlslpp::float4 fogColor;
-        uint32_t fillColorU32;
-        FixedRect scissorRect;
-        uint8_t scissorMode;
+        interop::ColorCombiner colorCombinerStack[RDP_EXTENDED_STACK_SIZE];
+        hlslpp::float4 envColorStack[RDP_EXTENDED_STACK_SIZE];
+        hlslpp::float4 primColorStack[RDP_EXTENDED_STACK_SIZE];
+        hlslpp::float2 primLODStack[RDP_EXTENDED_STACK_SIZE];
+        hlslpp::float2 primDepthStack[RDP_EXTENDED_STACK_SIZE];
+        hlslpp::float4 blendColorStack[RDP_EXTENDED_STACK_SIZE];
+        hlslpp::float4 fogColorStack[RDP_EXTENDED_STACK_SIZE];
+        uint32_t fillColorStack[RDP_EXTENDED_STACK_SIZE];
+        FixedRect scissorRectStack[RDP_EXTENDED_STACK_SIZE];
+        uint8_t scissorModeStack[RDP_EXTENDED_STACK_SIZE];
+        int colorCombinerStackSize;
+        int envColorStackSize;
+        int primColorStackSize;
+        int primDepthStackSize;
+        int blendColorStackSize;
+        int fogColorStackSize;
+        int fillColorStackSize;
+        int scissorStackSize;
         int32_t convertK[6];
         hlslpp::float3 keyCenter;
         hlslpp::float3 keyScale;
@@ -138,6 +146,8 @@ namespace RT64 {
         void setDepthImage(uint32_t address);
         void setTextureImage(uint8_t fmt, uint8_t siz, uint16_t width, uint32_t address);
         void setCombine(uint64_t combine);
+        void pushCombine();
+        void popCombine();
         void setTile(uint8_t tile, uint8_t fmt, uint8_t siz, uint16_t line, uint16_t tmem, uint8_t palette, uint8_t cmt, uint8_t cms, uint8_t maskt, uint8_t masks, uint8_t shiftt, uint8_t shifts);
         void setTileSize(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
         void loadTileOperation(const LoadTile &loadTile, const LoadTexture &loadTexture, bool deferred);
@@ -148,14 +158,26 @@ namespace RT64 {
         void loadBlock(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t dxt);
         void loadTLUT(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
         void setEnvColor(uint32_t color);
+        void pushEnvColor();
+        void popEnvColor();
         void setPrimColor(uint8_t lodFrac, uint8_t lodMin, uint32_t color);
+        void pushPrimColor();
+        void popPrimColor();
         void setBlendColor(uint32_t color);
+        void pushBlendColor();
+        void popBlendColor();
         void setFogColor(uint32_t color);
+        void pushFogColor();
+        void popFogColor();
         void setFillColor(uint32_t color);
+        void pushFillColor();
+        void popFillColor();
         void setOtherMode(uint32_t high, uint32_t low);
         void setPrimDepth(uint16_t z, uint16_t dz);
         void setScissor(uint8_t mode, int32_t ulx, int32_t uly, int32_t lrx, int32_t lry);
         void setScissor(uint8_t mode, int32_t ulx, int32_t uly, int32_t lrx, int32_t lry, const ExtendedAlignment &extAlignment);
+        void pushScissor();
+        void popScissor();
         void setConvert(int32_t k0, int32_t k1, int32_t k2, int32_t k3, int32_t k4, int32_t k5);
         void setKeyR(uint32_t cR, uint32_t sR, uint32_t wR);
         void setKeyGB(uint32_t cG, uint32_t sG, uint32_t wG, uint32_t cB, uint32_t sB, uint32_t wB);

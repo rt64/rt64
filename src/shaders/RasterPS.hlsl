@@ -248,8 +248,8 @@ void PSMain(
 #if defined(MULTISAMPLING)
     , in uint sampleIndex : SV_SampleIndex
 #endif
-    , out float4 resultColor : SV_TARGET0
-    , out float4 resultAlpha : SV_TARGET1
+    , [[vk::location(0)]] [[vk::index(0)]] out float4 resultColor : SV_TARGET0
+    , [[vk::location(0)]] [[vk::index(1)]] out float4 resultAlpha : SV_TARGET1
 #if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
     , out float resultDepth : SV_DEPTH
 #endif

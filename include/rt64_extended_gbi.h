@@ -48,7 +48,30 @@
 #define G_EX_FORCEBRANCH_V1         0x000011
 #define G_EX_SETRENDERTORAM_V1      0x000012
 #define G_EX_EDITGROUPBYADDRESS_V1  0x000013
-#define G_EX_MAX                    0x000014
+#define G_EX_VERTEX_V1              0x000014
+#define G_EX_PUSHVIEWPORT_V1        0x000015
+#define G_EX_POPVIEWPORT_V1         0x000016
+#define G_EX_PUSHSCISSOR_V1         0x000017
+#define G_EX_POPSCISSOR_V1          0x000018
+#define G_EX_PUSHOTHERMODE_V1       0x000019
+#define G_EX_POPOTHERMODE_V1        0x00001A
+#define G_EX_PUSHCOMBINE_V1         0x00001B
+#define G_EX_POPCOMBINE_V1          0x00001C
+#define G_EX_PUSHPROJMATRIX_V1      0x00001D
+#define G_EX_POPPROJMATRIX_V1       0x00001E
+#define G_EX_PUSHENVCOLOR_V1        0x00001F
+#define G_EX_POPENVCOLOR_V1         0x000020
+#define G_EX_PUSHBLENDCOLOR_V1      0x000021
+#define G_EX_POPBLENDCOLOR_V1       0x000022
+#define G_EX_PUSHFOGCOLOR_V1        0x000023
+#define G_EX_POPFOGCOLOR_V1         0x000024
+#define G_EX_PUSHFILLCOLOR_V1       0x000025
+#define G_EX_POPFILLCOLOR_V1        0x000026
+#define G_EX_PUSHPRIMCOLOR_V1       0x000027
+#define G_EX_POPPRIMCOLOR_V1        0x000028
+#define G_EX_PUSHGEOMETRYMODE_V1    0x000029
+#define G_EX_POPGEOMETRYMODE_V1     0x00002A
+#define G_EX_MAX                    0x00002B
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -83,6 +106,29 @@ typedef union {
     } values;
     unsigned long long dummy; // Force to 8-byte alignment
 } GfxCommand;
+
+typedef struct {
+    short ob[3];
+    unsigned short flag;
+    short tc[2];
+    unsigned char cn[4];
+    short obp[3];
+} VertexEXColor;
+
+typedef struct {
+    short ob[3];
+    unsigned short flag;
+    short tc[2];
+    signed char	n[3];
+    unsigned char a;
+    short obp[3];
+} VertexEXNormal;
+
+typedef union {
+    VertexEXColor v;
+    VertexEXNormal n;
+    long long alignment[3];
+} VertexEX;
 
 #define PARAM(value, bits, shift) \
     ((unsigned) (((unsigned)(value) & ((1U << (bits)) - 1U)) << (shift)))
@@ -309,6 +355,146 @@ typedef union {
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_EDITGROUPBYADDRESS_V1, 24, 0), \
         address, \
         PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17), \
+        0 \
+    )
+
+#define gEXVertexV1(cmd, vtx, count, v0) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_VERTEX_V1, 24, 0), \
+        PARAM((v0)+(n), 7, 1) | PARAM(n, 8, 12), \
+        0, \
+        (unsigned)vtx \
+    )
+
+#define gEXPushViewport(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHVIEWPORT_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopViewport(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPVIEWPORT_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushScissor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHSCISSOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopScissor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPSCISSOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushOtherMode(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHOTHERMODE_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopOtherMode(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPOTHERMODE_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushCombineMode(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHCOMBINE_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopCombineMode(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPCOMBINE_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushProjectionMatrix(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHPROJECTIONMATRIX_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopProjectionMatrix(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPPROJECTIONMATRIX_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushEnvColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHENVCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopEnvColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPENVCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushBlendColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHBLENDCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopBlendColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPBLENDCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushFogColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHFOGCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopFogColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPFOGCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushFillColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHFILLCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopFillColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPFILLCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushPrimColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHPRIMCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopPrimColor(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPPRIMCOLOR_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPushGeometryMode(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHGEOMETRYMODE_V1, 24, 0), \
+        0 \
+    )
+
+#define gEXPopGeometryMode(cmd) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPGEOMETRYMODE_V1, 24, 0), \
         0 \
     )
 

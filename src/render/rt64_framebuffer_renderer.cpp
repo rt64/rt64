@@ -1422,10 +1422,10 @@ namespace RT64 {
                     }
                     else {
                         if (fbPair.colorImage.siz == G_IM_SIZ_32b) {
-                            fillColor = ColorConverter::RGBA32::toRGBAF(call.callDesc.fillColorU32);
+                            fillColor = ColorConverter::RGBA32::toRGBAF(call.callDesc.fillColor);
                         }
                         else {
-                            fillColor = ColorConverter::RGBA16::toRGBAF(call.callDesc.fillColorU32 & 0xFFFF);
+                            fillColor = ColorConverter::RGBA16::toRGBAF(call.callDesc.fillColor & 0xFFFF);
                         }
                     }
 
