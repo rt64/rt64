@@ -60,7 +60,7 @@ namespace RT64 {
         if (tlut > 0) {
             const bool CI4 = (loadTile.siz == G_IM_SIZ_4b);
             const int32_t paletteOffset = CI4 ? (loadTile.palette << 7) : 0;
-            const int32_t bytesToHash = CI4 ? 0x100 : 0x800;
+            const int32_t bytesToHash = CI4 ? 0x80 : 0x800;
             const int32_t paletteAddress = (RDP_TMEM_BYTES >> 1) + paletteOffset;
             XXH3_64bits_update(&xxh3, &TMEM[paletteAddress], bytesToHash);
         }

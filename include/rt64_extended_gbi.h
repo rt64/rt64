@@ -353,7 +353,7 @@ typedef union {
 #define gEXEditGroupByAddress(cmd, address, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_EDITGROUPBYADDRESS_V1, 24, 0), \
-        address, \
+        (unsigned)(address), \
         PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17), \
         0 \
     )
@@ -363,7 +363,7 @@ typedef union {
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_VERTEX_V1, 24, 0), \
         PARAM((v0)+(n), 7, 1) | PARAM(n, 8, 12), \
         0, \
-        (unsigned)vtx \
+        (unsigned)(vtx) \
     )
 
 #define gEXPushViewport(cmd) \
