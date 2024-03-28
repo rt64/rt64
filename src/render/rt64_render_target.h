@@ -26,10 +26,10 @@ namespace RT64 {
         std::unique_ptr<RenderTextureView> textureView;
         std::unique_ptr<RenderTextureView> resolvedTextureView;
         std::unique_ptr<RenderTexture> downsampledTexture;
+        uint32_t downsampledTextureMultiplier = 0;
         std::unique_ptr<RenderTexture> dummyTexture;
         std::unique_ptr<RenderFramebuffer> textureFramebuffer;
         RenderMultisampling multisampling;
-        uint32_t downsampleScale = 0;
         RenderFormat format = RenderFormat::UNKNOWN;
         std::unique_ptr<RenderTargetCopyDescriptorSet> targetCopyDescSet;
         std::unique_ptr<TextureCopyDescriptorSet> textureCopyDescSet;
@@ -40,6 +40,8 @@ namespace RT64 {
         uint32_t height = 0;
         uint64_t textureRevision = 0;
         Framebuffer::Type type = Framebuffer::Type::None;
+        hlslpp::float2 resolutionScale = { 1.0f, 1.0f };
+        uint32_t downsampleMultiplier = 1;
         int32_t misalignX = 0;
         int32_t invMisalignX = 0;
         bool resolvedTextureDirty = false;
@@ -55,10 +57,10 @@ namespace RT64 {
         void setupDepthFramebuffer(RenderWorker *worker);
         void copyFromTarget(RenderWorker *worker, RenderTarget *src, uint32_t x, uint32_t y, uint32_t width, uint32_t height, const ShaderLibrary *shaderLibrary);
         void resolveFromTarget(RenderWorker *worker, RenderTarget *src);
-        void copyFromChanges(RenderWorker *worker, const FramebufferChange &fbChange, uint32_t fbWidth, uint32_t fbHeight, uint32_t rowStart, const hlslpp::float2 resolutionScale, const ShaderLibrary *shaderLibrary);
+        void copyFromChanges(RenderWorker *worker, const FramebufferChange &fbChange, uint32_t fbWidth, uint32_t fbHeight, uint32_t rowStart, const ShaderLibrary *shaderLibrary);
         void clearColorTarget(RenderWorker *worker);
         void clearDepthTarget(RenderWorker *worker);
-        void downsampleTarget(RenderWorker *worker, uint32_t scale, const ShaderLibrary *shaderLibrary);
+        void downsampleTarget(RenderWorker *worker, const ShaderLibrary *shaderLibrary);
         void resolveTarget(RenderWorker *worker);
         void markForResolve();
         bool usesResolve() const;

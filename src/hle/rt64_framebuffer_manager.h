@@ -166,9 +166,7 @@ namespace RT64 {
         Framebuffer *find(uint32_t address) const;
         Framebuffer *findMostRecentContaining(uint32_t address);
         Framebuffer *findMostRecentContaining(uint32_t addressStart, uint32_t addressEnd);
-        void writeChanges(RenderWorker *renderWorker, const FramebufferChangePool &fbChangePool, const FramebufferOperation &op, RenderTargetManager &targetManager, 
-            hlslpp::float2 resolutionScale, const ShaderLibrary *shaderLibrary);
-
+        void writeChanges(RenderWorker *renderWorker, const FramebufferChangePool &fbChangePool, const FramebufferOperation &op, RenderTargetManager &targetManager, const ShaderLibrary *shaderLibrary);
         void clearUsedTileCopies();
         uint64_t findTileCopyId(uint32_t width, uint32_t height);
         void createTileCopySetup(RenderWorker *renderWorker, const FramebufferOperation &op, hlslpp::float2 resolutionScale, RenderTargetManager &targetManager, std::unordered_set<RenderTarget *> *resizedTargets);

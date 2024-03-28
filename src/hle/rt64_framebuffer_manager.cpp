@@ -94,7 +94,7 @@ namespace RT64 {
     }
     
     void FramebufferManager::writeChanges(RenderWorker *renderWorker, const FramebufferChangePool &fbChangePool, const FramebufferOperation &op, 
-        RenderTargetManager &targetManager, const hlslpp::float2 resolutionScale, const ShaderLibrary *shaderLibrary)
+        RenderTargetManager &targetManager, const ShaderLibrary *shaderLibrary)
     {
         auto it = framebuffers.find(op.writeChanges.address);
         if ((it != framebuffers.end()) && (it->second.lastWriteType != Framebuffer::Type::None)) {
@@ -103,7 +103,7 @@ namespace RT64 {
             RenderTargetKey targetKey(it->second.addressStart, it->second.width, it->second.siz, it->second.lastWriteType);
             RenderTarget &target = targetManager.get(targetKey);
             if (!target.isEmpty()) {
-                target.copyFromChanges(renderWorker, *fbChange, it->second.width, it->second.height, 0, resolutionScale, shaderLibrary);
+                target.copyFromChanges(renderWorker, *fbChange, it->second.width, it->second.height, 0, shaderLibrary);
             }
         }
     }
@@ -155,13 +155,14 @@ namespace RT64 {
             const RenderTexture *framebufferTexture = tileCopy.texture.get();
             tileCopy.framebuffer = renderWorker->device->createFramebuffer(RenderFramebufferDesc(&framebufferTexture, 1));
         }
-
+        
         RenderTargetKey colorTargetKey(fbIt->second.addressStart, fbIt->second.width, fbIt->second.siz, Framebuffer::Type::Color);
         RenderTarget &colorTarget = targetManager.get(colorTargetKey);
         uint32_t rtWidth, rtHeight, rtMisalignX;
         RenderTarget::computeScaledSize(fbIt->second.width, fbIt->second.height, resolutionScale, rtWidth, rtHeight, rtMisalignX);
         if (colorTarget.resize(renderWorker, rtWidth, rtHeight)) {
             assert(resizedTargets != nullptr);
+            colorTarget.resolutionScale = resolutionScale;
             resizedTargets->emplace(&colorTarget);
             tileCopy.readColorFromStorage = true;
         }
@@ -172,6 +173,7 @@ namespace RT64 {
             if (depthTarget.resize(renderWorker, rtWidth, rtHeight)) {
                 assert(resizedTargets != nullptr);
                 resizedTargets->emplace(&depthTarget);
+                depthTarget.resolutionScale = resolutionScale;
                 tileCopy.readDepthFromStorage = true;
             }
         }
@@ -195,7 +197,7 @@ namespace RT64 {
             colorTarget.clearColorTarget(renderWorker);
             FramebufferChange *fbChange = fbIt->second.readChangeFromStorage(renderWorker, fbStorage, scratchChangePool, Framebuffer::Type::Color, fbIt->second.lastWriteFmt, maxFbPairIndex, 0, fbIt->second.height, shaderLibrary);
             if (fbChange != nullptr) {
-                colorTarget.copyFromChanges(renderWorker, *fbChange, fbIt->second.width, fbIt->second.height, 0, resolutionScale, shaderLibrary);
+                colorTarget.copyFromChanges(renderWorker, *fbChange, fbIt->second.width, fbIt->second.height, 0, shaderLibrary);
             }
         }
         
@@ -207,7 +209,7 @@ namespace RT64 {
                 depthTarget.clearDepthTarget(renderWorker);
                 FramebufferChange *fbChange = fbIt->second.readChangeFromStorage(renderWorker, fbStorage, scratchChangePool, Framebuffer::Type::Depth, fbIt->second.lastWriteFmt, maxFbPairIndex, 0, fbIt->second.height, shaderLibrary);
                 if (fbChange != nullptr) {
-                    depthTarget.copyFromChanges(renderWorker, *fbChange, fbIt->second.width, fbIt->second.height, 0, resolutionScale, shaderLibrary);
+                    depthTarget.copyFromChanges(renderWorker, *fbChange, fbIt->second.width, fbIt->second.height, 0, shaderLibrary);
                 }
             }
 
@@ -902,7 +904,7 @@ namespace RT64 {
             switch (op.type) {
             case FramebufferOperation::Type::WriteChanges: {
                 assert(fbChangePool != nullptr);
-                writeChanges(renderWorker, *fbChangePool, op, targetManager, resolutionScale, shaderLibrary);
+                writeChanges(renderWorker, *fbChangePool, op, targetManager, shaderLibrary);
                 break;
             }
             case FramebufferOperation::Type::CreateTileCopy: {

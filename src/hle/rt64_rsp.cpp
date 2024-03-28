@@ -360,10 +360,10 @@ namespace RT64 {
     void RSP::addCurrentProjection(Projection::Type type) {
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
-        if (extended.viewProjMatrixIdChanged) {
-            extended.curViewProjMatrixIdIndex = int(workload.drawData.transformGroups.size());
-            workload.drawData.transformGroups.emplace_back(extended.viewProjMatrixId);
-            extended.viewProjMatrixIdChanged = false;
+        if (extended.viewProjMatrixIdStackChanged) {
+            extended.curViewProjMatrixIdGroupIndex = int(workload.drawData.transformGroups.size());
+            workload.drawData.transformGroups.emplace_back(extended.viewProjMatrixIdStack[extended.viewProjMatrixIdStackSize - 1]);
+            extended.viewProjMatrixIdStackChanged = false;
         }
 
         FramebufferPair &fbPair = workload.fbPairs[workload.currentFramebufferPairIndex()];
@@ -377,7 +377,7 @@ namespace RT64 {
             drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
             drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
             drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
-            drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdIndex);
+            drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdGroupIndex);
             drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
             drawData.viewportOrigins.emplace_back(extended.viewportOrigin);
             projectionMatrixChanged = false;
@@ -394,7 +394,7 @@ namespace RT64 {
 
         if (extended.modelMatrixIdStackChanged) {
             const int stackIndex = extended.modelMatrixIdStackSize - 1;
-            extended.curModelMatrixIdStackIndex = int(workload.drawData.transformGroups.size());
+            extended.curModelMatrixIdGroupIndex = int(workload.drawData.transformGroups.size());
             workload.drawData.transformGroups.emplace_back(extended.modelMatrixIdStack[stackIndex]);
             extended.modelMatrixIdStackChanged = false;
         }
@@ -430,7 +430,7 @@ namespace RT64 {
         if (addWorldTransform) {
             uint32_t physicalAddress = modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1];
             workload.physicalAddressTransformMap[physicalAddress] = worldTransformGroups.size();
-            worldTransformGroups.emplace_back(extended.curModelMatrixIdStackIndex);
+            worldTransformGroups.emplace_back(extended.curModelMatrixIdGroupIndex);
             worldTransformSegmentedAddresses.emplace_back(modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1]);
             worldTransformPhysicalAddresses.emplace_back(physicalAddress);
             worldTransformVertexIndices.emplace_back(workload.drawData.vertexCount());
@@ -1049,7 +1049,7 @@ namespace RT64 {
         state->updateDrawStatusAttribute(DrawAttribute::ExtendedType);
     }
 
-    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, bool idIsAddress, bool editGroup) {
+    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup) {
         assert((!push || !proj) && "Push can't be used for projection matrices.");
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
@@ -1071,27 +1071,24 @@ namespace RT64 {
             }
         }
         else {
-            if (proj) {
-                dstGroup = &extended.viewProjMatrixId;
-                extended.viewProjMatrixIdChanged = true;
-            }
-            else {
-                if (push) {
-                    if (extended.modelMatrixIdStackSize < extended.modelMatrixIdStack.size()) {
-                        extended.modelMatrixIdStackSize++;
-                    }
-                    else {
-                        assert(false && "Stack is full.");
-                    }
+            auto &stack = proj ? extended.viewProjMatrixIdStack : extended.modelMatrixIdStack;
+            int &stackSize = proj ? extended.viewProjMatrixIdStackSize : extended.modelMatrixIdStackSize;
+            bool &stackChanged = proj ? extended.viewProjMatrixIdStackChanged : extended.modelMatrixIdStackChanged;
+            if (push) {
+                if (stackSize < stack.size()) {
+                    stackSize++;
                 }
-
-                const int stackIndex = extended.modelMatrixIdStackSize - 1;
-                dstGroup = &extended.modelMatrixIdStack[stackIndex];
-                extended.modelMatrixIdStackChanged = true;
+                else {
+                    assert(false && "Stack is full.");
+                }
             }
+
+            const int stackIndex = stackSize - 1;
+            dstGroup = &stack[stackIndex];
+            stackChanged = true;
         }
 
-        if (dstGroup != nullptr) {
+        if ((dstGroup != nullptr) && (!editGroup || (dstGroup->editable == G_EX_EDIT_ALLOW))) {
             if (!idIsAddress && !editGroup) {
                 dstGroup->matrixId = id;
             }
@@ -1105,16 +1102,18 @@ namespace RT64 {
             dstGroup->vertexInterpolation = vert;
             dstGroup->tileInterpolation = tile;
             dstGroup->ordering = order;
+            dstGroup->editable = editable;
         }
     }
 
-    void RSP::popMatrixId(uint8_t count) {
-        assert((count <= extended.modelMatrixIdStackSize) && "Pop has requested a larger amount of matrices than the ones present in the stack.");
-
-        while ((count > 0) && (extended.modelMatrixIdStackSize > 1)) {
+    void RSP::popMatrixId(uint8_t count, bool proj) {
+        int &stackSize = proj ? extended.viewProjMatrixIdStackSize : extended.modelMatrixIdStackSize;
+        bool &stackChanged = proj ? extended.viewProjMatrixIdStackChanged : extended.modelMatrixIdStackChanged;
+        assert((count <= stackSize) && "Pop has requested a larger amount of matrices than the ones present in the stack.");
+        while ((count > 0) && (stackSize > 1)) {
             count--;
-            extended.modelMatrixIdStackSize--;
-            extended.modelMatrixIdStackChanged = true;
+            stackSize--;
+            stackChanged = true;
         }
     }
 
@@ -1132,10 +1131,11 @@ namespace RT64 {
         extended.modelMatrixIdStack[0] = TransformGroup();
         extended.modelMatrixIdStackSize = 1;
         extended.modelMatrixIdStackChanged = false;
-        extended.curModelMatrixIdStackIndex = 0;
-        extended.viewProjMatrixId = TransformGroup();
-        extended.viewProjMatrixIdChanged = false;
-        extended.curViewProjMatrixIdIndex = 0;
+        extended.curModelMatrixIdGroupIndex = 0;
+        extended.viewProjMatrixIdStack[0] = TransformGroup();
+        extended.viewProjMatrixIdStackSize = 1;
+        extended.viewProjMatrixIdStackChanged = false;
+        extended.curViewProjMatrixIdGroupIndex = 0;
         extended.forceBranch = false;
     }
 

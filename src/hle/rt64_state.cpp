@@ -1314,7 +1314,7 @@ namespace RT64 {
                                 colorImg.fmt, pairCursor, colorFb->readHeight, readRowCount, ext.shaderLibrary);
 
                             if (colorFbChange != nullptr) {
-                                colorTarget->copyFromChanges(ext.framebufferGraphicsWorker, *colorFbChange, colorFb->width, readRowCount, colorFb->readHeight, resolutionScale, ext.shaderLibrary);
+                                colorTarget->copyFromChanges(ext.framebufferGraphicsWorker, *colorFbChange, colorFb->width, readRowCount, colorFb->readHeight, ext.shaderLibrary);
                             }
 
                             colorFb->readHeight = colorFb->height;
@@ -1358,7 +1358,7 @@ namespace RT64 {
                                     G_IM_FMT_DEPTH, pairCursor, depthFb->readHeight, readRowCount, ext.shaderLibrary);
 
                                 if (depthFbChange != nullptr) {
-                                    depthTarget->copyFromChanges(ext.framebufferGraphicsWorker, *depthFbChange, depthFb->width, readRowCount, depthFb->readHeight, resolutionScale, ext.shaderLibrary);
+                                    depthTarget->copyFromChanges(ext.framebufferGraphicsWorker, *depthFbChange, depthFb->width, readRowCount, depthFb->readHeight, ext.shaderLibrary);
                                     depthFbChanged = true;
                                 }
 

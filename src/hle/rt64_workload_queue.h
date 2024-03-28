@@ -47,6 +47,7 @@ namespace RT64 {
 
         struct WorkloadConfiguration {
             hlslpp::float2 resolutionScale = 1.0f;
+            uint32_t downsampleMultiplier = 1;
             bool raytracingEnabled = false;
             float aspectRatioSource = 1.0f;
             float aspectRatioTarget = 1.0f;

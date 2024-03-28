@@ -30,7 +30,6 @@ namespace RT64 {
         uint32_t swapChainHeight = 0;
         uint32_t swapChainRate = 0;
         hlslpp::float2 resolutionScale = 1.0f;
-        uint32_t downsampleMultiplier = 1;
         uint32_t targetRate = 0;
         UserConfiguration userConfig;
         EnhancementConfiguration enhancementConfig;

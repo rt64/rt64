@@ -11,6 +11,9 @@
 #define ENABLE_HIGH_RESOLUTION_RENDERER 1
 
 namespace RT64 {
+    static const int ReferenceHeight = 240;
+    static const int ReferenceInterlacedHeight = 480;
+
     // WorkloadQueue
 
     WorkloadQueue::WorkloadQueue() {
@@ -150,11 +153,10 @@ namespace RT64 {
         // Compute the resolution scaling to be used for the frame.
         float resolutionMultiplier;
         const auto resolutionMode = ext.sharedResources->userConfig.resolution;
-        const int integerReferenceHeight = 240;
         switch (resolutionMode) {
         case UserConfiguration::Resolution::WindowIntegerScale:
             if (ext.sharedResources->swapChainHeight > 0) {
-                resolutionMultiplier = std::max(float((ext.sharedResources->swapChainHeight + integerReferenceHeight - 1) / integerReferenceHeight), 1.0f);
+                resolutionMultiplier = std::max(float((ext.sharedResources->swapChainHeight + ReferenceHeight - 1) / ReferenceHeight), 1.0f);
             }
             else {
                 resolutionMultiplier = 1.0f;
@@ -170,15 +172,14 @@ namespace RT64 {
             break;
         }
 
-        uint32_t downsampleMultiplier = ext.sharedResources->userConfig.downsampleMultiplier;
         uint32_t msaaSampleCount = ext.sharedResources->userConfig.msaaSampleCount();
 
         // Build the resolution scale vector from the configuration.
         workloadConfig.aspectRatioScale = workloadConfig.aspectRatioTarget / workloadConfig.aspectRatioSource;
         workloadConfig.resolutionScale = { resolutionMultiplier * workloadConfig.aspectRatioScale, resolutionMultiplier };
+        workloadConfig.downsampleMultiplier = ext.sharedResources->userConfig.downsampleMultiplier;
         workloadConfig.extAspectPercentage = float(ext.sharedResources->userConfig.extAspectPercentage);
         ext.sharedResources->resolutionScale = workloadConfig.resolutionScale;
-        ext.sharedResources->downsampleMultiplier = downsampleMultiplier;
 
         // Find the target refresh rate from the configuration.
         const auto refreshRate = ext.sharedResources->userConfig.refreshRate;
@@ -368,10 +369,17 @@ namespace RT64 {
                 const auto &depthImg = fbPair.depthImage;
                 fixedResScale = workloadConfig.resolutionScale;
                 if (!fbPair.drawColorRect.isEmpty()) {
-                    fixedResScale = RenderTarget::computeFixedResolutionScale(colorImg.width, fixedResScale);
-
                     nativeColorWidth = colorImg.width;
                     nativeColorHeight = fbPair.drawColorRect.bottom(true);
+
+                    // When the target is much bigger than the reference height, we reduce the resolution scaling (but clamped to 1.0).
+                    const int referenceMiddleHeight = (ReferenceHeight + ReferenceInterlacedHeight) / 2;
+                    uint32_t downsampleMultiplier = workloadConfig.downsampleMultiplier;
+                    if ((nativeColorHeight >= referenceMiddleHeight) && (fixedResScale[1] >= 2.0f)) {
+                        fixedResScale = hlslpp::max(fixedResScale / 2.0f, hlslpp::float2(1.0f, 1.0f));
+                        downsampleMultiplier = std::max(downsampleMultiplier / 2U, 1U);
+                    }
+
                     colorFb = &fbManager.get(colorImg.address, colorImg.siz, nativeColorWidth, nativeColorHeight);
                     depthFb = nullptr;
                     if (fbPair.depthRead || fbPair.depthWrite) {
@@ -391,17 +399,21 @@ namespace RT64 {
                         fbKey.modifierKey = overrideTargetModifier;
                     }
 
+                    fixedResScale = RenderTarget::computeFixedResolutionScale(colorImg.width, fixedResScale);
                     RenderTarget::computeScaledSize(nativeColorWidth, nativeColorHeight, fixedResScale, targetWidth, targetHeight, targetMisalignX);
 
                     // The desired size should not not be less than the existing size of the color and depth targets.
                     rtWidth = std::max(targetWidth, colorTarget->width);
                     rtHeight = std::max(targetHeight, colorTarget->height);
+                    colorTarget->resolutionScale = fixedResScale;
+                    colorTarget->downsampleMultiplier = downsampleMultiplier;
                     colorTarget->misalignX = targetMisalignX;
                     colorTarget->invMisalignX = (targetMisalignX > 0) ? (std::lround(fixedResScale.y) - targetMisalignX) : 0;
 
                     if (depthFb != nullptr) {
                         fbKey.depthTargetKey = RenderTargetKey(depthFb->addressStart, depthFb->width, depthFb->siz, Framebuffer::Type::Depth);
                         depthTarget = &targetManager.get(fbKey.depthTargetKey);
+                        depthTarget->resolutionScale = fixedResScale;
                         rtWidth = std::max(rtWidth, depthTarget->width);
                         rtHeight = std::max(rtHeight, depthTarget->height);
                     }
@@ -629,7 +641,7 @@ namespace RT64 {
                             Framebuffer::Type::Color, colorImg.fmt, f, colorFb->readHeight, readRowCount, ext.shaderLibrary);
 
                         if (colorFbChange != nullptr) {
-                            colorTarget->copyFromChanges(ext.workloadGraphicsWorker, *colorFbChange, colorFb->width, readRowCount, colorFb->readHeight, fixedResScale, ext.shaderLibrary);
+                            colorTarget->copyFromChanges(ext.workloadGraphicsWorker, *colorFbChange, colorFb->width, readRowCount, colorFb->readHeight, ext.shaderLibrary);
                         }
 
                         colorFb->readHeight = colorFb->height;
@@ -666,7 +678,7 @@ namespace RT64 {
                                 G_IM_FMT_DEPTH, f, depthFb->readHeight, readRowCount, ext.shaderLibrary);
 
                             if (depthFbChange != nullptr) {
-                                depthTarget->copyFromChanges(ext.workloadGraphicsWorker, *depthFbChange, depthFb->width, readRowCount, depthFb->readHeight, fixedResScale, ext.shaderLibrary);
+                                depthTarget->copyFromChanges(ext.workloadGraphicsWorker, *depthFbChange, depthFb->width, readRowCount, depthFb->readHeight, ext.shaderLibrary);
                                 depthFbChanged = true;
                             }
 

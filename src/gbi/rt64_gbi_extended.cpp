@@ -143,7 +143,8 @@ namespace RT64 {
             const uint8_t vert = (*dl)->p0(13, 2);
             const uint8_t tile = (*dl)->p0(15, 2);
             const uint8_t order = (*dl)->p0(17, 2);
-            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, idIsAddress, editGroup);
+            const uint8_t editable = (*dl)->p0(18, 1);
+            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, editable, idIsAddress, editGroup);
         }
 
         void matrixGroupV1(State *state, DisplayList **dl) {
@@ -152,7 +153,8 @@ namespace RT64 {
 
         void popMatrixGroupV1(State *state, DisplayList **dl) {
             const uint8_t popCount = (*dl)->p1(0, 8);
-            state->rsp->popMatrixId(popCount);
+            const uint8_t proj = (*dl)->p0(8, 1);
+            state->rsp->popMatrixId(popCount, proj);
         }
 
         void forceUpscale2DV1(State *state, DisplayList **dl) {

@@ -75,7 +75,7 @@ namespace RT64 {
         this->width = width;
         this->height = height;
 
-        downsampleScale = 0;
+        downsampledTextureMultiplier = 0;
         format = ColorBufferFormat;
         
         RenderClearValue clearValue = RenderClearValue::Color(RenderColor(), format);
@@ -99,7 +99,7 @@ namespace RT64 {
         this->width = width;
         this->height = height;
 
-        downsampleScale = 0;
+        downsampledTextureMultiplier = 0;
         format = DepthBufferFormat;
         
         RenderClearValue clearValue = RenderClearValue::Depth(RenderDepth(), RenderFormat::D32_FLOAT);
@@ -206,7 +206,7 @@ namespace RT64 {
         worker->commandList->resolveTextureRegion(texture.get(), 0, 0, src->texture.get(), &srcRect);
     }
 
-    void RenderTarget::copyFromChanges(RenderWorker *worker, const FramebufferChange &fbChange, uint32_t fbWidth, uint32_t fbHeight, uint32_t rowStart, const hlslpp::float2 resolutionScale, const ShaderLibrary *shaderLibrary) {
+    void RenderTarget::copyFromChanges(RenderWorker *worker, const FramebufferChange &fbChange, uint32_t fbWidth, uint32_t fbHeight, uint32_t rowStart, const ShaderLibrary *shaderLibrary) {
         assert(worker != nullptr);
         assert(fbChange.used);
 
@@ -312,7 +312,7 @@ namespace RT64 {
         markForResolve();
     }
 
-    void RenderTarget::downsampleTarget(RenderWorker *worker, uint32_t scale, const ShaderLibrary *shaderLibrary) {
+    void RenderTarget::downsampleTarget(RenderWorker *worker, const ShaderLibrary *shaderLibrary) {
         assert(worker != nullptr);
 
         resolveTarget(worker);
@@ -323,16 +323,17 @@ namespace RT64 {
             interop::int2 Misalignment;
         };
 
-        if (downsampleScale != scale) {
+        if (downsampledTextureMultiplier != downsampleMultiplier) {
             downsampledTexture.reset(nullptr);
-            downsampleScale = 0;
+            downsampledTextureMultiplier = 0;
         }
 
-        uint32_t scaledWidth = std::max(width / scale, 1U);
-        uint32_t scaledHeight = std::max(height / scale, 1U);
+        uint32_t scaledWidth = std::max(width / downsampleMultiplier, 1U);
+        uint32_t scaledHeight = std::max(height / downsampleMultiplier, 1U);
         if (downsampledTexture == nullptr) {
             downsampledTexture = worker->device->createTexture(RenderTextureDesc::Texture2D(scaledWidth, scaledHeight, 1, ColorBufferFormat, RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
             downsampledTexture->setName("Render Target Downsampled");
+            downsampledTextureMultiplier = downsampleMultiplier;
         }
 
         if (filterDescSet == nullptr) {
@@ -345,8 +346,8 @@ namespace RT64 {
         BoxFilterCB boxFilterCB;
         boxFilterCB.Resolution[0] = width;
         boxFilterCB.Resolution[1] = height;
-        boxFilterCB.ResolutionScale[0] = scale;
-        boxFilterCB.ResolutionScale[1] = scale;
+        boxFilterCB.ResolutionScale[0] = downsampleMultiplier;
+        boxFilterCB.ResolutionScale[1] = downsampleMultiplier;
         boxFilterCB.Misalignment[0] = invMisalignX;
         boxFilterCB.Misalignment[1] = 0;
         
@@ -365,8 +366,6 @@ namespace RT64 {
         worker->commandList->setComputePushConstants(0, &boxFilterCB);
         worker->commandList->setComputeDescriptorSet(filterDescSet->get(), 0);
         worker->commandList->dispatch(dispatchX, dispatchY, 1);
-
-        downsampleScale = scale;
     }
 
     void RenderTarget::resolveTarget(RenderWorker *worker) {

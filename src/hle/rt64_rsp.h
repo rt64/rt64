@@ -209,10 +209,11 @@ namespace RT64 {
             std::array<TransformGroup, RSP_MATRIX_ID_STACK_SIZE> modelMatrixIdStack;
             int modelMatrixIdStackSize;
             bool modelMatrixIdStackChanged;
-            int curModelMatrixIdStackIndex;
-            TransformGroup viewProjMatrixId;
-            bool viewProjMatrixIdChanged;
-            int curViewProjMatrixIdIndex;
+            int curModelMatrixIdGroupIndex;
+            std::array<TransformGroup, RSP_MATRIX_ID_STACK_SIZE> viewProjMatrixIdStack;
+            int viewProjMatrixIdStackSize;
+            bool viewProjMatrixIdStackChanged;
+            int curViewProjMatrixIdGroupIndex;
             bool forceBranch;
         } extended;
 
@@ -272,8 +273,8 @@ namespace RT64 {
         void setViewportAlign(uint16_t ori, int16_t offx, int16_t offy);
         void vertexTestZ(uint8_t vtxIndex);
         void endVertexTestZ();
-        void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, bool idIsAddress, bool editGroup);
-        void popMatrixId(uint8_t count);
+        void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup);
+        void popMatrixId(uint8_t count, bool proj);
         void forceBranch(bool force);
         void clearExtended();
         void setGBI(GBI *gbi);

@@ -97,7 +97,6 @@ namespace RT64 {
         RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
         const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
         hlslpp::float2 resolutionScale;
-        uint32_t downsampleMultiplier;
         EnhancementConfiguration::Presentation::Mode presentationMode;
         UserConfiguration::RefreshRate refreshRate;
         UserConfiguration::Filtering filtering;
@@ -106,7 +105,6 @@ namespace RT64 {
         {
             std::scoped_lock<std::mutex> configurationLock(ext.sharedResources->configurationMutex);
             resolutionScale = ext.sharedResources->resolutionScale;
-            downsampleMultiplier = ext.sharedResources->downsampleMultiplier;
             presentationMode = ext.sharedResources->enhancementConfig.presentation.mode;
             refreshRate = ext.sharedResources->userConfig.refreshRate;
             filtering = ext.sharedResources->userConfig.filtering;
@@ -114,7 +112,6 @@ namespace RT64 {
             targetRate = ext.sharedResources->targetRate;
         }
 
-        bool lowResolutionTarget = false;
         RenderTarget *colorTarget = nullptr;
         int32_t framesToPresent = 1;
         bool lockedWorkloadMutex = false;
@@ -233,6 +230,8 @@ namespace RT64 {
                 RenderTargetKey colorTargetKey(fbAddress, scratchFb.width, scratchFb.siz, Framebuffer::Type::Color);
                 colorTarget = &targetManager.get(colorTargetKey, true);
                 colorTarget->resize(ext.presentGraphicsWorker, scratchFb.width, scratchFb.height);
+                colorTarget->resolutionScale = { 1.0f, 1.0f };
+                colorTarget->downsampleMultiplier = 1;
 
                 scratchFb.nativeTarget.resetBufferHistory();
 
@@ -243,12 +242,11 @@ namespace RT64 {
                         G_IM_FMT_RGBA, present.storage.data(), 0, scratchFb.height, ext.shaderLibrary);
 
                     if (colorFbChange != nullptr) {
-                        colorTarget->copyFromChanges(ext.presentGraphicsWorker, *colorFbChange, scratchFb.width, scratchFb.height, 0, 1.0f, ext.shaderLibrary);
+                        colorTarget->copyFromChanges(ext.presentGraphicsWorker, *colorFbChange, scratchFb.width, scratchFb.height, 0, ext.shaderLibrary);
                     }
                 }
 
                 scratchFbChangePool.reset();
-                lowResolutionTarget = true;
 
                 if (!present.paused && (viHistory.top().vi != present.screenVI)) {
                     viHistory.pushVI(present.screenVI, fbSize.x);
@@ -317,18 +315,18 @@ namespace RT64 {
                     renderParams.swapChain = ext.swapChain;
                     renderParams.shaderLibrary = ext.shaderLibrary;
                     renderParams.textureFormat = colorTarget->format;
-                    renderParams.resolutionScale = lowResolutionTarget ? hlslpp::float2(1.0f, 1.0f) : resolutionScale;
+                    renderParams.resolutionScale = colorTarget->resolutionScale;
                     renderParams.downsamplingScale = 1;
                     renderParams.filtering = filtering;
                     renderParams.vi = &present.screenVI;
 
-                    const bool useDownsampling = !lowResolutionTarget && (downsampleMultiplier > 1);
+                    const bool useDownsampling = (colorTarget->downsampleMultiplier > 1);
                     if (useDownsampling) {
-                        colorTarget->downsampleTarget(ext.presentGraphicsWorker, downsampleMultiplier, ext.shaderLibrary);
+                        colorTarget->downsampleTarget(ext.presentGraphicsWorker, ext.shaderLibrary);
                         renderParams.texture = colorTarget->downsampledTexture.get();
-                        renderParams.textureWidth = colorTarget->width / colorTarget->downsampleScale;
-                        renderParams.textureHeight = colorTarget->height / colorTarget->downsampleScale;
-                        renderParams.downsamplingScale = colorTarget->downsampleScale;
+                        renderParams.textureWidth = colorTarget->width / colorTarget->downsampleMultiplier;
+                        renderParams.textureHeight = colorTarget->height / colorTarget->downsampleMultiplier;
+                        renderParams.downsamplingScale = colorTarget->downsampleMultiplier;
                     }
                     else {
                         colorTarget->resolveTarget(ext.presentGraphicsWorker);
