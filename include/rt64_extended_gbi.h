@@ -302,14 +302,14 @@ typedef union {
         0 \
     )
 
-#define gEXMatrixGroupSimple(cmd, id, push, proj, pos, rot, persp, vert, tile, order) \
-    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, pos, rot, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, persp, vert, tile, order)
+#define gEXMatrixGroupSimple(cmd, id, push, proj, pos, rot, persp, vert, tile, order, edit) \
+    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, pos, rot, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, persp, vert, tile, order, edit)
 
-#define gEXMatrixGroupDecomposed(cmd, id, push, proj, pos, rot, scale, skew, persp, vert, tile, order) \
-    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_DECOMPOSE, push, proj, pos, rot, scale, skew, persp, vert, tile, order)
+#define gEXMatrixGroupDecomposed(cmd, id, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit) \
+    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_DECOMPOSE, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit)
     
-#define gEXMatrixGroupNoInterpolate(cmd, push, proj) \
-    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR)
+#define gEXMatrixGroupNoInterpolate(cmd, push, proj, edit) \
+    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit)
 
 #define gEXPopMatrixGroup(cmd, proj) \
     G_EX_COMMAND1(cmd, \
