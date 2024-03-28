@@ -94,6 +94,9 @@
 #define G_EX_ORDER_LINEAR           0x0
 #define G_EX_ORDER_AUTO             0x1
 
+#define G_EX_EDIT_NONE              0x0
+#define G_EX_EDIT_ALLOW             0x1
+
 #define G_EX_BILERP_NONE            0x0
 #define G_EX_BILERP_ONLY            0x1
 #define G_EX_BILERP_ALL             0x2
@@ -291,11 +294,11 @@ typedef union {
         0 \
     )
 
-#define gEXMatrixGroup(cmd, id, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order) \
+#define gEXMatrixGroup(cmd, id, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIXGROUP_V1, 24, 0), \
         id, \
-        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17), \
+        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17) | PARAM(edit, 1, 18), \
         0 \
     )
 
@@ -308,16 +311,16 @@ typedef union {
 #define gEXMatrixGroupNoInterpolate(cmd, push, proj) \
     gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR)
 
-#define gEXPopMatrixGroup(cmd) \
+#define gEXPopMatrixGroup(cmd, proj) \
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPMATRIXGROUP_V1, 24, 0), \
-        PARAM(1, 8, 0) \
+        PARAM(1, 8, 0) | PARAM(proj, 1, 8) \
     )
 
-#define gEXPopMatrixGroupN(cmd, count) \
+#define gEXPopMatrixGroupN(cmd, proj, count) \
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPMATRIXGROUP_V1, 24, 0), \
-        PARAM(count, 8, 0) \
+        PARAM(count, 8, 0) | PARAM(proj, 1, 8) \
     )
 
 #define gEXForceUpscale2D(cmd, force) \
@@ -354,7 +357,7 @@ typedef union {
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_EDITGROUPBYADDRESS_V1, 24, 0), \
         (unsigned)(address), \
-        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17), \
+        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17) | PARAM(G_EX_EDIT_ALLOW, 1, 18), \
         0 \
     )
 
@@ -416,13 +419,13 @@ typedef union {
 
 #define gEXPushProjectionMatrix(cmd) \
     G_EX_COMMAND1(cmd, \
-        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHPROJECTIONMATRIX_V1, 24, 0), \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_PUSHPROJMATRIX_V1, 24, 0), \
         0 \
     )
 
 #define gEXPopProjectionMatrix(cmd) \
     G_EX_COMMAND1(cmd, \
-        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPPROJECTIONMATRIX_V1, 24, 0), \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPPROJMATRIX_V1, 24, 0), \
         0 \
     )
 
