@@ -205,9 +205,11 @@ namespace RT64 {
         worker->commandList->barriers(RenderBarrierStage::COPY, resolveBarriers, uint32_t(std::size(resolveBarriers)));
         worker->commandList->resolveTextureRegion(texture.get(), 0, 0, src->texture.get(), &srcRect);
 
-        // Copy attributes from source.
+        // Copy scaling attributes from source.
         resolutionScale = src->resolutionScale;
         downsampleMultiplier = src->downsampleMultiplier;
+        misalignX = src->misalignX;
+        invMisalignX = src->invMisalignX;
     }
 
     void RenderTarget::copyFromChanges(RenderWorker *worker, const FramebufferChange &fbChange, uint32_t fbWidth, uint32_t fbHeight, uint32_t rowStart, const ShaderLibrary *shaderLibrary) {
