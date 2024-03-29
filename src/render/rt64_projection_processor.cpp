@@ -70,6 +70,11 @@ namespace RT64 {
             const uint16_t viewportOrigin = drawData.viewportOrigins[proj.transformsIndex];
             assert(proj.transformsIndex > 0);
 
+            // Skip projections that didn't actually draw anything.
+            if (proj.scissorRect.isNull()) {
+                continue;
+            }
+
             // Custom origin must not be in use to be able to use the stretched viewport.
             bool stretchAspectRatio = false;
             if (useScissorDetection) {
