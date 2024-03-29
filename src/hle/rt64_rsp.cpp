@@ -289,8 +289,10 @@ namespace RT64 {
     }
 
     void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
-        assert(dstIndex < RSP_MAX_VERTICES);
-        assert((dstIndex + vtxCount) <= RSP_MAX_VERTICES);
+        if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
+            assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
+            return;
+        }
 
         const uint32_t rdramAddress = fromSegmented(address);
         const Vertex *dlVerts = reinterpret_cast<const Vertex *>(state->fromRDRAM(rdramAddress));
@@ -299,8 +301,10 @@ namespace RT64 {
     }
     
     void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
-        assert(dstIndex < RSP_MAX_VERTICES);
-        assert((dstIndex + vtxCount) <= RSP_MAX_VERTICES);
+        if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
+            assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
+            return;
+        }
 
         const uint32_t rdramAddress = fromSegmented(address);
         const VertexPD *dlVerts = reinterpret_cast<const VertexPD *>(state->fromRDRAM(rdramAddress));
@@ -323,8 +327,10 @@ namespace RT64 {
     }
 
     void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
-        assert(dstIndex < RSP_MAX_VERTICES);
-        assert((dstIndex + vtxCount) <= RSP_MAX_VERTICES);
+        if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
+            assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
+            return;
+        }
 
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
