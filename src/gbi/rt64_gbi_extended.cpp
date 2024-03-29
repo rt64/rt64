@@ -143,7 +143,7 @@ namespace RT64 {
             const uint8_t vert = (*dl)->p0(13, 2);
             const uint8_t tile = (*dl)->p0(15, 2);
             const uint8_t order = (*dl)->p0(17, 2);
-            const uint8_t editable = (*dl)->p0(18, 1);
+            const uint8_t editable = (*dl)->p0(19, 1);
             state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, editable, idIsAddress, editGroup);
         }
 
