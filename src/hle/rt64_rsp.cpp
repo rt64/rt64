@@ -1050,7 +1050,6 @@ namespace RT64 {
     }
 
     void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup) {
-        assert((!push || !proj) && "Push can't be used for projection matrices.");
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
         TransformGroup *dstGroup = nullptr;
