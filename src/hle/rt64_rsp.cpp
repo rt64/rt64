@@ -616,7 +616,10 @@ namespace RT64 {
     }
 
     void RSP::modifyVertex(uint16_t dstIndex, uint16_t dstAttribute, uint32_t value) {
-        assert(dstIndex < RSP_MAX_VERTICES);
+        if (dstIndex >= RSP_MAX_VERTICES) {
+            assert(false && "Vertex index is not valid. DL is possibly corrupted.");
+            return;
+        }
 
         // If the vertex was used already in the frame, then we create a new copy instead.
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
