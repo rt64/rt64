@@ -379,7 +379,7 @@ namespace RT64 {
             curViewProjIndex = transformsIndex;
 
             uint32_t physicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
-            workload.physicalAddressTransformMap[physicalAddress] = drawData.viewProjTransformGroups.size();
+            workload.physicalAddressTransformMap.emplace(physicalAddress, drawData.viewProjTransformGroups.size());
             drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
             drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
             drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
@@ -435,7 +435,7 @@ namespace RT64 {
 
         if (addWorldTransform) {
             uint32_t physicalAddress = modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1];
-            workload.physicalAddressTransformMap[physicalAddress] = worldTransformGroups.size();
+            workload.physicalAddressTransformMap.emplace(physicalAddress, worldTransformGroups.size());
             worldTransformGroups.emplace_back(extended.curModelMatrixIdGroupIndex);
             worldTransformSegmentedAddresses.emplace_back(modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1]);
             worldTransformPhysicalAddresses.emplace_back(physicalAddress);
@@ -1061,20 +1061,36 @@ namespace RT64 {
     void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup) {
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
-        TransformGroup *dstGroup = nullptr;
+        auto setGroupProperties = [=](TransformGroup* dstGroup, bool newGroup) {
+            if (newGroup || dstGroup->editable) {
+                dstGroup->decompose = decompose;
+                dstGroup->positionInterpolation = pos;
+                dstGroup->rotationInterpolation = rot;
+                dstGroup->scaleInterpolation = scale;
+                dstGroup->skewInterpolation = skew;
+                dstGroup->perspectiveInterpolation = persp;
+                dstGroup->vertexInterpolation = vert;
+                dstGroup->tileInterpolation = tile;
+                dstGroup->ordering = order;
+                dstGroup->editable = editable;
+            }
+        };
+
         if (idIsAddress && editGroup) {
             const uint32_t rdramAddress = fromSegmented(id);
             const int workloadCursor = state->ext.workloadQueue->writeCursor;
             Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
-            auto it = workload.physicalAddressTransformMap.find(rdramAddress);
-            if (it != workload.physicalAddressTransformMap.end()) {
-                if (proj && (it->second < workload.drawData.viewProjTransformGroups.size())) {
-                    uint32_t groupIndex = workload.drawData.viewProjTransformGroups[it->second];
-                    dstGroup = &workload.drawData.transformGroups[groupIndex];
+
+            auto range = workload.physicalAddressTransformMap.equal_range(rdramAddress);
+            for (auto it = range.first; it != range.second; it++) {
+                uint32_t matrix_id = it->second;
+                if (proj && (matrix_id < workload.drawData.viewProjTransformGroups.size())) {
+                    uint32_t groupIndex = workload.drawData.viewProjTransformGroups[matrix_id];
+                    setGroupProperties(&workload.drawData.transformGroups[groupIndex], false);
                 }
-                else if (it->second < workload.drawData.worldTransformGroups.size()) {
-                    uint32_t groupIndex = workload.drawData.worldTransformGroups[it->second];
-                    dstGroup = &workload.drawData.transformGroups[groupIndex];
+                else if (matrix_id < workload.drawData.worldTransformGroups.size()) {
+                    uint32_t groupIndex = workload.drawData.worldTransformGroups[matrix_id];
+                    setGroupProperties(&workload.drawData.transformGroups[groupIndex], false);
                 }
             }
         }
@@ -1092,25 +1108,10 @@ namespace RT64 {
             }
 
             const int stackIndex = stackSize - 1;
-            dstGroup = &stack[stackIndex];
+            TransformGroup* dstGroup = &stack[stackIndex];
+            dstGroup->matrixId = id;
+            setGroupProperties(dstGroup, true);
             stackChanged = true;
-        }
-
-        if ((dstGroup != nullptr) && (!editGroup || (dstGroup->editable == G_EX_EDIT_ALLOW))) {
-            if (!idIsAddress && !editGroup) {
-                dstGroup->matrixId = id;
-            }
-
-            dstGroup->decompose = decompose;
-            dstGroup->positionInterpolation = pos;
-            dstGroup->rotationInterpolation = rot;
-            dstGroup->scaleInterpolation = scale;
-            dstGroup->skewInterpolation = skew;
-            dstGroup->perspectiveInterpolation = persp;
-            dstGroup->vertexInterpolation = vert;
-            dstGroup->tileInterpolation = tile;
-            dstGroup->ordering = order;
-            dstGroup->editable = editable;
         }
     }
 
