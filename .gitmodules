@@ -40,3 +40,6 @@
 [submodule "src/contrib/dxc"]
 	path = src/contrib/dxc
 	url = https://github.com/rt64/dxc-bin
+[submodule "src/contrib/stb"]
+	path = src/contrib/stb
+	url = https://github.com/nothings/stb
