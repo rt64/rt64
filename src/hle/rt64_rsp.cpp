@@ -379,7 +379,7 @@ namespace RT64 {
             curViewProjIndex = transformsIndex;
 
             uint32_t physicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
-            workload.physicalAddressTransformMap[physicalAddress].push_back(drawData.viewProjTransformGroups.size());
+            workload.physicalAddressTransformMap.emplace(physicalAddress, drawData.viewProjTransformGroups.size());
             drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
             drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
             drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
@@ -435,7 +435,7 @@ namespace RT64 {
 
         if (addWorldTransform) {
             uint32_t physicalAddress = modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1];
-            workload.physicalAddressTransformMap[physicalAddress].push_back(worldTransformGroups.size());
+            workload.physicalAddressTransformMap.emplace(physicalAddress, worldTransformGroups.size());
             worldTransformGroups.emplace_back(extended.curModelMatrixIdGroupIndex);
             worldTransformSegmentedAddresses.emplace_back(modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1]);
             worldTransformPhysicalAddresses.emplace_back(physicalAddress);
@@ -1078,17 +1078,17 @@ namespace RT64 {
             const uint32_t rdramAddress = fromSegmented(id);
             const int workloadCursor = state->ext.workloadQueue->writeCursor;
             Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
-            auto it = workload.physicalAddressTransformMap.find(rdramAddress);
-            if (it != workload.physicalAddressTransformMap.end()) {
-                for (uint32_t matrix_id : it->second) {
-                    if (proj && (matrix_id < workload.drawData.viewProjTransformGroups.size())) {
-                        uint32_t groupIndex = workload.drawData.viewProjTransformGroups[matrix_id];
-                        setGroupProperties(&workload.drawData.transformGroups[groupIndex]);
-                    }
-                    else if (matrix_id < workload.drawData.worldTransformGroups.size()) {
-                        uint32_t groupIndex = workload.drawData.worldTransformGroups[matrix_id];
-                        setGroupProperties(&workload.drawData.transformGroups[groupIndex]);
-                    }
+
+            auto range = workload.physicalAddressTransformMap.equal_range(rdramAddress);
+            for (auto it = range.first; it != range.second; it++) {
+                uint32_t matrix_id = it->second;
+                if (proj && (matrix_id < workload.drawData.viewProjTransformGroups.size())) {
+                    uint32_t groupIndex = workload.drawData.viewProjTransformGroups[matrix_id];
+                    setGroupProperties(&workload.drawData.transformGroups[groupIndex]);
+                }
+                else if (matrix_id < workload.drawData.worldTransformGroups.size()) {
+                    uint32_t groupIndex = workload.drawData.worldTransformGroups[matrix_id];
+                    setGroupProperties(&workload.drawData.transformGroups[groupIndex]);
                 }
             }
         }
