@@ -1903,7 +1903,12 @@ namespace RT64 {
                         resConfigChanged = ImGui::InputDouble("Aspect Ratio", &userConfig.aspectTarget) || resConfigChanged;
                     }
 
-                    genConfigChanged = ImGui::InputDouble("Extended GBI Aspect Percentage", &userConfig.extAspectPercentage) || genConfigChanged;
+                    genConfigChanged = ImGui::Combo("Extended GBI Aspect Ratio Mode", reinterpret_cast<int *>(&userConfig.extAspectRatio), "Original\0Expand\0Manual\0") || genConfigChanged;
+                    const bool manualExtAspectRatio = (userConfig.extAspectRatio == UserConfiguration::AspectRatio::Manual);
+                    if (manualExtAspectRatio) {
+                        genConfigChanged = ImGui::InputDouble("Extended GBI Aspect Ratio", &userConfig.extAspectTarget) || genConfigChanged;
+                    }
+
                     genConfigChanged = ImGui::Combo("Upscale 2D Mode", reinterpret_cast<int *>(&userConfig.upscale2D), "Original\0Scaled Only\0All\0") || genConfigChanged;
                     genConfigChanged = ImGui::Combo("Refresh Rate Mode", reinterpret_cast<int *>(&userConfig.refreshRate), "Original\0Display\0Manual\0") || genConfigChanged;
                     const bool manualRefreshRate = (userConfig.refreshRate == UserConfiguration::RefreshRate::Manual);

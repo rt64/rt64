@@ -71,7 +71,8 @@ namespace RT64 {
         Filtering filtering;
         AspectRatio aspectRatio;
         double aspectTarget;
-        double extAspectPercentage;
+        AspectRatio extAspectRatio;
+        double extAspectTarget;
         Upscale2D upscale2D;
         bool threePointFiltering;
         RefreshRate refreshRate;

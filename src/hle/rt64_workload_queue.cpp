@@ -150,6 +150,35 @@ namespace RT64 {
             break;
         }
 
+        // Compute the extended GBI aspect ratio percentage to be used for the frame.
+        const auto extRatioMode = ext.sharedResources->userConfig.extAspectRatio;
+        switch (extRatioMode) {
+        case UserConfiguration::AspectRatio::Expand:
+            workloadConfig.extAspectPercentage = 1.0f;
+            break;
+        case UserConfiguration::AspectRatio::Manual:
+            if ((ext.sharedResources->swapChainWidth > 0) && (ext.sharedResources->swapChainHeight > 0)) {
+                const float derivedRatioTarget = float(ext.sharedResources->swapChainWidth) / float(ext.sharedResources->swapChainHeight);
+                const float reducedUserTarget = float(ext.sharedResources->userConfig.extAspectTarget) - workloadConfig.aspectRatioSource;
+                const float reducedDerivedRatioTarget = derivedRatioTarget - workloadConfig.aspectRatioSource;
+                if ((reducedUserTarget > 0.0f) && (reducedDerivedRatioTarget > 0.0f)) {
+                    workloadConfig.extAspectPercentage = std::clamp((reducedUserTarget / reducedDerivedRatioTarget), 0.0f, 1.0f);
+                }
+                else {
+                    workloadConfig.extAspectPercentage = 0.0f;
+                }
+            }
+            else {
+                workloadConfig.extAspectPercentage = 0.0f;
+            }
+
+            break;
+        case UserConfiguration::AspectRatio::Original:
+        default:
+            workloadConfig.extAspectPercentage = 0.0f;
+            break;
+        }
+
         // Compute the resolution scaling to be used for the frame.
         float resolutionMultiplier;
         const auto resolutionMode = ext.sharedResources->userConfig.resolution;
@@ -178,7 +207,6 @@ namespace RT64 {
         workloadConfig.aspectRatioScale = workloadConfig.aspectRatioTarget / workloadConfig.aspectRatioSource;
         workloadConfig.resolutionScale = { resolutionMultiplier * workloadConfig.aspectRatioScale, resolutionMultiplier };
         workloadConfig.downsampleMultiplier = ext.sharedResources->userConfig.downsampleMultiplier;
-        workloadConfig.extAspectPercentage = float(ext.sharedResources->userConfig.extAspectPercentage);
         ext.sharedResources->resolutionScale = workloadConfig.resolutionScale;
 
         // Find the target refresh rate from the configuration.

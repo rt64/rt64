@@ -22,7 +22,8 @@ namespace RT64 {
         j["filtering"] = cfg.filtering;
         j["aspectRatio"] = cfg.aspectRatio;
         j["aspectTarget"] = cfg.aspectTarget;
-        j["extAspectPercentage"] = cfg.extAspectPercentage;
+        j["extAspectRatio"] = cfg.extAspectRatio;
+        j["extAspectTarget"] = cfg.extAspectTarget;
         j["upscale2D"] = cfg.upscale2D;
         j["threePointFiltering"] = cfg.threePointFiltering;
         j["refreshRate"] = cfg.refreshRate;
@@ -41,7 +42,8 @@ namespace RT64 {
         cfg.filtering = j.value("filtering", defaultCfg.filtering);
         cfg.aspectRatio = j.value("aspectRatio", defaultCfg.aspectRatio);
         cfg.aspectTarget = j.value("aspectTarget", defaultCfg.aspectTarget);
-        cfg.extAspectPercentage = j.value("extAspectPercentage", defaultCfg.extAspectPercentage);
+        cfg.extAspectRatio = j.value("extAspectRatio", defaultCfg.extAspectRatio);
+        cfg.extAspectTarget = j.value("extAspectTarget", defaultCfg.extAspectTarget);
         cfg.upscale2D = j.value("upscale2D", defaultCfg.upscale2D);
         cfg.threePointFiltering = j.value("threePointFiltering", defaultCfg.threePointFiltering);
         cfg.refreshRate = j.value("refreshRate", defaultCfg.refreshRate);
@@ -68,7 +70,8 @@ namespace RT64 {
         filtering = Filtering::AntiAliasedPixelScaling;
         aspectRatio = AspectRatio::Original;
         aspectTarget = 16.0f / 9.0f;
-        extAspectPercentage = 1.0;
+        extAspectRatio = AspectRatio::Original;
+        extAspectTarget = 16.0f / 9.0f;
         upscale2D = Upscale2D::ScaledOnly;
         threePointFiltering = true;
         refreshRate = RefreshRate::Original;
@@ -83,12 +86,13 @@ namespace RT64 {
         clampEnum<Antialiasing>(antialiasing);
         clampEnum<Filtering>(filtering);
         clampEnum<AspectRatio>(aspectRatio);
+        clampEnum<AspectRatio>(extAspectRatio);
         clampEnum<Upscale2D>(upscale2D);
         clampEnum<RefreshRate>(refreshRate);
         resolutionMultiplier = std::clamp<double>(resolutionMultiplier, 0.0f, ResolutionMultiplierLimit);
         downsampleMultiplier = std::clamp<int>(downsampleMultiplier, 1, ResolutionMultiplierLimit);
         aspectTarget = std::clamp<double>(aspectTarget, 0.1f, 100.0f);
-        extAspectPercentage = std::clamp<double>(extAspectPercentage, 0.0f, 1.0f);
+        extAspectTarget = std::clamp<double>(extAspectTarget, 0.1f, 100.0f);
         refreshRateTarget = std::clamp<int>(refreshRateTarget, 10, 1000);
     }
 
