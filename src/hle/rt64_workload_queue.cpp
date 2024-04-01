@@ -158,11 +158,10 @@ namespace RT64 {
             break;
         case UserConfiguration::AspectRatio::Manual:
             if ((ext.sharedResources->swapChainWidth > 0) && (ext.sharedResources->swapChainHeight > 0)) {
-                const float derivedRatioTarget = float(ext.sharedResources->swapChainWidth) / float(ext.sharedResources->swapChainHeight);
-                const float reducedUserTarget = float(ext.sharedResources->userConfig.extAspectTarget) - workloadConfig.aspectRatioSource;
-                const float reducedDerivedRatioTarget = derivedRatioTarget - workloadConfig.aspectRatioSource;
-                if ((reducedUserTarget > 0.0f) && (reducedDerivedRatioTarget > 0.0f)) {
-                    workloadConfig.extAspectPercentage = std::clamp((reducedUserTarget / reducedDerivedRatioTarget), 0.0f, 1.0f);
+                const float reducedExtTarget = float(ext.sharedResources->userConfig.extAspectTarget) - workloadConfig.aspectRatioSource;
+                const float reducedDisplayTarget = workloadConfig.aspectRatioTarget - workloadConfig.aspectRatioSource;
+                if ((reducedExtTarget > 0.0f) && (reducedDisplayTarget > 0.0f)) {
+                    workloadConfig.extAspectPercentage = std::clamp((reducedExtTarget / reducedDisplayTarget), 0.0f, 1.0f);
                 }
                 else {
                     workloadConfig.extAspectPercentage = 0.0f;
