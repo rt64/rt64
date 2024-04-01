@@ -1061,17 +1061,19 @@ namespace RT64 {
     void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup) {
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
-        auto setGroupProperties = [=](TransformGroup* dstGroup) {
-            dstGroup->decompose = decompose;
-            dstGroup->positionInterpolation = pos;
-            dstGroup->rotationInterpolation = rot;
-            dstGroup->scaleInterpolation = scale;
-            dstGroup->skewInterpolation = skew;
-            dstGroup->perspectiveInterpolation = persp;
-            dstGroup->vertexInterpolation = vert;
-            dstGroup->tileInterpolation = tile;
-            dstGroup->ordering = order;
-            dstGroup->editable = editable;
+        auto setGroupProperties = [=](TransformGroup* dstGroup, bool newGroup) {
+            if (newGroup || dstGroup->editable) {
+                dstGroup->decompose = decompose;
+                dstGroup->positionInterpolation = pos;
+                dstGroup->rotationInterpolation = rot;
+                dstGroup->scaleInterpolation = scale;
+                dstGroup->skewInterpolation = skew;
+                dstGroup->perspectiveInterpolation = persp;
+                dstGroup->vertexInterpolation = vert;
+                dstGroup->tileInterpolation = tile;
+                dstGroup->ordering = order;
+                dstGroup->editable = editable;
+            }
         };
 
         if (idIsAddress && editGroup) {
@@ -1084,11 +1086,11 @@ namespace RT64 {
                 uint32_t matrix_id = it->second;
                 if (proj && (matrix_id < workload.drawData.viewProjTransformGroups.size())) {
                     uint32_t groupIndex = workload.drawData.viewProjTransformGroups[matrix_id];
-                    setGroupProperties(&workload.drawData.transformGroups[groupIndex]);
+                    setGroupProperties(&workload.drawData.transformGroups[groupIndex], false);
                 }
                 else if (matrix_id < workload.drawData.worldTransformGroups.size()) {
                     uint32_t groupIndex = workload.drawData.worldTransformGroups[matrix_id];
-                    setGroupProperties(&workload.drawData.transformGroups[groupIndex]);
+                    setGroupProperties(&workload.drawData.transformGroups[groupIndex], false);
                 }
             }
         }
@@ -1108,7 +1110,7 @@ namespace RT64 {
             const int stackIndex = stackSize - 1;
             TransformGroup* dstGroup = &stack[stackIndex];
             dstGroup->matrixId = id;
-            setGroupProperties(dstGroup);
+            setGroupProperties(dstGroup, true);
             stackChanged = true;
         }
     }
