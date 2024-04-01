@@ -1551,16 +1551,15 @@ namespace RT64 {
                             triangles.indexStart = call.meshDesc.rawVertexStart;
                             fixedRect = fixRect(call.callDesc.rect, fbPair.scissorRect, p.fixRectLR);
 
-                            bool highResTilesUsed = false;
-                            for (uint32_t t = 0; (t < call.callDesc.tileCount) && !highResTilesUsed; t++) {
-                                // TODO: This is reading data that was not filled in when this method is called.
-                                highResTilesUsed = drawData.gpuTiles[call.callDesc.tileIndex + t].flags.highRes;
+                            bool tileCopiesUsed = false;
+                            for (uint32_t t = 0; (t < call.callDesc.tileCount) && !tileCopiesUsed; t++) {
+                                tileCopiesUsed = drawData.callTiles[call.callDesc.tileIndex + t].tileCopyUsed;
                             }
 
                             // The call's scissor spans the whole width of the framebuffer pair scissor. The rect must not be using extended origins.
                             const bool regularOrigins = (call.callDesc.rectLeftOrigin == G_EX_ORIGIN_NONE) && (call.callDesc.rectRightOrigin == G_EX_ORIGIN_NONE);
                             const bool coversScissorWidth = regularOrigins && (fixedRect.ulx <= fbPair.scissorRect.ulx) && (fixedRect.lrx >= fbPair.scissorRect.lrx);
-                            if (highResTilesUsed || coversScissorWidth) {
+                            if (tileCopiesUsed || coversScissorWidth) {
                                 invRatioScale = 1.0f;
                             }
                             else {
