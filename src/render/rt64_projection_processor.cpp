@@ -10,6 +10,9 @@
 namespace RT64 {
     inline void adjustProjectionMatrix(interop::float4x4 &matrix, const float aspectRatioScale) {
         matrix[0][0] *= aspectRatioScale;
+        matrix[1][0] *= aspectRatioScale;
+        matrix[2][0] *= aspectRatioScale;
+        matrix[3][0] *= aspectRatioScale;
     }
     
     // ProjectionProcessor
