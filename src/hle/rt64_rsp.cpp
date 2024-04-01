@@ -1062,7 +1062,7 @@ namespace RT64 {
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
         auto setGroupProperties = [=](TransformGroup* dstGroup, bool newGroup) {
-            if (newGroup || dstGroup->editable) {
+            if (newGroup || (dstGroup->editable == G_EX_EDIT_ALLOW)) {
                 dstGroup->decompose = decompose;
                 dstGroup->positionInterpolation = pos;
                 dstGroup->rotationInterpolation = rot;
