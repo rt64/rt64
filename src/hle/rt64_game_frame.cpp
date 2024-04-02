@@ -43,6 +43,7 @@ namespace RT64 {
     bool GameFrame::isSceneCompatible(const WorkloadQueue &workloadQueue, const GameScene &scene, const GameIndices::Projection &proj) {
         assert(!scene.projections.empty());
 
+        const float MatrixDiffTolerance = 1e-6f;
         const Workload &workload = workloadQueue.workloads[proj.workloadIndex];
         const FramebufferPair &fbPair = workload.fbPairs[proj.fbPairIndex];
         const Projection &fbProj = fbPair.projections[proj.projectionIndex];
@@ -54,11 +55,17 @@ namespace RT64 {
         const Workload &cmpWorkload = workloadQueue.workloads[firstProj.workloadIndex];
         const FramebufferPair &cmpFbPair = cmpWorkload.fbPairs[firstProj.fbPairIndex];
         const Projection &cmpProj = cmpFbPair.projections[firstProj.projectionIndex];
-        const interop::float4x4 &cmpViewProjMatrix = cmpWorkload.drawData.viewProjTransforms[cmpProj.transformsIndex];
-        const interop::float4x4 &fbViewProjMatrix = workload.drawData.viewProjTransforms[fbProj.transformsIndex];
-        const float matrixDiff = matrixDifference(cmpViewProjMatrix, fbViewProjMatrix);
-        const float MatrixDiffTolerance = 1e-6f;
-        if (matrixDiff > MatrixDiffTolerance) {
+        const interop::float4x4 &cmpViewMatrix = cmpWorkload.drawData.viewTransforms[cmpProj.transformsIndex];
+        const interop::float4x4 &fbViewMatrix = workload.drawData.viewTransforms[fbProj.transformsIndex];
+        const float viewMatrixDiff = matrixDifference(cmpViewMatrix, fbViewMatrix);
+        if (viewMatrixDiff > MatrixDiffTolerance) {
+            return false;
+        }
+
+        const interop::float4x4 &cmpProjMatrix = cmpWorkload.drawData.projTransforms[cmpProj.transformsIndex];
+        const interop::float4x4 &fbProjMatrix = workload.drawData.projTransforms[fbProj.transformsIndex];
+        const float projMatrixDiff = matrixDifference(cmpProjMatrix, fbProjMatrix);
+        if (projMatrixDiff > MatrixDiffTolerance) {
             return false;
         }
 
@@ -191,20 +198,20 @@ namespace RT64 {
         return (lhs.first < rhs.first) || ((lhs.first == rhs.first) && lhs.second < rhs.second);
     }
 
-    struct TransformMatchCandidate {
-        uint32_t curTransformIndex = 0;
-        uint32_t prevTransformIndex = 0;
-        float computedDifference = FLT_MAX;
+    struct MatchCandidate {
+        uint32_t curIndex = 0;
+        uint32_t prevIndex = 0;
+        float difference = FLT_MAX;
 
-        TransformMatchCandidate(uint32_t curTransformIndex, uint32_t prevTransformIndex, float computedDifference) {
-            this->curTransformIndex = curTransformIndex;
-            this->prevTransformIndex = prevTransformIndex;
-            this->computedDifference = computedDifference;
+        MatchCandidate(uint32_t curIndex, uint32_t prevIndex, float difference) {
+            this->curIndex = curIndex;
+            this->prevIndex = prevIndex;
+            this->difference = difference;
         }
     };
 
-    bool operator<(const TransformMatchCandidate &lhs, const TransformMatchCandidate &rhs) {
-        return lhs.computedDifference < rhs.computedDifference;
+    bool operator<(const MatchCandidate &lhs, const MatchCandidate &rhs) {
+        return lhs.difference < rhs.difference;
     }
 
     struct TransformMatchResult {
@@ -345,31 +352,52 @@ namespace RT64 {
             }
         }
         
-        for (uint32_t s = 0; s < perspectiveScenes.size(); s++) {
-            if (s >= prevFrame.perspectiveScenes.size()) {
-                continue;
+        auto matchScenes = [&](const std::vector<GameScene> &curScenes, const std::vector<GameScene> &prevScenes) {
+            // Find the scenes that are the closest match possible.
+            thread_local std::vector<MatchCandidate> matchCandidates;
+            matchCandidates.clear();
+            for (uint32_t i = 0; i < curScenes.size(); i++) {
+                const GameIndices::Projection curFirstProj = curScenes[i].projections[0];
+                const Workload &curWorkload = workloadQueue.workloads[curFirstProj.workloadIndex];
+                const FramebufferPair &curFbPair = curWorkload.fbPairs[curFirstProj.fbPairIndex];
+                const Projection &curProj = curFbPair.projections[curFirstProj.projectionIndex];
+                const hlslpp::float4x4 &curViewTransform = curWorkload.drawData.viewTransforms[curProj.transformsIndex];
+                const hlslpp::float4x4 &curProjTransform = curWorkload.drawData.projTransforms[curProj.transformsIndex];
+                for (uint32_t j = 0; j < prevScenes.size(); j++) {
+                    const GameIndices::Projection prevFirstProj = prevScenes[j].projections[0];
+                    const Workload &prevWorkload = workloadQueue.workloads[prevFirstProj.workloadIndex];
+                    const FramebufferPair &prevFbPair = prevWorkload.fbPairs[prevFirstProj.fbPairIndex];
+                    const Projection &prevProj = prevFbPair.projections[prevFirstProj.projectionIndex];
+                    const hlslpp::float4x4 &prevViewTransform = prevWorkload.drawData.viewTransforms[prevProj.transformsIndex];
+                    const hlslpp::float4x4 &prevProjTransform = prevWorkload.drawData.projTransforms[prevProj.transformsIndex];
+                    matchCandidates.emplace_back(i, j, matrixDifference(curViewTransform, prevViewTransform) + matrixDifference(curProjTransform, prevProjTransform));
+                }
             }
 
-            // We assume the scenes will be detected in the same order between frames.
-            const GameScene &curScene = perspectiveScenes[s];
-            const GameScene &prevScene = prevFrame.perspectiveScenes[s];
+            thread_local std::vector<bool> curScenesMatched;
+            thread_local std::vector<bool> prevScenesMatched;
+            curScenesMatched.clear();
+            prevScenesMatched.clear();
+            curScenesMatched.resize(curScenes.size());
+            prevScenesMatched.resize(prevScenes.size());
+            std::stable_sort(matchCandidates.begin(), matchCandidates.end());
+            for (const MatchCandidate &candidate : matchCandidates) {
+                if (curScenesMatched[candidate.curIndex]) {
+                    continue;
+                }
 
-            // TODO: Check for scene compatibility.
-            matchScene(workloadQueue, prevFrame, curScene, prevScene, workloadsModified, tileInterpolationUsed);
-        }
+                if (prevScenesMatched[candidate.prevIndex]) {
+                    continue;
+                }
 
-        for (uint32_t s = 0; s < orthographicScenes.size(); s++) {
-            if (s >= prevFrame.orthographicScenes.size()) {
-                continue;
+                matchScene(workloadQueue, prevFrame, curScenes[candidate.curIndex], prevScenes[candidate.prevIndex], workloadsModified, tileInterpolationUsed);
+                curScenesMatched[candidate.curIndex] = true;
+                prevScenesMatched[candidate.prevIndex] = true;
             }
+        };
 
-            // We assume the scenes will be detected in the same order between frames.
-            const GameScene &curScene = orthographicScenes[s];
-            const GameScene &prevScene = prevFrame.orthographicScenes[s];
-
-            // TODO: Check for scene compatibility.
-            matchScene(workloadQueue, prevFrame, curScene, prevScene, workloadsModified, tileInterpolationUsed);
-        }
+        matchScenes(perspectiveScenes, prevFrame.perspectiveScenes);
+        matchScenes(orthographicScenes, prevFrame.orthographicScenes);
 
         if (!workloadsModified.empty()) {
             thread_local std::vector<BufferUploader::Upload> uploads;
@@ -550,7 +578,7 @@ namespace RT64 {
         }
 
         // Compute all the differences between transforms and insert them into a vector that will be sorted according to the differences.
-        thread_local std::vector<TransformMatchCandidate> matchCandidates;
+        thread_local std::vector<MatchCandidate> matchCandidates;
         matchCandidates.clear();
 
         const RigidBody *prevRigidBody;
@@ -569,16 +597,16 @@ namespace RT64 {
 
         bool modifiedVelocityBuffer = false;
         std::stable_sort(matchCandidates.begin(), matchCandidates.end());
-        for (const TransformMatchCandidate candidate : matchCandidates) {
-            if (firstCurWorkloadMap.transforms[candidate.curTransformIndex].mapped) {
+        for (const MatchCandidate candidate : matchCandidates) {
+            if (firstCurWorkloadMap.transforms[candidate.curIndex].mapped) {
                 continue;
             }
 
-            if (firstCurWorkloadMap.prevTransformsMapped[candidate.prevTransformIndex]) {
+            if (firstCurWorkloadMap.prevTransformsMapped[candidate.prevIndex]) {
                 continue;
             }
 
-            matchTransform(firstCurWorkload, firstPrevWorkload, firstCurWorkloadMap, firstPrevWorkloadMap, candidate.curTransformIndex, candidate.prevTransformIndex, modifiedVelocityBuffer);
+            matchTransform(firstCurWorkload, firstPrevWorkload, firstCurWorkloadMap, firstPrevWorkloadMap, candidate.curIndex, candidate.prevIndex, modifiedVelocityBuffer);
         }
 
         if (modifiedVelocityBuffer) {
