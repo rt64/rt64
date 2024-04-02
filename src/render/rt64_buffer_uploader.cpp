@@ -15,7 +15,7 @@ namespace RT64 {
     // BufferUploader::Upload
 
     bool BufferUploader::Upload::valid() const {
-        return srcDataIndexRange.second > srcDataIndexRange.first;
+        return (srcData != nullptr) && (srcDataIndexRange.second > srcDataIndexRange.first);
     }
 
     // BufferUploader
