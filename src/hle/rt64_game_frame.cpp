@@ -351,10 +351,12 @@ namespace RT64 {
                 curTransformMap.mapped = false;
             }
         }
-        
+
+        thread_local std::vector<MatchCandidate> matchCandidates;
+        thread_local std::vector<bool> curScenesMatched;
+        thread_local std::vector<bool> prevScenesMatched;
         auto matchScenes = [&](const std::vector<GameScene> &curScenes, const std::vector<GameScene> &prevScenes) {
             // Find the scenes that are the closest match possible.
-            thread_local std::vector<MatchCandidate> matchCandidates;
             matchCandidates.clear();
             for (uint32_t i = 0; i < curScenes.size(); i++) {
                 const GameIndices::Projection curFirstProj = curScenes[i].projections[0];
@@ -374,8 +376,6 @@ namespace RT64 {
                 }
             }
 
-            thread_local std::vector<bool> curScenesMatched;
-            thread_local std::vector<bool> prevScenesMatched;
             curScenesMatched.clear();
             prevScenesMatched.clear();
             curScenesMatched.resize(curScenes.size());
