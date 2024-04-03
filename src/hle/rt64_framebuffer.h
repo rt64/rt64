@@ -46,6 +46,7 @@ namespace RT64 {
         Framebuffer();
         ~Framebuffer();
         uint32_t imageRowBytes(uint32_t rowWidth) const;
+        bool contains(uint32_t start, uint32_t end) const;
         bool overlaps(uint32_t start, uint32_t end) const;
         void discardLastWrite();
         bool isLastWriteDifferent(Framebuffer::Type newType) const;

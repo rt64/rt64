@@ -52,6 +52,10 @@ namespace RT64 {
         return rowWidth << siz >> 1;
     }
 
+    bool Framebuffer::contains(uint32_t start, uint32_t end) const {
+        return (start >= addressStart) && (end <= addressEnd);
+    }
+
     bool Framebuffer::overlaps(uint32_t start, uint32_t end) const {
         return (addressStart < end) && (addressEnd > start);
     }

@@ -164,7 +164,6 @@ namespace RT64 {
         ~FramebufferManager();
         Framebuffer &get(uint32_t address, uint8_t siz, uint32_t width, uint32_t height);
         Framebuffer *find(uint32_t address) const;
-        Framebuffer *findMostRecentContaining(uint32_t address);
         Framebuffer *findMostRecentContaining(uint32_t addressStart, uint32_t addressEnd);
         void writeChanges(RenderWorker *renderWorker, const FramebufferChangePool &fbChangePool, const FramebufferOperation &op, RenderTargetManager &targetManager, const ShaderLibrary *shaderLibrary);
         void clearUsedTileCopies();

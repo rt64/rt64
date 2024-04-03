@@ -60,31 +60,25 @@ namespace RT64 {
             return nullptr;
         }
     }
-
-    Framebuffer *FramebufferManager::findMostRecentContaining(uint32_t address) {
-        Framebuffer *mostRecent = nullptr;
-        auto it = framebuffers.begin();
-        while (it != framebuffers.end()) {
-            if ((address >= it->second.addressStart) && (address < it->second.addressEnd) && 
-                ((mostRecent == nullptr) || (it->second.lastWriteTimestamp > mostRecent->lastWriteTimestamp)))
-            {
-                mostRecent = &it->second;
-            }
-
-            it++;
-        }
-
-        return mostRecent;
-    }
-
+    
     Framebuffer *FramebufferManager::findMostRecentContaining(uint32_t addressStart, uint32_t addressEnd) {
         Framebuffer *mostRecent = nullptr;
         auto it = framebuffers.begin();
         while (it != framebuffers.end()) {
-            if (it->second.overlaps(addressStart, addressEnd) &&
-                ((mostRecent == nullptr) || (it->second.lastWriteTimestamp > mostRecent->lastWriteTimestamp)))
-            {
-                mostRecent = &it->second;
+            if (it->second.overlaps(addressStart, addressEnd)) {
+                if (mostRecent != nullptr) {
+                    // Prioritize FBs with newer timestamps.
+                    if (it->second.lastWriteTimestamp >= mostRecent->lastWriteTimestamp) {
+                        mostRecent = &it->second;
+                    }
+                    // Prioritize FBs that fully contain the range.
+                    else if ((it->second.lastWriteTimestamp == mostRecent->lastWriteTimestamp) && (it->second.contains(addressStart, addressEnd) && !mostRecent->contains(addressStart, addressEnd))) {
+                        mostRecent = &it->second;
+                    }
+                }
+                else {
+                    mostRecent = &it->second;
+                }
             }
 
             it++;

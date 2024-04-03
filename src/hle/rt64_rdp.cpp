@@ -619,12 +619,16 @@ namespace RT64 {
         const uint32_t tileWidth = ((t.lrs >> 2) - (t.uls >> 2));
         const uint32_t wordsPerRow = (tileWidth >> (4 - t.siz)) + 1;
         const uint32_t textureEnd = textureStart + (rowCount - 1) * bytesPerRow + (wordsPerRow << 3);
-        const bool RGBA32 = (t.siz == G_IM_SIZ_32b) && (t.fmt == G_IM_FMT_RGBA);
-        const uint32_t lineShift = RGBA32 ? 1 : 0;
-        const uint32_t lineWidth = t.line << ((4 + lineShift) - t.siz);
+
+        // Current framebuffer pair must be flushed if we wish to do a tile copy with any of the bytes it uses.
+        checkImageOverlap(textureStart, textureEnd);
+
         Framebuffer *framebuffer = state->framebufferManager.findMostRecentContaining(textureStart, textureEnd);
         if (framebuffer != nullptr) {
             FramebufferTile fbTile;
+            const bool RGBA32 = (t.siz == G_IM_SIZ_32b) && (t.fmt == G_IM_FMT_RGBA);
+            const uint32_t lineShift = RGBA32 ? 1 : 0;
+            const uint32_t lineWidth = t.line << ((4 + lineShift) - t.siz);
             return state->framebufferManager.makeFramebufferTile(framebuffer, textureStart, textureEnd, lineWidth, rowCount, fbTile, RGBA32);
         }
         else {
