@@ -1074,7 +1074,7 @@ namespace RT64 {
                     workerMutex.unlock();
                 }
                 
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                Thread::sleepMilliseconds(1);
             }
         }
     }

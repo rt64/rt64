@@ -390,7 +390,7 @@ namespace RT64 {
                     // millisecond less than the floor of the micrseconds value.
                     int64_t msToWait = (targetRateMicro - deltaMicro - 500) / 1000;
                     if (msToWait > 1) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(msToWait - 1));
+                        Thread::sleepMilliseconds(msToWait - 1);
                     }
                 }
 

@@ -59,4 +59,14 @@ namespace RT64 {
         static_assert(false, "Unimplemented");
 #   endif
     }
+
+    void Thread::sleepMilliseconds(uint32_t millis) {
+#   if defined(_WIN32)
+        // The implementations of std::chrono::sleep_until and sleep_for were affected by changing the system clock backwards in older versions
+        // of Microsoft's STL. This was fixed as of Visual Studio 2022 17.9, but to be safe RT64 uses Win32 Sleep directly.
+        Sleep(millis);
+#   else
+        std::this_thread::sleep_for(std::chrono::milliseconds(millis));
+#   endif
+    }
 };
