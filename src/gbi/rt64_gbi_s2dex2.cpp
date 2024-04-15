@@ -80,6 +80,7 @@ namespace RT64 {
             gbi->map[F3DEX2_G_RDPHALF_1] = &GBI_F3D::rdpHalf1;
             gbi->map[F3DEX2_G_RDPHALF_2] = &GBI_F3D::rdpHalf2;
             gbi->map[F3DEX2_G_LOAD_UCODE] = &GBI_F3DEX::loadUCode;
+            gbi->map[G_RDPSETOTHERMODE] = &GBI_F3DEX2::setOtherMode;
             gbi->map[G_SETCIMG] = &GBI_F3D::setColorImage;
             gbi->map[G_SETZIMG] = &GBI_F3D::setDepthImage;
             gbi->map[G_SETTIMG] = &GBI_F3D::setTextureImage;

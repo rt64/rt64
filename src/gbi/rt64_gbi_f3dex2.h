@@ -65,6 +65,7 @@
 
 namespace RT64 {
     namespace GBI_F3DEX2 {
+        void setOtherMode(State *state, DisplayList **dl);
         void setOtherModeH(State *state, DisplayList **dl);
         void setOtherModeL(State *state, DisplayList **dl);
         void moveMem(State *state, DisplayList **dl);
