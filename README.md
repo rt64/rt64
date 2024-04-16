@@ -9,7 +9,7 @@ This repository has been made public to provide a working implementation to nati
 
 **Development of these features is still ongoing and will be added to this repository when they're ready.** Thank you for your patience!
 
-# Features
+# Features available
 * Modern N64 renderer built on the latest APIs (D3D12 and Vulkan).
 * Uses ubershaders to guarantee no stutters due to pipeline compilation.
 * Brand new architecture designed around offering novel enhancements.
