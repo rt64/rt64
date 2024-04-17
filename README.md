@@ -17,7 +17,7 @@ This repository has been made public to provide a working implementation to nati
 * Input latency reduction options to either skip the game's native buffering or draw as early as possible.
 * Render with a higher resolution and downsample to a resolution closer to the original game.
 * Support for Widescreen with arbitrary aspect ratios, including Ultrawide support (limited game support).
-* Interpolate the game's visuals to 60+ FPS or above by generating new frames and modifying them in 3D space (limited game support).
+* Interpolate the game's visuals to 60 FPS or above (HFR) by generating new frames and modifying them in 3D space (limited game support).
 * Extended command set for better integration of widescreen, interpolation and path tracing features (for use with rom patches, rom hacks, and ports).
 * Supports Windows 10, Windows 11 and Linux.
 
