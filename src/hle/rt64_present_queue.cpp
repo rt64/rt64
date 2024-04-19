@@ -330,12 +330,12 @@ namespace RT64 {
                     }
                     else {
                         colorTarget->resolveTarget(ext.presentGraphicsWorker);
-                        commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(colorTarget->getResolvedTexture(), RenderTextureLayout::SHADER_READ));
                         renderParams.texture = colorTarget->getResolvedTexture();
                         renderParams.textureWidth = colorTarget->width;
                         renderParams.textureHeight = colorTarget->height;
                     }
 
+                    commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(renderParams.texture, RenderTextureLayout::SHADER_READ));
                     viRenderer->render(renderParams);
                 }
 
