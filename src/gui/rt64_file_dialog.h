@@ -10,7 +10,11 @@
 
 namespace RT64 {
     struct FileDialog {
+#ifdef _WIN32
         typedef std::pair<std::wstring, std::wstring> Filter;
+#else
+        typedef std::pair<std::string, std::string> Filter;
+#endif
         static std::atomic<bool> isOpen;
 
         static void initialize();

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <cmath>
 #include <climits>
 
 #if DLSS_ENABLED
@@ -3197,7 +3198,12 @@ namespace RT64 {
         assert(fence != nullptr);
 
         VulkanCommandFence *interfaceFence = static_cast<VulkanCommandFence *>(fence);
-        vkWaitForFences(device->vk, 1, &interfaceFence->vk, VK_TRUE, UINT64_MAX);
+        VkResult res = vkWaitForFences(device->vk, 1, &interfaceFence->vk, VK_TRUE, UINT64_MAX);
+        if (res != VK_SUCCESS) {
+            fprintf(stderr, "vkWaitForFences failed with error code 0x%X.\n", res);
+            return;
+        }
+
         vkResetFences(device->vk, 1, &interfaceFence->vk);
     }
 
