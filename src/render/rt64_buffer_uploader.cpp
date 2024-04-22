@@ -3,6 +3,9 @@
 //
 
 #include <cstring>
+
+#include "common/rt64_thread.h"
+
 #include "rt64_buffer_uploader.h"
 
 namespace RT64 {
@@ -36,6 +39,8 @@ namespace RT64 {
     }
 
     void BufferUploader::threadLoop() {
+        Thread::setCurrentThreadName("RT64 Buffer");
+
         running = true;
 
         while (running) {

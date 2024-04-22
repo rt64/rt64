@@ -5,6 +5,7 @@
 #include "rt64_thread.h"
 
 #include <cassert>
+#include <thread>
 
 #if defined(_WIN64)
 #   include <Windows.h>

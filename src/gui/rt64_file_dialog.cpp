@@ -4,6 +4,7 @@
 
 #include "rt64_file_dialog.h"
 
+#include <atomic>
 #include <cassert>
 
 #include <nfd.h>
@@ -21,10 +22,10 @@ namespace RT64 {
         NFD_Quit();
     }
 
-    static std::vector<nfdnfilteritem_t> convertFilters(const std::vector<FileDialog::Filter> &filters) {
+    static std::vector<nfdnfilteritem_t> convertFilters(const std::vector<FileFilter> &filters) {
         std::vector<nfdnfilteritem_t> nfdFilters;
-        for (const FileDialog::Filter &filter : filters) {
-            nfdFilters.emplace_back(nfdnfilteritem_t{ filter.first.c_str(), filter.second.c_str() });
+        for (const FileFilter &filter : filters) {
+            nfdFilters.emplace_back(nfdnfilteritem_t{ filter.description.c_str(), filter.extensions.c_str() });
         }
 
         return nfdFilters;
@@ -45,7 +46,7 @@ namespace RT64 {
         return path;
     }
 
-    std::filesystem::path FileDialog::getOpenFilename(const std::vector<Filter> &filters) {
+    std::filesystem::path FileDialog::getOpenFilename(const std::vector<FileFilter> &filters) {
         isOpen = true;
         
         std::filesystem::path path;
@@ -61,7 +62,7 @@ namespace RT64 {
         return path;
     }
 
-    std::filesystem::path FileDialog::getSaveFilename(const std::vector<Filter> &filters) {
+    std::filesystem::path FileDialog::getSaveFilename(const std::vector<FileFilter> &filters) {
         isOpen = true;
 
         std::filesystem::path path;

@@ -331,7 +331,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     find_package(X11 REQUIRED)
     target_include_directories(rt64 PUBLIC ${X11_INCLUDE_DIR})
     target_link_libraries(rt64 ${X11_LIBRARIES})
-    target_link_libraries(rt64 ${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64/libdxcompiler.so)
 endif()
 
 preprocess_shader(rt64 "src/shaders/RasterPS.hlsl")

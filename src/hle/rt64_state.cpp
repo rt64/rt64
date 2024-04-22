@@ -1979,7 +1979,7 @@ namespace RT64 {
                             ext.rasterShaderCache->stopOfflineDumper();
                         }
                         else {
-                            std::filesystem::path savePath = FileDialog::getSaveFilename({ FileDialog::Filter(L"BIN Files", L"bin") });
+                            std::filesystem::path savePath = FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") });
                             if (!savePath.empty()) {
                                 ext.rasterShaderCache->startOfflineDumper(savePath);
                                 shaderCacheChanged = true;

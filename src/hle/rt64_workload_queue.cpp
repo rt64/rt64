@@ -789,7 +789,7 @@ namespace RT64 {
     }
 
     void WorkloadQueue::renderThreadLoop() {
-        Thread::setCurrentThreadName("RT64 Workload Queue");
+        Thread::setCurrentThreadName("RT64 Workload");
 
         WorkloadConfiguration workloadConfig;
         int64_t logicalTicks = 0;
@@ -1087,7 +1087,7 @@ namespace RT64 {
         //
         // This workaround is not required if the driver is configured to be at the "Max Performance" power state.
 
-        Thread::setCurrentThreadName("RT64 Idle Worker");
+        Thread::setCurrentThreadName("RT64 Idle");
 
         const ShaderRecord &idle = ext.shaderLibrary->idle;
         RenderCommandList *commandList = ext.workloadGraphicsWorker->commandList.get();
