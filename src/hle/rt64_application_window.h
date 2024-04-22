@@ -42,6 +42,8 @@ namespace RT64 {
         bool fullScreen;
         bool lastMaximizedState;
         bool usingSdl;
+        int32_t windowLeft = INT32_MAX;
+        int32_t windowTop = INT32_MAX;
 
         ApplicationWindow();
         ~ApplicationWindow();
@@ -51,6 +53,7 @@ namespace RT64 {
         void makeResizable();
         void detectRefreshRate();
         uint32_t getRefreshRate() const;
+        bool detectWindowMoved();
 
 #   ifdef _WIN32
         void windowMessage(UINT message, WPARAM wParam, LPARAM lParam);

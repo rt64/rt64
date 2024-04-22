@@ -102,11 +102,7 @@ namespace RT64 {
                 renameRequested = false;
             }
 
-#ifdef _WIN32
-            const FileDialog::Filter jsonFilter(L"JSON", L"json");
-#else
-            const FileDialog::Filter jsonFilter("JSON", "json");
-#endif
+            const FileFilter jsonFilter("JSON", "json");
             if (loadLibrary) {
                 libraryPath = FileDialog::getOpenFilename({ jsonFilter });
                 if (!libraryPath.empty()) {

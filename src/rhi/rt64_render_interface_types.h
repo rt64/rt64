@@ -1490,6 +1490,7 @@ namespace RT64 {
             this->rayGen = rayGen;
             this->miss = miss;
             this->hitGroup = hitGroup;
+            this->callable = callable;
         }
     };
 

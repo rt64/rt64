@@ -31,14 +31,22 @@ namespace RT64 {
 
         CoTaskMemFree(knownPath);
 #   elif defined(__linux__)
-        const char *homedir;
-
-        if ((homedir = getenv("HOME")) == nullptr) {
-            homedir = getpwuid(getuid())->pw_dir;
+        const char *homeDir = getenv("HOME");
+        if (homeDir == nullptr) {
+            homeDir = getpwuid(getuid())->pw_dir;
         }
 
-        if (homedir != nullptr) {
-            resultPath = std::filesystem::path{ homedir } / (std::string{ "." } + appId.c_str());
+        if (homeDir != nullptr) {
+            // Prefer to store in the .config directory if it exists. Use the home directory otherwise.
+            const std::string appDirName = std::string(".") + std::string(appId.c_str());
+            std::filesystem::path homePath = homeDir;
+            std::filesystem::path configPath = homePath / ".config";
+            if (std::filesystem::exists(configPath)) {
+                resultPath = configPath / appDirName;
+            }
+            else {
+                resultPath = homePath / appDirName;
+            }
         }
 #   endif
 

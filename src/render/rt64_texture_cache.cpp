@@ -4,6 +4,7 @@
 
 #include "xxHash/xxh3.h"
 
+#include "common/rt64_thread.h"
 #include "hle/rt64_workload_queue.h"
 
 #include "rt64_texture_cache.h"
@@ -213,6 +214,8 @@ namespace RT64 {
     }
 
     void TextureCache::uploadThreadLoop() {
+        Thread::setCurrentThreadName("RT64 Texture");
+
         uploadThreadRunning = true;
 
         std::vector<TextureUpload> queueCopy;

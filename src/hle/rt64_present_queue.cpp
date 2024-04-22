@@ -330,12 +330,12 @@ namespace RT64 {
                     }
                     else {
                         colorTarget->resolveTarget(ext.presentGraphicsWorker);
-                        commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(colorTarget->getResolvedTexture(), RenderTextureLayout::SHADER_READ));
                         renderParams.texture = colorTarget->getResolvedTexture();
                         renderParams.textureWidth = colorTarget->width;
                         renderParams.textureHeight = colorTarget->height;
                     }
 
+                    commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(renderParams.texture, RenderTextureLayout::SHADER_READ));
                     viRenderer->render(renderParams);
                 }
 
@@ -426,7 +426,7 @@ namespace RT64 {
     }
 
     void PresentQueue::threadLoop() {
-        Thread::setCurrentThreadName("RT64 Present Queue");
+        Thread::setCurrentThreadName("RT64 Present");
 
         int processCursor = -1;
         bool skipPresent = false;
@@ -456,8 +456,11 @@ namespace RT64 {
                     ext.presentGraphicsWorker->wait();
                     ext.swapChain->resize();
                     swapChainFramebuffers.clear();
-                    ext.appWindow->detectRefreshRate();
                     ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
+                }
+
+                if (needsResize || ext.appWindow->detectWindowMoved()) {
+                    ext.appWindow->detectRefreshRate();
                     ext.sharedResources->setSwapChainRate(std::min(ext.appWindow->getRefreshRate(), displayTimingRate));
                 }
 

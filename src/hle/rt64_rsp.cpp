@@ -379,7 +379,7 @@ namespace RT64 {
             curViewProjIndex = transformsIndex;
 
             uint32_t physicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
-            workload.physicalAddressTransformMap.emplace(physicalAddress, drawData.viewProjTransformGroups.size());
+            workload.physicalAddressTransformMap.emplace(physicalAddress, uint32_t(drawData.viewProjTransformGroups.size()));
             drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
             drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
             drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
@@ -435,7 +435,7 @@ namespace RT64 {
 
         if (addWorldTransform) {
             uint32_t physicalAddress = modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1];
-            workload.physicalAddressTransformMap.emplace(physicalAddress, worldTransformGroups.size());
+            workload.physicalAddressTransformMap.emplace(physicalAddress, uint32_t(worldTransformGroups.size()));
             worldTransformGroups.emplace_back(extended.curModelMatrixIdGroupIndex);
             worldTransformSegmentedAddresses.emplace_back(modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1]);
             worldTransformPhysicalAddresses.emplace_back(physicalAddress);

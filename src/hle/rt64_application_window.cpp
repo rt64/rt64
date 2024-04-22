@@ -259,6 +259,32 @@ namespace RT64 {
         return refreshRate;
     }
 
+    bool ApplicationWindow::detectWindowMoved() {
+        int32_t newWindowLeft = INT32_MAX;
+        int32_t newWindowTop = INT32_MAX;
+
+#   if defined(_WIN64)
+        RECT rect;
+        GetWindowRect(windowHandle, &rect);
+        newWindowLeft = rect.left;
+        newWindowTop = rect.top;
+#   elif defined(__linux__)
+        XWindowAttributes attributes;
+        XGetWindowAttributes(windowHandle.display, windowHandle.window, &attributes);
+        newWindowLeft = attributes.x;
+        newWindowTop = attributes.y;
+#   endif
+
+        if ((windowLeft != newWindowLeft) || (windowTop != newWindowTop)) {
+            windowLeft = newWindowLeft;
+            windowTop = newWindowTop;
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
 #   ifdef _WIN32
     void ApplicationWindow::windowMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         if (listener->windowMessageFilter(message, wParam, lParam)) {

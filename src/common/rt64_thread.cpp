@@ -4,8 +4,8 @@
 
 #include "rt64_thread.h"
 
-#include <thread>
 #include <cassert>
+#include <thread>
 
 #if defined(_WIN64)
 #   include <Windows.h>

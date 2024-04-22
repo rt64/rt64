@@ -8,9 +8,9 @@
 #include "rt64_vulkan.h"
 
 #include <algorithm>
-#include <unordered_map>
 #include <cmath>
 #include <climits>
+#include <unordered_map>
 
 #if DLSS_ENABLED
 #   include "render/rt64_dlss.h"
