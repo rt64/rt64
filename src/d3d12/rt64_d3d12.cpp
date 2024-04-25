@@ -1133,30 +1133,34 @@ namespace RT64 {
         return SUCCEEDED(res);
     }
 
-    void D3D12SwapChain::resize() {
+    bool D3D12SwapChain::resize() {
         getWindowSize(width, height);
 
-        if (!isEmpty()) {
-            for (uint32_t i = 0; i < textureCount; i++) {
-                textures[i].releaseTargetHeap();
-                textures[i].d3d->Release();
-                textures[i].d3d = nullptr;
-            }
-
-            HRESULT res = d3d->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
-            if (FAILED(res)) {
-                fprintf(stderr, "ResizeBuffers failed with error code 0x%X.\n", res);
-                return;
-            }
-
-            setTextures();
+        // Don't resize the swap chain at all if the window doesn't have a valid size.
+        if ((width == 0) || (height == 0)) {
+            return false;
         }
+
+        for (uint32_t i = 0; i < textureCount; i++) {
+            textures[i].releaseTargetHeap();
+            textures[i].d3d->Release();
+            textures[i].d3d = nullptr;
+        }
+
+        HRESULT res = d3d->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
+        if (FAILED(res)) {
+            fprintf(stderr, "ResizeBuffers failed with error code 0x%X.\n", res);
+            return false;
+        }
+
+        setTextures();
+        return true;
     }
 
     bool D3D12SwapChain::needsResize() const {
         uint32_t windowWidth, windowHeight;
         getWindowSize(windowWidth, windowHeight);
-        return (windowWidth != width) || (windowHeight != height);
+        return (d3d == nullptr) || (windowWidth != width) || (windowHeight != height);
     }
 
     uint32_t D3D12SwapChain::getWidth() const {
@@ -1206,7 +1210,7 @@ namespace RT64 {
     }
 
     bool D3D12SwapChain::isEmpty() const {
-        return (width == 0) || (height == 0);
+        return (d3d == nullptr) || (width == 0) || (height == 0);
     }
 
     uint32_t D3D12SwapChain::getRefreshRate() const {

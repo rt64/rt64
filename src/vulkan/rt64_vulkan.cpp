@@ -1983,6 +1983,9 @@ namespace RT64 {
     }
 
     VulkanSwapChain::~VulkanSwapChain() {
+        releaseImageViews();
+        releaseSwapChain();
+
         if (acquireNextTextureSemaphore != VK_NULL_HANDLE) {
             vkDestroySemaphore(commandQueue->device->vk, acquireNextTextureSemaphore, nullptr);
         }
@@ -1993,10 +1996,6 @@ namespace RT64 {
 
         if (presentTransitionSemaphore != VK_NULL_HANDLE) {
             vkDestroySemaphore(commandQueue->device->vk, presentTransitionSemaphore, nullptr);
-        }
-
-        if (vk != VK_NULL_HANDLE) {
-            vkDestroySwapchainKHR(commandQueue->device->vk, vk, nullptr);
         }
 
         if (surface != VK_NULL_HANDLE) {
@@ -2033,28 +2032,26 @@ namespace RT64 {
         }
 
         // Immediately acquire next image.
-        acquireNextTexture();
+        if (!acquireNextTexture()) {
+            return false;
+        }
 
         return true;
     }
 
-    void VulkanSwapChain::resize() {
+    bool VulkanSwapChain::resize() {
         getWindowSize(width, height);
 
-        // Don't recreate the swap chain at all if the window is empty.
-        if (isEmpty()) {
-            return;
+        // Don't recreate the swap chain at all if the window doesn't have a valid size.
+        if ((width == 0) || (height == 0)) {
+            return false;
         }
         
         // Make sure to wait on any image acquisition semaphores before destroying the swap chain.
         checkAcquireNextTextureSemaphore();
 
-        for (VulkanTexture &texture : textures) {
-            if (texture.imageView != VK_NULL_HANDLE) {
-                vkDestroyImageView(commandQueue->device->vk, texture.imageView, nullptr);
-                texture.imageView = VK_NULL_HANDLE;
-            }
-        }
+        // Destroy any image view references to the current swap chain.
+        releaseImageViews();
 
         // We don't actually need to query the surface capabilities but the validation layer seems to cache the valid extents from this call.
         VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
@@ -2079,7 +2076,7 @@ namespace RT64 {
         VkResult res = vkCreateSwapchainKHR(commandQueue->device->vk, &createInfo, nullptr, &vk);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
-            return;
+            return false;
         }
 
         // Reset present counter.
@@ -2092,8 +2089,9 @@ namespace RT64 {
         uint32_t retrievedImageCount = 0;
         vkGetSwapchainImagesKHR(commandQueue->device->vk, vk, &retrievedImageCount, nullptr);
         if (retrievedImageCount < textureCount) {
+            releaseSwapChain();
             fprintf(stderr, "Image count differs from the texture count.\n");
-            return;
+            return false;
         }
 
         textureCount = retrievedImageCount;
@@ -2101,8 +2099,9 @@ namespace RT64 {
         std::vector<VkImage> images(textureCount);
         res = vkGetSwapchainImagesKHR(commandQueue->device->vk, vk, &textureCount, images.data());
         if (res != VK_SUCCESS) {
+            releaseSwapChain();
             fprintf(stderr, "vkGetSwapchainImagesKHR failed with error code 0x%X.\n", res);
-            return;
+            return false;
         }
 
         // Assign the swap chain images to the buffer resources.
@@ -2122,13 +2121,20 @@ namespace RT64 {
         }
 
         // Instantly attempt to acquire the next image.
-        acquireNextTexture();
+        if (!acquireNextTexture()) {
+            releaseImageViews();
+            releaseSwapChain();
+            fprintf(stderr, "Failed to acquire image after creating the swap chain.\n");
+            return false;
+        }
+
+        return true;
     }
 
     bool VulkanSwapChain::needsResize() const {
         uint32_t windowWidth, windowHeight;
         getWindowSize(windowWidth, windowHeight);
-        return (windowWidth != width) || (windowHeight != height);
+        return (vk == VK_NULL_HANDLE) || (windowWidth != width) || (windowHeight != height);
     }
 
     uint32_t VulkanSwapChain::getWidth() const {
@@ -2156,7 +2162,7 @@ namespace RT64 {
     }
 
     bool VulkanSwapChain::isEmpty() const {
-        return (width == 0) || (height == 0);
+        return (vk == VK_NULL_HANDLE) || (width == 0) || (height == 0);
     }
 
     uint32_t VulkanSwapChain::getRefreshRate() const {
@@ -2205,16 +2211,32 @@ namespace RT64 {
         }
     }
 
-    void VulkanSwapChain::acquireNextTexture() {
+    bool VulkanSwapChain::acquireNextTexture() {
         checkAcquireNextTextureSemaphore();
 
         // Handle the error silently.
         VkResult res = vkAcquireNextImageKHR(commandQueue->device->vk, vk, UINT64_MAX, acquireNextTextureSemaphore, VK_NULL_HANDLE, &textureIndex);
-        if (res != VK_SUCCESS) {
-            return;
+        if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
+            return false;
         }
 
         acquireNextTextureSemaphoreSignaled = true;
+        return true;
+    }
+
+    void VulkanSwapChain::releaseSwapChain() {
+        if (vk != VK_NULL_HANDLE) {
+            vkDestroySwapchainKHR(commandQueue->device->vk, vk, nullptr);
+        }
+    }
+
+    void VulkanSwapChain::releaseImageViews() {
+        for (VulkanTexture &texture : textures) {
+            if (texture.imageView != VK_NULL_HANDLE) {
+                vkDestroyImageView(commandQueue->device->vk, texture.imageView, nullptr);
+                texture.imageView = VK_NULL_HANDLE;
+            }
+        }
     }
 
     // VulkanFramebuffer

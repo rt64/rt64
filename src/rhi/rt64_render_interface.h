@@ -72,7 +72,7 @@ namespace RT64 {
     struct RenderSwapChain {
         virtual ~RenderSwapChain() { }
         virtual bool present() = 0;
-        virtual void resize() = 0;
+        virtual bool resize() = 0;
         virtual bool needsResize() const = 0;
         virtual uint32_t getWidth() const = 0;
         virtual uint32_t getHeight() const = 0;

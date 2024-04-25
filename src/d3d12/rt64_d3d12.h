@@ -106,7 +106,7 @@ namespace RT64 {
         D3D12SwapChain(D3D12CommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~D3D12SwapChain() override;
         bool present() override;
-        void resize() override;
+        bool resize() override;
         bool needsResize() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;

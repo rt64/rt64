@@ -220,7 +220,7 @@ namespace RT64 {
         VulkanSwapChain(VulkanCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~VulkanSwapChain() override;
         bool present() override;
-        void resize() override;
+        bool resize() override;
         bool needsResize() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
@@ -232,7 +232,9 @@ namespace RT64 {
         uint32_t getRefreshRate() const override;
         void getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const;
         void checkAcquireNextTextureSemaphore();
-        void acquireNextTexture();
+        bool acquireNextTexture();
+        void releaseSwapChain();
+        void releaseImageViews();
     };
 
     struct VulkanFramebuffer : RenderFramebuffer {
