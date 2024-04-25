@@ -2227,6 +2227,7 @@ namespace RT64 {
     void VulkanSwapChain::releaseSwapChain() {
         if (vk != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(commandQueue->device->vk, vk, nullptr);
+            vk = VK_NULL_HANDLE;
         }
     }
 
