@@ -224,6 +224,13 @@ namespace RT64 {
         }
 
         refreshRate = displayMode.dmDisplayFrequency;
+
+        // FIXME: This function truncates refresh rates that'd otherwise round to the correct rate in most cases.
+        // This hack will fix most common cases where refresh rates divisble by 10 are truncated to the wrong value.
+        // This can be removed when a more accurate way to query the refresh rate of the monitor is found.
+        if ((refreshRate % 10) == 9) {
+            refreshRate++;
+        }
 #   elif defined(__linux__)
         // Sourced from: https://stackoverflow.com/a/66865623
         XRRScreenResources *screenResources = XRRGetScreenResources(windowHandle.display, windowHandle.window);
