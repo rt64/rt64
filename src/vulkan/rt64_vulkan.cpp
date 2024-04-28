@@ -1315,13 +1315,14 @@ namespace RT64 {
         VkPipelineSampleLocationsStateCreateInfoEXT sampleLocations = {};
         const void *multisamplingNext = nullptr;
         if (desc.multisampling.sampleLocationsEnabled) {
-            // For some reason, only the Y coordinate of the range is defined in both AMD and NVIDIA.
-            const float coordinateRange = device->sampleLocationProperties.sampleLocationCoordinateRange[1];
+            const float *coordinateRange = device->sampleLocationProperties.sampleLocationCoordinateRange;
+            const float coordinateBase = coordinateRange[0];
+            const float coordinateSpace = (coordinateRange[1] - coordinateRange[0]) / 15.0f;
             sampleLocationVector.resize(desc.multisampling.sampleCount);
             for (uint32_t i = 0; i < desc.multisampling.sampleCount; i++) {
                 const RenderMultisamplingLocation &location = desc.multisampling.sampleLocations[i];
-                sampleLocationVector[i].x = ((location.x + 8) / 15.0f) * coordinateRange;
-                sampleLocationVector[i].y = ((location.y + 8) / 15.0f) * coordinateRange;
+                sampleLocationVector[i].x = coordinateBase + (location.x + 8) * coordinateSpace;
+                sampleLocationVector[i].y = coordinateBase + (location.y + 8) * coordinateSpace;
             }
 
             sampleLocationsInfo.sType = VK_STRUCTURE_TYPE_SAMPLE_LOCATIONS_INFO_EXT;
@@ -3613,6 +3614,7 @@ namespace RT64 {
         res = vmaCreateAllocator(&allocatorInfo, &allocator);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vmaCreateAllocator failed with error code 0x%X.\n", res);
+            release();
             return;
         }
 
@@ -3630,13 +3632,7 @@ namespace RT64 {
     }
 
     VulkanDevice::~VulkanDevice() {
-        if (allocator != VK_NULL_HANDLE) {
-            vmaDestroyAllocator(allocator);
-        }
-
-        if (vk != VK_NULL_HANDLE) {
-            vkDestroyDevice(vk, nullptr);
-        }
+        release();
     }
 
     std::unique_ptr<RenderCommandList> VulkanDevice::createCommandList(RenderCommandListType type) {
@@ -3901,6 +3897,22 @@ namespace RT64 {
         }
     }
 
+    void VulkanDevice::release() {
+        if (allocator != VK_NULL_HANDLE) {
+            vmaDestroyAllocator(allocator);
+            allocator = VK_NULL_HANDLE;
+        }
+
+        if (vk != VK_NULL_HANDLE) {
+            vkDestroyDevice(vk, nullptr);
+            vk = VK_NULL_HANDLE;
+        }
+    }
+
+    bool VulkanDevice::isValid() const {
+        return vk != nullptr;
+    }
+
     // VulkanInterface
 
     VulkanInterface::VulkanInterface() {
@@ -4008,16 +4020,22 @@ namespace RT64 {
     }
 
     std::unique_ptr<RenderDevice> VulkanInterface::createDevice() {
-        return std::make_unique<VulkanDevice>(this);
+        std::unique_ptr<VulkanDevice> createdDevice = std::make_unique<VulkanDevice>(this);
+        return createdDevice->isValid() ? std::move(createdDevice) : nullptr;
     }
 
     const RenderInterfaceCapabilities &VulkanInterface::getCapabilities() const {
         return capabilities;
     }
 
+    bool VulkanInterface::isValid() const {
+        return instance != nullptr;
+    }
+
     // Global creation function.
 
     std::unique_ptr<RenderInterface> CreateVulkanInterface() {
-        return std::make_unique<VulkanInterface>();
+        std::unique_ptr<VulkanInterface> createdInterface = std::make_unique<VulkanInterface>();
+        return createdInterface->isValid() ? std::move(createdInterface) : nullptr;
     }
 };

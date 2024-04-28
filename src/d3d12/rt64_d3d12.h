@@ -405,6 +405,8 @@ namespace RT64 {
         void setShaderBindingTableInfo(RenderShaderBindingTableInfo &tableInfo, const RenderShaderBindingGroups &groups, const RenderPipeline *pipeline, RenderDescriptorSet **descriptorSets, uint32_t descriptorSetCount) override;
         const RenderDeviceCapabilities &getCapabilities() const override;
         RenderSampleCounts getSampleCountsSupported(RenderFormat format) const override;
+        void release();
+        bool isValid() const;
     };
 
     struct D3D12Interface : RenderInterface {
@@ -415,5 +417,6 @@ namespace RT64 {
         ~D3D12Interface() override;
         std::unique_ptr<RenderDevice> createDevice() override;
         const RenderInterfaceCapabilities &getCapabilities() const override;
+        bool isValid() const;
     };
 };

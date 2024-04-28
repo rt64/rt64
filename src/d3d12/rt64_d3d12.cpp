@@ -3003,6 +3003,7 @@ namespace RT64 {
         res = D3D12MA::CreateAllocator(&allocatorDesc, &allocator);
         if (FAILED(res)) {
             fprintf(stderr, "D3D12MA::CreateAllocator failed with error code 0x%X.\n", res);
+            release();
             return;
         }
 
@@ -3015,42 +3016,37 @@ namespace RT64 {
         }
 
 #   ifdef D3D12_DEBUG_LAYER_ENABLED
-        D3D12_INFO_QUEUE_FILTER newFilter = { };
-        memset(&newFilter, 0, sizeof(D3D12_INFO_QUEUE_FILTER));
-
-        D3D12_MESSAGE_SEVERITY severities[] = {
-            D3D12_MESSAGE_SEVERITY_INFO
-        };
-        
-        D3D12_MESSAGE_ID denyIds[] = {
-            D3D12_MESSAGE_ID_COMMAND_LIST_DRAW_VERTEX_BUFFER_NOT_SET,
-            D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
-            D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE,
-            D3D12_MESSAGE_ID_DRAW_EMPTY_SCISSOR_RECTANGLE,
-            D3D12_MESSAGE_ID_HEAP_ADDRESS_RANGE_INTERSECTS_MULTIPLE_BUFFERS,
-            D3D12_MESSAGE_ID_CREATEGRAPHICSPIPELINESTATE_RENDERTARGETVIEW_NOT_SET,
-#       ifdef D3D12_DEBUG_LAYER_SUPRESS_SAMPLE_POSITIONS_ERROR
-            D3D12_MESSAGE_ID_SAMPLEPOSITIONS_MISMATCH_RECORDTIME_ASSUMEDFROMCLEAR,
-#       endif
-        };
-
-        newFilter.DenyList.NumSeverities = _countof(severities);
-        newFilter.DenyList.pSeverityList = severities;
-        newFilter.DenyList.NumIDs = _countof(denyIds);
-        newFilter.DenyList.pIDList = denyIds;
-
-        // Add it to the debug layer info queue.
+        // Add it to the debug layer info queue if available.
         ID3D12InfoQueue *infoQueue;
         res = d3d->QueryInterface(IID_PPV_ARGS(&infoQueue));
-        if (FAILED(res)) {
-            fprintf(stderr, "QueryInterface failed with error code 0x%X.\n", res);
-            return;
-        }
+        if (SUCCEEDED(res)) {
+            D3D12_MESSAGE_SEVERITY severities[] = {
+                D3D12_MESSAGE_SEVERITY_INFO
+            };
 
-        infoQueue->PushStorageFilter(&newFilter);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, D3D12_DEBUG_LAYER_BREAK_ON_ERROR);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, D3D12_DEBUG_LAYER_BREAK_ON_WARNING);
+            D3D12_MESSAGE_ID denyIds[] = {
+                D3D12_MESSAGE_ID_COMMAND_LIST_DRAW_VERTEX_BUFFER_NOT_SET,
+                D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+                D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE,
+                D3D12_MESSAGE_ID_DRAW_EMPTY_SCISSOR_RECTANGLE,
+                D3D12_MESSAGE_ID_HEAP_ADDRESS_RANGE_INTERSECTS_MULTIPLE_BUFFERS,
+                D3D12_MESSAGE_ID_CREATEGRAPHICSPIPELINESTATE_RENDERTARGETVIEW_NOT_SET,
+#           ifdef D3D12_DEBUG_LAYER_SUPRESS_SAMPLE_POSITIONS_ERROR
+                D3D12_MESSAGE_ID_SAMPLEPOSITIONS_MISMATCH_RECORDTIME_ASSUMEDFROMCLEAR,
+#           endif
+            };
+            
+            D3D12_INFO_QUEUE_FILTER newFilter = {};
+            newFilter.DenyList.NumSeverities = _countof(severities);
+            newFilter.DenyList.pSeverityList = severities;
+            newFilter.DenyList.NumIDs = _countof(denyIds);
+            newFilter.DenyList.pIDList = denyIds;
+            infoQueue->PushStorageFilter(&newFilter);
+
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, D3D12_DEBUG_LAYER_BREAK_ON_ERROR);
+            infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, D3D12_DEBUG_LAYER_BREAK_ON_WARNING);
+        }
 #   endif
         
         // Fill capabilities.
@@ -3068,14 +3064,7 @@ namespace RT64 {
         descriptorHeapAllocator.reset();
         rtDummyGlobalPipelineLayout.reset();
         rtDummyLocalPipelineLayout.reset();
-
-        if (d3d != nullptr) {
-            d3d->Release();
-        }
-
-        if (adapter != nullptr) {
-            adapter->Release();
-        }
+        release();
     }
 
     std::unique_ptr<RenderCommandList> D3D12Device::createCommandList(RenderCommandListType type) {
@@ -3313,6 +3302,22 @@ namespace RT64 {
         return countsSupported;
     }
 
+    void D3D12Device::release() {
+        if (d3d != nullptr) {
+            d3d->Release();
+            d3d = nullptr;
+        }
+
+        if (adapter != nullptr) {
+            adapter->Release();
+            adapter = nullptr;
+        }
+    }
+
+    bool D3D12Device::isValid() const {
+        return d3d != nullptr;
+    }
+
     // D3D12Interface
 
     D3D12Interface::D3D12Interface() {
@@ -3346,16 +3351,22 @@ namespace RT64 {
     }
 
     std::unique_ptr<RenderDevice> D3D12Interface::createDevice() {
-        return std::make_unique<D3D12Device>(this);
+        std::unique_ptr<D3D12Device> createdDevice = std::make_unique<D3D12Device>(this);
+        return createdDevice->isValid() ? std::move(createdDevice) : nullptr;
     }
 
     const RenderInterfaceCapabilities &D3D12Interface::getCapabilities() const {
         return capabilities;
     }
 
+    bool D3D12Interface::isValid() const {
+        return dxgiFactory != nullptr;
+    }
+
     // Global creation function.
     
     std::unique_ptr<RenderInterface> CreateD3D12Interface() {
-        return std::make_unique<D3D12Interface>();
+        std::unique_ptr<D3D12Interface> createdInterface = std::make_unique<D3D12Interface>();
+        return createdInterface->isValid() ? std::move(createdInterface) : nullptr;
     }
 };

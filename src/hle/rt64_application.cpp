@@ -82,11 +82,11 @@ namespace RT64 {
 #   endif
     }
     
-    bool Application::setup(uint32_t threadId) {
+    Application::SetupResult Application::setup(uint32_t threadId) {
 #   ifdef _WIN64
         if (!DynamicLibraries::load()) {
             fprintf(stderr, "Failed to load dynamic libraries. Make sure the dependencies are next to the Plugin's DLL.\n");
-            return false;
+            return SetupResult::Success;
         }
 #   endif
 
@@ -120,14 +120,19 @@ namespace RT64 {
             break;
 #       else
             fprintf(stderr, "D3D12 is not supported on this platform. Please select a different Graphics API.\n");
-            return false;
+            return SetupResult::InvalidGraphicsAPI;
 #       endif
         case UserConfiguration::GraphicsAPI::Vulkan:
             renderInterface = CreateVulkanInterface();
             break;
         default:
             fprintf(stderr, "Unknown Graphics API specified in configuration.\n");
-            return false;
+            return SetupResult::InvalidGraphicsAPI;
+        }
+
+        if (renderInterface == nullptr) {
+            fprintf(stderr, "Unable to initialize graphics API.\n");
+            return SetupResult::GraphicsAPINotFound;
         }
 
         createdGraphicsAPI = userConfig.graphicsAPI;
@@ -152,6 +157,10 @@ namespace RT64 {
 
         // Create the render device for the window
         device = renderInterface->createDevice();
+        if (device == nullptr) {
+            fprintf(stderr, "Unable to find compatible graphics device.\n");
+            return SetupResult::GraphicsDeviceNotFound;
+        }
 
         // Call the init hook if one was attached
         RenderHookInit* initHook = GetRenderHookInit();
@@ -283,7 +292,7 @@ namespace RT64 {
         // Set up the RDP 
         state->rdp->setGBI();
 
-        return true;
+        return SetupResult::Success;
     }
     
     Application::~Application() { }

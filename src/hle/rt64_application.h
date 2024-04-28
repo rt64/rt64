@@ -44,6 +44,14 @@ namespace RT64 {
     };
 
     struct Application : public ApplicationWindow::Listener {
+        enum class SetupResult {
+            Success,
+            DynamicLibrariesNotFound,
+            InvalidGraphicsAPI,
+            GraphicsAPINotFound,
+            GraphicsDeviceNotFound
+        };
+
         struct Core {
             RenderWindow window;
             uint8_t *HEADER;
@@ -139,7 +147,7 @@ namespace RT64 {
 
         Application(const Core &core, const ApplicationConfiguration &appConfig);
         ~Application();
-        bool setup(uint32_t threadId);
+        SetupResult setup(uint32_t threadId);
         void processDisplayLists(uint8_t *memory, uint32_t dlStartAddress, uint32_t dlEndAddress, bool isHLE);
         void updateScreen();
         bool loadOfflineShaderCache(std::istream &stream);
