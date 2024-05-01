@@ -103,10 +103,10 @@ uint Float4ToUINT8(float4 i, uint fmt, bool oddColumn) {
     }
 }
 
-uint Float4ToUINT16(float4 i, uint fmt) {
+uint Float4ToUINT16(float4 i, uint fmt, uint dither) {
     switch (fmt) {
     case G_IM_FMT_RGBA:
-        return Float4ToRGBA16(i);
+        return Float4ToRGBA16(i, dither);
     // TODO
     case G_IM_FMT_CI:
         return 0;
@@ -141,7 +141,7 @@ uint Float4ToUINT32(float4 i, uint fmt) {
     }
 }
 
-uint Float4ToUINT(float4 i, uint siz, uint fmt, bool oddColumn) {
+uint Float4ToUINT(float4 i, uint siz, uint fmt, bool oddColumn, uint dither) {
     switch (siz) {
     // TODO
     case G_IM_SIZ_4b:
@@ -149,7 +149,7 @@ uint Float4ToUINT(float4 i, uint siz, uint fmt, bool oddColumn) {
     case G_IM_SIZ_8b:
         return Float4ToUINT8(i, fmt, oddColumn);
     case G_IM_SIZ_16b:
-        return Float4ToUINT16(i, fmt);
+        return Float4ToUINT16(i, fmt, dither);
     case G_IM_SIZ_32b:
         return Float4ToUINT32(i, fmt);
     // Invalid pixel size.

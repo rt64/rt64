@@ -6,6 +6,53 @@
 
 // Color conversion formulas sourced from Tharo.
 
+static const uint DitherPatternBayer[16] = {
+    0, 4, 1, 5,
+    4, 0, 5, 1,
+    3, 7, 2, 6,
+    7, 3, 6, 2
+};
+
+static const uint DitherPatternMagicSquare[16] = {
+    0, 6, 1, 7,
+    4, 2, 5, 3,
+    3, 5, 2, 4,
+    7, 1, 6, 0
+};
+
+uint DitherPatternIndex(uint2 coord) {
+    return ((coord.y & 3) << 2) + (coord.x & 3);
+}
+
+uint DitherPatternValue(uint pattern, uint2 coord, uint randomSeed) {
+    switch (pattern) {
+    case 0: // MAGICSQ
+        return DitherPatternMagicSquare[DitherPatternIndex(coord)];
+    case 1: // BAYER
+        return DitherPatternBayer[DitherPatternIndex(coord)];
+    case 2: // NOISE
+        return randomSeed & 7;
+    case 3: // DISABLE
+    default:
+        return 0;
+    }
+}
+
+uint AlphaDitherValue(uint colorDither, uint alphaDither, uint2 coord, uint randomSeed) {
+    // Only the first bit of color dither is used here for pattern selection.
+    switch (alphaDither) {
+    case 0: // PATTERN
+        return DitherPatternValue(colorDither & 1, coord, randomSeed);
+    case 1: // NOTPATTERN
+        return (~DitherPatternValue(colorDither & 1, coord, randomSeed)) & 7;
+    case 2: // NOISE
+        return randomSeed & 7;
+    case 3: // DISABLE
+    default:
+        return 0;
+    }
+}
+
 float4 I4ToFloat4(uint i4) {
     uint i = (i4 << 4) | i4;
     return i / 255.0f;
@@ -45,15 +92,15 @@ float4 RGBA16ToFloat4(uint rgba16) {
     );
 }
 
-uint Float4ToRGBA16(float4 i) {
+uint Float4ToRGBA16(float4 i, uint dither) {
     uint r = round(clamp(i.r * 255.0f, 0.0f, 255.0f));
     uint g = round(clamp(i.g * 255.0f, 0.0f, 255.0f));
     uint b = round(clamp(i.b * 255.0f, 0.0f, 255.0f));
-	int cvgModulo = round(i.a * 255.0f) % 8;
-	uint a = (cvgModulo & 0x4) ? 1 : 0;
-    r = r >> 3;
-    g = g >> 3;
-    b = b >> 3;
+    int cvgModulo = round(i.a * 255.0f) % 8;
+    uint a = (cvgModulo & 0x4) ? 1 : 0;
+    r = min(r + dither, 255) >> 3;
+    g = min(g + dither, 255) >> 3;
+    b = min(b + dither, 255) >> 3;
     return (r << 11) | (g << 6) | (b << 1) | a;
 }
 
