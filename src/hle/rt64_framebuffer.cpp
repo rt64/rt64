@@ -4,6 +4,7 @@
 
 #include "rt64_framebuffer.h"
 
+#include <algorithm>
 #include <cassert>
 #include <memory.h>
 #include <stdlib.h>

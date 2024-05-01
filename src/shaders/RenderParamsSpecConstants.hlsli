@@ -7,11 +7,11 @@
 [[vk::constant_id(4)]] const uint rpFlagsValue = 0;
 
 RenderParams getRenderParams() {
-	RenderParams rp;
-	rp.omL = rpOtherModeL;
-	rp.omH = rpOtherModeH;
-	rp.ccL = rpColorCombinerL;
-	rp.ccH = rpColorCombinerH;
-	rp.flags = rpFlagsValue;
-	return rp;
+    RenderParams rp;
+    rp.omL = rpOtherModeL;
+    rp.omH = rpOtherModeH;
+    rp.ccL = rpColorCombinerL;
+    rp.ccH = rpColorCombinerH;
+    rp.flags = rpFlagsValue;
+    return rp;
 }
