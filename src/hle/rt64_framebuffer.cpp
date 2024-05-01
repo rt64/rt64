@@ -36,6 +36,7 @@ namespace RT64 {
         modifiedBytes = 0;
         RAMBytes = 0;
         RAMHash = 0;
+        ditherPatterns.fill(0);
         lastWriteType = Type::None;
         lastWriteFmt = 0;
         lastWriteTimestamp = 0;
@@ -123,13 +124,13 @@ namespace RT64 {
         }
     }
 
-    void Framebuffer::copyRenderTargetToNative(RenderWorker *worker, RenderTarget *target, uint32_t dstRowWidth, uint32_t dstRowStart, uint32_t dstRowEnd, uint8_t fmt, const ShaderLibrary *shaderLibrary) {
+    void Framebuffer::copyRenderTargetToNative(RenderWorker *worker, RenderTarget *target, uint32_t dstRowWidth, uint32_t dstRowStart, uint32_t dstRowEnd, uint8_t fmt, uint32_t ditherRandomSeed, const ShaderLibrary *shaderLibrary) {
         assert(worker != nullptr);
         assert(target != nullptr);
         assert(dstRowStart < height);
         assert(dstRowEnd <= height);
 
-        nativeTarget.copyToNative(worker, target, dstRowWidth, dstRowStart, dstRowEnd, siz, fmt, shaderLibrary);
+        nativeTarget.copyToNative(worker, target, dstRowWidth, dstRowStart, dstRowEnd, siz, fmt, bestDitherPattern(), ditherRandomSeed, shaderLibrary);
     }
 
     void Framebuffer::copyNativeToRAM(uint8_t *dst, uint32_t dstRowWidth, uint32_t dstRowStart, uint32_t dstRowEnd) {
@@ -176,5 +177,15 @@ namespace RT64 {
         widthChanged = false;
         sizChanged = false;
         rdramChanged = false;
+    }
+
+    void Framebuffer::addDitherPatterns(const std::array<uint32_t, 4> &extraPatterns) {
+        for (uint32_t i = 0; i < ditherPatterns.size(); i++) {
+            ditherPatterns[i] += extraPatterns[i];
+        }
+    }
+    
+    uint32_t Framebuffer::bestDitherPattern() const {
+        return std::max_element(ditherPatterns.begin(), ditherPatterns.end()) - ditherPatterns.begin();
     }
 };

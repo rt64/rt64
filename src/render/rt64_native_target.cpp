@@ -159,6 +159,8 @@ namespace RT64 {
         nativeCB.resolution = { width, height };
         nativeCB.fmt = fmt;
         nativeCB.siz = siz;
+        nativeCB.ditherPattern = 0;
+        nativeCB.ditherRandomSeed = 0;
 
         // Assert for formats that have not been implemented yet because hardware verification is pending.
         assert((nativeCB.siz != G_IM_SIZ_4b) && "Unimplemented 4 bits Readback mode.");
@@ -228,7 +230,7 @@ namespace RT64 {
         return modifiedCount;
     }
 
-    void NativeTarget::copyToNative(RenderWorker *worker, RenderTarget *srcTarget, uint32_t rowWidth, uint32_t rowStart, uint32_t rowEnd, uint8_t siz, uint8_t fmt, const ShaderLibrary *shaderLibrary) {
+    void NativeTarget::copyToNative(RenderWorker *worker, RenderTarget *srcTarget, uint32_t rowWidth, uint32_t rowStart, uint32_t rowEnd, uint8_t siz, uint8_t fmt, uint32_t ditherPattern, uint32_t ditherRandomSeed, const ShaderLibrary *shaderLibrary) {
         assert(worker != nullptr);
 
         srcTarget->resolveTarget(worker);
@@ -243,6 +245,8 @@ namespace RT64 {
         nativeCB.resolution = { rowWidth, rowEnd - rowStart };
         nativeCB.fmt = fmt;
         nativeCB.siz = siz;
+        nativeCB.ditherPattern = ditherPattern;
+        nativeCB.ditherRandomSeed = ditherRandomSeed;
 
         // Assert for formats that have not been implemented yet because hardware verification is pending.
         assert((nativeCB.siz != G_IM_SIZ_4b) && "Unimplemented 4 bits Writeback mode.");

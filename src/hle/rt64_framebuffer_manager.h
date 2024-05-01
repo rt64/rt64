@@ -89,6 +89,8 @@ namespace RT64 {
             bool ulScaleT = true;
             interop::uint2 texelShift = { 0, 0 };
             interop::uint2 texelMask = { UINT_MAX, UINT_MAX };
+            interop::uint2 ditherOffset = { 0, 0 };
+            uint32_t ditherPattern = 0;
             float sampleScale = 1.0f;
             bool readColorFromStorage = false;
             bool readDepthFromStorage = false;

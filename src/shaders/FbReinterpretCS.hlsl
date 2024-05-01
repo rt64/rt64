@@ -7,6 +7,7 @@
 #include "shared/rt64_fb_reinterpret.h"
 
 #include "Depth.hlsli"
+#include "Random.hlsli"
 #include "TextureDecoder.hlsli"
 
 [[vk::push_constant]] ConstantBuffer<FbReinterpretCB> gConstants : register(b0);
@@ -16,7 +17,10 @@ RWTexture2D<float4> gOutput : register(u3);
 
 float4 RGBA16toCI8(float4 inputColor, uint2 inputCoord, uint2 outputCoord) {
     // Drop down the input color to its RGBA16 version.
-    uint nativeColor = Float4ToRGBA16(inputColor);
+    uint2 ditherCoord = inputCoord + gConstants.ditherOffset;
+    uint randomSeed = initRand(gConstants.ditherRandomSeed, ditherCoord.y * gConstants.resolution.x + ditherCoord.x, 16);
+    uint ditherValue = DitherPatternValue(gConstants.ditherPattern, ditherCoord, randomSeed);
+    uint nativeColor = Float4ToRGBA16(inputColor, ditherValue);
 
     // Extract the lower or upper half of the value depending on the pixel misalignment.
     uint pixelMisalignment = 1 - (outputCoord.x % 2);

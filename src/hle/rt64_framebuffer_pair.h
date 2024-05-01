@@ -43,6 +43,7 @@ namespace RT64 {
         std::vector<uint32_t> startFbDiscards;
         std::vector<FramebufferOperation> startFbOperations;
         std::vector<FramebufferOperation> endFbOperations;
+        std::array<uint32_t, 4> ditherPatterns;
         FixedRect scissorRect;
         FixedRect drawColorRect;
         FixedRect drawDepthRect;

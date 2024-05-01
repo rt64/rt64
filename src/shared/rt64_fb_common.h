@@ -16,6 +16,8 @@ namespace interop {
         uint2 resolution;
         uint fmt;
         uint siz;
+        uint ditherPattern;
+        uint ditherRandomSeed;
     };
 #ifdef HLSL_CPU
 };

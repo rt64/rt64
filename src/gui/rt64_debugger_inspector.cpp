@@ -1207,6 +1207,9 @@ namespace RT64 {
                                     const uint32_t textDetail = callDesc.otherMode.textDetail();
                                     const uint32_t textFilt = callDesc.otherMode.textFilt();
                                     const uint32_t textLut = callDesc.otherMode.textLUT();
+                                    const uint32_t alphaDither = callDesc.otherMode.alphaDither();
+                                    const uint32_t rgbDither = callDesc.otherMode.rgbDither();
+
                                     ImGui::Indent();
 
                                     ImGui::Text("Cycle type:");
@@ -1274,6 +1277,46 @@ namespace RT64 {
                                         break;
                                     case G_TT_IA16:
                                         ImGui::Text("G_TT_IA16");
+                                        break;
+                                    default:
+                                        ImGui::Text("Unknown");
+                                        break;
+                                    }
+
+                                    ImGui::Text("Alpha Dither:");
+                                    ImGui::SameLine();
+                                    switch (alphaDither) {
+                                    case G_AD_PATTERN:
+                                        ImGui::Text("G_AD_PATTERN");
+                                        break;
+                                    case G_AD_NOTPATTERN:
+                                        ImGui::Text("G_AD_NOTPATTERN");
+                                        break;
+                                    case G_AD_NOISE:
+                                        ImGui::Text("G_AD_NOISE");
+                                        break;
+                                    case G_AD_DISABLE:
+                                        ImGui::Text("G_AD_DISABLE");
+                                        break;
+                                    default:
+                                        ImGui::Text("Unknown");
+                                        break;
+                                    }
+
+                                    ImGui::Text("RGB Dither:");
+                                    ImGui::SameLine();
+                                    switch (rgbDither) {
+                                    case G_CD_MAGICSQ:
+                                        ImGui::Text("G_CD_MAGICSQ");
+                                        break;
+                                    case G_CD_BAYER:
+                                        ImGui::Text("G_CD_BAYER");
+                                        break;
+                                    case G_CD_NOISE:
+                                        ImGui::Text("G_CD_NOISE");
+                                        break;
+                                    case G_CD_DISABLE:
+                                        ImGui::Text("G_CD_DISABLE");
                                         break;
                                     default:
                                         ImGui::Text("Unknown");

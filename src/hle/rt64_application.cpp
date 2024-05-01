@@ -162,9 +162,9 @@ namespace RT64 {
             return SetupResult::GraphicsDeviceNotFound;
         }
 
-        // Call the init hook if one was attached
-        RenderHookInit* initHook = GetRenderHookInit();
-        if (initHook) {
+        // Call the init hook if one was attached.
+        RenderHookInit *initHook = GetRenderHookInit();
+        if (initHook != nullptr) {
             initHook(renderInterface.get(), device.get());
         }
 
@@ -463,6 +463,13 @@ namespace RT64 {
         state.reset();
         workloadQueue.reset();
         presentQueue.reset();
+
+        // Call the deinit hook if one was attached.
+        RenderHookDeinit *deinitHook = GetRenderHookDeinit();
+        if (deinitHook != nullptr) {
+            deinitHook();
+        }
+
         drawDataUploader.reset();
         transformsUploader.reset();
         tilesUploader.reset();

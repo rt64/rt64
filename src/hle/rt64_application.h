@@ -35,6 +35,8 @@
 #   include "script/rt64_script.h"
 #endif
 
+#undef Success
+
 namespace RT64 {
     struct ApplicationConfiguration {
         std::filesystem::path appId = "rt64";

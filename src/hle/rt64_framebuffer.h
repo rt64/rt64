@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include <stdint.h>
 
 #include "render/rt64_native_target.h"
@@ -37,6 +38,7 @@ namespace RT64 {
         uint32_t modifiedBytes;
         uint32_t RAMBytes;
         uint64_t RAMHash;
+        std::array<uint32_t, 4> ditherPatterns;
         bool widthChanged;
         bool sizChanged;
         bool rdramChanged;
@@ -55,9 +57,11 @@ namespace RT64 {
         FramebufferChange *readChangeFromStorage(RenderWorker *worker, const FramebufferStorage &fbStorage, FramebufferChangePool &fbChangePool, Type type, uint8_t fmt,
             uint32_t maxFbPairIndex, uint32_t rowStart, uint32_t rowCount, const ShaderLibrary *shaderLibrary);
 
-        void copyRenderTargetToNative(RenderWorker *worker, RenderTarget *target, uint32_t dstRowWidth, uint32_t dstRowStart, uint32_t dstRowEnd, uint8_t fmt, const ShaderLibrary *shaderLibrary);
+        void copyRenderTargetToNative(RenderWorker *worker, RenderTarget *target, uint32_t dstRowWidth, uint32_t dstRowStart, uint32_t dstRowEnd, uint8_t fmt, uint32_t ditherRandomSeed, const ShaderLibrary *shaderLibrary);
         void copyNativeToRAM(uint8_t *dst, uint32_t dstRowWidth, uint32_t dstRowStart, uint32_t dstRowEnd);
         void clearChanged();
+        void addDitherPatterns(const std::array<uint32_t, 4> &extraPatterns);
+        uint32_t bestDitherPattern() const;
     };
 
     struct FramebufferTile {
@@ -69,6 +73,7 @@ namespace RT64 {
         uint32_t right;
         uint32_t bottom;
         uint32_t lineWidth;
+        uint32_t ditherPattern;
 
         bool valid() const {
             return (bottom > top) && (right > left);

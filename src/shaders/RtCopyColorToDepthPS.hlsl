@@ -17,7 +17,7 @@ float4 PSMain(in float4 pos : SV_Position, in float2 uv : TEXCOORD0, in uint sam
 #else
     float4 inputColor = gInput.Load(uint3(pos.xy, 0));
 #endif
-    uint rgba16 = Float4ToRGBA16(inputColor);
+    uint rgba16 = Float4ToRGBA16(inputColor, 0);
     resultDepth = Depth16ToFloat(rgba16);
     return 0.0f;
 }

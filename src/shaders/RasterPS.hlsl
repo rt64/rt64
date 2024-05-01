@@ -38,7 +38,7 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
     const bool depthDecal = (otherMode.zMode() == ZMODE_DEC);
     const bool zSourcePrim = (otherMode.zSource() == G_ZS_PRIM);
     int2 pixelPosSeed = floor(vertexPosition.xy);
-    uint randomSeed = initRand(FrParams.frameCount, instanceIndex * pixelPosSeed.x * pixelPosSeed.y, 16);
+    uint randomSeed = initRand(FrParams.frameCount, instanceIndex * pixelPosSeed.y * pixelPosSeed.x, 16); // TODO: Review seed.
     if (outputDepth) {
         if (zSourcePrim) {
             resultDepth = instanceRDPParams[instanceIndex].primDepth.x;
@@ -161,6 +161,23 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
     ccInputs.K4 = (instanceRDPParams[instanceIndex].convertK[4] / 255.0f);
     ccInputs.K5 = (instanceRDPParams[instanceIndex].convertK[5] / 255.0f);
     colorCombiner.run(ccInputs, combinerColor, alphaCompareValue);
+    
+#if 0
+    // Alpha dither.
+    // TODO: To avoid increasing the alpha values here, the only viable choice would be to drop the precision down to 5-bit.
+    // Since we'd rather keep the full precision of the alpha channel from the texture, this step is ignored for now.
+    if (otherMode.alphaDither() != G_AD_DISABLE) {
+        uint rgbDither = (otherMode.rgbDither() >> G_MDSFT_RGBDITHER) & 0x3;
+        uint alphaDither = (otherMode.alphaDither() >> G_MDSFT_ALPHADITHER) & 0x3;
+        float alphaDitherFloat = (AlphaDitherValue(rgbDither, alphaDither, floor(vertexPosition.xy), randomSeed) / 255.0f);
+        if (!otherMode.alphaCvgSel()) {
+            combinerColor.a += alphaDitherFloat;
+        }
+        
+        shadeColor.a += alphaDitherFloat;
+        alphaCompareValue += alphaDitherFloat;
+    }
+#endif
     
     // Alpha compare.
     if (otherMode.alphaCompare() == G_AC_DITHER) {

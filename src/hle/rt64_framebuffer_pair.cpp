@@ -19,6 +19,7 @@ namespace RT64 {
         depthRead = false;
         depthWrite = false;
         syncRequired = false;
+        ditherPatterns.fill(0);
         scissorRect.reset();
         startFbDiscards.clear();
         startFbOperations.clear();
@@ -34,6 +35,10 @@ namespace RT64 {
         depthRead = depthRead || gameCall.callDesc.otherMode.zCmp();
         depthWrite = depthWrite || gameCall.callDesc.otherMode.zUpd();
         gameCallCount++;
+
+        // Track what type of color dither this call used.
+        uint32_t ditherIndex = (gameCall.callDesc.otherMode.rgbDither() >> G_MDSFT_RGBDITHER) & 0x3;
+        ditherPatterns[ditherIndex]++;
     }
 
     bool FramebufferPair::inProjection(uint32_t transformsIndex, Projection::Type type) const {

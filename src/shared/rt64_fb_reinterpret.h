@@ -17,6 +17,9 @@ namespace interop {
         uint dstSiz;
         uint dstFmt;
         uint tlutFormat;
+        uint ditherPattern;
+        uint ditherRandomSeed;
+        uint2 ditherOffset;
     };
 #ifdef HLSL_CPU
 };

@@ -466,6 +466,7 @@ namespace RT64 {
             RT64::Framebuffer *colorFb = &framebufferManager.get(colorImg.address, colorImg.siz, colorImg.width, colorHeight);
             colorImg.formatChanged = colorFb->widthChanged || colorFb->sizChanged || colorFb->rdramChanged;
             colorFb->clearChanged();
+            colorFb->addDitherPatterns(fbPair.ditherPatterns);
 
             RT64::Framebuffer *depthFb = nullptr;
             if (fbPair.depthRead || fbPair.depthWrite) {
@@ -1383,10 +1384,10 @@ namespace RT64 {
                         }
 
                         // Copy results from render targets back to RAM.
-                        colorFb->copyRenderTargetToNative(ext.framebufferGraphicsWorker, colorTarget, colorWriteWidth, colorRowStart, colorRowEnd, colorImg.fmt, ext.shaderLibrary);
+                        colorFb->copyRenderTargetToNative(ext.framebufferGraphicsWorker, colorTarget, colorWriteWidth, colorRowStart, colorRowEnd, colorImg.fmt, ditherRandomSeed++, ext.shaderLibrary);
 
                         if (depthWriteWidth > 0) {
-                            depthFb->copyRenderTargetToNative(ext.framebufferGraphicsWorker, depthTarget, depthWriteWidth, depthRowStart, depthRowEnd, G_IM_FMT_DEPTH, ext.shaderLibrary);
+                            depthFb->copyRenderTargetToNative(ext.framebufferGraphicsWorker, depthTarget, depthWriteWidth, depthRowStart, depthRowEnd, G_IM_FMT_DEPTH, ditherRandomSeed++, ext.shaderLibrary);
                         }
                     }
 

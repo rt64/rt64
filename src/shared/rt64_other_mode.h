@@ -71,6 +71,14 @@ namespace interop {
             return H & (3U << G_MDSFT_TEXTLUT);
         }
 
+        uint alphaDither() constmethod {
+            return H & (3U << G_MDSFT_ALPHADITHER);
+        }
+
+        uint rgbDither() constmethod {
+            return H & (3U << G_MDSFT_RGBDITHER);
+        }
+
         bool aaEn() constmethod {
             return L & AA_EN;
         }

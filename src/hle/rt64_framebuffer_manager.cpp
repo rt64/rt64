@@ -123,6 +123,8 @@ namespace RT64 {
         tileCopy.ulScaleS = true;
         tileCopy.texelShift = { 0, 0 };
         tileCopy.texelMask = { UINT_MAX, UINT_MAX };
+        tileCopy.ditherOffset = { tileCopy.left, tileCopy.top };
+        tileCopy.ditherPattern = op.createTileCopy.fbTile.ditherPattern;
         tileCopy.readColorFromStorage = false;
         tileCopy.readDepthFromStorage = false;
         tileCopy.ignore = false;
@@ -275,6 +277,8 @@ namespace RT64 {
         dstTile.usedWidth = dstTileWidth;
         dstTile.usedHeight = dstTileHeight;
         dstTile.sampleScale = sampleScale;
+        dstTile.ditherOffset = srcTile.ditherOffset;
+        dstTile.ditherPattern = srcTile.ditherPattern;
         srcTile.ignore = false;
 
         const bool insufficientSize = (dstTile.textureWidth < dstTileWidth) || (dstTile.textureHeight < dstTileHeight);
@@ -318,6 +322,9 @@ namespace RT64 {
         c.dstSiz = op.reinterpretTile.dstSiz;
         c.dstFmt = op.reinterpretTile.dstFmt;
         c.tlutFormat = (op.reinterpretTile.tlutHash != 0) ? (op.reinterpretTile.tlutFormat + 1) : 0;
+        c.ditherOffset = dstTile.ditherOffset;
+        c.ditherPattern = dstTile.ditherPattern;
+        c.ditherRandomSeed = uint32_t(writeTimestamp) + op.reinterpretTile.dstId;
         dispatch.srcTexture = srcTile.texture.get();
         dispatch.dstTexture = dstTile.texture.get();
 
@@ -460,6 +467,7 @@ namespace RT64 {
         outTile.address = fb->addressStart;
         outTile.siz = fb->siz;
         outTile.fmt = fb->lastWriteFmt;
+        outTile.ditherPattern = fb->bestDitherPattern();
 
         return true;
     }
@@ -828,6 +836,7 @@ namespace RT64 {
         auto it = framebuffers.begin();
         while (it != framebuffers.end()) {
             it->second.maxHeight = 0;
+            it->second.ditherPatterns.fill(0);
             it++;
         }
     }
