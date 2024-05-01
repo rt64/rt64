@@ -157,7 +157,7 @@ namespace RT64 {
     VIHistory::VIHistory() {
         historyCursor = 0;
         factorCursor = 0;
-        history.fill({ 0 });
+        history.fill({});
         factors.fill(0);
     }
 

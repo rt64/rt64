@@ -135,7 +135,7 @@ namespace RT64 {
         return textures[index];
     }
 
-    const size_t TextureMap::getMaxIndex() const {
+    size_t TextureMap::getMaxIndex() const {
         return textures.size();
     }
 

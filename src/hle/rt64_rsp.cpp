@@ -50,10 +50,10 @@ namespace RT64 {
         projMatrixStack[0] = hlslpp::float4x4(0.0f);
         viewProjMatrixStack[0] = hlslpp::float4x4(0.0f);
         invViewProjMatrixStack[0] = hlslpp::float4x4(0.0f);
-        vertices.fill({ 0 });
+        vertices.fill({});
         indices.fill(0);
         used.reset();
-        lights.fill({ 0 });
+        lights.fill({});
         segments.fill(0);
         viewportStack[0] = {};
         textureState = {};

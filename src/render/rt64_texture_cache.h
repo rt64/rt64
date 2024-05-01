@@ -65,7 +65,7 @@ namespace RT64 {
         void incrementLock();
         void decrementLock();
         const Texture *get(uint32_t index) const;
-        const size_t getMaxIndex() const;
+        size_t getMaxIndex() const;
     };
 
     struct TextureCache {

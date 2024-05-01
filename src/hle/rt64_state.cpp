@@ -834,7 +834,7 @@ namespace RT64 {
                     extraParams.rspLightDiffuseMix = gameConfig.rspLightAsDiffuse ? gameConfig.rspLightIntensity : 0.0f;
                     shaderDesc.colorCombiner = callDesc.colorCombiner;
                     shaderDesc.otherMode = callDesc.otherMode;
-                    shaderDesc.flags = { 0 };
+                    shaderDesc.flags = {};
 
                     // TODO: Reimplement proper decals in RT.
                     const float DepthDecalBias = 0.02f;
