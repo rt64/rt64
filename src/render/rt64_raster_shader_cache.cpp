@@ -141,8 +141,8 @@ namespace RT64 {
     void RasterShaderCache::CompilationThread::loop() {
         Thread::setCurrentThreadName("RT64 Shader");
 
-        // The shader compilation thread should have the lowest priority by default as the application can use the ubershader in the meantime.
-        Thread::setCurrentThreadPriority(Thread::Priority::Lowest);
+        // The shader compilation thread should have idle priority by default as the application can use the ubershader in the meantime.
+        Thread::setCurrentThreadPriority(Thread::Priority::Idle);
 
         threadRunning = true;
 

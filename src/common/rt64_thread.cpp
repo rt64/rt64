@@ -18,6 +18,8 @@ namespace RT64 {
 #   if defined(_WIN32)
     static int toWindowsPriority(Thread::Priority priority) {
         switch (priority) {
+        case Thread::Priority::Idle:
+            return THREAD_PRIORITY_IDLE;
         case Thread::Priority::Lowest:
             return THREAD_PRIORITY_LOWEST;
         case Thread::Priority::Low:

@@ -10,6 +10,7 @@
 namespace RT64 {
     struct Thread {
         enum class Priority {
+            Idle,
             Lowest,
             Low,
             Normal,
