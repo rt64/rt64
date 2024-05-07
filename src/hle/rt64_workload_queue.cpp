@@ -941,7 +941,7 @@ namespace RT64 {
                 else if (generateInterpolatedFrames) {
                     std::unique_lock<std::mutex> interpolatedLock(ext.sharedResources->interpolatedMutex);
                     ext.sharedResources->interpolatedCondition.wait(interpolatedLock, [&]() {
-                        return (prevFrameCounters.presented == 0) || (prevFrameCounters.presented >= prevFrameCounters.count);
+                        return (prevFrameCounters.presented == 0) || (prevFrameCounters.presented >= prevFrameCounters.available);
                     });
                 }
 
