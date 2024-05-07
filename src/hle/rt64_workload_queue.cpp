@@ -936,6 +936,14 @@ namespace RT64 {
                     ext.sharedResources->interpolatedFramesIndex = ext.sharedResources->interpolatedFramesIndex ^ 1;
                     lastPresentId = workload.presentId;
                 }
+                // If the same set of counters is used, we wait until the presentation of its targets is finished so the targets are available to use. Waiting is ignored
+                // if the frame counter has never presented anything yet, as it'll only be a valid value if the previous present event actually did something.
+                else if (generateInterpolatedFrames) {
+                    std::unique_lock<std::mutex> interpolatedLock(ext.sharedResources->interpolatedMutex);
+                    ext.sharedResources->interpolatedCondition.wait(interpolatedLock, [&]() {
+                        return (prevFrameCounters.presented == 0) || (prevFrameCounters.presented >= prevFrameCounters.count);
+                    });
+                }
 
                 InterpolatedFrameCounters &curFrameCounters = ext.sharedResources->interpolatedFrames[ext.sharedResources->interpolatedFramesIndex];
                 curFrameCounters.skipped = false;
