@@ -264,6 +264,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/shared/rt64_hlsl_json.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/rhi/rt64_render_hooks.cpp"
+    "${PROJECT_SOURCE_DIR}/src/rhi/rt64_render_interface.cpp"
     "${PROJECT_SOURCE_DIR}/src/vulkan/rt64_vulkan.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui.cpp"
@@ -386,5 +387,11 @@ build_pixel_shader(  rt64 "src/shaders/ComposePS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/DebugPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/Im3DPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/PostProcessPS.hlsl")
+build_pixel_shader(  rt64 "src/shaders/RenderInterfaceTestPS.hlsl")
+build_vertex_shader( rt64 "src/shaders/RenderInterfaceTestVS.hlsl")
+build_compute_shader(rt64 "src/shaders/RenderInterfaceTestCS.hlsl")
+build_ray_shader(    rt64 "src/shaders/RenderInterfaceTestRT.hlsl")
+build_pixel_shader(  rt64 "src/shaders/RenderInterfaceTestPostPS.hlsl")
+build_vertex_shader( rt64 "src/shaders/RenderInterfaceTestPostVS.hlsl")
 
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/src)

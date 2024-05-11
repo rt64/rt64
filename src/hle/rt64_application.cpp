@@ -16,7 +16,6 @@
 #   include "res/bluenoise/LDR_64_64_64_RGB1.h"
 #endif
 
-//#define TEST_RENDER_INTERFACE
 //#define LOG_DISPLAY_LISTS
 
 namespace RT64 {
@@ -136,11 +135,6 @@ namespace RT64 {
         }
 
         createdGraphicsAPI = userConfig.graphicsAPI;
-
-#   ifdef TEST_RENDER_INTERFACE
-        // Execute a blocking test that creates a window and draws some geometry to test the render interface.
-        RenderInterfaceTest(renderInterface.get());
-#   endif
 
         // Create the application window.
         const char *windowTitle = "RT64";
