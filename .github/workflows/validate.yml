@@ -57,6 +57,9 @@ jobs:
         run: |-
           # enable ccache
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+
+          # make dxc executable
+          chmod +x src/contrib/dxc/bin/x64/dxc:
           
           cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
           cmake --build cmake-build --config Debug --target rt64 -j 8
