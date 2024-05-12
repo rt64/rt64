@@ -20,6 +20,8 @@
 #undef None
 #undef Status
 #undef LockMask
+#elif defined(__APPLE__)
+typedef struct _NSWindow NSWindow;
 #endif
 
 namespace RT64 {
@@ -34,6 +36,14 @@ namespace RT64 {
         Window window;
         bool operator==(const struct RenderWindow& rhs) const {
             return display == rhs.display && window == rhs.window;
+        }
+        bool operator!=(const struct RenderWindow& rhs) const { return !(*this == rhs); }
+    };
+#elif defined(__APPLE__)
+    struct RenderWindow {
+        NSWindow* window;
+        bool operator==(const struct RenderWindow& rhs) const {
+            return window == rhs.window;
         }
         bool operator!=(const struct RenderWindow& rhs) const { return !(*this == rhs); }
     };
