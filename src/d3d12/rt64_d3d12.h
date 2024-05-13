@@ -272,7 +272,7 @@ namespace RT64 {
         ~D3D12TextureView() override;
     };
 
-    struct D3D12AccelerationStructure :RenderAccelerationStructure {
+    struct D3D12AccelerationStructure : RenderAccelerationStructure {
         D3D12Device *device = nullptr;
         const D3D12Buffer *buffer = nullptr;
         uint64_t offset = 0;

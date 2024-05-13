@@ -1544,6 +1544,9 @@ namespace RT64 {
         // Present.
         bool presentWait = false;
         bool displayTiming = false;
+
+        // Framebuffers.
+        uint64_t maxTextureSize = 0;
     };
 
     struct RenderInterfaceCapabilities {

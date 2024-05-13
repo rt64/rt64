@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(rt64)
+project(rt64 LANGUAGES C CXX OBJC OBJCXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
@@ -329,12 +329,13 @@ target_link_libraries(rt64 nfd)
 
 # Add any Apple-specific source files and libraries
 if (APPLE)
+    target_compile_options(rt64 PUBLIC "-fobjc-arc")
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.mm"
-        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.h"
     )
 
     target_link_libraries(rt64 "-framework Metal")
+    target_link_libraries(rt64 "-framework CoreGraphics")
 endif()
 
 # Add any Windows-specific source files and libraries
