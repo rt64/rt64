@@ -3,7 +3,10 @@ project(rt64)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-option(RT64_BUILD_EXAMPLES "Build examples for RT64" ON)
+option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
+if (${RT64_BUILD_EXAMPLES})
+    set(RT64_STATIC ON)
+endif()
 
 function(preprocess INFILE OUTFILE OPTIONS)
     if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
