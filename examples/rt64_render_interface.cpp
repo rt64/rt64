@@ -6,6 +6,8 @@
 
 #include <cassert>
 #include <cstring>
+#include <chrono>
+#include <thread>
 
 #ifdef _WIN64
 #include "shaders/RenderInterfaceTestPS.hlsl.dxil.h"
