@@ -20,8 +20,8 @@ namespace RT64 {
     struct D3D12CommandQueue;
     struct D3D12Device;
     struct D3D12GraphicsPipeline;
-    struct D3D12Interface;
     struct D3D12Pipeline;
+    struct D3D12Interface;
     struct D3D12Pool;
     struct D3D12PipelineLayout;
     struct D3D12Texture;

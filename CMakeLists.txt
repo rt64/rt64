@@ -327,6 +327,16 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 # Add common libraries.
 target_link_libraries(rt64 nfd)
 
+# Add any Apple-specific source files and libraries
+if (APPLE)
+    target_sources(rt64 PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.mm"
+        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.h"
+    )
+
+    target_link_libraries(rt64 "-framework Metal")
+endif()
+
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE

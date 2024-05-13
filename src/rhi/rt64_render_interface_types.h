@@ -304,7 +304,8 @@ namespace RT64 {
     enum class RenderShaderFormat {
         UNKNOWN,
         DXIL,
-        SPIRV
+        SPIRV,
+        METAL,
     };
 
     enum class RenderRaytracingPipelineLibrarySymbolType {
