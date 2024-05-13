@@ -22,5 +22,4 @@
 build/
 .vscode/
 .idea
-cmake-build-debug
-cmake-build-debug-visual-studio
+cmake-build-debug*
