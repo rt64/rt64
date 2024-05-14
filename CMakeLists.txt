@@ -95,7 +95,7 @@ function(build_shader_dxil_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.dxil.c)
 endfunction()
 
-function(build_shader_msl_converter_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
+function(build_shader_mslir_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     add_custom_command(OUTPUT ${OUTNAME}.dxil
         COMMAND ${DXC} ${DXC_DXIL_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.dxil
         DEPENDS ${FILENAME})
@@ -103,10 +103,24 @@ function(build_shader_msl_converter_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
         COMMAND metal-shaderconverter ${OUTNAME}.dxil -o ${OUTNAME}.metallib --output-reflection-file=${OUTNAME}.metallib.reflection
         DEPENDS ${OUTNAME}.dxil)
     add_custom_command(OUTPUT ${OUTNAME}.metallib.c
-        COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metallib.c ${OUTNAME}.metallib.h
+        COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSLIR ${OUTNAME}.metallib.c ${OUTNAME}.metallib.h
         DEPENDS ${OUTNAME}.metallib file_to_c
         BYPRODUCTS ${OUTNAME}.metallib.h)
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metallib.c)
+endfunction()
+
+function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
+    add_custom_command(OUTPUT ${OUTNAME}.spv
+            COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
+            DEPENDS ${FILENAME})
+    add_custom_command(OUTPUT ${OUTNAME}.msl
+            COMMAND pkgx spirv-cross ${OUTNAME}.spv --msl --output ${OUTNAME}.msl --msl-version 20000
+            DEPENDS ${OUTNAME}.spv)
+    add_custom_command(OUTPUT ${OUTNAME}.msl.c
+            COMMAND file_to_c ${OUTNAME}.msl ${TARGET_NAME}BlobMSL ${OUTNAME}.msl.c ${OUTNAME}.msl.h
+            DEPENDS ${OUTNAME}.msl file_to_c
+            BYPRODUCTS ${OUTNAME}.msl.h)
+    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.msl.c)
 endfunction()
 
 function(build_shader TARGETOBJ SHADERNAME OPTIONS)
@@ -129,7 +143,7 @@ function(build_shader TARGETOBJ SHADERNAME OPTIONS)
         build_shader_dxil_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     endif()
     if (APPLE)
-        build_shader_msl_converter_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+        build_shader_msl_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     else()
         build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     endif()
