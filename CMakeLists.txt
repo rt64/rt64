@@ -95,6 +95,20 @@ function(build_shader_dxil_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.dxil.c)
 endfunction()
 
+function(build_shader_msl_converter_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
+    add_custom_command(OUTPUT ${OUTNAME}.dxil
+        COMMAND ${DXC} ${DXC_DXIL_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.dxil
+        DEPENDS ${FILENAME})
+    add_custom_command(OUTPUT ${OUTNAME}.metallib
+        COMMAND metal-shaderconverter ${OUTNAME}.dxil -o ${OUTNAME}.metallib --output-reflection-file=${OUTNAME}.metallib.reflection
+        DEPENDS ${OUTNAME}.dxil)
+    add_custom_command(OUTPUT ${OUTNAME}.metallib.c
+        COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metallib.c ${OUTNAME}.metallib.h
+        DEPENDS ${OUTNAME}.metallib file_to_c
+        BYPRODUCTS ${OUTNAME}.metallib.h)
+    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metallib.c)
+endfunction()
+
 function(build_shader TARGETOBJ SHADERNAME OPTIONS)
     set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
     if (${ARGC} GREATER 3)
@@ -114,7 +128,11 @@ function(build_shader TARGETOBJ SHADERNAME OPTIONS)
     if (WIN32)
         build_shader_dxil_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     endif()
-    build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+    if (APPLE)
+        build_shader_msl_converter_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+    else()
+        build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+    endif()
 endfunction()
 
 function(build_shader_spirv TARGETOBJ SHADERNAME OPTIONS)
