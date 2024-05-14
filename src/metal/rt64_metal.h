@@ -151,6 +151,7 @@ namespace RT64 {
     };
 
     struct MetalTexture : RenderTexture {
+        MTLTextureDescriptor *descriptor = nullptr;
         RenderTextureLayout layout = RenderTextureLayout::UNKNOWN;
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
@@ -164,6 +165,7 @@ namespace RT64 {
     };
 
     struct MetalTextureView : RenderTextureView {
+        id<MTLTexture> mtlTexture = nil;
         MetalTexture *texture = nullptr;
 
         MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc);
@@ -201,6 +203,7 @@ namespace RT64 {
     };
 
     struct MetalSampler : RenderSampler {
+        id<MTLSamplerState> samplerState = nil;
         MetalDevice *device = nullptr;
         RenderBorderColor borderColor = RenderBorderColor::UNKNOWN;
         RenderShaderVisibility shaderVisibility = RenderShaderVisibility::UNKNOWN;

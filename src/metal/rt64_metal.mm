@@ -315,7 +315,89 @@ namespace RT64 {
         }
     }
 
-    // D3D12Device
+    // MetalTexture
+
+    MetalTexture::MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc) {
+        assert(device != nullptr);
+
+        this->device = device;
+        this->pool = pool;
+        this->desc = desc;
+
+        this->descriptor = [MTLTextureDescriptor new];
+
+        [this->descriptor setTextureType: toTextureType(desc.dimension)];
+        [this->descriptor setPixelFormat: toMtl(desc.format)];
+        [this->descriptor setWidth: desc.width];
+        [this->descriptor setHeight: desc.height];
+        [this->descriptor setDepth: desc.depth];
+        [this->descriptor setMipmapLevelCount: desc.mipLevels];
+        [this->descriptor setArrayLength: 1];
+        [this->descriptor setSampleCount: desc.multisampling.sampleCount];
+        // TODO: Usage flags
+    }
+
+    MetalTexture::~MetalTexture() {
+        // TODO: Should be handled by ARC
+    }
+
+    // MetalTextureView
+
+    MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
+        assert(texture != nullptr);
+
+        this->texture = texture;
+
+        this->mtlTexture = [texture->device->renderInterface->device newTextureWithDescriptor: texture->descriptor];
+    }
+
+    MetalTextureView::~MetalTextureView() {
+        // TODO: Should be handled by ARC
+    }
+
+    // MetalSampler
+
+    MetalSampler::MetalSampler(MetalDevice *device, const RenderSamplerDesc &desc) {
+        assert(device != nullptr);
+
+        this->device = device;
+
+        MTLSamplerDescriptor *descriptor = [MTLSamplerDescriptor new];
+        [descriptor setMinFilter: toMtl(desc.minFilter)];
+        [descriptor setMagFilter: toMtl(desc.magFilter)];
+        [descriptor setMipFilter: toMtl(desc.mipmapMode)];
+        [descriptor setRAddressMode: toMtl(desc.addressU)];
+        [descriptor setSAddressMode: toMtl(desc.addressV)];
+        [descriptor setTAddressMode: toMtl(desc.addressW)];
+        [descriptor setMaxAnisotropy: desc.maxAnisotropy];
+        [descriptor setCompareFunction: toMtl(desc.comparisonFunc)];
+        [descriptor setLodMinClamp: desc.minLOD];
+        [descriptor setLodMaxClamp: desc.maxLOD];
+        [descriptor setBorderColor: toMtl(desc.borderColor)];
+
+        this->samplerState = [device->renderInterface->device newSamplerStateWithDescriptor: descriptor];
+    }
+
+    MetalSampler::~MetalSampler() {
+        // TODO: Should be handled by ARC
+    }
+
+    // MetalPool
+
+    MetalPool::MetalPool(MetalDevice *device, const RenderPoolDesc &desc) {
+        assert(device != nullptr);
+
+        this->device = device;
+
+        MTLHeapDescriptor *descriptor = [MTLHeapDescriptor new];
+        // TODO: Set Descriptor properties correctly
+        [descriptor setType: MTLHeapTypeAutomatic];
+
+        this->heap = [device->renderInterface->device newHeapWithDescriptor: descriptor];
+    }
+
+    // MetalDevice
+
     MetalDevice::MetalDevice(MetalInterface *renderInterface) {
         assert(renderInterface != nullptr);
         this->renderInterface = renderInterface;
@@ -337,6 +419,70 @@ namespace RT64 {
 
     std::unique_ptr<RenderCommandList> MetalDevice::createCommandList(RenderCommandListType type) {
         return std::make_unique<MetalCommandList>(this, type);
+    }
+
+    std::unique_ptr<RenderDescriptorSet> MetalDevice::createDescriptorSet(const RenderDescriptorSetDesc &desc) {
+        return std::make_unique<MetalescriptorSet>(this, desc);
+    }
+
+    std::unique_ptr<RenderShader> MetalDevice::createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) {
+        return std::make_unique<MetalShader>(this, data, size, entryPointName, format);
+    }
+
+    std::unique_ptr<RenderSampler> MetalDevice::createSampler(const RenderSamplerDesc &desc) {
+        return std::make_unique<MetalSampler>(this, desc);
+    }
+
+    std::unique_ptr<RenderPipeline> MetalDevice::createComputePipeline(const RenderComputePipelineDesc &desc) {
+        return std::make_unique<MetalComputePipeline>(this, desc);
+    }
+
+    std::unique_ptr<RenderPipeline> MetalDevice::createGraphicsPipeline(const RenderGraphicsPipelineDesc &desc) {
+        return std::make_unique<MetalGraphicsPipeline>(this, desc);
+    }
+
+//    std::unique_ptr<RenderPipeline> MetalDevice::createRaytracingPipeline(const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline) {
+//        return std::make_unique<MetalRaytracingPipeline>(this, desc, previousPipeline);
+//    }
+
+    std::unique_ptr<RenderCommandQueue> MetalDevice::createCommandQueue(RenderCommandListType type) {
+        return std::make_unique<MetalCommandQueue>(this, type);
+    }
+
+    std::unique_ptr<RenderBuffer> MetalDevice::createBuffer(const RenderBufferDesc &desc) {
+        return std::make_unique<MetalBuffer>(this, nullptr, desc);
+    }
+
+    std::unique_ptr<RenderTexture> MetalDevice::createTexture(const RenderTextureDesc &desc) {
+        return std::make_unique<MetalTexture>(this, nullptr, desc);
+    }
+
+    std::unique_ptr<RenderAccelerationStructure> MetalDevice::createAccelerationStructure(const RenderAccelerationStructureDesc &desc) {
+        return std::make_unique<MetalAccelerationStructure>(this, desc);
+    }
+
+    std::unique_ptr<RenderPool> MetalDevice::createPool(const RenderPoolDesc &desc) {
+        return std::make_unique<MetalPool>(this, desc);
+    }
+
+    std::unique_ptr<RenderPipelineLayout> MetalDevice::createPipelineLayout(const RenderPipelineLayoutDesc &desc) {
+        return std::make_unique<VulkanPipelineLayout>(this, desc);
+    }
+
+    std::unique_ptr<RenderCommandFence> MetalDevice::createCommandFence() {
+        return std::make_unique<VulkanCommandFence>(this);
+    }
+
+    std::unique_ptr<RenderFramebuffer> MetalDevice::createFramebuffer(const RenderFramebufferDesc &desc) {
+        return std::make_unique<VulkanFramebuffer>(this, desc);
+    }
+
+    const RenderDeviceCapabilities &MetalDevice::getCapabilities() const {
+        return capabilities;
+    }
+
+    RenderSampleCounts MetalDevice::getSampleCountsSupported(RT64::RenderFormat format) const {
+
     }
 
     // VulkanInterface
