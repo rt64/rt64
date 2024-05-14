@@ -382,6 +382,18 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
+    // MetalPipeline
+
+    MetalPipeline::MetalPipeline(RT64::MetalDevice *device, RT64::MetalPipeline::Type type) {
+        assert(device != nullptr);
+        assert(type != Type::Unknown);
+
+        this->device = device;
+        this->type = type;
+    }
+
+    MetalPipeline::~MetalPipeline() { }
+
     // MetalPool
 
     MetalPool::MetalPool(MetalDevice *device, const RenderPoolDesc &desc) {
@@ -422,7 +434,7 @@ namespace RT64 {
     }
 
     std::unique_ptr<RenderDescriptorSet> MetalDevice::createDescriptorSet(const RenderDescriptorSetDesc &desc) {
-        return std::make_unique<MetalescriptorSet>(this, desc);
+        return std::make_unique<MetalDescriptorSet>(this, desc);
     }
 
     std::unique_ptr<RenderShader> MetalDevice::createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) {
@@ -441,6 +453,7 @@ namespace RT64 {
         return std::make_unique<MetalGraphicsPipeline>(this, desc);
     }
 
+    // TODO: Support Metal RT
 //    std::unique_ptr<RenderPipeline> MetalDevice::createRaytracingPipeline(const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline) {
 //        return std::make_unique<MetalRaytracingPipeline>(this, desc, previousPipeline);
 //    }
@@ -466,15 +479,15 @@ namespace RT64 {
     }
 
     std::unique_ptr<RenderPipelineLayout> MetalDevice::createPipelineLayout(const RenderPipelineLayoutDesc &desc) {
-        return std::make_unique<VulkanPipelineLayout>(this, desc);
+        return std::make_unique<MetalPipelineLayout>(this, desc);
     }
 
     std::unique_ptr<RenderCommandFence> MetalDevice::createCommandFence() {
-        return std::make_unique<VulkanCommandFence>(this);
+        return std::make_unique<MetalCommandFence>(this);
     }
 
     std::unique_ptr<RenderFramebuffer> MetalDevice::createFramebuffer(const RenderFramebufferDesc &desc) {
-        return std::make_unique<VulkanFramebuffer>(this, desc);
+        return std::make_unique<MetalFramebuffer>(this, desc);
     }
 
     const RenderDeviceCapabilities &MetalDevice::getCapabilities() const {
