@@ -95,32 +95,26 @@ function(build_shader_dxil_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.dxil.c)
 endfunction()
 
-function(build_shader_mslir_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
-    add_custom_command(OUTPUT ${OUTNAME}.dxil
-        COMMAND ${DXC} ${DXC_DXIL_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.dxil
-        DEPENDS ${FILENAME})
-    add_custom_command(OUTPUT ${OUTNAME}.metallib
-        COMMAND metal-shaderconverter ${OUTNAME}.dxil -o ${OUTNAME}.metallib --output-reflection-file=${OUTNAME}.metallib.reflection
-        DEPENDS ${OUTNAME}.dxil)
-    add_custom_command(OUTPUT ${OUTNAME}.metallib.c
-        COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSLIR ${OUTNAME}.metallib.c ${OUTNAME}.metallib.h
-        DEPENDS ${OUTNAME}.metallib file_to_c
-        BYPRODUCTS ${OUTNAME}.metallib.h)
-    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metallib.c)
-endfunction()
-
 function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     add_custom_command(OUTPUT ${OUTNAME}.spv
             COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
             DEPENDS ${FILENAME})
-    add_custom_command(OUTPUT ${OUTNAME}.msl
-            COMMAND pkgx spirv-cross ${OUTNAME}.spv --msl --output ${OUTNAME}.msl --msl-version 20000
+    add_custom_command(OUTPUT ${OUTNAME}.metal
+            COMMAND pkgx spirv-cross ${OUTNAME}.spv --msl --output ${OUTNAME}.metal --msl-version 20000 --msl-argument-buffers
             DEPENDS ${OUTNAME}.spv)
-    add_custom_command(OUTPUT ${OUTNAME}.msl.c
-            COMMAND file_to_c ${OUTNAME}.msl ${TARGET_NAME}BlobMSL ${OUTNAME}.msl.c ${OUTNAME}.msl.h
-            DEPENDS ${OUTNAME}.msl file_to_c
-            BYPRODUCTS ${OUTNAME}.msl.h)
-    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.msl.c)
+    add_custom_command(OUTPUT ${OUTNAME}.ir
+            COMMAND xcrun -sdk macosx metal -o ${OUTNAME}.ir -c ${OUTNAME}.metal
+            DEPENDS ${OUTNAME}.metal)
+    add_custom_command(OUTPUT ${OUTNAME}.metallib
+            COMMAND xcrun -sdk macosx metallib ${OUTNAME}.ir -o ${OUTNAME}.metallib
+            DEPENDS ${OUTNAME}.ir)
+    add_custom_command(OUTPUT ${OUTNAME}.metallib.c
+            COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metallib.c ${OUTNAME}.metallib.h
+            DEPENDS ${OUTNAME}.metallib file_to_c
+            BYPRODUCTS ${OUTNAME}.metallib.h)
+    add_custom_command(TARGET ${TARGETOBJ} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -f ${OUTNAME}.spv ${OUTNAME}.metal ${OUTNAME}.ir ${OUTNAME}.metallib)
+    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metallib.c)
 endfunction()
 
 function(build_shader TARGETOBJ SHADERNAME OPTIONS)
@@ -167,6 +161,24 @@ function(build_shader_spirv TARGETOBJ SHADERNAME OPTIONS)
     build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
 endfunction()
 
+function(build_shader_msl TARGETOBJ SHADERNAME OPTIONS)
+    set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
+    if (${ARGC} GREATER 3)
+        set(OUTNAME "${CMAKE_BINARY_DIR}/${ARGV3}")
+    else()
+        set(OUTNAME "${CMAKE_BINARY_DIR}/${SHADERNAME}")
+    endif()
+    # Get any optional compiler args passed to this function
+    if (${ARGC} GREATER 4)
+        set(EXTRA_ARGS "${ARGN}")
+        list(REMOVE_AT EXTRA_ARGS 0)
+    endif()
+    cmake_path(GET OUTNAME STEM TARGET_NAME)
+    cmake_path(GET OUTNAME PARENT_PATH OUTPUT_DIR)
+    file(MAKE_DIRECTORY ${OUTPUT_DIR})
+    build_shader_msl_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+endfunction()
+
 function(preprocess_shader TARGETOBJ SHADERNAME)
     set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
     set(OUTNAME "${CMAKE_BINARY_DIR}/${SHADERNAME}")
@@ -189,11 +201,15 @@ function(build_vertex_shader TARGETOBJ SHADERNAME)
     build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
 endfunction()
 
-function(build_pixel_shader_spirv TARGETOBJ SHADERNAME)
-    build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
+function(build_pixel_shader_spec_constants TARGETOBJ SHADERNAME)
+    if (APPLE)
+        build_shader_msl(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
+    else()
+        build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
+    endif()
 endfunction()
 
-function(build_vertex_shader_spirv TARGETOBJ SHADERNAME)
+function(build_vertex_shader_spec_constants TARGETOBJ SHADERNAME)
     build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
 endfunction()
 
@@ -402,15 +418,15 @@ preprocess_shader(rt64 "src/shaders/RasterVS.hlsl")
 
 build_pixel_shader(  rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSDynamic.hlsl" "-D DYNAMIC_RENDER_PARAMS")
 build_pixel_shader(  rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSDynamicMS.hlsl" "-D DYNAMIC_RENDER_PARAMS" "-D MULTISAMPLING")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
 build_vertex_shader( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSDynamic.hlsl" "-D DYNAMIC_RENDER_PARAMS")
-build_vertex_shader_spirv( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
-build_vertex_shader_spirv( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
+build_vertex_shader_spec_constants( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
+build_vertex_shader_spec_constants( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
 build_compute_shader(rt64 "src/shaders/FbChangesClearCS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/FbChangesDrawColorPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/FbChangesDrawDepthPS.hlsl")
