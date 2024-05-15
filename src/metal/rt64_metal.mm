@@ -5,7 +5,7 @@
 #include "rt64_metal.h"
 
 namespace RT64 {
-    MTLPixelFormat toMtl(RenderFormat format) {
+    MTLPixelFormat toMTL(RenderFormat format) {
         switch (format) {
             case RenderFormat::UNKNOWN:
                 return MTLPixelFormatInvalid;
@@ -133,7 +133,7 @@ namespace RT64 {
         }
     }
 
-    static MTLCullMode toMtl(RenderCullMode cullMode) {
+    static MTLCullMode toMTL(RenderCullMode cullMode) {
         switch (cullMode) {
             case RenderCullMode::NONE:
                 return MTLCullModeNone;
@@ -147,7 +147,7 @@ namespace RT64 {
         }
     }
 
-    static MTLPrimitiveType toMtl(RenderPrimitiveTopology topology) {
+    static MTLPrimitiveType toMTL(RenderPrimitiveTopology topology) {
         switch (topology) {
             case RenderPrimitiveTopology::POINT_LIST:
                 return MTLPrimitiveTypePoint;
@@ -161,7 +161,7 @@ namespace RT64 {
         }
     }
 
-    static MTLBlendFactor toMtl(RenderBlend blend) {
+    static MTLBlendFactor toMTL(RenderBlend blend) {
         switch (blend) {
             case RenderBlend::ZERO:
                 return MTLBlendFactorZero;
@@ -203,7 +203,7 @@ namespace RT64 {
         }
     }
 
-    static MTLBlendOperation toMtl(RenderBlendOperation operation) {
+    static MTLBlendOperation toMTL(RenderBlendOperation operation) {
         switch (operation) {
             case RenderBlendOperation::ADD:
                 return MTLBlendOperationAdd;
@@ -223,7 +223,7 @@ namespace RT64 {
 
     // Metal does not support Logic Operations in the public API.
 
-    static MTLCompareFunction toMtl(RenderComparisonFunction function) {
+    static MTLCompareFunction toMTL(RenderComparisonFunction function) {
         switch (function) {
             case RenderComparisonFunction::NEVER:
                 return MTLCompareFunctionNever;
@@ -247,7 +247,7 @@ namespace RT64 {
         }
     }
 
-    static MTLSamplerMinMagFilter toMtl(RenderFilter filter) {
+    static MTLSamplerMinMagFilter toMTL(RenderFilter filter) {
         switch (filter) {
             case RenderFilter::NEAREST:
                 return MTLSamplerMinMagFilterNearest;
@@ -259,7 +259,7 @@ namespace RT64 {
         }
     }
 
-    static MTLSamplerMipFilter toMtl(RenderMipmapMode mode) {
+    static MTLSamplerMipFilter toMTL(RenderMipmapMode mode) {
         switch (mode) {
             case RenderMipmapMode::NEAREST:
                 return MTLSamplerMipFilterNearest;
@@ -271,7 +271,7 @@ namespace RT64 {
         }
     }
 
-    static MTLSamplerAddressMode toMtl(RenderTextureAddressMode mode) {
+    static MTLSamplerAddressMode toMTL(RenderTextureAddressMode mode) {
         switch (mode) {
             case RenderTextureAddressMode::WRAP:
                 return MTLSamplerAddressModeRepeat;
@@ -289,7 +289,7 @@ namespace RT64 {
         }
     }
 
-    static MTLSamplerBorderColor toMtl(RenderBorderColor color) {
+    static MTLSamplerBorderColor toMTL(RenderBorderColor color) {
         switch (color) {
             case RenderBorderColor::TRANSPARENT_BLACK:
                 return MTLSamplerBorderColorTransparentBlack;
@@ -327,7 +327,7 @@ namespace RT64 {
         this->descriptor = [MTLTextureDescriptor new];
 
         [this->descriptor setTextureType: toTextureType(desc.dimension)];
-        [this->descriptor setPixelFormat: toMtl(desc.format)];
+        [this->descriptor setPixelFormat: toMTL(desc.format)];
         [this->descriptor setWidth: desc.width];
         [this->descriptor setHeight: desc.height];
         [this->descriptor setDepth: desc.depth];
@@ -363,17 +363,17 @@ namespace RT64 {
         this->device = device;
 
         MTLSamplerDescriptor *descriptor = [MTLSamplerDescriptor new];
-        [descriptor setMinFilter: toMtl(desc.minFilter)];
-        [descriptor setMagFilter: toMtl(desc.magFilter)];
-        [descriptor setMipFilter: toMtl(desc.mipmapMode)];
-        [descriptor setRAddressMode: toMtl(desc.addressU)];
-        [descriptor setSAddressMode: toMtl(desc.addressV)];
-        [descriptor setTAddressMode: toMtl(desc.addressW)];
+        [descriptor setMinFilter: toMTL(desc.minFilter)];
+        [descriptor setMagFilter: toMTL(desc.magFilter)];
+        [descriptor setMipFilter: toMTL(desc.mipmapMode)];
+        [descriptor setRAddressMode: toMTL(desc.addressU)];
+        [descriptor setSAddressMode: toMTL(desc.addressV)];
+        [descriptor setTAddressMode: toMTL(desc.addressW)];
         [descriptor setMaxAnisotropy: desc.maxAnisotropy];
-        [descriptor setCompareFunction: toMtl(desc.comparisonFunc)];
+        [descriptor setCompareFunction: toMTL(desc.comparisonFunc)];
         [descriptor setLodMinClamp: desc.minLOD];
         [descriptor setLodMaxClamp: desc.maxLOD];
-        [descriptor setBorderColor: toMtl(desc.borderColor)];
+        [descriptor setBorderColor: toMTL(desc.borderColor)];
 
         this->samplerState = [device->renderInterface->device newSamplerStateWithDescriptor: descriptor];
     }
@@ -384,7 +384,7 @@ namespace RT64 {
 
     // MetalPipeline
 
-    MetalPipeline::MetalPipeline(RT64::MetalDevice *device, RT64::MetalPipeline::Type type) {
+    MetalPipeline::MetalPipeline(MetalDevice *device, MetalPipeline::Type type) {
         assert(device != nullptr);
         assert(type != Type::Unknown);
 
@@ -494,7 +494,7 @@ namespace RT64 {
         return capabilities;
     }
 
-    RenderSampleCounts MetalDevice::getSampleCountsSupported(RT64::RenderFormat format) const {
+    RenderSampleCounts MetalDevice::getSampleCountsSupported(RenderFormat format) const {
 
     }
 
