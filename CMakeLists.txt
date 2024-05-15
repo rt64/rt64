@@ -214,7 +214,11 @@ function(build_pixel_shader_spec_constants TARGETOBJ SHADERNAME)
 endfunction()
 
 function(build_vertex_shader_spec_constants TARGETOBJ SHADERNAME)
-    build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
+    if (APPLE)
+        build_shader_msl(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
+    else()
+        build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
+    endif()
 endfunction()
 
 function(build_compute_shader TARGETOBJ SHADERNAME)
@@ -382,8 +386,7 @@ if (APPLE)
         "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.mm"
     )
 
-    target_link_libraries(rt64 "-framework Metal")
-    target_link_libraries(rt64 "-framework CoreGraphics")
+    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
 endif()
 
 # Add any Windows-specific source files and libraries
@@ -474,7 +477,10 @@ if (RT64_BUILD_EXAMPLES)
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
     build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
-    build_ray_shader(    rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
+    if (NOT APPLE)
+        # TODO: Enable when RT is added to Metal.
+        build_ray_shader(rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
+    endif()
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPostPS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestPostVS.hlsl")
 

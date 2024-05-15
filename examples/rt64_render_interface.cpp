@@ -17,12 +17,22 @@
 #include "shaders/RenderInterfaceTestPostPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.dxil.h"
 #endif
+#ifndef __APPLE__
 #include "shaders/RenderInterfaceTestPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestRT.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestVS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestCS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
+#else
+#include "shaders/RenderInterfaceTestPS.hlsl.metallib.h"
+// TODO: Enable when RT is added to Metal.
+//#include "shaders/RenderInterfaceTestRT.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestVS.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestCS.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestPostPS.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestPostVS.hlsl.metallib.h"
+#endif
 
 #define ENABLE_SWAP_CHAIN 1
 #define ENABLE_CLEAR 1
@@ -218,6 +228,7 @@ namespace RT64 {
             PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobDXIL);
             break;
 #endif
+#ifndef __APPLE__
         case RenderShaderFormat::SPIRV:
             PSBlob = RenderInterfaceTestPSBlobSPIRV;
             PSBlobSize = sizeof(RenderInterfaceTestPSBlobSPIRV);
@@ -232,6 +243,23 @@ namespace RT64 {
             PostVSBlob = RenderInterfaceTestPostVSBlobSPIRV;
             PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobSPIRV);
             break;
+#else
+        case RenderShaderFormat::METAL:
+            PSBlob = RenderInterfaceTestPSBlobMSL;
+            PSBlobSize = sizeof(RenderInterfaceTestPSBlobMSL);
+            VSBlob = RenderInterfaceTestVSBlobMSL;
+            VSBlobSize = sizeof(RenderInterfaceTestVSBlobMSL);
+            CSBlob = RenderInterfaceTestCSBlobMSL;
+            CSBlobSize = sizeof(RenderInterfaceTestCSBlobMSL);
+            // TODO: Enable when RT is added to Metal.
+//            RTBlob = RenderInterfaceTestRTBlobMSL;
+//            RTBlobSize = sizeof(RenderInterfaceTestRTBlobMSL);
+            PostPSBlob = RenderInterfaceTestPostPSBlobMSL;
+            PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobMSL);
+            PostVSBlob = RenderInterfaceTestPostVSBlobMSL;
+            PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobMSL);
+            break;
+#endif
         default:
             assert(false && "Unknown shader format.");
             break;
