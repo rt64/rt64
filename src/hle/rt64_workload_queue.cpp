@@ -486,6 +486,11 @@ namespace RT64 {
                         depthFb->nativeTarget.resetBufferHistory();
                     }
 
+                    if ((colorTarget != nullptr) && colorTarget->resize(ext.workloadGraphicsWorker, rtWidth, rtHeight)) {
+                        resizedTargets.emplace(colorTarget);
+                        colorFb->readHeight = 0;
+                    }
+
                     // Set up the dummy target used for rendering the depth if no depth framebuffer is active.
                     if (depthFb == nullptr) {
                         if (dummyDepthTarget == nullptr) {
@@ -496,17 +501,16 @@ namespace RT64 {
                         if ((dummyDepthTarget != nullptr) && dummyDepthTarget->resize(ext.workloadGraphicsWorker, rtWidth, rtHeight)) {
                             resizedTargets.emplace(dummyDepthTarget.get());
                         }
-                    }
 
-                    if ((colorTarget != nullptr) && colorTarget->resize(ext.workloadGraphicsWorker, rtWidth, rtHeight)) {
-                        resizedTargets.emplace(colorTarget);
-                        colorFb->readHeight = 0;
+                        colorDepthPairs.emplace_back(colorTarget, dummyDepthTarget.get());
                     }
-
-                    if ((depthTarget != nullptr) && depthTarget->resize(ext.workloadGraphicsWorker, rtWidth, rtHeight)) {
+                    else if (depthTarget != nullptr) {
                         colorDepthPairs.emplace_back(colorTarget, depthTarget);
-                        resizedTargets.emplace(depthTarget);
-                        depthFb->readHeight = 0;
+
+                        if (depthTarget->resize(ext.workloadGraphicsWorker, rtWidth, rtHeight)) {
+                            resizedTargets.emplace(depthTarget);
+                            depthFb->readHeight = 0;
+                        }
                     }
                 }
 

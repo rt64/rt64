@@ -1431,6 +1431,12 @@ namespace RT64 {
                         depthFb->nativeTarget.resetBufferHistory();
                     }
 
+                    // Resize the color target if necessary.
+                    if (colorTarget->resize(ext.framebufferGraphicsWorker, rtWidth, rtHeight)) {
+                        resizedTargets.emplace(colorTarget);
+                        colorFb->readHeight = 0;
+                    }
+
                     // Set up the dummy target used for rendering the depth if no depth framebuffer is active.
                     if (depthFb == nullptr) {
                         if (dummyDepthTarget == nullptr) {
@@ -1441,19 +1447,17 @@ namespace RT64 {
                         if ((dummyDepthTarget != nullptr) && dummyDepthTarget->resize(ext.framebufferGraphicsWorker, rtWidth, rtHeight)) {
                             resizedTargets.emplace(dummyDepthTarget.get());
                         }
-                    }
 
-                    // Resize the color target if necessary.
-                    if (colorTarget->resize(ext.framebufferGraphicsWorker, rtWidth, rtHeight)) {
-                        resizedTargets.emplace(colorTarget);
-                        colorFb->readHeight = 0;
+                        colorDepthPairs.emplace_back(colorTarget, dummyDepthTarget.get());
                     }
-
                     // Resize the depth target if necessary.
-                    if ((depthTarget != nullptr) && depthTarget->resize(ext.framebufferGraphicsWorker, rtWidth, rtHeight)) {
+                    else if (depthTarget != nullptr) {
                         colorDepthPairs.emplace_back(colorTarget, depthTarget);
-                        resizedTargets.emplace(depthTarget);
-                        depthFb->readHeight = 0;
+
+                        if (depthTarget->resize(ext.framebufferGraphicsWorker, rtWidth, rtHeight)) {
+                            resizedTargets.emplace(depthTarget);
+                            depthFb->readHeight = 0;
+                        }
                     }
                 }
             }
