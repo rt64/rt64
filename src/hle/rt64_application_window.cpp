@@ -89,7 +89,7 @@ namespace RT64 {
         bounds.height = rect.bottom - rect.top;
 #   elif defined(__ANDROID__)
         static_assert(false && "Android unimplemented");
-#   elif defined(__linux__)
+#   elif defined(__linux__) || defined(__APPLE__)
         if (SDL_VideoInit(nullptr) != 0) {
             printf("Failed to init SDL2 video: %s\n", SDL_GetError());
             assert(false && "Failed to init SDL2 video");
@@ -123,6 +123,8 @@ namespace RT64 {
 #   elif defined(__linux__)
         windowHandle.display = wmInfo.info.x11.display;
         windowHandle.window = wmInfo.info.x11.window;
+#   elif defined(__APPLE__)
+        windowHandle.window = wmInfo.info.cocoa.window;
 #   else
         static_assert(false && "Android unimplemented");
 #   endif
@@ -133,6 +135,10 @@ namespace RT64 {
 
 #   ifdef _WIN32
         setup(windowHandle, listener, GetCurrentThreadId());
+#   elif defined(__APPLE__)
+        uint64_t tid;
+        pthread_threadid_np(nullptr, &tid);
+        setup(windowHandle, listener, tid);
 #   else
         setup(windowHandle, listener, pthread_self());
 #   endif

@@ -45,6 +45,8 @@ namespace RT64 {
         SetThreadDescription(GetCurrentThread(), nameWide.c_str());
 #   elif defined(__linux__)
         pthread_setname_np(pthread_self(), str.c_str());
+#   elif defined(__APPLE__)
+        pthread_setname_np(str.c_str());
 #   else
         static_assert(false, "Unimplemented");
 #   endif
@@ -53,7 +55,7 @@ namespace RT64 {
     void Thread::setCurrentThreadPriority(Priority priority) {
 #   if defined(_WIN32)
         SetThreadPriority(GetCurrentThread(), toWindowsPriority(priority));
-#   elif defined(__linux__)
+#   elif defined(__linux__) || defined(__APPLE__)
         // On Linux, thread priorities can't be changed under the default scheduler policy (SCHED_OTHER) and the other policies
         // that are available without root privileges are lower priority. Instead you can set the thread's "nice" value, which ranges
         // from -20 to 19 (lower being higher priority). However, by strict POSIX spec "nice" is meant to be per-process instead of

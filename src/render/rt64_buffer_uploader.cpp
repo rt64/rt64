@@ -3,6 +3,7 @@
 //
 
 #include <cstring>
+#include <algorithm>
 
 #include "common/rt64_thread.h"
 
@@ -91,7 +92,7 @@ namespace RT64 {
             
             // Recreate the buffer pair.
             const uint64_t BlockAlignment = 256;
-            bufferPair.allocatedSize = std::max((requiredSize * 3) / 2, BlockAlignment);
+            bufferPair.allocatedSize = std::max(((uint64_t)requiredSize * 3) / 2, BlockAlignment);
             bufferPair.allocatedSize = roundUp(bufferPair.allocatedSize, BlockAlignment);
             bufferPair.uploadBuffer = worker->device->createBuffer(RenderBufferDesc::UploadBuffer(bufferPair.allocatedSize));
             bufferPair.defaultBuffer = worker->device->createBuffer(RenderBufferDesc::DefaultBuffer(bufferPair.allocatedSize, u.bufferFlags));

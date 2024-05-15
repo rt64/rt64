@@ -3,6 +3,11 @@ project(rt64)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
+option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
+if (${RT64_BUILD_EXAMPLES})
+    set(RT64_STATIC ON)
+endif()
+
 function(preprocess INFILE OUTFILE OPTIONS)
     if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -29,7 +34,21 @@ if (WIN32)
     configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
     configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxil.dll" "dxil.dll" COPYONLY)
 else()
-    set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc")
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        if (APPLE)
+            set (DXC "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc")
+        else()
+            set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc")
+        endif()
+    else()
+        if (APPLE)
+            set (DXC "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/arm64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/arm64/dxc-macos")
+        else()
+            set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/arm64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/arm64/dxc-linux")
+        endif()
+    endif()
+
+    message(STATUS "DXC: ${DXC}")
 endif()
 
 # Build the file_to_c utility for converting binary files into a .c and .h file pair
@@ -92,7 +111,7 @@ function(build_shader TARGETOBJ SHADERNAME OPTIONS)
     cmake_path(GET OUTNAME PARENT_PATH OUTPUT_DIR)
     file(MAKE_DIRECTORY ${OUTPUT_DIR})
     # Compile DXIL shader binaries if building on Windows
-    if (${WIN32})
+    if (WIN32)
         build_shader_dxil_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     endif()
     build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
@@ -155,13 +174,11 @@ function(build_geo_shader TARGETOBJ SHADERNAME)
 endfunction()
 
 function(build_ray_shader TARGETOBJ SHADERNAME)
-    if (NOT APPLE)
-        build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_RT_OPTS}" ${ARGN})
-    endif()
+    build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_RT_OPTS}" ${ARGN})
 endfunction()
 
 # Point cmake at src/contrib/mupen64plus-win32-deps/SDL2-2.26.3 for SDL2 on windows, look for an installed package on other systems
-if (${WIN32})
+if (WIN32)
     set(SDL2_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include")
     set(SDL2_LIBRARIES "SDL2" "SDL2main")
     link_directories("${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/x64")
@@ -286,12 +303,16 @@ include_directories(
     "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui"
     "${PROJECT_SOURCE_DIR}/src/contrib/hlslpp/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/dxc/inc"
     "${PROJECT_SOURCE_DIR}/src/contrib/Vulkan-Headers/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/VulkanMemoryAllocator/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-core/src/api"
     "${PROJECT_SOURCE_DIR}/src/contrib/nativefiledialog-extended/src/include"
 )
+
+if (WIN32)
+    # DXC only needs to be included during runtime for Windows.
+    include_directories("${PROJECT_SOURCE_DIR}/src/contrib/dxc/inc")
+endif()
 
 option(RT64_STATIC "Build RT64 as a static library" OFF)
 if (${RT64_STATIC})
@@ -307,7 +328,7 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 target_link_libraries(rt64 nfd)
 
 # Add any Windows-specific source files and libraries
-if (${WIN32})
+if (WIN32)
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/d3d12/rt64_d3d12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_dx12.cpp"
@@ -327,7 +348,7 @@ if (NOT ANDROID)
     target_link_libraries(rt64 ${SDL2_LIBRARIES})
 endif()
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     find_package(X11 REQUIRED)
     target_include_directories(rt64 PUBLIC ${X11_INCLUDE_DIR})
     target_link_libraries(rt64 ${X11_LIBRARIES})
@@ -388,3 +409,17 @@ build_pixel_shader(  rt64 "src/shaders/Im3DPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/PostProcessPS.hlsl")
 
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/src)
+
+if (RT64_BUILD_EXAMPLES)
+    add_executable(rhi_test "examples/rt64_render_interface.cpp" "examples/rhi_test.cpp")
+    target_link_libraries(rhi_test rt64)
+
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPS.hlsl")
+    build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
+    build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
+    build_ray_shader(    rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPostPS.hlsl")
+    build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestPostVS.hlsl")
+
+    target_include_directories(rhi_test PRIVATE ${CMAKE_BINARY_DIR}/examples)
+endif()

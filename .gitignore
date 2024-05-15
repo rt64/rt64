@@ -21,3 +21,5 @@
 *.pdb
 build/
 .vscode/
+.idea
+cmake-build-debug*
