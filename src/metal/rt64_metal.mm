@@ -598,6 +598,105 @@ namespace RT64 {
         }
     }
 
+    void MetalCommandList::setComputePipelineLayout(const RenderPipelineLayout *pipelineLayout) {
+        assert(pipelineLayout != nullptr);
+        // TODO: Layouts
+    }
+
+    void MetalCommandList::setComputePushConstants(uint32_t rangeIndex, const void *data) {
+        assert(this->computeEncoder != nil && "Cannot set bytes on nil MTLComputeCommandEncoder!");
+        // [this->computeEncoder setBytes: data length: atIndex: rangeIndex];
+        // TODO: Push Constants
+    }
+
+    void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
+        // setDescriptorSet()
+        // TODO: Descriptor Sets
+    }
+
+    void MetalCommandList::setGraphicsPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
+        assert(pipelineLayout != nullptr);
+        // TODO: Layouts
+    }
+
+    void MetalCommandList::setGraphicsPushConstants(uint32_t rangeIndex, const void *data) {
+        assert(this->renderEncoder != nil && "Cannot set bytes on nil MTLRenderCommandEncoder!");
+        // TODO: Push Constants
+    }
+
+    void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
+        // setDescriptorSet()
+        // TODO: Descriptor Sets
+    }
+
+    void MetalCommandList::setRaytracingPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
+        // TODO: Metal RT
+    }
+
+    void MetalCommandList::setRaytracingPushConstants(uint32_t rangeIndex, const void *data) {
+        // TODO: Metal RT
+    }
+
+    void MetalCommandList::setRaytracingDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
+        // TODO: Metal RT
+        // setDescriptorSet();
+    }
+
+    void MetalCommandList::setIndexBuffer(const RenderIndexBufferView *view) {
+        // TODO: Argument Buffer Creation & Binding
+        if (view != nullptr) {
+            const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer *>(view->buffer.ref);
+
+        }
+    }
+
+    void MetalCommandList::setVertexBuffers(uint32_t startSlot, const RenderVertexBufferView *views, uint32_t viewCount, const RenderInputSlot *inputSlots) {
+        // TODO: Argument Buffer Creation & Binding
+        if ((views != nullptr) && (viewCount > 0)) {
+            assert(inputSlots != nullptr);
+        }
+    }
+
+    void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
+        assert(this->renderEncoder != nil && "Cannot set viewports on nil MTLRenderCommandEncoder!");
+
+        if (count > 1) {
+            thread_local std::vector<MTLViewport> viewportVector;
+            viewportVector.clear();
+
+            for (uint32_t i = 0; i < count; i++) {
+                viewportVector.emplace_back(MTLViewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth });
+            }
+
+            [this->renderEncoder setViewports: viewportVector.data() count: count];
+        }
+        else {
+            // Single element fast path.
+            MTLViewport viewport = MTLViewport { viewports[0].x, viewports[0].y, viewports[0].width, viewports[0].height, viewports[0].minDepth, viewports[0].maxDepth };
+            [this->renderEncoder setViewport: viewport];
+        }
+    }
+
+    void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
+        assert(this->renderEncoder != nil && "Cannot set scissors on nil MTLRenderCommandEncoder!");
+
+        if (count > 1) {
+            thread_local std::vector<MTLScissorRect> scissorVector;
+            scissorVector.clear();
+
+            for (uint32_t i = 0; i < count; i++) {
+                scissorVector.emplace_back(MTLScissorRect { uint32_t(scissorRects[i].left), uint32_t(scissorRects[i].right), uint32_t(scissorRects[i].right - scissorRects[i].left), uint32_t(scissorRects[i].bottom - scissorRects[i].top) });
+            }
+
+            [this->renderEncoder setScissorRects: scissorVector.data() count: count];
+        }
+        else {
+            // Single element fast path.
+            MTLScissorRect scissor = MTLScissorRect { uint32_t(scissorRects[0].left), uint32_t(scissorRects[0].right), uint32_t(scissorRects[0].right - scissorRects[0].left), uint32_t(scissorRects[0].bottom - scissorRects[0].top) };
+            [this->renderEncoder setScissorRect: scissor];
+        }
+    }
+
     // MetalPool
 
     MetalPool::MetalPool(MetalDevice *device, const RenderPoolDesc &desc) {
