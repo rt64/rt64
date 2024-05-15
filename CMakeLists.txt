@@ -100,7 +100,7 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
             COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
             DEPENDS ${FILENAME})
     add_custom_command(OUTPUT ${OUTNAME}.metal
-            COMMAND pkgx spirv-cross ${OUTNAME}.spv --msl --output ${OUTNAME}.metal --msl-version 20000 --msl-argument-buffers
+            COMMAND pkgx spirv-cross ${OUTNAME}.spv --msl --output ${OUTNAME}.metal --msl-version 20000 --msl-argument-buffers --msl-force-native-arrays
             DEPENDS ${OUTNAME}.spv)
     add_custom_command(OUTPUT ${OUTNAME}.ir
             COMMAND xcrun -sdk macosx metal -o ${OUTNAME}.ir -c ${OUTNAME}.metal
@@ -215,10 +215,6 @@ endfunction()
 
 function(build_compute_shader TARGETOBJ SHADERNAME)
     build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_CS_OPTS}" ${ARGN})
-endfunction()
-
-function(build_geo_shader TARGETOBJ SHADERNAME)
-    build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_GS_OPTS}" ${ARGN})
 endfunction()
 
 function(build_ray_shader TARGETOBJ SHADERNAME)
@@ -460,8 +456,6 @@ build_pixel_shader(  rt64 "src/shaders/VideoInterfacePS.hlsl" "src/shaders/Video
 build_pixel_shader(  rt64 "src/shaders/VideoInterfacePS.hlsl" "src/shaders/VideoInterfacePSPixel.hlsl" "-D PIXEL_ANTIALIASING")
 build_vertex_shader( rt64 "src/shaders/FullScreenVS.hlsl")
 build_vertex_shader( rt64 "src/shaders/Im3DVS.hlsl")
-build_geo_shader(    rt64 "src/shaders/Im3DGSPoints.hlsl")
-build_geo_shader(    rt64 "src/shaders/Im3DGSLines.hlsl")
 build_pixel_shader(  rt64 "src/shaders/ComposePS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/DebugPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/Im3DPS.hlsl")

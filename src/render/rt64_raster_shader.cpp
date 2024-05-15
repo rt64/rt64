@@ -6,6 +6,7 @@
 
 #include "xxHash/xxh3.h"
 
+#ifndef __APPLE__
 #include "shaders/RasterPSDynamic.hlsl.spirv.h"
 #include "shaders/RasterPSDynamicMS.hlsl.spirv.h"
 #include "shaders/RasterPSSpecConstant.hlsl.spirv.h"
@@ -17,10 +18,15 @@
 #include "shaders/RasterVSDynamic.hlsl.spirv.h"
 #include "shaders/RasterVSSpecConstant.hlsl.spirv.h"
 #include "shaders/RasterVSSpecConstantFlat.hlsl.spirv.h"
+#endif
 #ifdef _WIN32
 #   include "shaders/RasterPSDynamic.hlsl.dxil.h"
 #   include "shaders/RasterPSDynamicMS.hlsl.dxil.h"
 #   include "shaders/RasterVSDynamic.hlsl.dxil.h"
+#elif defined(__APPLE__)
+#   include "shaders/RasterPSDynamic.hlsl.metallib.h"
+#   include "shaders/RasterPSDynamicMS.hlsl.metallib.h"
+#   include "shaders/RasterVSDynamic.hlsl.metallib.h"
 #endif
 #include "shaders/RasterPS.hlsl.rw.h"
 #include "shaders/RasterVS.hlsl.rw.h"
