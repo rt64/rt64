@@ -315,6 +315,45 @@ namespace RT64 {
         }
     }
 
+    // MetalBuffer
+
+    MetalBuffer::MetalBuffer(MetalDevice *device, MetalPool *pool, const RenderBufferDesc &desc) {
+        assert(device != nullptr);
+
+        this->device = device;
+        this->pool = pool;
+        this->desc = desc;
+    }
+
+    MetalBuffer::~MetalBuffer() {
+        // TODO: ARC should handle this
+    }
+
+    void *MetalBuffer::map(uint32_t subresource, const RT64::RenderRange *readRange) {
+
+    }
+
+    void MetalBuffer::unmap(uint32_t subresource, const RT64::RenderRange *writtenRange) {
+
+    }
+
+    std::unique_ptr<RenderBufferFormattedView> MetalBuffer::createBufferFormattedView(RenderFormat format) {
+        return std::make_unique<MetalBufferFormattedView>(this, format);
+    }
+
+    // MetalBufferFormattedView
+
+    MetalBufferFormattedView::MetalBufferFormattedView(RT64::MetalBuffer *buffer, RT64::RenderFormat format) {
+        assert(buffer != nullptr);
+        assert((buffer->desc.flags & RenderBufferFlag::FORMATTED) && "Buffer must allow formatted views.");
+
+        this->buffer = buffer;
+    }
+
+    MetalBufferFormattedView::~MetalBufferFormattedView() {
+        // TODO: ARC should handle this
+    }
+
     // MetalTexture
 
     MetalTexture::MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc) {
@@ -341,6 +380,14 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
+    std::unique_ptr<RenderTextureView> MetalTexture::createTextureView(const RenderTextureViewDesc &desc) {
+        return std::make_unique<MetalTextureView>(this, desc);
+    }
+
+    void MetalTexture::setName(const std::string &name) {
+        // TODO: Set this later on MetalTextureView
+    }
+
     // MetalTextureView
 
     MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
@@ -352,6 +399,38 @@ namespace RT64 {
     }
 
     MetalTextureView::~MetalTextureView() {
+        // TODO: Should be handled by ARC
+    }
+
+    // MetalAccelerationStructure
+
+    MetalAccelerationStructure::MetalAccelerationStructure(MetalDevice *device, const RenderAccelerationStructureDesc &desc) {
+        assert(device != nullptr);
+        assert(desc.buffer.ref != nullptr);
+
+        this->device = device;
+        this->type = desc.type;
+    }
+
+    MetalAccelerationStructure::~MetalAccelerationStructure() {
+        // TODO: Should be handled by ARC
+    }
+
+    // MetalShader
+
+    MetalShader::MetalShader(MetalDevice *device, const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) {
+        assert(device != nullptr);
+        assert(data != nullptr);
+        assert(size > 0);
+        assert(format != RenderShaderFormat::UNKNOWN);
+        assert(format == RenderShaderFormat::SPIRV);
+
+        this->device = device;
+        this->format = format;
+        this->entryPointName = (entryPointName != nullptr) ? std::string(entryPointName) : std::string();
+    }
+
+    MetalShader::~MetalShader() {
         // TODO: Should be handled by ARC
     }
 
@@ -393,6 +472,131 @@ namespace RT64 {
     }
 
     MetalPipeline::~MetalPipeline() { }
+
+    // MetalComputePipeline
+
+    MetalComputePipeline::MetalComputePipeline(MetalDevice *device, const RenderComputePipelineDesc &desc) : MetalPipeline(device, Type::Compute) {
+        assert(desc.computeShader != nullptr);
+        assert(desc.pipelineLayout != nullptr);
+
+        const MetalShader *computeShader = static_cast<const MetalShader *>(desc.computeShader);
+
+        MTLComputePipelineDescriptor *descriptor = [MTLComputePipelineDescriptor new];
+        // TODO: MetalShader
+        // [descriptor setComputeFunction: computeShader->];
+        [descriptor setLabel: [NSString stringWithUTF8String: computeShader->entryPointName.c_str()]];
+
+        this->state = [device->renderInterface->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nil];
+    }
+
+    MetalComputePipeline::~MetalComputePipeline() {
+        // TODO: Should be handled by ARC
+    }
+
+    // MetalGraphicsPipeline
+
+    MetalGraphicsPipeline::MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc) : MetalPipeline(device, Type::Graphics) {
+        assert(desc.pipelineLayout != nullptr);
+
+        MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
+
+        assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
+        const MetalShader *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
+
+        // TODO Metal Shaders
+        // [descriptor setVertexFunction: metalShader->];
+
+        assert(desc.geometryShader == nullptr && "Metal does not support geometry shaders!");
+
+        if (desc.pixelShader != nullptr) {
+            const MetalShader *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
+            // TODO Metal Shaders
+            // [descriptor setFragmentFunction: pixelShader->];
+        }
+
+        for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
+            MTLPipelineBufferDescriptor *bufferDescriptor = [MTLPipelineBufferDescriptor new];
+        }
+    }
+
+    // MetalCommandList
+
+    MetalCommandList::MetalCommandList(MetalDevice *device, RenderCommandListType type) {
+        assert(device != nullptr);
+        assert(type != RenderCommandListType::UNKNOWN);
+
+        this->device = device;
+        this->type = type;
+
+        switch (type) {
+            default:
+                assert(false && "Unknown pipeline type.");
+                break;
+        }
+    }
+
+    MetalCommandList::~MetalCommandList() {
+        // TODO: Should be handled by ARC
+    }
+
+    void MetalCommandList::begin() {
+
+    }
+
+    void MetalCommandList::end() {
+
+    }
+
+    void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
+        // TODO: Ignore for now, Metal should handle most of this itself.
+    }
+
+    void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
+        assert(this->computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
+
+        [this->computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ) threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
+    }
+
+    void MetalCommandList::traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) {
+        // TODO: Support Metal RT
+    }
+
+    void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
+        assert(this->renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+
+        // TODO: Supply the right primitive type!
+        [this->renderEncoder drawPrimitives: MTLPrimitiveTypeTriangle vertexStart: startVertexLocation vertexCount: vertexCountPerInstance instanceCount: instanceCount baseInstance: startInstanceLocation];
+    }
+
+    void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
+        assert(this->renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+
+        // TODO: Supply the right primitive, index type, & index buffer!
+        [this->renderEncoder drawIndexedPrimitives: MTLPrimitiveTypeTriangle indexCount: indexCountPerInstance indexType: MTLIndexTypeUInt32 indexBuffer: nil indexBufferOffset: startIndexLocation instanceCount: instanceCount baseVertex: baseVertexLocation baseInstance: startInstanceLocation];
+    }
+
+    void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {
+        assert(pipeline != nullptr);
+
+        const MetalPipeline *interfacePipeline = static_cast<const MetalPipeline *>(pipeline);
+        switch (interfacePipeline->type) {
+            case MetalPipeline::Type::Compute: {
+                const MetalComputePipeline *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
+                assert(this->computeEncoder != nil && "Cannot set pipeline state on nil MTLComputeCommandEncoder!");
+                [this->computeEncoder setComputePipelineState:computePipeline->state];
+                break;
+            }
+            case MetalPipeline::Type::Graphics: {
+                const MetalGraphicsPipeline *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
+                assert(this->renderEncoder != nil && "Cannot set pipeline state on nil MTLRenderCommandEncoder!");
+                [this->renderEncoder setRenderPipelineState: graphicsPipeline->state];
+                break;
+            }
+            default:
+                assert(false && "Unknown pipeline type.");
+                break;
+        }
+    }
 
     // MetalPool
 

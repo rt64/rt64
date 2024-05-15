@@ -68,6 +68,10 @@ namespace RT64 {
     };
 
     struct MetalCommandList : RenderCommandList {
+        id<MTLRenderCommandEncoder> renderEncoder = nil;
+        id<MTLComputeCommandEncoder> computeEncoder = nil;
+        id<MTLBlitCommandEncoder> blitEncoder = nil;
+
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
         const MetalFramebuffer *targetFramebuffer = nullptr;
@@ -228,12 +232,16 @@ namespace RT64 {
     };
 
     struct MetalComputePipeline : MetalPipeline {
+        id<MTLComputePipelineState> state = nil;
+
         MetalComputePipeline(MetalDevice *device, const RenderComputePipelineDesc &desc);
         ~MetalComputePipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
     };
 
     struct MetalGraphicsPipeline : MetalPipeline {
+        id<MTLRenderPipelineState> state = nil;
+
         MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
