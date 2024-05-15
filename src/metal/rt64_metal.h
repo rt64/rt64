@@ -72,6 +72,9 @@ namespace RT64 {
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         id<MTLBlitCommandEncoder> blitEncoder = nil;
 
+        MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
+        MTLIndexType currentIndexType = MTLIndexTypeUInt32;
+        id<MTLBuffer> indexBuffer = nil;
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
         const MetalFramebuffer *targetFramebuffer = nullptr;

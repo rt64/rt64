@@ -423,7 +423,7 @@ namespace RT64 {
         assert(data != nullptr);
         assert(size > 0);
         assert(format != RenderShaderFormat::UNKNOWN);
-        assert(format == RenderShaderFormat::SPIRV);
+        assert(format == RenderShaderFormat::METAL);
 
         this->device = device;
         this->format = format;
@@ -479,7 +479,7 @@ namespace RT64 {
         assert(desc.computeShader != nullptr);
         assert(desc.pipelineLayout != nullptr);
 
-        const MetalShader *computeShader = static_cast<const MetalShader *>(desc.computeShader);
+        const auto *computeShader = static_cast<const MetalShader *>(desc.computeShader);
 
         MTLComputePipelineDescriptor *descriptor = [MTLComputePipelineDescriptor new];
         // TODO: MetalShader
@@ -501,7 +501,7 @@ namespace RT64 {
         MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
 
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
-        const MetalShader *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
+        const auto *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
 
         // TODO Metal Shaders
         // [descriptor setVertexFunction: metalShader->];
@@ -509,7 +509,7 @@ namespace RT64 {
         assert(desc.geometryShader == nullptr && "Metal does not support geometry shaders!");
 
         if (desc.pixelShader != nullptr) {
-            const MetalShader *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
+            const auto *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
             // TODO Metal Shaders
             // [descriptor setFragmentFunction: pixelShader->];
         }
@@ -552,9 +552,9 @@ namespace RT64 {
     }
 
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
-        assert(this->computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
+        assert(computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
 
-        [this->computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ) threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
+        [computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ) threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
     }
 
     void MetalCommandList::traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) {
@@ -562,34 +562,43 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
-        assert(this->renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
 
-        // TODO: Supply the right primitive type!
-        [this->renderEncoder drawPrimitives: MTLPrimitiveTypeTriangle vertexStart: startVertexLocation vertexCount: vertexCountPerInstance instanceCount: instanceCount baseInstance: startInstanceLocation];
+        [renderEncoder drawPrimitives: currentPrimitiveType
+                          vertexStart: startVertexLocation
+                          vertexCount: vertexCountPerInstance
+                        instanceCount: instanceCount
+                         baseInstance: startInstanceLocation];
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
-        assert(this->renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
 
-        // TODO: Supply the right primitive, index type, & index buffer!
-        [this->renderEncoder drawIndexedPrimitives: MTLPrimitiveTypeTriangle indexCount: indexCountPerInstance indexType: MTLIndexTypeUInt32 indexBuffer: nil indexBufferOffset: startIndexLocation instanceCount: instanceCount baseVertex: baseVertexLocation baseInstance: startInstanceLocation];
+        [renderEncoder drawIndexedPrimitives: currentPrimitiveType
+                                  indexCount: indexCountPerInstance
+                                   indexType: currentIndexType
+                                 indexBuffer: indexBuffer
+                           indexBufferOffset: startIndexLocation
+                               instanceCount: instanceCount
+                                  baseVertex: baseVertexLocation
+                                baseInstance: startInstanceLocation];
     }
 
     void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {
         assert(pipeline != nullptr);
 
-        const MetalPipeline *interfacePipeline = static_cast<const MetalPipeline *>(pipeline);
+        const auto *interfacePipeline = static_cast<const MetalPipeline *>(pipeline);
         switch (interfacePipeline->type) {
             case MetalPipeline::Type::Compute: {
-                const MetalComputePipeline *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
-                assert(this->computeEncoder != nil && "Cannot set pipeline state on nil MTLComputeCommandEncoder!");
-                [this->computeEncoder setComputePipelineState:computePipeline->state];
+                const auto *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
+                assert(computeEncoder != nil && "Cannot set pipeline state on nil MTLComputeCommandEncoder!");
+                [computeEncoder setComputePipelineState: computePipeline->state];
                 break;
             }
             case MetalPipeline::Type::Graphics: {
-                const MetalGraphicsPipeline *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
-                assert(this->renderEncoder != nil && "Cannot set pipeline state on nil MTLRenderCommandEncoder!");
-                [this->renderEncoder setRenderPipelineState: graphicsPipeline->state];
+                const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
+                assert(renderEncoder != nil && "Cannot set pipeline state on nil MTLRenderCommandEncoder!");
+                [renderEncoder setRenderPipelineState: graphicsPipeline->state];
                 break;
             }
             default:
@@ -604,7 +613,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setComputePushConstants(uint32_t rangeIndex, const void *data) {
-        assert(this->computeEncoder != nil && "Cannot set bytes on nil MTLComputeCommandEncoder!");
+        assert(computeEncoder != nil && "Cannot set bytes on nil MTLComputeCommandEncoder!");
         // [this->computeEncoder setBytes: data length: atIndex: rangeIndex];
         // TODO: Push Constants
     }
@@ -620,7 +629,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setGraphicsPushConstants(uint32_t rangeIndex, const void *data) {
-        assert(this->renderEncoder != nil && "Cannot set bytes on nil MTLRenderCommandEncoder!");
+        assert(renderEncoder != nil && "Cannot set bytes on nil MTLRenderCommandEncoder!");
         // TODO: Push Constants
     }
 
@@ -645,7 +654,7 @@ namespace RT64 {
     void MetalCommandList::setIndexBuffer(const RenderIndexBufferView *view) {
         // TODO: Argument Buffer Creation & Binding
         if (view != nullptr) {
-            const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer *>(view->buffer.ref);
+            const auto *interfaceBuffer = static_cast<const MetalBuffer *>(view->buffer.ref);
 
         }
     }
@@ -658,7 +667,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
-        assert(this->renderEncoder != nil && "Cannot set viewports on nil MTLRenderCommandEncoder!");
+        assert(renderEncoder != nil && "Cannot set viewports on nil MTLRenderCommandEncoder!");
 
         if (count > 1) {
             thread_local std::vector<MTLViewport> viewportVector;
@@ -668,17 +677,17 @@ namespace RT64 {
                 viewportVector.emplace_back(MTLViewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth });
             }
 
-            [this->renderEncoder setViewports: viewportVector.data() count: count];
+            [renderEncoder setViewports: viewportVector.data() count: count];
         }
         else {
             // Single element fast path.
-            MTLViewport viewport = MTLViewport { viewports[0].x, viewports[0].y, viewports[0].width, viewports[0].height, viewports[0].minDepth, viewports[0].maxDepth };
-            [this->renderEncoder setViewport: viewport];
+            auto viewport = MTLViewport { viewports[0].x, viewports[0].y, viewports[0].width, viewports[0].height, viewports[0].minDepth, viewports[0].maxDepth };
+            [renderEncoder setViewport: viewport];
         }
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
-        assert(this->renderEncoder != nil && "Cannot set scissors on nil MTLRenderCommandEncoder!");
+        assert(renderEncoder != nil && "Cannot set scissors on nil MTLRenderCommandEncoder!");
 
         if (count > 1) {
             thread_local std::vector<MTLScissorRect> scissorVector;
@@ -688,12 +697,12 @@ namespace RT64 {
                 scissorVector.emplace_back(MTLScissorRect { uint32_t(scissorRects[i].left), uint32_t(scissorRects[i].right), uint32_t(scissorRects[i].right - scissorRects[i].left), uint32_t(scissorRects[i].bottom - scissorRects[i].top) });
             }
 
-            [this->renderEncoder setScissorRects: scissorVector.data() count: count];
+            [renderEncoder setScissorRects: scissorVector.data() count: count];
         }
         else {
             // Single element fast path.
-            MTLScissorRect scissor = MTLScissorRect { uint32_t(scissorRects[0].left), uint32_t(scissorRects[0].right), uint32_t(scissorRects[0].right - scissorRects[0].left), uint32_t(scissorRects[0].bottom - scissorRects[0].top) };
-            [this->renderEncoder setScissorRect: scissor];
+            auto scissor = MTLScissorRect { uint32_t(scissorRects[0].left), uint32_t(scissorRects[0].right), uint32_t(scissorRects[0].right - scissorRects[0].left), uint32_t(scissorRects[0].bottom - scissorRects[0].top) };
+            [renderEncoder setScissorRect: scissor];
         }
     }
 
