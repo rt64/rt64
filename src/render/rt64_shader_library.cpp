@@ -119,8 +119,6 @@
 #include "shaders/VideoInterfacePSPixel.hlsl.metallib.h"
 #include "shaders/FullScreenVS.hlsl.metallib.h"
 #include "shaders/Im3DVS.hlsl.metallib.h"
-#include "shaders/Im3DGSPoints.hlsl.metallib.h"
-#include "shaders/Im3DGSLines.hlsl.metallib.h"
 #include "shaders/ComposePS.hlsl.metallib.h"
 #include "shaders/DebugPS.hlsl.metallib.h"
 #include "shaders/Im3DPS.hlsl.metallib.h"
