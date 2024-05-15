@@ -135,6 +135,7 @@ namespace RT64 {
     };
 
     struct MetalBuffer : RenderBuffer {
+        id<MTLBuffer> buffer = nil;
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
         RenderBufferDesc desc;
