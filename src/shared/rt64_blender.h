@@ -406,7 +406,8 @@ namespace interop {
                     finalAlpha = 0.0f;
                 }
                 else {
-                    blenderColor = fromInputPM((A == A_ZERO) ? M : P, inputs, combinerColor.rgb);
+                    const float3 inputColor = replaceCcWithBlender ? blenderColor : combinerColor.rgb;
+                    blenderColor = fromInputPM((A == A_ZERO) ? M : P, inputs, inputColor.rgb);
                     finalAlpha = 1.0f;
                 }
             }
