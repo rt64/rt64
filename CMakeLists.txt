@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
-project(rt64 LANGUAGES C CXX OBJC OBJCXX)
+project(rt64 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
+if (APPLE)
+    enable_language(OBJC OBJCXX)
+endif()
 
 option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
 if (${RT64_BUILD_EXAMPLES})
