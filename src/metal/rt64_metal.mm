@@ -441,7 +441,7 @@ namespace RT64 {
         this->format = format;
         this->entryPointName = (entryPointName != nullptr) ? std::string(entryPointName) : std::string();
 
-        id<MTLLibrary> library = [device->device newLibraryWithData:static_cast<dispatch_data_t>([NSData dataWithBytes:data length:size]) error:nil];
+        id<MTLLibrary> library = [device->device newLibraryWithData: static_cast<dispatch_data_t>([NSData dataWithBytes:data length:size]) error: nullptr];
         this->function = [library newFunctionWithName: [NSString stringWithUTF8String: entryPointName]];
     }
 
@@ -500,7 +500,7 @@ namespace RT64 {
         [descriptor setComputeFunction: computeShader->function];
         [descriptor setLabel: [NSString stringWithUTF8String: computeShader->entryPointName.c_str()]];
 
-        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nil];
+        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nullptr];
     }
 
     MetalComputePipeline::~MetalComputePipeline() {
