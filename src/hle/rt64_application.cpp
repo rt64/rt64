@@ -124,11 +124,21 @@ namespace RT64 {
             return SetupResult::InvalidGraphicsAPI;
 #       endif
         case UserConfiguration::GraphicsAPI::Vulkan:
+#       ifndef __APPLE__
             renderInterface = CreateVulkanInterface();
             break;
+#       else
+            fprintf(stderr, "Vulkan is not supported on this platform. Please select a different Graphics API.\n");
+            return SetupResult::InvalidGraphicsAPI;
+#       endif
         case UserConfiguration::GraphicsAPI::Metal:
+#       ifdef __APPLE__
             renderInterface = CreateMetalInterface();
             break;
+#       else
+            fprintf(stderr, "Metal is not supported on this platform. Please select a different Graphics API.\n");
+            return SetupResult::InvalidGraphicsAPI;
+#       endif
         default:
             fprintf(stderr, "Unknown Graphics API specified in configuration.\n");
             return SetupResult::InvalidGraphicsAPI;
