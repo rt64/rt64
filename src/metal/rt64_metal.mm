@@ -590,6 +590,14 @@ namespace RT64 {
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
             MTLPipelineBufferDescriptor *bufferDescriptor = [MTLPipelineBufferDescriptor new];
         }
+
+        NSError *error = nullptr;
+        this->state = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
+
+        if (error != nullptr) {
+            fprintf(stderr, "MTLDevice newRenderPipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
+            return;
+        }
     }
 
     MetalGraphicsPipeline::~MetalGraphicsPipeline() {
@@ -743,79 +751,54 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
-    void MetalCommandList::begin() {
-        switch (type) {
-            // Follows D3D12 Command List model
-            // DIRECT can Render, Compute, Copy
-            // COMPUTE can Compute, Copy
-            // COPY can Copy
-            case RenderCommandListType::DIRECT: {
-                auto renderDescriptor = [MTLRenderPassDescriptor new];
-                renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+    void MetalCommandList::begin() { }
 
-                auto computeDescriptor = [MTLComputePassDescriptor new];
-                computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+    void MetalCommandList::end() {
+        endEncoder();
+    }
 
-                auto blitDescriptor = [MTLBlitPassDescriptor new];
-                blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
-                break;
-            }
-            case RenderCommandListType::COMPUTE: {
-                auto computeDescriptor = [MTLComputePassDescriptor new];
-                computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+    void MetalCommandList::endEncoder() {
+        if (renderEncoder != nil) {
+            [renderEncoder endEncoding];
+        }
 
-                auto blitDescriptor = [MTLBlitPassDescriptor new];
-                blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
-                break;
-            }
-            case RenderCommandListType::COPY: {
-                auto blitDescriptor = [MTLBlitPassDescriptor new];
-                blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
-                break;
-            }
-            default:
-                assert(false && "Unknown pipeline type.");
-                break;
+        if (computeEncoder != nil) {
+            [computeEncoder endEncoding];
+        }
+
+        if (blitEncoder != nil) {
+            [blitEncoder endEncoding];
+        }
+
+        renderEncoder = nil;
+        computeEncoder = nil;
+        blitEncoder = nil;
+    }
+
+    void MetalCommandList::guaranteeRenderEncoder() {
+        if (renderEncoder == nil) {
+            endEncoder();
+
+            auto renderDescriptor = [MTLRenderPassDescriptor new];
+            renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
         }
     }
 
-    void MetalCommandList::end() {
-        switch (type) {
-            case RenderCommandListType::DIRECT: {
-                assert(renderEncoder != nil && "Cannot end encoding on nil MTLRenderCommandEncoder");
-                assert(computeEncoder != nil && "Cannot end encoding on nil MTLComputeCommandEncoder");
-                assert(blitEncoder != nil && "Cannot end encoding on nil MTLBlitCommandEncoder");
+    void MetalCommandList::guaranteeComputeEncoder() {
+        if (computeEncoder == nil) {
+            endEncoder();
 
-                [renderEncoder endEncoding];
-                [computeEncoder endEncoding];
-                [blitEncoder endEncoding];
+            auto computeDescriptor = [MTLComputePassDescriptor new];
+            computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+        }
+    }
 
-                renderEncoder = nil;
-                computeEncoder = nil;
-                blitEncoder = nil;
-                break;
-            }
-            case RenderCommandListType::COMPUTE: {
-                assert(computeEncoder != nil && "Cannot end encoding on nil MTLComputeCommandEncoder");
-                assert(blitEncoder != nil && "Cannot end encoding on nil MTLBlitCommandEncoder");
+    void MetalCommandList::guaranteeBlitEncoder() {
+        if (blitEncoder == nil) {
+            endEncoder();
 
-                [computeEncoder endEncoding];
-                [blitEncoder endEncoding];
-
-                computeEncoder = nil;
-                blitEncoder = nil;
-                break;
-            }
-            case RenderCommandListType::COPY: {
-                assert(blitEncoder != nil && "Cannot end encoding on nil MTLBlitCommandEncoder");
-
-                [blitEncoder endEncoding];
-                blitEncoder = nil;
-                break;
-            }
-            default:
-                assert(false && "Unknown pipeline type.");
-                break;
+            auto blitDescriptor = [MTLBlitPassDescriptor new];
+            blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
         }
     }
 
@@ -824,6 +807,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
+        guaranteeComputeEncoder();
         assert(computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
 
         [computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
@@ -835,6 +819,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
+        guaranteeRenderEncoder();
         assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
 
         [renderEncoder drawPrimitives: currentPrimitiveType
@@ -845,6 +830,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
+        guaranteeRenderEncoder();
         assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
 
         [renderEncoder drawIndexedPrimitives: currentPrimitiveType
@@ -863,12 +849,14 @@ namespace RT64 {
         const auto *interfacePipeline = static_cast<const MetalPipeline *>(pipeline);
         switch (interfacePipeline->type) {
             case MetalPipeline::Type::Compute: {
+                guaranteeComputeEncoder();
                 const auto *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
                 assert(computeEncoder != nil && "Cannot set pipeline state on nil MTLComputeCommandEncoder!");
                 [computeEncoder setComputePipelineState: computePipeline->state];
                 break;
             }
             case MetalPipeline::Type::Graphics: {
+                guaranteeRenderEncoder();
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
                 assert(renderEncoder != nil && "Cannot set pipeline state on nil MTLRenderCommandEncoder!");
                 [renderEncoder setRenderPipelineState: graphicsPipeline->state];
@@ -940,6 +928,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
+        guaranteeRenderEncoder();
         assert(renderEncoder != nil && "Cannot set viewports on nil MTLRenderCommandEncoder!");
 
         if (count > 1) {
@@ -975,6 +964,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
+        guaranteeRenderEncoder();
         assert(renderEncoder != nil && "Cannot set scissors on nil MTLRenderCommandEncoder!");
 
         if (count > 1) {
@@ -1018,6 +1008,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
+        guaranteeBlitEncoder();
         assert(dstBuffer.ref != nullptr);
         assert(srcBuffer.ref != nullptr);
         assert(blitEncoder != nil && "Cannot copy buffer region on a nil MTLBlitCommandEncoder");
@@ -1033,6 +1024,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
+        guaranteeBlitEncoder();
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(blitEncoder != nil && "Cannot copy texture region on a nil MTLBlitCommandEncoder");
@@ -1087,6 +1079,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::copyBuffer(const RenderBuffer *dstBuffer, const RenderBuffer *srcBuffer) {
+        guaranteeBlitEncoder();
         assert(dstBuffer != nullptr);
         assert(srcBuffer != nullptr);
         assert(blitEncoder != nil && "Cannot copy buffer on nil MTLBlitCommandEncoder!");
@@ -1102,6 +1095,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::copyTexture(const RenderTexture *dstTexture, const RenderTexture *srcTexture) {
+        guaranteeBlitEncoder();
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
         assert(blitEncoder != nil && "Cannot copy texture on nil MTLBlitCommandEncoder!");
