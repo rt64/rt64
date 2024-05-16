@@ -271,10 +271,13 @@ namespace RT64 {
 //    };
 
     struct MetalDevice : RenderDevice {
+        id<MTLDevice> device;
+        id<MTLCommandQueue> queue;
+        id<MTLCommandBuffer> buffer;
         MetalInterface *renderInterface = nullptr;
         RenderDeviceCapabilities capabilities;
 
-        MetalDevice(MetalInterface *renderInterface);
+        explicit MetalDevice(MetalInterface *renderInterface);
         ~MetalDevice() override;
         std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) override;

@@ -395,7 +395,7 @@ namespace RT64 {
 
         this->texture = texture;
 
-        this->mtlTexture = [texture->device->renderInterface->device newTextureWithDescriptor: texture->descriptor];
+        this->mtlTexture = [texture->device->device newTextureWithDescriptor: texture->descriptor];
     }
 
     MetalTextureView::~MetalTextureView() {
@@ -466,7 +466,7 @@ namespace RT64 {
         [descriptor setLodMaxClamp: desc.maxLOD];
         [descriptor setBorderColor: toMTL(desc.borderColor)];
 
-        this->samplerState = [device->renderInterface->device newSamplerStateWithDescriptor: descriptor];
+        this->samplerState = [device->device newSamplerStateWithDescriptor: descriptor];
     }
 
     MetalSampler::~MetalSampler() {
@@ -498,7 +498,7 @@ namespace RT64 {
         // [descriptor setComputeFunction: computeShader->];
         [descriptor setLabel: [NSString stringWithUTF8String: computeShader->entryPointName.c_str()]];
 
-        this->state = [device->renderInterface->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nil];
+        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nil];
     }
 
     MetalComputePipeline::~MetalComputePipeline() {
@@ -557,7 +557,18 @@ namespace RT64 {
         switch (type) {
             case RenderCommandListType::DIRECT: {
                 auto descriptor = [MTLRenderPassDescriptor new];
-                // renderEncoder = [device->renderInterface->device render]
+                renderEncoder = [device->buffer renderCommandEncoderWithDescriptor: descriptor];
+                break;
+            }
+            case RenderCommandListType::COMPUTE: {
+                auto descriptor = [MTLComputePassDescriptor new];
+                computeEncoder = [device->buffer computeCommandEncoderWithDescriptor: descriptor];
+                break;
+            }
+            case RenderCommandListType::COPY: {
+                auto descriptor = [MTLBlitPassDescriptor new];
+                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: descriptor];
+                break;
             }
             default:
                 assert(false && "Unknown pipeline type.");
@@ -769,7 +780,7 @@ namespace RT64 {
         // TODO: Set Descriptor properties correctly
         [descriptor setType: MTLHeapTypeAutomatic];
 
-        this->heap = [device->renderInterface->device newHeapWithDescriptor: descriptor];
+        this->heap = [device->device newHeapWithDescriptor: descriptor];
     }
 
     // MetalDevice
@@ -777,12 +788,15 @@ namespace RT64 {
     MetalDevice::MetalDevice(MetalInterface *renderInterface) {
         assert(renderInterface != nullptr);
         this->renderInterface = renderInterface;
+        this->device = renderInterface->device;
+        this->queue = [device newCommandQueue];
+        this->buffer = [queue commandBuffer];
 
         // Fill capabilities.
         // TODO: Let's add ray tracing as a second step
 //        capabilities.raytracing = [this->renderInterface->device supportsFamily:MTLGPUFamilyApple9];
         capabilities.maxTextureSize = 16384;
-        capabilities.sampleLocations = [this->renderInterface->device areProgrammableSamplePositionsSupported];
+        capabilities.sampleLocations = [device areProgrammableSamplePositionsSupported];
         capabilities.descriptorIndexing = true;
         // TODO: check if this came after MacFamily2
         capabilities.scalarBlockLayout = true;
