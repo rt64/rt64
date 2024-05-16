@@ -555,19 +555,32 @@ namespace RT64 {
         this->type = type;
 
         switch (type) {
+            // Follows D3D12 Command List model
+            // DIRECT can Render, Compute, Copy
+            // COMPUTE can Compute, Copy
+            // COPY can Copy
             case RenderCommandListType::DIRECT: {
-                auto descriptor = [MTLRenderPassDescriptor new];
-                renderEncoder = [device->buffer renderCommandEncoderWithDescriptor: descriptor];
+                auto renderDescriptor = [MTLRenderPassDescriptor new];
+                renderEncoder = [device->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+
+                auto computeDescriptor = [MTLComputePassDescriptor new];
+                computeEncoder = [device->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+
+                auto blitDescriptor = [MTLBlitPassDescriptor new];
+                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
                 break;
             }
             case RenderCommandListType::COMPUTE: {
-                auto descriptor = [MTLComputePassDescriptor new];
-                computeEncoder = [device->buffer computeCommandEncoderWithDescriptor: descriptor];
+                auto computeDescriptor = [MTLComputePassDescriptor new];
+                computeEncoder = [device->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+
+                auto blitDescriptor = [MTLBlitPassDescriptor new];
+                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
                 break;
             }
             case RenderCommandListType::COPY: {
-                auto descriptor = [MTLBlitPassDescriptor new];
-                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: descriptor];
+                auto blitDescriptor = [MTLBlitPassDescriptor new];
+                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
                 break;
             }
             default:
@@ -588,18 +601,32 @@ namespace RT64 {
         switch (type) {
             case RenderCommandListType::DIRECT: {
                 assert(renderEncoder != nil && "Cannot end encoding on nil MTLRenderCommandEncoder");
+                assert(computeEncoder != nil && "Cannot end encoding on nil MTLComputeCommandEncoder");
+                assert(blitEncoder != nil && "Cannot end encoding on nil MTLBlitCommandEncoder");
+
                 [renderEncoder endEncoding];
+                [computeEncoder endEncoding];
+                [blitEncoder endEncoding];
+
                 renderEncoder = nil;
+                computeEncoder = nil;
+                blitEncoder = nil;
                 break;
             }
             case RenderCommandListType::COMPUTE: {
                 assert(computeEncoder != nil && "Cannot end encoding on nil MTLComputeCommandEncoder");
+                assert(blitEncoder != nil && "Cannot end encoding on nil MTLBlitCommandEncoder");
+
                 [computeEncoder endEncoding];
+                [blitEncoder endEncoding];
+
                 computeEncoder = nil;
+                blitEncoder = nil;
                 break;
             }
             case RenderCommandListType::COPY: {
                 assert(blitEncoder != nil && "Cannot end encoding on nil MTLBlitCommandEncoder");
+
                 [blitEncoder endEncoding];
                 blitEncoder = nil;
                 break;
@@ -767,6 +794,15 @@ namespace RT64 {
             auto scissor = MTLScissorRect { uint32_t(scissorRects[0].left), uint32_t(scissorRects[0].right), uint32_t(scissorRects[0].right - scissorRects[0].left), uint32_t(scissorRects[0].bottom - scissorRects[0].top) };
             [renderEncoder setScissorRect: scissor];
         }
+    }
+
+    // MetalCommandQueue
+
+    MetalCommandQueue::MetalCommandQueue(MetalDevice *device, RenderCommandListType commandListType) {
+        assert(device != nullptr);
+        assert(commandListType != RenderCommandListType::UNKNOWN);
+
+        this->device = device;
     }
 
     // MetalPool
