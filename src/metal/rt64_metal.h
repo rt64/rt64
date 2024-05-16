@@ -77,6 +77,7 @@ namespace RT64 {
         id<MTLBuffer> indexBuffer = nil;
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
+        const MetalCommandQueue *queue = nullptr;
         const MetalFramebuffer *targetFramebuffer = nullptr;
         const MetalPipelineLayout *activeComputePipelineLayout = nullptr;
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;

@@ -553,7 +553,14 @@ namespace RT64 {
 
         this->device = queue->device;
         this->type = type;
+        this->queue = queue;
+    }
 
+    MetalCommandList::~MetalCommandList() {
+        // TODO: Should be handled by ARC
+    }
+
+    void MetalCommandList::begin() {
         switch (type) {
             // Follows D3D12 Command List model
             // DIRECT can Render, Compute, Copy
@@ -587,14 +594,6 @@ namespace RT64 {
                 assert(false && "Unknown pipeline type.");
                 break;
         }
-    }
-
-    MetalCommandList::~MetalCommandList() {
-        // TODO: Should be handled by ARC
-    }
-
-    void MetalCommandList::begin() {
-        // Manually starting CommandEncoder isn't necessary
     }
 
     void MetalCommandList::end() {
@@ -806,8 +805,26 @@ namespace RT64 {
         this->buffer = [device->queue commandBuffer];
     }
 
+    MetalCommandQueue::~MetalCommandQueue() {
+        // TODO: Should be handled by ARC
+    }
+
     std::unique_ptr<RenderCommandList> MetalCommandQueue::createCommandList(RenderCommandListType type) {
         return std::make_unique<MetalCommandList>(this, type);
+    }
+
+    void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
+        assert(commandLists != nullptr);
+        assert(commandListCount > 0);
+
+        [buffer enqueue];
+        [buffer commit];
+
+        this->buffer = [buffer.commandQueue commandBuffer];
+    }
+
+    void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
+        // TODO: Should be handled by hazard tracking.
     }
 
     // MetalPool
