@@ -52,7 +52,7 @@ jobs:
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install ninja sdl2
+          brew install ninja sdl2 zlib
       - name: Configure Developer Command Prompt
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
