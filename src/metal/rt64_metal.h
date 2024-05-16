@@ -46,6 +46,7 @@ namespace RT64 {
     };
 
     struct MetalSwapChain : RenderSwapChain {
+        CAMetalLayer *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
         std::vector<MetalTexture> textures;

@@ -470,8 +470,16 @@ namespace RT64 {
         this->format = format;
         this->entryPointName = (entryPointName != nullptr) ? std::string(entryPointName) : std::string();
 
-        id<MTLLibrary> library = [device->device newLibraryWithData: static_cast<dispatch_data_t>([NSData dataWithBytes:data length:size]) error: nullptr];
-        this->function = [library newFunctionWithName: [NSString stringWithUTF8String: entryPointName]];
+        NSError *error = nullptr;
+        dispatch_data_t dispatchData = dispatch_data_create(data, size, dispatch_get_main_queue(), ^{});
+        id<MTLLibrary> library = [device->device newLibraryWithData: dispatchData error: &error];
+
+        if (error != nullptr) {
+            fprintf(stderr, "MTLLibrary newLibraryWithData: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
+            return;
+        }
+
+        this->function = [library newFunctionWithName:[NSString stringWithUTF8String: entryPointName]];
     }
 
     MetalShader::~MetalShader() {
@@ -529,7 +537,13 @@ namespace RT64 {
         descriptor.computeFunction = computeShader->function;
         descriptor.label = [NSString stringWithUTF8String: computeShader->entryPointName.c_str()];
 
-        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nullptr];
+        NSError *error = nullptr;
+        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: &error];
+
+        if (error != nullptr) {
+            fprintf(stderr, "MTLDevice newComputePipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
+            return;
+        }
     }
 
     MetalComputePipeline::~MetalComputePipeline() {
@@ -609,7 +623,9 @@ namespace RT64 {
     // MetalSwapChain
 
     MetalSwapChain::MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) {
-        // TODO: Unimplemented.
+        this->layer = commandQueue->device->renderInterface->layer;
+
+        layer.pixelFormat = toMTL(format);
     }
 
     MetalSwapChain::~MetalSwapChain() {
@@ -632,13 +648,11 @@ namespace RT64 {
     }
 
     uint32_t MetalSwapChain::getWidth() const {
-        // TODO: Unimplemented.
-        return 0;
+        return layer.frame.size.width;
     }
 
     uint32_t MetalSwapChain::getHeight() const {
-        // TODO: Unimplemented.
-        return 0;
+        return layer.frame.size.height;
     }
 
     uint32_t MetalSwapChain::getTextureIndex() const {
@@ -668,7 +682,7 @@ namespace RT64 {
 
     uint32_t MetalSwapChain::getRefreshRate() const {
         // TODO: Unimplemented.
-        return 0;
+        return 60;
     }
 
     void MetalSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
@@ -1134,8 +1148,8 @@ namespace RT64 {
         return std::make_unique<MetalCommandList>(this, type);
     }
 
-    std::unique_ptr<RenderSwapChain> MetalCommandQueue::createSwapChain(RT64::RenderWindow renderWindow, uint32_t textureCount, RT64::RenderFormat format) {
-        // TODO: Unimplemented.
+    std::unique_ptr<RenderSwapChain> MetalCommandQueue::createSwapChain(RT64::RenderWindow renderWindow, uint32_t bufferCount, RenderFormat format) {
+        return std::make_unique<MetalSwapChain>(this, renderWindow, bufferCount, format);
     }
 
     void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
@@ -1301,7 +1315,6 @@ namespace RT64 {
     void MetalInterface::assignDeviceToLayer(SDL_MetalView view) {
         layer = (__bridge CAMetalLayer *)SDL_Metal_GetLayer(view);
         [layer setDevice:device];
-        [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
     }
 
     // Global creation function.
