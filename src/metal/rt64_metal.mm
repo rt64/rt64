@@ -364,17 +364,16 @@ namespace RT64 {
         this->desc = desc;
 
         auto descriptor = [MTLTextureDescriptor new];
-
-        [descriptor setTextureType: toTextureType(desc.dimension)];
-        [descriptor setPixelFormat: toMTL(desc.format)];
-        [descriptor setWidth: desc.width];
-        [descriptor setHeight: desc.height];
-        [descriptor setDepth: desc.depth];
-        [descriptor setMipmapLevelCount: desc.mipLevels];
-        [descriptor setArrayLength: 1];
-        [descriptor setSampleCount: desc.multisampling.sampleCount];
+        descriptor.textureType = toTextureType(desc.dimension);
+        descriptor.pixelFormat = toMTL(desc.format);
+        descriptor.width = desc.width;
+        descriptor.height = desc.height;
+        descriptor.depth = desc.depth;
+        descriptor.mipmapLevelCount = desc.mipLevels;
+        descriptor.arrayLength = 1;
+        descriptor.sampleCount = desc.multisampling.sampleCount;
         // TODO: Usage flags
-        [descriptor setUsage: MTLTextureUsageUnknown];
+        descriptor.usage = MTLTextureUsageUnknown;
 
         this->mtlTexture = [device->device newTextureWithDescriptor: descriptor];
     }
@@ -397,7 +396,7 @@ namespace RT64 {
         assert(texture != nullptr);
 
         this->texture = texture;
-
+        // TODO: Check this stuff is right
         this->mtlTexture = texture->mtlTexture;
     }
 
@@ -460,17 +459,17 @@ namespace RT64 {
         this->device = device;
 
         MTLSamplerDescriptor *descriptor = [MTLSamplerDescriptor new];
-        [descriptor setMinFilter: toMTL(desc.minFilter)];
-        [descriptor setMagFilter: toMTL(desc.magFilter)];
-        [descriptor setMipFilter: toMTL(desc.mipmapMode)];
-        [descriptor setRAddressMode: toMTL(desc.addressU)];
-        [descriptor setSAddressMode: toMTL(desc.addressV)];
-        [descriptor setTAddressMode: toMTL(desc.addressW)];
-        [descriptor setMaxAnisotropy: desc.maxAnisotropy];
-        [descriptor setCompareFunction: toMTL(desc.comparisonFunc)];
-        [descriptor setLodMinClamp: desc.minLOD];
-        [descriptor setLodMaxClamp: desc.maxLOD];
-        [descriptor setBorderColor: toMTL(desc.borderColor)];
+        descriptor.minFilter = toMTL(desc.minFilter);
+        descriptor.magFilter = toMTL(desc.magFilter);
+        descriptor.mipFilter = toMTL(desc.mipmapMode);
+        descriptor.rAddressMode = toMTL(desc.addressU);
+        descriptor.sAddressMode = toMTL(desc.addressV);
+        descriptor.tAddressMode = toMTL(desc.addressW);
+        descriptor.maxAnisotropy = desc.maxAnisotropy;
+        descriptor.compareFunction = toMTL(desc.comparisonFunc);
+        descriptor.lodMinClamp = desc.minLOD;
+        descriptor.lodMaxClamp = desc.maxLOD;
+        descriptor.borderColor = toMTL(desc.borderColor);
 
         this->samplerState = [device->device newSamplerStateWithDescriptor: descriptor];
     }
@@ -500,8 +499,8 @@ namespace RT64 {
         const auto *computeShader = static_cast<const MetalShader *>(desc.computeShader);
 
         MTLComputePipelineDescriptor *descriptor = [MTLComputePipelineDescriptor new];
-        [descriptor setComputeFunction: computeShader->function];
-        [descriptor setLabel: [NSString stringWithUTF8String: computeShader->entryPointName.c_str()]];
+        descriptor.computeFunction = computeShader->function;
+        descriptor.label = [NSString stringWithUTF8String: computeShader->entryPointName.c_str()];
 
         this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nullptr];
     }
@@ -525,13 +524,13 @@ namespace RT64 {
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
         const auto *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
 
-        [descriptor setVertexFunction: metalShader->function];
+        descriptor.vertexFunction = metalShader->function;
 
         assert(desc.geometryShader == nullptr && "Metal does not support geometry shaders!");
 
         if (desc.pixelShader != nullptr) {
             const auto *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
-            [descriptor setFragmentFunction: pixelShader->function];
+            descriptor.fragmentFunction = pixelShader->function;
         }
 
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
@@ -646,7 +645,8 @@ namespace RT64 {
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
         assert(computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
 
-        [computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ) threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
+        [computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
+                       threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
     }
 
     void MetalCommandList::traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) {
@@ -766,14 +766,29 @@ namespace RT64 {
             viewportVector.clear();
 
             for (uint32_t i = 0; i < count; i++) {
-                viewportVector.emplace_back(MTLViewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth });
+                viewportVector.emplace_back(MTLViewport {
+                    viewports[i].x,
+                    viewports[i].y,
+                    viewports[i].width,
+                    viewports[i].height,
+                    viewports[i].minDepth,
+                    viewports[i].maxDepth
+                });
             }
 
             [renderEncoder setViewports: viewportVector.data() count: count];
         }
         else {
             // Single element fast path.
-            auto viewport = MTLViewport { viewports[0].x, viewports[0].y, viewports[0].width, viewports[0].height, viewports[0].minDepth, viewports[0].maxDepth };
+            auto viewport = MTLViewport {
+                viewports[0].x,
+                viewports[0].y,
+                viewports[0].width,
+                viewports[0].height,
+                viewports[0].minDepth,
+                viewports[0].maxDepth
+            };
+
             [renderEncoder setViewport: viewport];
         }
     }
@@ -786,14 +801,25 @@ namespace RT64 {
             scissorVector.clear();
 
             for (uint32_t i = 0; i < count; i++) {
-                scissorVector.emplace_back(MTLScissorRect { uint32_t(scissorRects[i].left), uint32_t(scissorRects[i].right), uint32_t(scissorRects[i].right - scissorRects[i].left), uint32_t(scissorRects[i].bottom - scissorRects[i].top) });
+                scissorVector.emplace_back(MTLScissorRect {
+                    uint32_t(scissorRects[i].left),
+                    uint32_t(scissorRects[i].right),
+                    uint32_t(scissorRects[i].right - scissorRects[i].left),
+                    uint32_t(scissorRects[i].bottom - scissorRects[i].top)
+                });
             }
 
             [renderEncoder setScissorRects: scissorVector.data() count: count];
         }
         else {
             // Single element fast path.
-            auto scissor = MTLScissorRect { uint32_t(scissorRects[0].left), uint32_t(scissorRects[0].right), uint32_t(scissorRects[0].right - scissorRects[0].left), uint32_t(scissorRects[0].bottom - scissorRects[0].top) };
+            auto scissor = MTLScissorRect {
+                uint32_t(scissorRects[0].left),
+                uint32_t(scissorRects[0].right),
+                uint32_t(scissorRects[0].right - scissorRects[0].left),
+                uint32_t(scissorRects[0].bottom - scissorRects[0].top)
+            };
+
             [renderEncoder setScissorRect: scissor];
         }
     }
