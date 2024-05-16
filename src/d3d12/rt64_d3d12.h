@@ -150,7 +150,7 @@ namespace RT64 {
         D3D12_PRIMITIVE_TOPOLOGY activeTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
         bool activeSamplePositions = false;
 
-        D3D12CommandList(D3D12Device *device, RenderCommandListType type);
+        D3D12CommandList(D3D12CommandQueue *queue, RenderCommandListType type);
         ~D3D12CommandList() override;
         void begin() override;
         void end() override;
@@ -210,6 +210,7 @@ namespace RT64 {
 
         D3D12CommandQueue(D3D12Device *device, RenderCommandListType type);
         ~D3D12CommandQueue() override;
+        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) override;
         void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) override;
         void waitForCommandFence(RenderCommandFence *fence) override;
@@ -385,7 +386,6 @@ namespace RT64 {
 
         D3D12Device(D3D12Interface *renderInterface);
         ~D3D12Device() override;
-        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) override;
         std::unique_ptr<RenderShader> createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) override;
         std::unique_ptr<RenderSampler> createSampler(const RenderSamplerDesc &desc) override;

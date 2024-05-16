@@ -547,11 +547,11 @@ namespace RT64 {
 
     // MetalCommandList
 
-    MetalCommandList::MetalCommandList(MetalDevice *device, RenderCommandListType type) {
+    MetalCommandList::MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type) {
         assert(device != nullptr);
         assert(type != RenderCommandListType::UNKNOWN);
 
-        this->device = device;
+        this->device = queue->device;
         this->type = type;
 
         switch (type) {
@@ -561,26 +561,26 @@ namespace RT64 {
             // COPY can Copy
             case RenderCommandListType::DIRECT: {
                 auto renderDescriptor = [MTLRenderPassDescriptor new];
-                renderEncoder = [device->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+                renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
 
                 auto computeDescriptor = [MTLComputePassDescriptor new];
-                computeEncoder = [device->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+                computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
 
                 auto blitDescriptor = [MTLBlitPassDescriptor new];
-                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
+                blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
                 break;
             }
             case RenderCommandListType::COMPUTE: {
                 auto computeDescriptor = [MTLComputePassDescriptor new];
-                computeEncoder = [device->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+                computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
 
                 auto blitDescriptor = [MTLBlitPassDescriptor new];
-                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
+                blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
                 break;
             }
             case RenderCommandListType::COPY: {
                 auto blitDescriptor = [MTLBlitPassDescriptor new];
-                blitEncoder = [device->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
+                blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
                 break;
             }
             default:
@@ -803,6 +803,11 @@ namespace RT64 {
         assert(commandListType != RenderCommandListType::UNKNOWN);
 
         this->device = device;
+        this->buffer = [device->queue commandBuffer];
+    }
+
+    std::unique_ptr<RenderCommandList> MetalCommandQueue::createCommandList(RenderCommandListType type) {
+        return std::make_unique<MetalCommandList>(this, type);
     }
 
     // MetalPool
@@ -826,7 +831,6 @@ namespace RT64 {
         this->renderInterface = renderInterface;
         this->device = renderInterface->device;
         this->queue = [device newCommandQueue];
-        this->buffer = [queue commandBuffer];
 
         // Fill capabilities.
         // TODO: Let's add ray tracing as a second step
@@ -841,10 +845,6 @@ namespace RT64 {
 
     MetalDevice::~MetalDevice() {
         // TODO: Automatic reference counting should take care of this.
-    }
-
-    std::unique_ptr<RenderCommandList> MetalDevice::createCommandList(RenderCommandListType type) {
-        return std::make_unique<MetalCommandList>(this, type);
     }
 
     std::unique_ptr<RenderDescriptorSet> MetalDevice::createDescriptorSet(const RenderDescriptorSetDesc &desc) {
