@@ -363,17 +363,20 @@ namespace RT64 {
         this->pool = pool;
         this->desc = desc;
 
-        this->descriptor = [MTLTextureDescriptor new];
+        auto descriptor = [MTLTextureDescriptor new];
 
-        [this->descriptor setTextureType: toTextureType(desc.dimension)];
-        [this->descriptor setPixelFormat: toMTL(desc.format)];
-        [this->descriptor setWidth: desc.width];
-        [this->descriptor setHeight: desc.height];
-        [this->descriptor setDepth: desc.depth];
-        [this->descriptor setMipmapLevelCount: desc.mipLevels];
-        [this->descriptor setArrayLength: 1];
-        [this->descriptor setSampleCount: desc.multisampling.sampleCount];
+        [descriptor setTextureType: toTextureType(desc.dimension)];
+        [descriptor setPixelFormat: toMTL(desc.format)];
+        [descriptor setWidth: desc.width];
+        [descriptor setHeight: desc.height];
+        [descriptor setDepth: desc.depth];
+        [descriptor setMipmapLevelCount: desc.mipLevels];
+        [descriptor setArrayLength: 1];
+        [descriptor setSampleCount: desc.multisampling.sampleCount];
         // TODO: Usage flags
+        [descriptor setUsage: MTLTextureUsageUnknown];
+
+        this->mtlTexture = [device->device newTextureWithDescriptor: descriptor];
     }
 
     MetalTexture::~MetalTexture() {
@@ -395,7 +398,7 @@ namespace RT64 {
 
         this->texture = texture;
 
-        this->mtlTexture = [texture->device->device newTextureWithDescriptor: texture->descriptor];
+        this->mtlTexture = texture->mtlTexture;
     }
 
     MetalTextureView::~MetalTextureView() {
