@@ -3,7 +3,6 @@
 //
 
 #include "rhi/rt64_render_interface.h"
-#include "metal/rt64_metal.h"
 
 #include <cassert>
 #include <cstring>
@@ -27,6 +26,7 @@
 #include "shaders/RenderInterfaceTestPostPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
 #else
+#include "metal/rt64_metal.h"
 #include "shaders/RenderInterfaceTestPS.hlsl.metallib.h"
 // TODO: Enable when RT is added to Metal.
 //#include "shaders/RenderInterfaceTestRT.hlsl.metallib.h"

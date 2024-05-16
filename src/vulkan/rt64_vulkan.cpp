@@ -35,7 +35,7 @@ namespace RT64 {
 
     // Controls the maximum amount of native queues the backend will create per queue family.
     // Command queues are created as virtual queues on top of the native queues provided by Vulkan,
-    // so they're not under the limit set by the the device or the backend.
+    // so they're not under the limit set by the device or the backend.
     static const uint32_t MaxQueuesPerFamilyCount = 4;
 
     // Required extensions.
@@ -3662,6 +3662,10 @@ namespace RT64 {
 
     std::unique_ptr<RenderPipeline> VulkanDevice::createRaytracingPipeline(const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline) {
         return std::make_unique<VulkanRaytracingPipeline>(this, desc, previousPipeline);
+    }
+
+    std::unique_ptr<RenderCommandQueue> VulkanDevice::createCommandQueue(RenderCommandListType type) {
+        return std::make_unique<VulkanCommandQueue>(this, type);
     }
 
     std::unique_ptr<RenderBuffer> VulkanDevice::createBuffer(const RenderBufferDesc &desc) {
