@@ -781,6 +781,9 @@ namespace RT64 {
 
             auto renderDescriptor = [MTLRenderPassDescriptor new];
             renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+
+            [renderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
+            [renderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
         }
     }
 
@@ -931,68 +934,38 @@ namespace RT64 {
         guaranteeRenderEncoder();
         assert(renderEncoder != nil && "Cannot set viewports on nil MTLRenderCommandEncoder!");
 
-        if (count > 1) {
-            thread_local std::vector<MTLViewport> viewportVector;
-            viewportVector.clear();
+        viewportVector.clear();
 
-            for (uint32_t i = 0; i < count; i++) {
-                viewportVector.emplace_back(MTLViewport {
+        for (uint32_t i = 0; i < count; i++) {
+            viewportVector.emplace_back(MTLViewport {
                     viewports[i].x,
                     viewports[i].y,
                     viewports[i].width,
                     viewports[i].height,
                     viewports[i].minDepth,
                     viewports[i].maxDepth
-                });
-            }
-
-            [renderEncoder setViewports: viewportVector.data() count: count];
+            });
         }
-        else {
-            // Single element fast path.
-            auto viewport = MTLViewport {
-                viewports[0].x,
-                viewports[0].y,
-                viewports[0].width,
-                viewports[0].height,
-                viewports[0].minDepth,
-                viewports[0].maxDepth
-            };
 
-            [renderEncoder setViewport: viewport];
-        }
+        [renderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
         guaranteeRenderEncoder();
         assert(renderEncoder != nil && "Cannot set scissors on nil MTLRenderCommandEncoder!");
 
-        if (count > 1) {
-            thread_local std::vector<MTLScissorRect> scissorVector;
-            scissorVector.clear();
+        scissorVector.clear();
 
-            for (uint32_t i = 0; i < count; i++) {
-                scissorVector.emplace_back(MTLScissorRect {
+        for (uint32_t i = 0; i < count; i++) {
+            scissorVector.emplace_back(MTLScissorRect {
                     uint32_t(scissorRects[i].left),
                     uint32_t(scissorRects[i].right),
                     uint32_t(scissorRects[i].right - scissorRects[i].left),
                     uint32_t(scissorRects[i].bottom - scissorRects[i].top)
-                });
-            }
-
-            [renderEncoder setScissorRects: scissorVector.data() count: count];
+            });
         }
-        else {
-            // Single element fast path.
-            auto scissor = MTLScissorRect {
-                uint32_t(scissorRects[0].left),
-                uint32_t(scissorRects[0].right),
-                uint32_t(scissorRects[0].right - scissorRects[0].left),
-                uint32_t(scissorRects[0].bottom - scissorRects[0].top)
-            };
 
-            [renderEncoder setScissorRect: scissor];
-        }
+        [renderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
