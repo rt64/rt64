@@ -96,6 +96,9 @@ namespace RT64 {
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
         id<MTLBuffer> indexBuffer = nil;
+
+        std::vector<MTLViewport> viewportVector;
+        std::vector<MTLScissorRect> scissorVector;
 #endif
 
         MetalDevice *device = nullptr;
