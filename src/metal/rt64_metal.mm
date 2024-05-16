@@ -1,5 +1,5 @@
 //
-// Created by David Chavez on 5/13/24.
+// RT64
 //
 
 #include "rt64_metal.h"
@@ -963,4 +963,4 @@ namespace RT64 {
         std::unique_ptr<MetalInterface> createdInterface = std::make_unique<MetalInterface>();
         return createdInterface->isValid() ? std::move(createdInterface) : nullptr;
     }
-}
+};

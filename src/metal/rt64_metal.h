@@ -1,7 +1,11 @@
-#ifndef RT64_RT64_METAL_H
-#define RT64_RT64_METAL_H
+//
+// RT64
+//
+
+#pragma once
 
 #include "rhi/rt64_render_interface.h"
+
 #import <Metal/Metal.h>
 
 namespace RT64 {
@@ -315,6 +319,4 @@ namespace RT64 {
         const RenderInterfaceCapabilities &getCapabilities() const override;
         bool isValid() const;
     };
-}
-
-#endif //RT64_RT64_METAL_H
+};
