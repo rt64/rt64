@@ -818,9 +818,9 @@ namespace RT64 {
         const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
         const auto interfaceSrcBuffer = static_cast<const MetalBuffer *>(srcBuffer.ref);
 
-        [blitEncoder copyFromBuffer: interfaceDstBuffer->buffer
+        [blitEncoder copyFromBuffer: interfaceSrcBuffer->buffer
                        sourceOffset: 0
-                           toBuffer: interfaceSrcBuffer->buffer
+                           toBuffer: interfaceDstBuffer->buffer
                   destinationOffset: 0
                                size: size];
     }
@@ -867,7 +867,7 @@ namespace RT64 {
                 size.depth = srcTexture->desc.depth;
             }
 
-            [blitEncoder copyFromTexture: dstTexture->mtlTexture
+            [blitEncoder copyFromTexture: srcTexture->mtlTexture
                              sourceSlice: 0
                              sourceLevel: 0
                             sourceOrigin: origin
@@ -887,9 +887,9 @@ namespace RT64 {
         const auto dst = static_cast<const MetalBuffer *>(dstBuffer);
         const auto src = static_cast<const MetalBuffer *>(srcBuffer);
 
-        [blitEncoder copyFromBuffer: dst->buffer
+        [blitEncoder copyFromBuffer: src->buffer
                        sourceOffset: 0
-                           toBuffer: src->buffer
+                           toBuffer: dst->buffer
                   destinationOffset: 0
                                size: dst->desc.size];
     }
@@ -902,8 +902,8 @@ namespace RT64 {
         const auto dst = static_cast<const MetalTexture *>(dstTexture);
         const auto src = static_cast<const MetalTexture *>(srcTexture);
 
-        [blitEncoder copyFromTexture: dst->mtlTexture
-                           toTexture: src->mtlTexture];
+        [blitEncoder copyFromTexture: src->mtlTexture
+                           toTexture: dst->mtlTexture];
     }
 
     // MetalCommandQueue
