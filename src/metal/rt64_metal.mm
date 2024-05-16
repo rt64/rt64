@@ -324,6 +324,13 @@ namespace RT64 {
         this->device = device;
         this->pool = pool;
         this->desc = desc;
+
+        // TODO: Set the right buffer options
+        if (pool != nullptr) {
+            this->buffer = [pool->heap newBufferWithLength: desc.size options: MTLResourceStorageModeShared];
+        } else {
+            this->buffer = [device->device newBufferWithLength: desc.size options: MTLResourceStorageModeShared];
+        }
     }
 
     MetalBuffer::~MetalBuffer() {
@@ -331,7 +338,7 @@ namespace RT64 {
     }
 
     void *MetalBuffer::map(uint32_t subresource, const RT64::RenderRange *readRange) {
-
+        return [this->buffer contents];
     }
 
     void MetalBuffer::unmap(uint32_t subresource, const RT64::RenderRange *writtenRange) {
