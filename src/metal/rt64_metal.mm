@@ -372,7 +372,13 @@ namespace RT64 {
         this->desc = desc;
 
         auto descriptor = [MTLTextureDescriptor new];
-        descriptor.textureType = toTextureType(desc.dimension);
+        auto textureType = toTextureType(desc.dimension);
+
+        if (desc.multisampling.sampleCount > 1 && textureType == MTLTextureType2D) {
+            textureType = MTLTextureType2DMultisample;
+        }
+
+        descriptor.textureType = textureType;
         descriptor.pixelFormat = toMTL(desc.format);
         descriptor.width = desc.width;
         descriptor.height = desc.height;
