@@ -401,7 +401,7 @@ namespace RT64 {
     }
 
     void MetalTexture::setName(const std::string &name) {
-        // TODO: Set this later on MetalTextureView
+        [this->mtlTexture setLabel: [NSString stringWithUTF8String: name.c_str()]];
     }
 
     // MetalTextureView
