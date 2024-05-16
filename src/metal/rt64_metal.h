@@ -166,7 +166,7 @@ namespace RT64 {
     };
 
     struct MetalTexture : RenderTexture {
-        MTLTextureDescriptor *descriptor = nullptr;
+        id<MTLTexture> mtlTexture = nil;
         RenderTextureLayout layout = RenderTextureLayout::UNKNOWN;
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;

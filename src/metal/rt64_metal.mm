@@ -795,6 +795,110 @@ namespace RT64 {
         }
     }
 
+    void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
+
+    }
+
+    void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
+
+    }
+
+    void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
+
+    }
+
+    void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
+        assert(dstBuffer.ref != nullptr);
+        assert(srcBuffer.ref != nullptr);
+        assert(blitEncoder != nil && "Cannot copy buffer on a nil MTLBlitCommandEncoder");
+
+        const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
+        const auto interfaceSrcBuffer = static_cast<const MetalBuffer *>(srcBuffer.ref);
+
+        [blitEncoder copyFromBuffer: interfaceDstBuffer->buffer sourceOffset: 0 toBuffer: interfaceSrcBuffer->buffer destinationOffset: 0 size: size];
+    }
+
+    void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
+        assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
+        assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
+        assert(blitEncoder != nil && "Cannot copy texture on a nil MTLBlitCommandEncoder");
+
+        const auto dstTexture = static_cast<const MetalTexture *>(dstLocation.texture);
+        const auto srcTexture = static_cast<const MetalTexture *>(srcLocation.texture);
+        const auto dstBuffer = static_cast<const MetalBuffer *>(dstLocation.buffer);
+        const auto srcBuffer = static_cast<const MetalBuffer *>(srcLocation.buffer);
+        if ((dstLocation.type == RenderTextureCopyType::SUBRESOURCE) && (srcLocation.type == RenderTextureCopyType::PLACED_FOOTPRINT)) {
+            assert(dstTexture != nullptr);
+            assert(srcBuffer != nullptr);
+
+            auto origin = MTLOriginMake(dstX, dstY, dstZ);
+            auto size = MTLSizeMake(srcTexture->desc.width, srcTexture->desc.height, srcTexture->desc.depth);
+
+            [blitEncoder copyFromBuffer: srcBuffer->buffer
+                           sourceOffset: srcLocation.placedFootprint.offset
+                      sourceBytesPerRow: srcLocation.placedFootprint.rowWidth
+                    // TODO: Check this calculation is correct
+                    sourceBytesPerImage: srcLocation.placedFootprint.rowWidth * srcLocation.placedFootprint.height
+                             sourceSize: size
+                              toTexture: dstTexture->mtlTexture
+                       destinationSlice: 0
+                       destinationLevel: 0
+                      destinationOrigin: origin];
+        }
+        else {
+            auto origin = MTLOriginMake(dstX, dstY, dstZ);
+            MTLSize size;
+
+            if (srcBox != nullptr) {
+                size.width = srcBox->right - srcBox->left;
+                size.height = srcBox->bottom - srcBox->top;
+                size.depth = srcBox->back - srcBox->front;
+            }
+            else {
+                size.width = srcTexture->desc.width;
+                size.height = srcTexture->desc.height;
+                size.depth = srcTexture->desc.depth;
+            }
+
+            [blitEncoder copyFromTexture: dstTexture->mtlTexture
+                             sourceSlice: 0
+                             sourceLevel: 0
+                            sourceOrigin: origin
+                              sourceSize: size
+                               toTexture: dstTexture->mtlTexture
+                        destinationSlice: 0
+                        destinationLevel: 0
+                       destinationOrigin: origin];
+        }
+    }
+
+    void MetalCommandList::copyBuffer(const RenderBuffer *dstBuffer, const RenderBuffer *srcBuffer) {
+        assert(dstBuffer != nullptr);
+        assert(srcBuffer != nullptr);
+        assert(blitEncoder != nil && "Cannot copy buffer on nil MTLBlitCommandEncoder!");
+
+        const auto dst = static_cast<const MetalBuffer *>(dstBuffer);
+        const auto src = static_cast<const MetalBuffer *>(srcBuffer);
+
+        [blitEncoder copyFromBuffer: dst->buffer
+                       sourceOffset: 0
+                           toBuffer: src->buffer
+                  destinationOffset: 0
+                               size: dst->desc.size];
+    }
+
+    void MetalCommandList::copyTexture(const RenderTexture *dstTexture, const RenderTexture *srcTexture) {
+        assert(dstTexture != nullptr);
+        assert(srcTexture != nullptr);
+        assert(blitEncoder != nil && "Cannot copy texture on nil MTLBlitCommandEncoder!");
+
+        const auto dst = static_cast<const MetalTexture *>(dstTexture);
+        const auto src = static_cast<const MetalTexture *>(srcTexture);
+
+        [blitEncoder copyFromTexture: dst->mtlTexture
+                           toTexture: src->mtlTexture];
+    }
+
     // MetalCommandQueue
 
     MetalCommandQueue::MetalCommandQueue(MetalDevice *device, RenderCommandListType commandListType) {
