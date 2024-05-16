@@ -815,7 +815,11 @@ namespace RT64 {
         const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
         const auto interfaceSrcBuffer = static_cast<const MetalBuffer *>(srcBuffer.ref);
 
-        [blitEncoder copyFromBuffer: interfaceDstBuffer->buffer sourceOffset: 0 toBuffer: interfaceSrcBuffer->buffer destinationOffset: 0 size: size];
+        [blitEncoder copyFromBuffer: interfaceDstBuffer->buffer
+                       sourceOffset: 0
+                           toBuffer: interfaceSrcBuffer->buffer
+                  destinationOffset: 0
+                               size: size];
     }
 
     void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
