@@ -1,5 +1,5 @@
 //
-// Created by David Chavez on 5/13/24.
+// RT64
 //
 
 #import <SDL.h>
@@ -364,17 +364,19 @@ namespace RT64 {
         this->pool = pool;
         this->desc = desc;
 
-        this->descriptor = [MTLTextureDescriptor new];
-
-        [this->descriptor setTextureType: toTextureType(desc.dimension)];
-        [this->descriptor setPixelFormat: toMTL(desc.format)];
-        [this->descriptor setWidth: desc.width];
-        [this->descriptor setHeight: desc.height];
-        [this->descriptor setDepth: desc.depth];
-        [this->descriptor setMipmapLevelCount: desc.mipLevels];
-        [this->descriptor setArrayLength: 1];
-        [this->descriptor setSampleCount: desc.multisampling.sampleCount];
+        auto descriptor = [MTLTextureDescriptor new];
+        descriptor.textureType = toTextureType(desc.dimension);
+        descriptor.pixelFormat = toMTL(desc.format);
+        descriptor.width = desc.width;
+        descriptor.height = desc.height;
+        descriptor.depth = desc.depth;
+        descriptor.mipmapLevelCount = desc.mipLevels;
+        descriptor.arrayLength = 1;
+        descriptor.sampleCount = desc.multisampling.sampleCount;
         // TODO: Usage flags
+        descriptor.usage = MTLTextureUsageUnknown;
+
+        this->mtlTexture = [device->device newTextureWithDescriptor: descriptor];
     }
 
     MetalTexture::~MetalTexture() {
@@ -395,8 +397,8 @@ namespace RT64 {
         assert(texture != nullptr);
 
         this->texture = texture;
-
-        this->mtlTexture = [texture->device->device newTextureWithDescriptor: texture->descriptor];
+        // TODO: Check this stuff is right
+        this->mtlTexture = texture->mtlTexture;
     }
 
     MetalTextureView::~MetalTextureView() {
@@ -441,6 +443,9 @@ namespace RT64 {
         this->device = device;
         this->format = format;
         this->entryPointName = (entryPointName != nullptr) ? std::string(entryPointName) : std::string();
+
+        id<MTLLibrary> library = [device->device newLibraryWithData: static_cast<dispatch_data_t>([NSData dataWithBytes:data length:size]) error: nullptr];
+        this->function = [library newFunctionWithName: [NSString stringWithUTF8String: entryPointName]];
     }
 
     MetalShader::~MetalShader() {
@@ -455,17 +460,17 @@ namespace RT64 {
         this->device = device;
 
         MTLSamplerDescriptor *descriptor = [MTLSamplerDescriptor new];
-        [descriptor setMinFilter: toMTL(desc.minFilter)];
-        [descriptor setMagFilter: toMTL(desc.magFilter)];
-        [descriptor setMipFilter: toMTL(desc.mipmapMode)];
-        [descriptor setRAddressMode: toMTL(desc.addressU)];
-        [descriptor setSAddressMode: toMTL(desc.addressV)];
-        [descriptor setTAddressMode: toMTL(desc.addressW)];
-        [descriptor setMaxAnisotropy: desc.maxAnisotropy];
-        [descriptor setCompareFunction: toMTL(desc.comparisonFunc)];
-        [descriptor setLodMinClamp: desc.minLOD];
-        [descriptor setLodMaxClamp: desc.maxLOD];
-        [descriptor setBorderColor: toMTL(desc.borderColor)];
+        descriptor.minFilter = toMTL(desc.minFilter);
+        descriptor.magFilter = toMTL(desc.magFilter);
+        descriptor.mipFilter = toMTL(desc.mipmapMode);
+        descriptor.rAddressMode = toMTL(desc.addressU);
+        descriptor.sAddressMode = toMTL(desc.addressV);
+        descriptor.tAddressMode = toMTL(desc.addressW);
+        descriptor.maxAnisotropy = desc.maxAnisotropy;
+        descriptor.compareFunction = toMTL(desc.comparisonFunc);
+        descriptor.lodMinClamp = desc.minLOD;
+        descriptor.lodMaxClamp = desc.maxLOD;
+        descriptor.borderColor = toMTL(desc.borderColor);
 
         this->samplerState = [device->device newSamplerStateWithDescriptor: descriptor];
     }
@@ -495,11 +500,10 @@ namespace RT64 {
         const auto *computeShader = static_cast<const MetalShader *>(desc.computeShader);
 
         MTLComputePipelineDescriptor *descriptor = [MTLComputePipelineDescriptor new];
-        // TODO: MetalShader
-        // [descriptor setComputeFunction: computeShader->];
-        [descriptor setLabel: [NSString stringWithUTF8String: computeShader->entryPointName.c_str()]];
+        descriptor.computeFunction = computeShader->function;
+        descriptor.label = [NSString stringWithUTF8String: computeShader->entryPointName.c_str()];
 
-        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nil];
+        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nullptr];
     }
 
     MetalComputePipeline::~MetalComputePipeline() {
@@ -521,15 +525,13 @@ namespace RT64 {
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
         const auto *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
 
-        // TODO Metal Shaders
-        // [descriptor setVertexFunction: metalShader->];
+        descriptor.vertexFunction = metalShader->function;
 
         assert(desc.geometryShader == nullptr && "Metal does not support geometry shaders!");
 
         if (desc.pixelShader != nullptr) {
             const auto *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
-            // TODO Metal Shaders
-            // [descriptor setFragmentFunction: pixelShader->];
+            descriptor.fragmentFunction = pixelShader->function;
         }
 
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
@@ -554,7 +556,14 @@ namespace RT64 {
 
         this->device = queue->device;
         this->type = type;
+        this->queue = queue;
+    }
 
+    MetalCommandList::~MetalCommandList() {
+        // TODO: Should be handled by ARC
+    }
+
+    void MetalCommandList::begin() {
         switch (type) {
             // Follows D3D12 Command List model
             // DIRECT can Render, Compute, Copy
@@ -588,14 +597,6 @@ namespace RT64 {
                 assert(false && "Unknown pipeline type.");
                 break;
         }
-    }
-
-    MetalCommandList::~MetalCommandList() {
-        // TODO: Should be handled by ARC
-    }
-
-    void MetalCommandList::begin() {
-        // Manually starting CommandEncoder isn't necessary
     }
 
     void MetalCommandList::end() {
@@ -645,7 +646,8 @@ namespace RT64 {
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
         assert(computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
 
-        [computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ) threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
+        [computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
+                       threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
     }
 
     void MetalCommandList::traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) {
@@ -765,14 +767,29 @@ namespace RT64 {
             viewportVector.clear();
 
             for (uint32_t i = 0; i < count; i++) {
-                viewportVector.emplace_back(MTLViewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth });
+                viewportVector.emplace_back(MTLViewport {
+                    viewports[i].x,
+                    viewports[i].y,
+                    viewports[i].width,
+                    viewports[i].height,
+                    viewports[i].minDepth,
+                    viewports[i].maxDepth
+                });
             }
 
             [renderEncoder setViewports: viewportVector.data() count: count];
         }
         else {
             // Single element fast path.
-            auto viewport = MTLViewport { viewports[0].x, viewports[0].y, viewports[0].width, viewports[0].height, viewports[0].minDepth, viewports[0].maxDepth };
+            auto viewport = MTLViewport {
+                viewports[0].x,
+                viewports[0].y,
+                viewports[0].width,
+                viewports[0].height,
+                viewports[0].minDepth,
+                viewports[0].maxDepth
+            };
+
             [renderEncoder setViewport: viewport];
         }
     }
@@ -785,16 +802,135 @@ namespace RT64 {
             scissorVector.clear();
 
             for (uint32_t i = 0; i < count; i++) {
-                scissorVector.emplace_back(MTLScissorRect { uint32_t(scissorRects[i].left), uint32_t(scissorRects[i].right), uint32_t(scissorRects[i].right - scissorRects[i].left), uint32_t(scissorRects[i].bottom - scissorRects[i].top) });
+                scissorVector.emplace_back(MTLScissorRect {
+                    uint32_t(scissorRects[i].left),
+                    uint32_t(scissorRects[i].right),
+                    uint32_t(scissorRects[i].right - scissorRects[i].left),
+                    uint32_t(scissorRects[i].bottom - scissorRects[i].top)
+                });
             }
 
             [renderEncoder setScissorRects: scissorVector.data() count: count];
         }
         else {
             // Single element fast path.
-            auto scissor = MTLScissorRect { uint32_t(scissorRects[0].left), uint32_t(scissorRects[0].right), uint32_t(scissorRects[0].right - scissorRects[0].left), uint32_t(scissorRects[0].bottom - scissorRects[0].top) };
+            auto scissor = MTLScissorRect {
+                uint32_t(scissorRects[0].left),
+                uint32_t(scissorRects[0].right),
+                uint32_t(scissorRects[0].right - scissorRects[0].left),
+                uint32_t(scissorRects[0].bottom - scissorRects[0].top)
+            };
+
             [renderEncoder setScissorRect: scissor];
         }
+    }
+
+    void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
+
+    }
+
+    void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
+
+    }
+
+    void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
+
+    }
+
+    void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
+        assert(dstBuffer.ref != nullptr);
+        assert(srcBuffer.ref != nullptr);
+        assert(blitEncoder != nil && "Cannot copy buffer region on a nil MTLBlitCommandEncoder");
+
+        const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
+        const auto interfaceSrcBuffer = static_cast<const MetalBuffer *>(srcBuffer.ref);
+
+        [blitEncoder copyFromBuffer: interfaceSrcBuffer->buffer
+                       sourceOffset: 0
+                           toBuffer: interfaceDstBuffer->buffer
+                  destinationOffset: 0
+                               size: size];
+    }
+
+    void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
+        assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
+        assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
+        assert(blitEncoder != nil && "Cannot copy texture region on a nil MTLBlitCommandEncoder");
+
+        const auto dstTexture = static_cast<const MetalTexture *>(dstLocation.texture);
+        const auto srcTexture = static_cast<const MetalTexture *>(srcLocation.texture);
+        const auto dstBuffer = static_cast<const MetalBuffer *>(dstLocation.buffer);
+        const auto srcBuffer = static_cast<const MetalBuffer *>(srcLocation.buffer);
+        if ((dstLocation.type == RenderTextureCopyType::SUBRESOURCE) && (srcLocation.type == RenderTextureCopyType::PLACED_FOOTPRINT)) {
+            assert(dstTexture != nullptr);
+            assert(srcBuffer != nullptr);
+
+            auto origin = MTLOriginMake(dstX, dstY, dstZ);
+            auto size = MTLSizeMake(srcTexture->desc.width, srcTexture->desc.height, srcTexture->desc.depth);
+
+            [blitEncoder copyFromBuffer: srcBuffer->buffer
+                           sourceOffset: srcLocation.placedFootprint.offset
+                      sourceBytesPerRow: srcLocation.placedFootprint.rowWidth
+                    // TODO: Check this calculation is correct
+                    sourceBytesPerImage: srcLocation.placedFootprint.rowWidth * srcLocation.placedFootprint.height
+                             sourceSize: size
+                              toTexture: dstTexture->mtlTexture
+                       destinationSlice: 0
+                       destinationLevel: 0
+                      destinationOrigin: origin];
+        }
+        else {
+            auto origin = MTLOriginMake(dstX, dstY, dstZ);
+            MTLSize size;
+
+            if (srcBox != nullptr) {
+                size.width = srcBox->right - srcBox->left;
+                size.height = srcBox->bottom - srcBox->top;
+                size.depth = srcBox->back - srcBox->front;
+            }
+            else {
+                size.width = srcTexture->desc.width;
+                size.height = srcTexture->desc.height;
+                size.depth = srcTexture->desc.depth;
+            }
+
+            [blitEncoder copyFromTexture: srcTexture->mtlTexture
+                             sourceSlice: 0
+                             sourceLevel: 0
+                            sourceOrigin: origin
+                              sourceSize: size
+                               toTexture: dstTexture->mtlTexture
+                        destinationSlice: 0
+                        destinationLevel: 0
+                       destinationOrigin: origin];
+        }
+    }
+
+    void MetalCommandList::copyBuffer(const RenderBuffer *dstBuffer, const RenderBuffer *srcBuffer) {
+        assert(dstBuffer != nullptr);
+        assert(srcBuffer != nullptr);
+        assert(blitEncoder != nil && "Cannot copy buffer on nil MTLBlitCommandEncoder!");
+
+        const auto dst = static_cast<const MetalBuffer *>(dstBuffer);
+        const auto src = static_cast<const MetalBuffer *>(srcBuffer);
+
+        [blitEncoder copyFromBuffer: src->buffer
+                       sourceOffset: 0
+                           toBuffer: dst->buffer
+                  destinationOffset: 0
+                               size: dst->desc.size];
+    }
+
+    void MetalCommandList::copyTexture(const RenderTexture *dstTexture, const RenderTexture *srcTexture) {
+        assert(dstTexture != nullptr);
+        assert(srcTexture != nullptr);
+        assert(blitEncoder != nil && "Cannot copy texture on nil MTLBlitCommandEncoder!");
+
+        const auto dst = static_cast<const MetalTexture *>(dstTexture);
+        const auto src = static_cast<const MetalTexture *>(srcTexture);
+
+        [blitEncoder copyFromTexture: src->mtlTexture
+                           toTexture: dst->mtlTexture];
     }
 
     // MetalCommandQueue
@@ -807,8 +943,26 @@ namespace RT64 {
         this->buffer = [device->queue commandBuffer];
     }
 
+    MetalCommandQueue::~MetalCommandQueue() {
+        // TODO: Should be handled by ARC
+    }
+
     std::unique_ptr<RenderCommandList> MetalCommandQueue::createCommandList(RenderCommandListType type) {
         return std::make_unique<MetalCommandList>(this, type);
+    }
+
+    void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
+        assert(commandLists != nullptr);
+        assert(commandListCount > 0);
+
+        [buffer enqueue];
+        [buffer commit];
+
+        this->buffer = [buffer.commandQueue commandBuffer];
+    }
+
+    void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
+        // TODO: Should be handled by hazard tracking.
     }
 
     // MetalPool
@@ -953,4 +1107,4 @@ namespace RT64 {
         std::unique_ptr<MetalInterface> createdInterface = std::make_unique<MetalInterface>();
         return createdInterface->isValid() ? std::move(createdInterface) : nullptr;
     }
-}
+};

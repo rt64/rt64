@@ -1,5 +1,8 @@
-#ifndef RT64_RT64_METAL_H
-#define RT64_RT64_METAL_H
+//
+// RT64
+//
+
+#pragma once
 
 #include "rhi/rt64_render_interface.h"
 
@@ -94,6 +97,7 @@ namespace RT64 {
         id<MTLBuffer> indexBuffer = nil;
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
+        const MetalCommandQueue *queue = nullptr;
         const MetalFramebuffer *targetFramebuffer = nullptr;
         const MetalPipelineLayout *activeComputePipelineLayout = nullptr;
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
@@ -178,7 +182,7 @@ namespace RT64 {
     };
 
     struct MetalTexture : RenderTexture {
-        MTLTextureDescriptor *descriptor = nullptr;
+        id<MTLTexture> mtlTexture = nil;
         RenderTextureLayout layout = RenderTextureLayout::UNKNOWN;
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
@@ -225,6 +229,7 @@ namespace RT64 {
     };
 
     struct MetalShader : RenderShader {
+        id<MTLFunction> function = nil;
         std::string entryPointName;
         MetalDevice *device = nullptr;
         RenderShaderFormat format = RenderShaderFormat::UNKNOWN;
@@ -341,6 +346,4 @@ namespace RT64 {
 
         void assignDeviceToLayer(void* layer);
     };
-}
-
-#endif //RT64_RT64_METAL_H
+};
