@@ -143,8 +143,6 @@ namespace RT64 {
     };
 
     struct MetalCommandFence : RenderCommandFence {
-        MetalDevice *device = nullptr;
-
         MetalCommandFence(MetalDevice *device);
         ~MetalCommandFence() override;
     };

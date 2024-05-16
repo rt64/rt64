@@ -419,6 +419,32 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
+    // MetalPool
+
+    MetalPool::MetalPool(MetalDevice *device, const RenderPoolDesc &desc) {
+        assert(device != nullptr);
+
+        this->device = device;
+
+        MTLHeapDescriptor *descriptor = [MTLHeapDescriptor new];
+        // TODO: Set Descriptor properties correctly
+        [descriptor setType: MTLHeapTypeAutomatic];
+
+        this->heap = [device->device newHeapWithDescriptor: descriptor];
+    }
+
+    MetalPool::~MetalPool() {
+        // TODO: Should be handled by ARC
+    }
+
+    std::unique_ptr<RenderBuffer> MetalPool::createBuffer(const RenderBufferDesc &desc) {
+        return std::make_unique<MetalBuffer>(device, this, desc);
+    }
+
+    std::unique_ptr<RenderTexture> MetalPool::createTexture(const RenderTextureDesc &desc) {
+        return std::make_unique<MetalTexture>(device, this, desc);
+    }
+
     // MetalPipelineLayout
 
     MetalPipelineLayout::MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc) {
@@ -548,10 +574,137 @@ namespace RT64 {
         return RenderPipelineProgram();
     }
 
+    // MetalDescriptorSet
+
+    MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
+        assert(device != nullptr);
+        this->device = device;
+
+        // TODO: Unimplemented.
+    }
+
+    MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, uint32_t entryCount) {
+        assert(device != nullptr);
+        this->device = device;
+
+        // TODO: Unimplemented.
+    }
+
+    MetalDescriptorSet::~MetalDescriptorSet() {
+        // TODO: Should be handled by ARC
+    }
+
+    void MetalDescriptorSet::setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalDescriptorSet::setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalDescriptorSet::setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
+        // TODO: Unimplemented.
+    }
+
+    // MetalSwapChain
+
+    MetalSwapChain::MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) {
+        // TODO: Unimplemented.
+    }
+
+    MetalSwapChain::~MetalSwapChain() {
+        // TODO: Should be handled by ARC
+    }
+
+    bool MetalSwapChain::present() {
+        // TODO: Unimplemented.
+        return false;
+    }
+
+    bool MetalSwapChain::resize() {
+        // TODO: Unimplemented.
+        return false;
+    }
+
+    bool MetalSwapChain::needsResize() const {
+        // TODO: Unimplemented.
+        return false;
+    }
+
+    uint32_t MetalSwapChain::getWidth() const {
+        // TODO: Unimplemented.
+        return 0;
+    }
+
+    uint32_t MetalSwapChain::getHeight() const {
+        // TODO: Unimplemented.
+        return 0;
+    }
+
+    uint32_t MetalSwapChain::getTextureIndex() const {
+        // TODO: Unimplemented.
+        return 0;
+    }
+
+    uint32_t MetalSwapChain::getTextureCount() const {
+        // TODO: Unimplemented.
+        return 0;
+    }
+
+    RenderTexture *MetalSwapChain::getTexture(uint32_t index) {
+        // TODO: Unimplemented.
+        return nullptr;
+    }
+
+    RenderWindow MetalSwapChain::getWindow() const {
+        // TODO: Unimplemented.
+        return RenderWindow();
+    }
+
+    bool MetalSwapChain::isEmpty() const {
+        // TODO: Unimplemented.
+        return false;
+    }
+
+    uint32_t MetalSwapChain::getRefreshRate() const {
+        // TODO: Unimplemented.
+        return 0;
+    }
+
+    void MetalSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
+        // TODO: Unimplemented.
+    }
+
+    void MetalSwapChain::setTextures() {
+        // TODO: Unimplemented.
+    }
+
+    // MetalFramebuffer
+
+    MetalFramebuffer::MetalFramebuffer(MetalDevice *device, const RenderFramebufferDesc &desc) {
+        assert(device != nullptr);
+        this->device = device;
+
+        // TODO: Unimplemented.
+    }
+
+    MetalFramebuffer::~MetalFramebuffer() {
+        // TODO: Should be handled by ARC
+    }
+
+    uint32_t MetalFramebuffer::getWidth() const {
+        // TODO: Unimplemented.
+        return 0;
+    }
+
+    uint32_t MetalFramebuffer::getHeight() const {
+        // TODO: Unimplemented.
+        return 0;
+    }
+
     // MetalCommandList
 
     MetalCommandList::MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type) {
-        assert(device != nullptr);
         assert(type != RenderCommandListType::UNKNOWN);
 
         this->device = queue->device;
@@ -933,6 +1086,36 @@ namespace RT64 {
                            toTexture: dst->mtlTexture];
     }
 
+    void MetalCommandList::resolveTexture(const RT64::RenderTexture *dstTexture, const RT64::RenderTexture *srcTexture) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalCommandList::resolveTextureRegion(const RT64::RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RT64::RenderTexture *srcTexture, const RT64::RenderRect *srcRect) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalCommandList::buildBottomLevelAS(const RT64::RenderAccelerationStructure *dstAccelerationStructure, RT64::RenderBufferReference scratchBuffer, const RT64::RenderBottomLevelASBuildInfo &buildInfo) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalCommandList::buildTopLevelAS(const RT64::RenderAccelerationStructure *dstAccelerationStructure, RT64::RenderBufferReference scratchBuffer, RT64::RenderBufferReference instancesBuffer, const RT64::RenderTopLevelASBuildInfo &buildInfo) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalCommandList::setDescriptorSet(const RT64::MetalPipelineLayout *activePipelineLayout, RT64::RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
+        // TODO: Unimplemented.
+    }
+
+    // MetalCommandFence
+
+    MetalCommandFence::MetalCommandFence(MetalDevice *device) {
+        // TODO: Unimplemented and probably unnecessary.
+    }
+
+    MetalCommandFence::~MetalCommandFence() {
+        // TODO: Should be handled by ARC
+    }
+
     // MetalCommandQueue
 
     MetalCommandQueue::MetalCommandQueue(MetalDevice *device, RenderCommandListType commandListType) {
@@ -951,6 +1134,10 @@ namespace RT64 {
         return std::make_unique<MetalCommandList>(this, type);
     }
 
+    std::unique_ptr<RenderSwapChain> MetalCommandQueue::createSwapChain(RT64::RenderWindow renderWindow, uint32_t textureCount, RT64::RenderFormat format) {
+        // TODO: Unimplemented.
+    }
+
     void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
@@ -963,20 +1150,6 @@ namespace RT64 {
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
         // TODO: Should be handled by hazard tracking.
-    }
-
-    // MetalPool
-
-    MetalPool::MetalPool(MetalDevice *device, const RenderPoolDesc &desc) {
-        assert(device != nullptr);
-
-        this->device = device;
-
-        MTLHeapDescriptor *descriptor = [MTLHeapDescriptor new];
-        // TODO: Set Descriptor properties correctly
-        [descriptor setType: MTLHeapTypeAutomatic];
-
-        this->heap = [device->device newHeapWithDescriptor: descriptor];
     }
 
     // MetalDevice
@@ -1060,15 +1233,45 @@ namespace RT64 {
         return std::make_unique<MetalFramebuffer>(this, desc);
     }
 
+    void MetalDevice::setBottomLevelASBuildInfo(RenderBottomLevelASBuildInfo &buildInfo, const RenderBottomLevelASMesh *meshes, uint32_t meshCount, bool preferFastBuild, bool preferFastTrace) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalDevice::setTopLevelASBuildInfo(RenderTopLevelASBuildInfo &buildInfo, const RenderTopLevelASInstance *instances, uint32_t instanceCount, bool preferFastBuild, bool preferFastTrace) {
+        // TODO: Unimplemented.
+    }
+
+    void MetalDevice::setShaderBindingTableInfo(RenderShaderBindingTableInfo &tableInfo, const RenderShaderBindingGroups &groups, const RenderPipeline *pipeline, RenderDescriptorSet **descriptorSets, uint32_t descriptorSetCount) {
+        // TODO: Unimplemented.
+    }
+
     const RenderDeviceCapabilities &MetalDevice::getCapabilities() const {
         return capabilities;
     }
 
     RenderSampleCounts MetalDevice::getSampleCountsSupported(RenderFormat format) const {
+        if ([device supportsTextureSampleCount:8]) {
+            return 8;
+        }
+        else if ([device supportsTextureSampleCount:4]) {
+            return 4;
+        }
+        else if ([device supportsTextureSampleCount:2]) {
+            return 2;
+        }
 
+        return 1;
     }
 
-    // VulkanInterface
+    void MetalDevice::release() {
+        // TODO: Automatic reference counting should take care of this?
+    }
+
+    bool MetalDevice::isValid() const {
+        return device != nil;
+    }
+
+    // MetalInterface
 
     MetalInterface::MetalInterface() {
         // We only have one device on Metal atm, so we create it here.
