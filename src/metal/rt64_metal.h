@@ -21,7 +21,6 @@ class MTLRenderCommandEncoder;
 class MTLComputeCommandEncoder;
 class MTLBlitCommandEncoder;
 class CAMetalLayer;
-class MTLTextureDescriptor;
 #endif
 
 namespace RT64 {
@@ -88,6 +87,7 @@ namespace RT64 {
     };
 
     struct MetalCommandList : RenderCommandList {
+#ifdef __OBJC__
         id<MTLRenderCommandEncoder> renderEncoder = nil;
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         id<MTLBlitCommandEncoder> blitEncoder = nil;
@@ -95,6 +95,8 @@ namespace RT64 {
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
         id<MTLBuffer> indexBuffer = nil;
+#endif
+
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
         const MetalCommandQueue *queue = nullptr;
@@ -148,7 +150,9 @@ namespace RT64 {
     };
 
     struct MetalCommandQueue : RenderCommandQueue {
+#ifdef __OBJC__
         id<MTLCommandBuffer> buffer = nil;
+#endif
         MetalCommandQueue *queue = nullptr;
         MetalDevice *device = nullptr;
 
@@ -161,7 +165,9 @@ namespace RT64 {
     };
 
     struct MetalBuffer : RenderBuffer {
+#ifdef __OBJC__
         id<MTLBuffer> buffer = nil;
+#endif
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
         RenderBufferDesc desc;
@@ -182,7 +188,9 @@ namespace RT64 {
     };
 
     struct MetalTexture : RenderTexture {
+#ifdef __OBJC__
         id<MTLTexture> mtlTexture = nil;
+#endif
         RenderTextureLayout layout = RenderTextureLayout::UNKNOWN;
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
@@ -229,7 +237,9 @@ namespace RT64 {
     };
 
     struct MetalShader : RenderShader {
+#ifdef __OBJC__
         id<MTLFunction> function = nil;
+#endif
         std::string entryPointName;
         MetalDevice *device = nullptr;
         RenderShaderFormat format = RenderShaderFormat::UNKNOWN;
@@ -266,7 +276,9 @@ namespace RT64 {
     };
 
     struct MetalComputePipeline : MetalPipeline {
+#ifdef __OBJC__
         id<MTLComputePipelineState> state = nil;
+#endif
 
         MetalComputePipeline(MetalDevice *device, const RenderComputePipelineDesc &desc);
         ~MetalComputePipeline() override;
@@ -274,7 +286,9 @@ namespace RT64 {
     };
 
     struct MetalGraphicsPipeline : MetalPipeline {
+#ifdef __OBJC__
         id<MTLRenderPipelineState> state = nil;
+#endif
 
         MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
@@ -301,8 +315,10 @@ namespace RT64 {
 //    };
 
     struct MetalDevice : RenderDevice {
+#ifdef __OBJC__
         id<MTLDevice> device;
         id<MTLCommandQueue> queue;
+#endif
         MetalInterface *renderInterface = nullptr;
         RenderDeviceCapabilities capabilities;
 

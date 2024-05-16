@@ -180,7 +180,7 @@ namespace RT64 {
         Test.renderInterface = renderInterface;
         Test.device = renderInterface->createDevice();
         Test.commandQueue = Test.device->createCommandQueue(RenderCommandListType::DIRECT);
-        Test.commandList = Test.device->createCommandList(RenderCommandListType::DIRECT);
+        Test.commandList = Test.commandQueue->createCommandList(RenderCommandListType::DIRECT);
         Test.commandFence = Test.device->createCommandFence();
 
 #   if ENABLE_SWAP_CHAIN
