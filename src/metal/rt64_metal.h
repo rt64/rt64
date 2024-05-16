@@ -82,7 +82,7 @@ namespace RT64 {
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
 
-        MetalCommandList(MetalDevice *device, RenderCommandListType type);
+        MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
         void begin() override;
         void end() override;
@@ -127,11 +127,13 @@ namespace RT64 {
     };
 
     struct MetalCommandQueue : RenderCommandQueue {
+        id<MTLCommandBuffer> buffer = nil;
         MetalCommandQueue *queue = nullptr;
         MetalDevice *device = nullptr;
 
         MetalCommandQueue(MetalDevice *device, RenderCommandListType type);
         ~MetalCommandQueue() override;
+        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) override;
         void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) override;
         void waitForCommandFence(RenderCommandFence *fence) override;
@@ -273,13 +275,11 @@ namespace RT64 {
     struct MetalDevice : RenderDevice {
         id<MTLDevice> device;
         id<MTLCommandQueue> queue;
-        id<MTLCommandBuffer> buffer;
         MetalInterface *renderInterface = nullptr;
         RenderDeviceCapabilities capabilities;
 
         explicit MetalDevice(MetalInterface *renderInterface);
         ~MetalDevice() override;
-        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) override;
         std::unique_ptr<RenderShader> createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) override;
         std::unique_ptr<RenderSampler> createSampler(const RenderSamplerDesc &desc) override;

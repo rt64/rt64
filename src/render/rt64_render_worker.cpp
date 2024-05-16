@@ -14,7 +14,7 @@ namespace RT64 {
         this->name = name;
 
         commandQueue = device->createCommandQueue(commandListType);
-        commandList = device->createCommandList(commandListType);
+        commandList = commandQueue->createCommandList(commandListType);
         commandFence = device->createCommandFence();
     }
 

@@ -1270,10 +1270,10 @@ namespace RT64 {
 
     // D3D12CommandList
 
-    D3D12CommandList::D3D12CommandList(D3D12Device *device, RenderCommandListType type) {
-        assert(device != nullptr);
+    D3D12CommandList::D3D12CommandList(D3D12CommandQueue *queue, RenderCommandListType type) {
+        assert(queue->device != nullptr);
 
-        this->device = device;
+        this->device = queue->device;
         this->type = type;
 
         D3D12_COMMAND_LIST_TYPE commandListType;
@@ -1964,6 +1964,10 @@ namespace RT64 {
         if (d3d != nullptr) {
             d3d->Release();
         }
+    }
+
+    std::unique_ptr<RenderCommandList> D3D12CommandQueue::createCommandList(RenderCommandListType type) {
+        return std::make_unique<D3D12CommandList>(this, type);
     }
 
     std::unique_ptr<RenderSwapChain> D3D12CommandQueue::createSwapChain(RenderWindow renderWindow, uint32_t bufferCount, RenderFormat format) {
@@ -3066,10 +3070,6 @@ namespace RT64 {
         rtDummyGlobalPipelineLayout.reset();
         rtDummyLocalPipelineLayout.reset();
         release();
-    }
-
-    std::unique_ptr<RenderCommandList> D3D12Device::createCommandList(RenderCommandListType type) {
-        return std::make_unique<D3D12CommandList>(this, type);
     }
 
     std::unique_ptr<RenderDescriptorSet> D3D12Device::createDescriptorSet(const RenderDescriptorSetDesc &desc) {
