@@ -15,6 +15,7 @@ namespace RT64 {
         enum class GraphicsAPI {
             D3D12,
             Vulkan,
+            Metal,
             OptionCount
         };
 
