@@ -5,11 +5,10 @@
 #include "rhi/rt64_render_interface.h"
 #include "metal/rt64_metal.h"
 
-#include <SDL.h>
 #include <cassert>
 #include <cstring>
 #include <chrono>
-#include <thread>
+#include <SDL.h>
 #include <SDL_syswm.h>
 
 #ifdef _WIN64
