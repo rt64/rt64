@@ -416,6 +416,18 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
+    // MetalPipelineLayout
+
+    MetalPipelineLayout::MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc) {
+        assert(device != nullptr);
+
+        this->device = device;
+    }
+
+    MetalPipelineLayout::~MetalPipelineLayout() {
+        // TODO: Should be handled by ARC
+    }
+
     // MetalShader
 
     MetalShader::MetalShader(MetalDevice *device, const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) {
@@ -493,6 +505,11 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
+    RenderPipelineProgram MetalComputePipeline::getProgram(const std::string &name) const {
+        assert(false && "Compute pipelines can't retrieve shader programs.");
+        return RenderPipelineProgram();
+    }
+
     // MetalGraphicsPipeline
 
     MetalGraphicsPipeline::MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc) : MetalPipeline(device, Type::Graphics) {
@@ -519,6 +536,15 @@ namespace RT64 {
         }
     }
 
+    MetalGraphicsPipeline::~MetalGraphicsPipeline() {
+        // TODO: Should be handled by ARC
+    }
+
+    RenderPipelineProgram MetalGraphicsPipeline::getProgram(const std::string &name) const {
+        assert(false && "Graphics pipelines can't retrieve shader programs.");
+        return RenderPipelineProgram();
+    }
+
     // MetalCommandList
 
     MetalCommandList::MetalCommandList(MetalDevice *device, RenderCommandListType type) {
@@ -529,6 +555,10 @@ namespace RT64 {
         this->type = type;
 
         switch (type) {
+            case RenderCommandListType::DIRECT: {
+                auto descriptor = [MTLRenderPassDescriptor new];
+                // renderEncoder = [device->renderInterface->device render]
+            }
             default:
                 assert(false && "Unknown pipeline type.");
                 break;
@@ -540,11 +570,33 @@ namespace RT64 {
     }
 
     void MetalCommandList::begin() {
-
+        // Manually starting CommandEncoder isn't necessary
     }
 
     void MetalCommandList::end() {
-
+        switch (type) {
+            case RenderCommandListType::DIRECT: {
+                assert(renderEncoder != nil && "Cannot end encoding on nil MTLRenderCommandEncoder");
+                [renderEncoder endEncoding];
+                renderEncoder = nil;
+                break;
+            }
+            case RenderCommandListType::COMPUTE: {
+                assert(computeEncoder != nil && "Cannot end encoding on nil MTLComputeCommandEncoder");
+                [computeEncoder endEncoding];
+                computeEncoder = nil;
+                break;
+            }
+            case RenderCommandListType::COPY: {
+                assert(blitEncoder != nil && "Cannot end encoding on nil MTLBlitCommandEncoder");
+                [blitEncoder endEncoding];
+                blitEncoder = nil;
+                break;
+            }
+            default:
+                assert(false && "Unknown pipeline type.");
+                break;
+        }
     }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
@@ -765,10 +817,11 @@ namespace RT64 {
         return std::make_unique<MetalGraphicsPipeline>(this, desc);
     }
 
-    // TODO: Support Metal RT
-//    std::unique_ptr<RenderPipeline> MetalDevice::createRaytracingPipeline(const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline) {
-//        return std::make_unique<MetalRaytracingPipeline>(this, desc, previousPipeline);
-//    }
+    std::unique_ptr<RenderPipeline> MetalDevice::createRaytracingPipeline(const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline) {
+        // TODO: Support Metal RT
+        // return std::make_unique<MetalRaytracingPipeline>(this, desc, previousPipeline);
+        return nullptr;
+    }
 
     std::unique_ptr<RenderCommandQueue> MetalDevice::createCommandQueue(RenderCommandListType type) {
         return std::make_unique<MetalCommandQueue>(this, type);
