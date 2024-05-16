@@ -2,6 +2,7 @@
 // Created by David Chavez on 5/13/24.
 //
 
+#import <SDL.h>
 #include "rt64_metal.h"
 
 namespace RT64 {
@@ -938,6 +939,12 @@ namespace RT64 {
     bool MetalInterface::isValid() const {
         // check if Metal is available and we support bindless textures: GPUFamilyMac2 or GPUFamilyApple6
         return [MTLCopyAllDevices() count] > 0 && ([device supportsFamily:MTLGPUFamilyMac2] || [device supportsFamily:MTLGPUFamilyApple6]);
+    }
+
+    void MetalInterface::assignDeviceToLayer(SDL_MetalView view) {
+        layer = (__bridge CAMetalLayer *)SDL_Metal_GetLayer(view);
+        [layer setDevice:device];
+        [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
     }
 
     // Global creation function.

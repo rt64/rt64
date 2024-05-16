@@ -3,11 +3,14 @@
 //
 
 #include "rhi/rt64_render_interface.h"
+#include "metal/rt64_metal.h"
 
+#include <SDL.h>
 #include <cassert>
 #include <cstring>
 #include <chrono>
 #include <thread>
+#include <SDL_syswm.h>
 
 #ifdef _WIN64
 #include "shaders/RenderInterfaceTestPS.hlsl.dxil.h"
@@ -818,7 +821,56 @@ namespace RT64 {
     }
 #elif defined(__APPLE__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
-        assert(false);
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+            fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
+            return;
+        }
+
+        SDL_Window *window = SDL_CreateWindow("Render Interface Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_METAL);
+        if (window == nullptr) {
+            fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
+            SDL_Quit();
+            return;
+        }
+
+        // Setup Metal view.
+        SDL_MetalView view = SDL_Metal_CreateView(window);
+        auto *metalInterface = dynamic_cast<RT64::MetalInterface *>(renderInterface);
+        metalInterface->assignDeviceToLayer(view);
+
+        // SDL_Window's handle can be used directly if needed
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        SDL_GetWindowWMInfo(window, &wmInfo);
+
+        TestInitialize(renderInterface, { wmInfo.info.cocoa.window });
+        TestResize();
+
+        bool running = true;
+        while (running) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                switch (event.type) {
+                    case SDL_QUIT:
+                        running = false;
+                        break;
+
+                    case SDL_WINDOWEVENT:
+                        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                            TestResize();
+                        }
+                        break;
+                }
+            }
+
+            TestDraw();
+            SDL_Delay(16); // Approximate 60 FPS
+        }
+
+        TestShutdown();
+        SDL_Metal_DestroyView(view);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
     }
 #endif
 };

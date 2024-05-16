@@ -2,7 +2,24 @@
 #define RT64_RT64_METAL_H
 
 #include "rhi/rt64_render_interface.h"
+
+#ifdef __OBJC__
 #import <Metal/Metal.h>
+#import <QuartzCore/QuartzCore.h>
+#else
+// Forward declarations of Objective-C classes for C++ compilation
+class MTLDevice;
+class MTLTexture;
+class MTLSamplerState;
+class MTLHeap;
+class MTLCommandQueue;
+class MTLCommandBuffer;
+class MTLRenderCommandEncoder;
+class MTLComputeCommandEncoder;
+class MTLBlitCommandEncoder;
+class CAMetalLayer;
+class MTLTextureDescriptor;
+#endif
 
 namespace RT64 {
     struct MetalBuffer;
@@ -175,7 +192,9 @@ namespace RT64 {
     };
 
     struct MetalTextureView : RenderTextureView {
+#ifdef __OBJC__
         id<MTLTexture> mtlTexture = nil;
+#endif
         MetalTexture *texture = nullptr;
 
         MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc);
@@ -194,7 +213,9 @@ namespace RT64 {
     };
 
     struct MetalPool : RenderPool {
+#ifdef __OBJC__
         id<MTLHeap> heap = nil;
+#endif
         MetalDevice *device = nullptr;
 
         MetalPool(MetalDevice *device, const RenderPoolDesc &desc);
@@ -213,7 +234,9 @@ namespace RT64 {
     };
 
     struct MetalSampler : RenderSampler {
+#ifdef __OBJC__
         id<MTLSamplerState> samplerState = nil;
+#endif
         MetalDevice *device = nullptr;
         RenderBorderColor borderColor = RenderBorderColor::UNKNOWN;
         RenderShaderVisibility shaderVisibility = RenderShaderVisibility::UNKNOWN;
@@ -305,13 +328,18 @@ namespace RT64 {
 
     struct MetalInterface : RenderInterface {
         RenderInterfaceCapabilities capabilities;
+#ifdef __OBJC__
         id<MTLDevice> device;
+#endif
+        CAMetalLayer *layer;
 
         MetalInterface();
         ~MetalInterface() override;
         std::unique_ptr<RenderDevice> createDevice() override;
         const RenderInterfaceCapabilities &getCapabilities() const override;
         bool isValid() const;
+
+        void assignDeviceToLayer(void* layer);
     };
 }
 
