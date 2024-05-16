@@ -810,7 +810,7 @@ namespace RT64 {
     void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
         assert(dstBuffer.ref != nullptr);
         assert(srcBuffer.ref != nullptr);
-        assert(blitEncoder != nil && "Cannot copy buffer on a nil MTLBlitCommandEncoder");
+        assert(blitEncoder != nil && "Cannot copy buffer region on a nil MTLBlitCommandEncoder");
 
         const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
         const auto interfaceSrcBuffer = static_cast<const MetalBuffer *>(srcBuffer.ref);
@@ -825,7 +825,7 @@ namespace RT64 {
     void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
-        assert(blitEncoder != nil && "Cannot copy texture on a nil MTLBlitCommandEncoder");
+        assert(blitEncoder != nil && "Cannot copy texture region on a nil MTLBlitCommandEncoder");
 
         const auto dstTexture = static_cast<const MetalTexture *>(dstLocation.texture);
         const auto srcTexture = static_cast<const MetalTexture *>(srcLocation.texture);
