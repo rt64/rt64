@@ -205,6 +205,7 @@ namespace RT64 {
     };
 
     struct MetalShader : RenderShader {
+        id<MTLFunction> function = nil;
         std::string entryPointName;
         MetalDevice *device = nullptr;
         RenderShaderFormat format = RenderShaderFormat::UNKNOWN;

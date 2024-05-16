@@ -440,6 +440,9 @@ namespace RT64 {
         this->device = device;
         this->format = format;
         this->entryPointName = (entryPointName != nullptr) ? std::string(entryPointName) : std::string();
+
+        id<MTLLibrary> library = [device->device newLibraryWithData:static_cast<dispatch_data_t>([NSData dataWithBytes:data length:size]) error:nil];
+        this->function = [library newFunctionWithName: [NSString stringWithUTF8String: entryPointName]];
     }
 
     MetalShader::~MetalShader() {
@@ -494,8 +497,7 @@ namespace RT64 {
         const auto *computeShader = static_cast<const MetalShader *>(desc.computeShader);
 
         MTLComputePipelineDescriptor *descriptor = [MTLComputePipelineDescriptor new];
-        // TODO: MetalShader
-        // [descriptor setComputeFunction: computeShader->];
+        [descriptor setComputeFunction: computeShader->function];
         [descriptor setLabel: [NSString stringWithUTF8String: computeShader->entryPointName.c_str()]];
 
         this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: nil];
@@ -520,15 +522,13 @@ namespace RT64 {
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
         const auto *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
 
-        // TODO Metal Shaders
-        // [descriptor setVertexFunction: metalShader->];
+        [descriptor setVertexFunction: metalShader->function];
 
         assert(desc.geometryShader == nullptr && "Metal does not support geometry shaders!");
 
         if (desc.pixelShader != nullptr) {
             const auto *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
-            // TODO Metal Shaders
-            // [descriptor setFragmentFunction: pixelShader->];
+            [descriptor setFragmentFunction: pixelShader->function];
         }
 
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
