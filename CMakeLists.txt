@@ -350,8 +350,8 @@ endif()
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     find_package(X11 REQUIRED)
-    target_include_directories(rt64 PUBLIC ${X11_INCLUDE_DIR})
-    target_link_libraries(rt64 ${X11_LIBRARIES})
+    target_include_directories(rt64 PUBLIC ${X11_INCLUDE_DIR} ${X11_Xrandr_INCLUDE_PATH})
+    target_link_libraries(rt64 ${X11_LIBRARIES} ${X11_Xrandr_LIB})
 endif()
 
 preprocess_shader(rt64 "src/shaders/RasterPS.hlsl")
