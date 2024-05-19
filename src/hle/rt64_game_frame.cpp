@@ -644,11 +644,16 @@ namespace RT64 {
                 const GameFrameMap::TileMap &prevTileMap = firstPrevWorkloadMap->tiles[indices.second];
                 curTileMap = prevTileMap;
             }
-
+            
             auto modulo = [](int a, int b) {
-                int r = a % b;
-                return r < 0 ? r + b : r;
-                };
+                if (b != 0) {
+                    int r = a % b;
+                    return r < 0 ? r + b : r;
+                }
+                else {
+                    return 0;
+                }
+            };
 
             const float deltaUls = curTile.uls - prevTile.uls;
             const float deltaUlt = curTile.ult - prevTile.ult;
