@@ -651,7 +651,7 @@ namespace RT64 {
                     return r < 0 ? r + b : r;
                 }
                 else {
-                    return 0;
+                    return a;
                 }
             };
 
