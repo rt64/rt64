@@ -20,6 +20,7 @@
 #undef None
 #undef Status
 #undef LockMask
+#undef ControlMask
 #elif defined(__APPLE__)
 typedef struct _NSWindow NSWindow;
 #endif
