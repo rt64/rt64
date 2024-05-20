@@ -16,6 +16,11 @@
 #   define D3D12_DEBUG_LAYER_SUPRESS_SAMPLE_POSITIONS_ERROR // Supress error message that's been fixed in newer Agility SDK versions.
 #endif
 
+// Old Windows SDK versions don't provide this macro, so we workaround it by making sure it is defined.
+#ifndef D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE
+#define D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
+#endif
+
 namespace RT64 {
     static const uint32_t ShaderDescriptorHeapSize = 65536;
     static const uint32_t TargetDescriptorHeapSize = 16384;
