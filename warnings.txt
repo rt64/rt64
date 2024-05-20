@@ -1,514 +1,143 @@
 [1/251] Building CXX object CMakeFiles/file_to_c.dir/src/tools/file_to_c.cpp.o
-[2/251] Linking CXX executable file_to_c
-[3/251] Building CXX object src/contrib/nativefiledialog-extended/src/CMakeFiles/nfd.dir/nfd_gtk.cpp.o
+[2/251] Building CXX object src/contrib/nativefiledialog-extended/src/CMakeFiles/nfd.dir/nfd_gtk.cpp.o
+[3/251] Linking CXX executable file_to_c
 [4/251] Linking CXX static library src/contrib/nativefiledialog-extended/src/libnfd.a
-[5/251] Generating src/shaders/FbChangesDrawDepthPS.hlsl.spv
-[6/251] Generating src/shaders/FbChangesDrawDepthPS.hlsl.spirv.c
-[7/251] Generating src/shaders/FbReadAnyChangesCS.hlsl.spv
-[8/251] Generating src/shaders/FbReadAnyChangesCS.hlsl.spirv.c
-[9/251] Generating src/shaders/RasterVS.hlsl.rw
-[10/251] Generating src/shaders/RasterPS.hlsl.rw
-[11/251] Generating src/shaders/RasterVS.hlsl.rw.c
+[5/251] Generating src/shaders/FbReadAnyChangesCS.hlsl.spv
+[6/251] Generating src/shaders/FbChangesDrawDepthPS.hlsl.spv
+[7/251] Generating src/shaders/FbReadAnyChangesCS.hlsl.spirv.c
+[8/251] Generating src/shaders/FbChangesDrawDepthPS.hlsl.spirv.c
+[9/251] Generating src/shaders/RasterPS.hlsl.rw
+[10/251] Generating src/shaders/FbReinterpretCS.hlsl.spv
+[11/251] Generating src/shaders/FbReinterpretCS.hlsl.spirv.c
 [12/251] Generating src/shaders/RasterPS.hlsl.rw.c
-[13/251] Generating src/shaders/FbReinterpretCS.hlsl.spv
-[14/251] Generating src/shaders/FbReinterpretCS.hlsl.spirv.c
-[15/251] Generating src/shaders/RasterPSSpecConstant.hlsl.spv
-[16/251] Generating src/shaders/RasterPSSpecConstant.hlsl.spirv.c
-[17/251] Generating src/shaders/RasterPSSpecConstantFlat.hlsl.spv
-[18/251] Generating src/shaders/RasterPSSpecConstantFlat.hlsl.spirv.c
-[19/251] Generating src/shaders/RasterPSDynamicMS.hlsl.spv
+[13/251] Generating src/shaders/RasterVS.hlsl.rw
+[14/251] Generating src/shaders/RasterVS.hlsl.rw.c
+[15/251] Generating src/shaders/RasterPSSpecConstantFlat.hlsl.spv
+[16/251] Generating src/shaders/RasterPSSpecConstant.hlsl.spv
+[17/251] Generating src/shaders/RasterPSSpecConstantFlat.hlsl.spirv.c
+[18/251] Generating src/shaders/RasterPSDynamicMS.hlsl.spv
+[19/251] Generating src/shaders/RasterPSSpecConstant.hlsl.spirv.c
 [20/251] Generating src/shaders/RasterPSDynamicMS.hlsl.spirv.c
-[21/251] Generating src/shaders/RasterVSDynamic.hlsl.spv
-[22/251] Generating src/shaders/RasterVSDynamic.hlsl.spirv.c
-[23/251] Generating src/shaders/RasterPSDynamic.hlsl.spv
-[24/251] Generating src/shaders/RasterVSSpecConstant.hlsl.spv
-[25/251] Generating src/shaders/RasterVSSpecConstant.hlsl.spirv.c
-[26/251] Generating src/shaders/RasterPSDynamic.hlsl.spirv.c
-[27/251] Generating src/shaders/RasterVSSpecConstantFlat.hlsl.spv
-[28/251] Generating src/shaders/RasterVSSpecConstantFlat.hlsl.spirv.c
-[29/251] Generating src/shaders/FbChangesClearCS.hlsl.spv
-[30/251] Generating src/shaders/FbChangesClearCS.hlsl.spirv.c
-[31/251] Generating src/shaders/FbChangesDrawColorPS.hlsl.spv
-[32/251] Generating src/shaders/FbChangesDrawColorPS.hlsl.spirv.c
-[33/251] Generating src/shaders/FbWriteColorCS.hlsl.spv
-[34/251] Generating src/shaders/FbReadAnyFullCS.hlsl.spv
-[35/251] Generating src/shaders/RasterPSSpecConstantDepthMS.hlsl.spv
-[36/251] Generating src/shaders/FbWriteColorCS.hlsl.spirv.c
-[37/251] Generating src/shaders/FbReadAnyFullCS.hlsl.spirv.c
-[38/251] Generating src/shaders/FbWriteDepthCS.hlsl.spv
-[39/251] Generating src/shaders/FbWriteDepthCS.hlsl.spirv.c
-[40/251] Generating src/shaders/FbWriteDepthCSMS.hlsl.spv
-[41/251] Generating src/shaders/FbWriteDepthCSMS.hlsl.spirv.c
-[42/251] Generating src/shaders/GaussianFilterRGB3x3CS.hlsl.spv
-[43/251] Generating src/shaders/BoxFilterCS.hlsl.spv
-[44/251] Generating src/shaders/RasterPSSpecConstantDepthMS.hlsl.spirv.c
-[45/251] Generating src/shaders/GaussianFilterRGB3x3CS.hlsl.spirv.c
-[46/251] Generating src/shaders/BoxFilterCS.hlsl.spirv.c
-[47/251] Generating src/shaders/HistogramClearCS.hlsl.spv
-[48/251] Generating src/shaders/HistogramAverageCS.hlsl.spv
-[49/251] Generating src/shaders/HistogramClearCS.hlsl.spirv.c
-[50/251] Generating src/shaders/HistogramAverageCS.hlsl.spirv.c
-[51/251] Generating src/shaders/BicubicScalingCS.hlsl.spv
-[52/251] Generating src/shaders/HistogramSetCS.hlsl.spv
-[53/251] Generating src/shaders/BicubicScalingCS.hlsl.spirv.c
-[54/251] Generating src/shaders/IdleCS.hlsl.spv
-[55/251] Generating src/shaders/RasterPSSpecConstantDepth.hlsl.spv
-[56/251] Generating src/shaders/HistogramSetCS.hlsl.spirv.c
-[57/251] Generating src/shaders/IdleCS.hlsl.spirv.c
-[58/251] Generating src/shaders/LuminanceHistogramCS.hlsl.spv
-[59/251] Generating src/shaders/RSPModifyCS.hlsl.spv
-[60/251] Generating src/shaders/LuminanceHistogramCS.hlsl.spirv.c
-[61/251] Generating src/shaders/RSPModifyCS.hlsl.spirv.c
-[62/251] Generating src/shaders/RSPProcessCS.hlsl.spv
-[63/251] Generating src/shaders/RSPProcessCS.hlsl.spirv.c
-[64/251] Generating src/shaders/RSPWorldCS.hlsl.spv
-[65/251] Generating src/shaders/RasterPSSpecConstantDepth.hlsl.spirv.c
-[66/251] Generating src/shaders/RSPWorldCS.hlsl.spirv.c
-[67/251] Generating src/shaders/RSPSmoothNormalCS.hlsl.spv
-[68/251] Generating src/shaders/RSPVertexTestZCS.hlsl.spv
-[69/251] Generating src/shaders/RSPSmoothNormalCS.hlsl.spirv.c
+[21/251] Generating src/shaders/RasterPSDynamic.hlsl.spv
+[22/251] Generating src/shaders/RasterPSDynamic.hlsl.spirv.c
+[23/251] Generating src/shaders/RasterPSSpecConstantDepth.hlsl.spv
+[24/251] Generating src/shaders/RasterPSSpecConstantDepthMS.hlsl.spv
+[25/251] Generating src/shaders/RasterPSSpecConstantDepth.hlsl.spirv.c
+[26/251] Generating src/shaders/RasterPSSpecConstantDepthMS.hlsl.spirv.c
+[27/251] Generating src/shaders/RasterVSDynamic.hlsl.spv
+[28/251] Generating src/shaders/RasterVSSpecConstant.hlsl.spv
+[29/251] Generating src/shaders/RasterVSDynamic.hlsl.spirv.c
+[30/251] Generating src/shaders/RasterVSSpecConstant.hlsl.spirv.c
+[31/251] Generating src/shaders/FbChangesClearCS.hlsl.spv
+[32/251] Generating src/shaders/RasterVSSpecConstantFlat.hlsl.spv
+[33/251] Generating src/shaders/RasterPSSpecConstantFlatDepth.hlsl.spv
+[34/251] Generating src/shaders/FbChangesClearCS.hlsl.spirv.c
+[35/251] Generating src/shaders/RasterVSSpecConstantFlat.hlsl.spirv.c
+[36/251] Generating src/shaders/FbChangesDrawColorPS.hlsl.spv
+[37/251] Generating src/shaders/FbChangesDrawColorPS.hlsl.spirv.c
+[38/251] Generating src/shaders/FbReadAnyFullCS.hlsl.spv
+[39/251] Generating src/shaders/FbReadAnyFullCS.hlsl.spirv.c
+[40/251] Generating src/shaders/RasterPSSpecConstantFlatDepth.hlsl.spirv.c
+[41/251] Generating src/shaders/FbWriteColorCS.hlsl.spv
+[42/251] Generating src/shaders/FbWriteDepthCS.hlsl.spv
+[43/251] Generating src/shaders/FbWriteColorCS.hlsl.spirv.c
+[44/251] Generating src/shaders/FbWriteDepthCS.hlsl.spirv.c
+[45/251] Generating src/shaders/BoxFilterCS.hlsl.spv
+[46/251] Generating src/shaders/FbWriteDepthCSMS.hlsl.spv
+[47/251] Generating src/shaders/BoxFilterCS.hlsl.spirv.c
+[48/251] Generating src/shaders/FbWriteDepthCSMS.hlsl.spirv.c
+[49/251] Generating src/shaders/GaussianFilterRGB3x3CS.hlsl.spv
+[50/251] Generating src/shaders/GaussianFilterRGB3x3CS.hlsl.spirv.c
+[51/251] Generating src/shaders/HistogramAverageCS.hlsl.spv
+[52/251] Generating src/shaders/BicubicScalingCS.hlsl.spv
+[53/251] Generating src/shaders/HistogramAverageCS.hlsl.spirv.c
+[54/251] Generating src/shaders/BicubicScalingCS.hlsl.spirv.c
+[55/251] Generating src/shaders/HistogramClearCS.hlsl.spv
+[56/251] Generating src/shaders/HistogramSetCS.hlsl.spv
+[57/251] Generating src/shaders/IdleCS.hlsl.spv
+[58/251] Generating src/shaders/HistogramClearCS.hlsl.spirv.c
+[59/251] Generating src/shaders/HistogramSetCS.hlsl.spirv.c
+[60/251] Generating src/shaders/IdleCS.hlsl.spirv.c
+[61/251] Generating src/shaders/RSPModifyCS.hlsl.spv
+[62/251] Generating src/shaders/LuminanceHistogramCS.hlsl.spv
+[63/251] Generating src/shaders/RSPModifyCS.hlsl.spirv.c
+[64/251] Generating src/shaders/LuminanceHistogramCS.hlsl.spirv.c
+[65/251] Generating src/shaders/RSPProcessCS.hlsl.spv
+[66/251] Generating src/shaders/RSPProcessCS.hlsl.spirv.c
+[67/251] Generating src/shaders/RSPWorldCS.hlsl.spv
+[68/251] Generating src/shaders/RSPWorldCS.hlsl.spirv.c
+[69/251] Generating src/shaders/RSPVertexTestZCS.hlsl.spv
 [70/251] Generating src/shaders/RSPVertexTestZCS.hlsl.spirv.c
-[71/251] Generating src/shaders/RSPVertexTestZCSMS.hlsl.spv
-[72/251] Generating src/shaders/RSPVertexTestZCSMS.hlsl.spirv.c
-[73/251] Generating src/shaders/RtCopyColorToDepthPS.hlsl.spv
-[74/251] Generating src/shaders/RtCopyColorToDepthPS.hlsl.spirv.c
-[75/251] Generating src/shaders/RtCopyColorToDepthPSMS.hlsl.spv
-[76/251] Generating src/shaders/RtCopyColorToDepthPSMS.hlsl.spirv.c
-[77/251] Generating src/shaders/TextureCopyPS.hlsl.spv
+[71/251] Generating src/shaders/RSPSmoothNormalCS.hlsl.spv
+[72/251] Generating src/shaders/RSPVertexTestZCSMS.hlsl.spv
+[73/251] Generating src/shaders/RSPSmoothNormalCS.hlsl.spirv.c
+[74/251] Generating src/shaders/RSPVertexTestZCSMS.hlsl.spirv.c
+[75/251] Generating src/shaders/RtCopyColorToDepthPS.hlsl.spv
+[76/251] Generating src/shaders/RtCopyColorToDepthPS.hlsl.spirv.c
+[77/251] Generating src/shaders/RtCopyColorToDepthPSMS.hlsl.spv
 [78/251] Generating src/shaders/RtCopyDepthToColorPS.hlsl.spv
-[79/251] Generating src/shaders/RtCopyDepthToColorPSMS.hlsl.spv
+[79/251] Generating src/shaders/RtCopyColorToDepthPSMS.hlsl.spirv.c
 [80/251] Generating src/shaders/RtCopyDepthToColorPS.hlsl.spirv.c
-[81/251] Generating src/shaders/TextureCopyPS.hlsl.spirv.c
-[82/251] Generating src/shaders/RtCopyDepthToColorPSMS.hlsl.spirv.c
-[83/251] Generating src/shaders/FullScreenVS.hlsl.spv
-[84/251] Generating src/shaders/FullScreenVS.hlsl.spirv.c
+[81/251] Generating src/shaders/RtCopyDepthToColorPSMS.hlsl.spv
+[82/251] Generating src/shaders/TextureCopyPS.hlsl.spv
+[83/251] Generating src/shaders/TextureCopyPS.hlsl.spirv.c
+[84/251] Generating src/shaders/RtCopyDepthToColorPSMS.hlsl.spirv.c
 [85/251] Generating src/shaders/VideoInterfacePSRegular.hlsl.spv
-[86/251] Generating src/shaders/VideoInterfacePSPixel.hlsl.spv
-[87/251] Generating src/shaders/VideoInterfacePSRegular.hlsl.spirv.c
-[88/251] Generating src/shaders/Im3DVS.hlsl.spv
-[89/251] Generating src/shaders/VideoInterfacePSPixel.hlsl.spirv.c
-[90/251] Generating src/shaders/Im3DVS.hlsl.spirv.c
-[91/251] Generating src/shaders/Im3DGSPoints.hlsl.spv
-[92/251] Generating src/shaders/Im3DGSPoints.hlsl.spirv.c
-[93/251] Generating src/shaders/ComposePS.hlsl.spv
-[94/251] Generating src/shaders/Im3DGSLines.hlsl.spv
-[95/251] Generating src/shaders/ComposePS.hlsl.spirv.c
+[86/251] Generating src/shaders/VideoInterfacePSRegular.hlsl.spirv.c
+[87/251] Generating src/shaders/VideoInterfacePSPixel.hlsl.spv
+[88/251] Generating src/shaders/VideoInterfacePSPixel.hlsl.spirv.c
+[89/251] Generating src/shaders/FullScreenVS.hlsl.spv
+[90/251] Generating src/shaders/FullScreenVS.hlsl.spirv.c
+[91/251] Generating src/shaders/Im3DVS.hlsl.spv
+[92/251] Generating src/shaders/Im3DVS.hlsl.spirv.c
+[93/251] Generating src/shaders/Im3DGSPoints.hlsl.spv
+[94/251] Generating src/shaders/Im3DGSPoints.hlsl.spirv.c
+[95/251] Generating src/shaders/Im3DGSLines.hlsl.spv
 [96/251] Generating src/shaders/Im3DGSLines.hlsl.spirv.c
-[97/251] Generating src/shaders/PostProcessPS.hlsl.spv
-[98/251] Generating src/shaders/PostProcessPS.hlsl.spirv.c
+[97/251] Generating src/shaders/ComposePS.hlsl.spv
+[98/251] Generating src/shaders/ComposePS.hlsl.spirv.c
 [99/251] Generating src/shaders/Im3DPS.hlsl.spv
 [100/251] Generating src/shaders/Im3DPS.hlsl.spirv.c
-[101/251] Generating src/shaders/DebugPS.hlsl.spv
-[102/251] Generating src/shaders/DebugPS.hlsl.spirv.c
-[103/251] Generating src/shaders/TextureDecodeCS.hlsl.spv
-[104/251] Generating src/shaders/TextureDecodeCS.hlsl.spirv.c
-[105/251] Generating src/shaders/RasterPSSpecConstantFlatDepth.hlsl.spv
-[106/251] Generating src/shaders/RasterPSSpecConstantFlatDepth.hlsl.spirv.c
+[101/251] Generating src/shaders/PostProcessPS.hlsl.spv
+[102/251] Generating src/shaders/DebugPS.hlsl.spv
+[103/251] Generating src/shaders/PostProcessPS.hlsl.spirv.c
+[104/251] Generating src/shaders/DebugPS.hlsl.spirv.c
+[105/251] Generating src/shaders/TextureDecodeCS.hlsl.spv
+[106/251] Generating src/shaders/TextureDecodeCS.hlsl.spirv.c
 [107/251] Generating src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl.spv
 [108/251] Generating src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl.spirv.c
-[109/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_elapsed_timer.cpp.o
-[110/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_profiling_timer.cpp.o
-[111/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_dynamic_libraries.cpp.o
-[112/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_thread.cpp.o
-/home/angie/Documents/Projects/rt64/src/common/rt64_thread.cpp:55:52: warning: unused parameter 'priority' [-Wunused-parameter]
-    void Thread::setCurrentThreadPriority(Priority priority) {
-                                                   ^
-1 warning generated.
-[113/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_timer.cpp.o
-[114/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_emulator_configuration.cpp.o
-[115/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_enhancement_configuration.cpp.o
-[116/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_common.cpp.o
-[117/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_math.cpp.o
+[109/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_profiling_timer.cpp.o
+[110/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_elapsed_timer.cpp.o
+[111/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_common.cpp.o
+[112/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_enhancement_configuration.cpp.o
+[113/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_math.cpp.o
+[114/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_thread.cpp.o
+[115/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_timer.cpp.o
+[116/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_emulator_configuration.cpp.o
+[117/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_dynamic_libraries.cpp.o
 [118/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_user_paths.cpp.o
-[119/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_vi.cpp.o
-[120/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_user_configuration.cpp.o
-[121/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
+[119/251] Building CXX object CMakeFiles/rt64.dir/src/common/rt64_user_configuration.cpp.o
+[120/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi.cpp.o
 /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.cpp:168:68: warning: format specifies type 'unsigned long long' but the argument has type 'uint64_t' (aka 'unsigned long') [-Wformat]
                 fprintf(stdout, "HASH: 0x%016llXULL SIZE: 0x%X\n", rdramHash, rdramHashed);
                                          ~~~~~~~                   ^~~~~~~~~
                                          %016lX
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.cpp:261:68: warning: unused parameter 'textAddress' [-Wunused-parameter]
-    void GBIManager::deduceGBIInformation(uint8_t *RDRAM, uint32_t textAddress, uint32_t dataAddress) {
-                                                                   ^
-7 warnings generated.
-[122/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dgolden.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dgolden.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dgolden.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[123/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3d.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3d.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3d.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3d.cpp:89:34: warning: unused parameter 'state' [-Wunused-parameter]
-        void sprite2DBase(State *state, DisplayList **dl) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3d.cpp:89:55: warning: unused parameter 'dl' [-Wunused-parameter]
-        void sprite2DBase(State *state, DisplayList **dl) {
-                                                      ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3d.cpp:106:28: warning: unused parameter 'state' [-Wunused-parameter]
-        void cullDl(State *state, DisplayList **dl) {
-                           ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3d.cpp:106:49: warning: unused parameter 'dl' [-Wunused-parameter]
-        void cullDl(State *state, DisplayList **dl) {
-                                                ^
-9 warnings generated.
-[124/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dex2.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex2.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex2.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex2.cpp:120:27: warning: unused parameter 'state' [-Wunused-parameter]
-        void dmaIO(State *state, DisplayList **dl) {
-                          ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex2.cpp:120:48: warning: unused parameter 'dl' [-Wunused-parameter]
-        void dmaIO(State *state, DisplayList **dl) {
-                                               ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex2.cpp:157:28: warning: unused parameter 'state' [-Wunused-parameter]
-        void line3D(State *state, DisplayList **dl) {
-                           ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex2.cpp:157:49: warning: unused parameter 'dl' [-Wunused-parameter]
-        void line3D(State *state, DisplayList **dl) {
-                                                ^
-9 warnings generated.
-[125/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dex.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex.cpp:41:28: warning: unused parameter 'state' [-Wunused-parameter]
-        void cullDl(State *state, DisplayList **dl) {
-                           ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dex.cpp:41:49: warning: unused parameter 'dl' [-Wunused-parameter]
-        void cullDl(State *state, DisplayList **dl) {
-                                                ^
-7 warnings generated.
-[126/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dpd.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dpd.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dpd.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[127/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dwave.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dwave.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dwave.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
+1 warning generated.
+[121/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3d.cpp.o
+[122/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dex.cpp.o
+[123/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dex2.cpp.o
+[124/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dgolden.cpp.o
+[125/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dpd.cpp.o
+[126/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dwave.cpp.o
+[127/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dzex2.cpp.o
 [128/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_l3dex2.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_l3dex2.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_l3dex2.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_l3dex2.cpp:11:28: warning: unused parameter 'state' [-Wunused-parameter]
-        void line3D(State *state, DisplayList **dl) {
-                           ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_l3dex2.cpp:11:49: warning: unused parameter 'dl' [-Wunused-parameter]
-        void line3D(State *state, DisplayList **dl) {
-                                                ^
-7 warnings generated.
-[129/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_f3dzex2.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dzex2.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_f3dzex2.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[130/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_rdp.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:13:26: warning: unused parameter 'state' [-Wunused-parameter]
-        void noOp(State *state, DisplayList **dl) {
-                         ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:13:47: warning: unused parameter 'dl' [-Wunused-parameter]
-        void noOp(State *state, DisplayList **dl) {
-                                              ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:243:30: warning: unused parameter 'state' [-Wunused-parameter]
-        void loadSync(State *state, DisplayList **dl) {
-                             ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:243:51: warning: unused parameter 'dl' [-Wunused-parameter]
-        void loadSync(State *state, DisplayList **dl) {
-                                                  ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:247:30: warning: unused parameter 'state' [-Wunused-parameter]
-        void pipeSync(State *state, DisplayList **dl) {
-                             ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:247:51: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pipeSync(State *state, DisplayList **dl) {
-                                                  ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:251:30: warning: unused parameter 'state' [-Wunused-parameter]
-        void tileSync(State *state, DisplayList **dl) {
-                             ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:251:51: warning: unused parameter 'dl' [-Wunused-parameter]
-        void tileSync(State *state, DisplayList **dl) {
-                                                  ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:255:51: warning: unused parameter 'dl' [-Wunused-parameter]
-        void fullSync(State *state, DisplayList **dl) {
-                                                  ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:509:36: warning: unused variable 'texcoordDy' [-Wunused-variable]
-                    hlslpp::float3 texcoordDy = hlslpp::float3(texcoordDyFixed) * (1.0f / 65536.0f);
-                                   ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:562:27: warning: unused variable 'depthDy' [-Wunused-variable]
-                    float depthDy = depthDyFixed * (1.0f / 65536.0f / 32768.0f);
-                          ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:397:23: warning: unused variable 'l_intercept' [-Wunused-variable]
-                float l_intercept = x2 - dxldy * y2;
-                      ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_rdp.cpp:388:23: warning: unused variable 'mIntercept' [-Wunused-variable]
-                float mIntercept = xm - dxmdy * yFloor;
-                      ^
-18 warnings generated.
-[131/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_s2dex.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_s2dex.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_s2dex.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_s2dex.cpp:414:28: warning: unused variable 'savedOtherModeH' [-Wunused-variable]
-            const uint32_t savedOtherModeH = rdp->otherMode.H;
-                           ^
-6 warnings generated.
+[129/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_rdp.cpp.o
+[130/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_s2dex.cpp.o
+[131/251] Building CXX object CMakeFiles/rt64.dir/src/gui/rt64_camera_controller.cpp.o
 [132/251] Building CXX object CMakeFiles/rt64.dir/src/gui/rt64_file_dialog.cpp.o
 [133/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_s2dex2.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_s2dex2.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_s2dex2.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[134/251] Building CXX object CMakeFiles/rt64.dir/src/gui/rt64_camera_controller.cpp.o
+[134/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_extended.cpp.o
 [135/251] Building CXX object CMakeFiles/rt64.dir/src/gui/rt64_debugger_inspector.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:1064:44: warning: unused variable 'twoCycle' [-Wunused-variable]
-                                const bool twoCycle = (callDesc.otherMode.cycleType() == G_CYC_2CYCLE);
-                                           ^
-/home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:151:200: warning: unused parameter 'window' [-Wunused-parameter]
-    void DebuggerInspector::inspect(const VI &vi, Workload &workload, FramebufferManager &fbManager, TextureCache &textureCache, DrawCallKey &outDrawCallKey, bool &outCreateDrawCallKey, RenderWindow window) {
-                                                                                                                                                                                                       ^
 /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:264:43: warning: comparison of integers of different signs: 'int32_t' (aka 'int') and 'uint32_t' (aka 'unsigned int') [-Wsign-compare]
             if (renderer.framebufferIndex == f) {
                 ~~~~~~~~~~~~~~~~~~~~~~~~~ ^  ~
@@ -518,398 +147,46 @@ In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset
 /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:987:68: warning: comparison of integers of different signs: 'int32_t' (aka 'int') and 'unsigned int' [-Wsign-compare]
                                         bool open = (openTileIndex == (callDesc.tileIndex + t));
                                                      ~~~~~~~~~~~~~ ^   ~~~~~~~~~~~~~~~~~~~~~~
-/home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:1425:56: warning: unused parameter 'workload' [-Wunused-parameter]
-    void DebuggerInspector::rightClick(const Workload &workload, const hlslpp::float2 cursorNDCPos, const float widthScale) {
-                                                       ^
-/home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:1425:87: warning: unused parameter 'cursorNDCPos' [-Wunused-parameter]
-    void DebuggerInspector::rightClick(const Workload &workload, const hlslpp::float2 cursorNDCPos, const float widthScale) {
-                                                                                      ^
-/home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:1425:113: warning: unused parameter 'widthScale' [-Wunused-parameter]
-    void DebuggerInspector::rightClick(const Workload &workload, const hlslpp::float2 cursorNDCPos, const float widthScale) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:1484:62: warning: unused parameter 'workload' [-Wunused-parameter]
-    void DebuggerInspector::enableFreeCamera(const Workload &workload, const GameScene &scene) {
-                                                             ^
-/home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.cpp:1484:89: warning: unused parameter 'scene' [-Wunused-parameter]
-    void DebuggerInspector::enableFreeCamera(const Workload &workload, const GameScene &scene) {
-                                                                                        ^
-15 warnings generated.
-[136/251] Building CXX object CMakeFiles/rt64.dir/src/gui/rt64_inspector.cpp.o
-[137/251] Building CXX object CMakeFiles/rt64.dir/src/gbi/rt64_gbi_extended.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:14:26: warning: unused parameter 'state' [-Wunused-parameter]
-        void noOp(State *state, DisplayList **dl) {
-                         ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:14:47: warning: unused parameter 'dl' [-Wunused-parameter]
-        void noOp(State *state, DisplayList **dl) {
-                                              ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:18:27: warning: unused parameter 'state' [-Wunused-parameter]
-        void print(State *state, DisplayList **dl) {
-                          ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:18:48: warning: unused parameter 'dl' [-Wunused-parameter]
-        void print(State *state, DisplayList **dl) {
-                                               ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:128:59: warning: unused parameter 'dl' [-Wunused-parameter]
-        void endVertexZTestV1(State *state, DisplayList **dl) {
-                                                          ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:196:57: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushViewportV1(State *state, DisplayList **dl) {
-                                                        ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:200:56: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popViewportV1(State *state, DisplayList **dl) {
-                                                       ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:204:56: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushScissorV1(State *state, DisplayList **dl) {
-                                                       ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:208:55: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popScissorV1(State *state, DisplayList **dl) {
-                                                      ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:212:58: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushOtherModeV1(State *state, DisplayList **dl) {
-                                                         ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:216:57: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popOtherModeV1(State *state, DisplayList **dl) {
-                                                        ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:220:56: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushCombineV1(State *state, DisplayList **dl) {
-                                                       ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:224:55: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popCombineV1(State *state, DisplayList **dl) {
-                                                      ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:228:65: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushProjectionMatrixV1(State *state, DisplayList **dl) {
-                                                                ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:232:64: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popProjectionMatrixV1(State *state, DisplayList **dl) {
-                                                               ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:236:57: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushEnvColorV1(State *state, DisplayList **dl) {
-                                                        ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:240:56: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popEnvColorV1(State *state, DisplayList **dl) {
-                                                       ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:244:59: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushBlendColorV1(State *state, DisplayList **dl) {
-                                                          ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:248:58: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popBlendColorV1(State *state, DisplayList **dl) {
-                                                         ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:252:57: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushFogColorV1(State *state, DisplayList **dl) {
-                                                        ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:256:56: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popFogColorV1(State *state, DisplayList **dl) {
-                                                       ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:260:58: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushFillColorV1(State *state, DisplayList **dl) {
-                                                         ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:264:57: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popFillColorV1(State *state, DisplayList **dl) {
-                                                        ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:268:58: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushPrimColorV1(State *state, DisplayList **dl) {
-                                                         ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:272:57: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popPrimColorV1(State *state, DisplayList **dl) {
-                                                        ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:276:61: warning: unused parameter 'dl' [-Wunused-parameter]
-        void pushGeometryModeV1(State *state, DisplayList **dl) {
-                                                            ^
-/home/angie/Documents/Projects/rt64/src/gbi/rt64_gbi_extended.cpp:280:60: warning: unused parameter 'dl' [-Wunused-parameter]
-        void popGeometryModeV1(State *state, DisplayList **dl) {
-                                                           ^
-32 warnings generated.
+3 warnings generated.
+[136/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_application_window.cpp.o
+[137/251] Building CXX object CMakeFiles/rt64.dir/src/gui/rt64_inspector.cpp.o
 [138/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_color_converter.cpp.o
-[139/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_application_window.cpp.o
-/home/angie/Documents/Projects/rt64/src/hle/rt64_application_window.cpp:50:85: warning: unused parameter 'threadId' [-Wunused-parameter]
-    void ApplicationWindow::setup(RenderWindow window, Listener *listener, uint32_t threadId) {
-                                                                                    ^
-1 warning generated.
-[140/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_application.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_application.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_application.h:16:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_application.cpp:530:45: warning: unused parameter 'discardFBs' [-Wunused-parameter]
-    void Application::updateUserConfig(bool discardFBs) {
-                                            ^
-6 warnings generated.
-[141/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_command_warning.cpp.o
-[142/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_draw_call.cpp.o
-[143/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer.cpp.o
-[144/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_changes.cpp.o
-[145/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_manager.cpp.o
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:179:66: warning: unused parameter 'resolutionScale' [-Wunused-parameter]
-        RenderTargetManager &targetManager, const hlslpp::float2 resolutionScale, uint32_t maxFbPairIndex, CommandListCopies &cmdListCopies,
-                                                                 ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:241:126: warning: unused parameter 'resolutionScale' [-Wunused-parameter]
-    void FramebufferManager::reinterpretTileSetup(RenderWorker *renderWorker, const FramebufferOperation &op, hlslpp::float2 resolutionScale) {
-                                                                                                                             ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:314:24: warning: unused variable 'index' [-Wunused-variable]
-        const uint32_t index = uint32_t(cmdListReinterpretations.cmdListDispatches.size());
-                       ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:303:155: warning: unused parameter 'resolutionScale' [-Wunused-parameter]
-    void FramebufferManager::reinterpretTileRecord(RenderWorker *renderWorker, const FramebufferOperation &op, TextureCache &textureCache, hlslpp::float2 resolutionScale,
-                                                                                                                                                          ^
+[139/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_application.cpp.o
+[140/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_command_warning.cpp.o
+[141/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_draw_call.cpp.o
+[142/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer.cpp.o
+[143/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_changes.cpp.o
+[144/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_manager.cpp.o
 /home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:384:18: warning: variable 'tileRowStart' set but not used [-Wunused-but-set-variable]
         uint32_t tileRowStart = 0;
                  ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:377:183: warning: unused parameter 'RGBA32' [-Wunused-parameter]
-    bool FramebufferManager::makeFramebufferTile(Framebuffer *fb, uint32_t addressStart, uint32_t addressEnd, uint32_t lineWidth, uint32_t tileHeight, FramebufferTile &outTile, bool RGBA32) {
-                                                                                                                                                                                      ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:515:28: warning: unused variable 'byteShift' [-Wunused-variable]
-            const uint32_t byteShift = RGBA32 ? 4 : 3;
-                           ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:615:149: warning: unused parameter 'uls' [-Wunused-parameter]
-    FramebufferManager::CheckCopyResult FramebufferManager::checkTileCopyTMEM(uint32_t tmem, uint32_t lineWidth, uint8_t siz, uint8_t fmt, uint16_t uls) {
-                                                                                                                                                    ^
 /home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_manager.cpp:806:16: warning: variable 'fbIndex' set but not used [-Wunused-but-set-variable]
         size_t fbIndex = 0;
                ^
-9 warnings generated.
-[146/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_storage.cpp.o
-[147/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_pair.cpp.o
-/home/angie/Documents/Projects/rt64/src/hle/rt64_framebuffer_pair.cpp:84:26: warning: unused variable 'fullScreenRect' [-Wunused-variable]
-                    bool fullScreenRect = call.callDesc.scissorRect.fullyInside(call.callDesc.rect);
-                         ^
-1 warning generated.
-[148/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_interpreter.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_interpreter.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_interpreter.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_interpreter.cpp:12:18: warning: unused variable 'displayListFp' [-Wunused-variable]
-    static FILE *displayListFp = nullptr;
-                 ^
-6 warnings generated.
-[149/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_projection.cpp.o
-[150/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_game_frame.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_game_frame.cpp:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_game_frame.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
+2 warnings generated.
+[145/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_storage.cpp.o
+[146/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_framebuffer_pair.cpp.o
+[147/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_game_frame.cpp.o
 /home/angie/Documents/Projects/rt64/src/hle/rt64_game_frame.cpp:487:25: warning: variable 'projectionPerspectiveComponent' set but not used [-Wunused-but-set-variable]
                 uint8_t projectionPerspectiveComponent = G_EX_COMPONENT_INTERPOLATE;
                         ^
-6 warnings generated.
-[151/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_light_manager.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_light_manager.cpp:9:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_light_manager.cpp:21:49: warning: unused parameter 'state' [-Wunused-parameter]
-    void LightManager::processPointLight(State *state, const uint8_t lightIndex) {
-                                                ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_light_manager.cpp:21:70: warning: unused parameter 'lightIndex' [-Wunused-parameter]
-    void LightManager::processPointLight(State *state, const uint8_t lightIndex) {
-                                                                     ^
+1 warning generated.
+[148/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_interpreter.cpp.o
+[149/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_light_manager.cpp.o
 /home/angie/Documents/Projects/rt64/src/hle/rt64_light_manager.cpp:112:27: warning: comparison of integers of different signs: 'int' and 'std::vector::size_type' (aka 'unsigned long') [-Wsign-compare]
         for (int i = 0; i < directionalLights.size(); i++) {
                         ~ ^ ~~~~~~~~~~~~~~~~~~~~~~~~
-8 warnings generated.
-[152/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_present_queue.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_present_queue.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_present_queue.h:12:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_present.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
+1 warning generated.
+[150/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_present_queue.cpp.o
 /home/angie/Documents/Projects/rt64/src/hle/rt64_present_queue.cpp:101:40: warning: variable 'refreshRate' set but not used [-Wunused-but-set-variable]
         UserConfiguration::RefreshRate refreshRate;
                                        ^
-6 warnings generated.
-[153/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rigid_body.cpp.o
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rigid_body.cpp:27:28: warning: unused variable 'curAcceleration' [-Wunused-variable]
-            hlslpp::float3 curAcceleration = (curLinearVelocity - linearVelocity);
-                           ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rigid_body.cpp:73:63: warning: unused parameter 'prevTransform' [-Wunused-parameter]
-    void RigidBody::updatePerspective(const hlslpp::float4x4 &prevTransform, const hlslpp::float4x4 &curTransform, uint8_t perspInterpolation) {
-                                                              ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rigid_body.cpp:73:102: warning: unused parameter 'curTransform' [-Wunused-parameter]
-    void RigidBody::updatePerspective(const hlslpp::float4x4 &prevTransform, const hlslpp::float4x4 &curTransform, uint8_t perspInterpolation) {
-                                                                                                     ^
-3 warnings generated.
-[154/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rdp.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:15:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_interpreter.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:440:28: warning: unused variable 'tmemEnd' [-Wunused-variable]
-            const uint32_t tmemEnd = tmemStart + tmemBytes;
-                           ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:478:28: warning: unused variable 'tmemEnd' [-Wunused-variable]
-            const uint32_t tmemEnd = tmemStart + tmemBytes;
-                           ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:516:28: warning: unused variable 'tmemEnd' [-Wunused-variable]
-            const uint32_t tmemEnd = tmemStart + tmemBytes;
-                           ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:521:28: warning: unused variable 'tileWidth' [-Wunused-variable]
-            const uint32_t tileWidth = loadTile.line << ((4 + lineShift) - loadTile.siz);
-                           ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:930:58: warning: unused parameter 'wR' [-Wunused-parameter]
-    void RDP::setKeyR(uint32_t cR, uint32_t sR, uint32_t wR) {
-                                                         ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:937:59: warning: unused parameter 'wG' [-Wunused-parameter]
-    void RDP::setKeyGB(uint32_t cG, uint32_t sG, uint32_t wG, uint32_t cB, uint32_t sB, uint32_t wB) {
-                                                          ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rdp.cpp:937:98: warning: unused parameter 'wB' [-Wunused-parameter]
-    void RDP::setKeyGB(uint32_t cG, uint32_t sG, uint32_t wG, uint32_t cB, uint32_t sB, uint32_t wB) {
-                                                                                                 ^
-12 warnings generated.
-[155/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_buffer_uploader.cpp.o
-[156/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_workload.cpp.o
-[157/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rdp_tmem.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_rdp_tmem.cpp:9:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[158/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rsp.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:15:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_interpreter.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
+1 warning generated.
+[151/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_projection.cpp.o
+[152/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rigid_body.cpp.o
+[153/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rdp.cpp.o
+[154/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rdp_tmem.cpp.o
+[155/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_rsp.cpp.o
 /home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:292:23: warning: result of comparison of constant 256 with expression of type 'uint8_t' (aka 'unsigned char') is always false [-Wtautological-constant-out-of-range-compare]
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
              ~~~~~~~~ ^  ~~~~~~~~~~~~~~~~
@@ -919,68 +196,12 @@ In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset
 /home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:330:23: warning: result of comparison of constant 256 with expression of type 'uint8_t' (aka 'unsigned char') is always false [-Wtautological-constant-out-of-range-compare]
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
              ~~~~~~~~ ^  ~~~~~~~~~~~~~~~~
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:829:37: warning: unused parameter 'clipRatio' [-Wunused-parameter]
-    void RSP::setClipRatio(uint32_t clipRatio) {
-                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:833:37: warning: unused parameter 'perspNorm' [-Wunused-parameter]
-    void RSP::setPerspNorm(uint32_t perspNorm) {
-                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:959:20: warning: unused variable 'computeSmoothNormals' [-Wunused-variable]
-        const bool computeSmoothNormals = !usesLighting;
-                   ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:969:15: warning: unused variable 'viewProjIndices' [-Wunused-variable]
-        auto &viewProjIndices = workload.drawData.viewProjIndices;
-              ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:958:20: warning: unused variable 'usesFog' [-Wunused-variable]
-        const bool usesFog = geometryMode & G_FOG;
-                   ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:956:20: warning: unused variable 'usesShade' [-Wunused-variable]
-        const bool usesShade = geometryMode & G_SHADE;
-                   ^
 /home/angie/Documents/Projects/rt64/src/hle/rt64_rsp.cpp:1102:31: warning: comparison of integers of different signs: 'int' and 'std::array::size_type' (aka 'unsigned long') [-Wsign-compare]
                 if (stackSize < stack.size()) {
                     ~~~~~~~~~ ^ ~~~~~~~~~~~~
-15 warnings generated.
-[159/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_optimus.cpp.o
-[160/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_geometry_mode.cpp.o
-[161/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_state.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:11:
-In file included from /home/angie/Documents/Projects/rt64/src/gui/rt64_debugger_inspector.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:852:33: warning: unused variable 'lightPresetMap' [-Wunused-variable]
-                    const auto &lightPresetMap = lightsLibrary.presetMap;
-                                ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:1328:30: warning: unused variable 'depthResized' [-Wunused-variable]
-                        bool depthResized = false;
-                             ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:1376:40: warning: unused variable 'writeTimestamp' [-Wunused-variable]
-                        const uint64_t writeTimestamp = framebufferManager.nextWriteTimestamp();
-                                       ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:782:38: warning: unused variable 'faceIndices' [-Wunused-variable]
-        const std::vector<uint32_t> &faceIndices = workload.drawData.faceIndices;
-                                     ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:783:37: warning: unused variable 'posShorts' [-Wunused-variable]
-        const std::vector<int16_t> &posShorts = workload.drawData.posShorts;
-                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:2116:26: warning: unused variable 'changed' [-Wunused-variable]
-                    bool changed = false;
-                         ^
+4 warnings generated.
+[156/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_vi.cpp.o
+[157/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_state.cpp.o
 In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:5:
 In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:9:
 In file included from /home/angie/Documents/Projects/rt64/src/common/rt64_emulator_configuration.h:7:
@@ -1015,97 +236,31 @@ In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/11/../../../../includ
 /usr/bin/../lib/gcc/x86_64-linux-gnu/11/../../../../include/c++/11/bits/stl_construct.h:151:19: note: qualify call to silence this warning
       __pointer->~_Tp();
                   ^
-12 warnings generated.
-[162/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_workload_queue.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.h:12:
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.h:12:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.cpp:203:18: warning: unused variable 'msaaSampleCount' [-Wunused-variable]
-        uint32_t msaaSampleCount = ext.sharedResources->userConfig.msaaSampleCount();
-                 ^
+1 warning generated.
+[158/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_workload.cpp.o
+[159/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_buffer_uploader.cpp.o
+[160/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_geometry_mode.cpp.o
+[161/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_optimus.cpp.o
+[162/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_native_target.cpp.o
+/home/angie/Documents/Projects/rt64/src/render/rt64_native_target.cpp:75:24: warning: variable 'colorOrDepthRes' set but not used [-Wunused-but-set-variable]
+        RenderTexture *colorOrDepthRes = nullptr;
+                       ^
+1 warning generated.
+[163/251] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_workload_queue.cpp.o
 /home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.cpp:649:26: warning: variable 'colorFormatUpdated' set but not used [-Wunused-but-set-variable]
                     bool colorFormatUpdated = false;
                          ^
 /home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.cpp:681:26: warning: variable 'depthFormatUpdated' set but not used [-Wunused-but-set-variable]
                     bool depthFormatUpdated = false;
                          ^
-/home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.cpp:283:73: warning: unused parameter 'debuggerCamera' [-Wunused-parameter]
-        const DebuggerRenderer &debuggerRenderer, const DebuggerCamera &debuggerCamera, float curFrameWeight, float prevFrameWeight,
-                                                                        ^
 /home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.cpp:736:96: warning: comparison of integers of different signs: 'int32_t' (aka 'int') and 'uint32_t' (aka 'unsigned int') [-Wsign-compare]
                     if (usingMSAA && (overrideTarget != nullptr) && (overrideTargetFbPairIndex == f)) {
                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~ ^  ~
 /home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.cpp:832:130: warning: comparison of integers of different signs: '__gnu_cxx::__alloc_traits<std::allocator<unsigned int>, unsigned int>::value_type' (aka 'unsigned int') and 'int' [-Wsign-compare]
                 if (!workload.paused || (!gameFrames[curFrameIndex].workloads.empty() && (gameFrames[curFrameIndex].workloads[0] != processCursor))) {
                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^  ~~~~~~~~~~~~~
-11 warnings generated.
-[163/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_native_target.cpp.o
-/home/angie/Documents/Projects/rt64/src/render/rt64_native_target.cpp:75:24: warning: variable 'colorOrDepthRes' set but not used [-Wunused-but-set-variable]
-        RenderTexture *colorOrDepthRes = nullptr;
-                       ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_native_target.cpp:76:24: warning: unused variable 'booleanRes' [-Wunused-variable]
-        RenderTexture *booleanRes = emptyFbChange.booleanTexture.get();
-                       ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_native_target.cpp:63:138: warning: unused parameter 'rowStart' [-Wunused-parameter]
-    uint32_t NativeTarget::copyFromRAM(RenderWorker *worker, FramebufferChange &emptyFbChange, uint32_t width, uint32_t height, uint32_t rowStart, uint8_t siz, uint8_t fmt, const uint8_t *data, bool invalidateTargets, const ShaderLibrary *shaderLibrary) {
-                                                                                                                                         ^
-3 warnings generated.
+4 warnings generated.
 [164/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_framebuffer_renderer.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.h:12:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:116:68: warning: unused parameter 'resScale' [-Wunused-parameter]
-    void moveViewportRect(RenderViewport &viewport, hlslpp::float2 resScale, float middleViewport, float extOriginPercentage, float horizontalMisalignment, uint16_t origin) {
-                                                                   ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:159:73: warning: unused parameter 'rtSupport' [-Wunused-parameter]
-    FramebufferRenderer::FramebufferRenderer(RenderWorker *worker, bool rtSupport, UserConfiguration::GraphicsAPI graphicsAPI, const ShaderLibrary *shaderLibrary) {
-                                                                        ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:159:115: warning: unused parameter 'graphicsAPI' [-Wunused-parameter]
-    FramebufferRenderer::FramebufferRenderer(RenderWorker *worker, bool rtSupport, UserConfiguration::GraphicsAPI graphicsAPI, const ShaderLibrary *shaderLibrary) {
-                                                                                                                  ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:302:132: warning: unused parameter 'outputBuffers' [-Wunused-parameter]
-    void FramebufferRenderer::updateShaderDescriptorSet(RenderWorker *worker, const DrawBuffers *drawBuffers, const OutputBuffers *outputBuffers, const bool raytracingEnabled) {
-                                                                                                                                   ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:302:158: warning: unused parameter 'raytracingEnabled' [-Wunused-parameter]
-    void FramebufferRenderer::updateShaderDescriptorSet(RenderWorker *worker, const DrawBuffers *drawBuffers, const OutputBuffers *outputBuffers, const bool raytracingEnabled) {
-                                                                                                                                                             ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:446:35: warning: unused variable 'depthWriteState' [-Wunused-variable]
-        const RenderTextureLayout depthWriteState = RenderTextureLayout::DEPTH_WRITE;
-                                  ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1119:84: warning: unused parameter 'rtEnabled' [-Wunused-parameter]
-        VertexProcessor *vertexProcessor, const OutputBuffers *outputBuffers, bool rtEnabled) {
-                                                                                   ^
 /home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1190:25: warning: loop variable 'pair' creates a copy from type 'std::pair<unsigned int, bool> const' [-Wrange-loop-construct]
         for (const auto pair : targetDrawCall.sceneIndices) {
                         ^
@@ -1116,240 +271,33 @@ In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset
 /home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1521:33: warning: enumeration value 'None' not handled in switch [-Wswitch]
                         switch (proj.type) {
                                 ^~~~~~~~~
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1382:24: warning: unused variable 'perspProj' [-Wunused-variable]
-            const bool perspProj = (proj.type == Projection::Type::Perspective);
-                       ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1296:29: warning: unused variable 'worldPosRes' [-Wunused-variable]
-        const RenderBuffer *worldPosRes = outputBuffers.worldPosBuffer.buffer.get();
-                            ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1304:24: warning: unused variable 'WorldNormStride' [-Wunused-variable]
-        const uint32_t WorldNormStride = sizeof(float) * 4;
-                       ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1298:29: warning: unused variable 'worldVelRes' [-Wunused-variable]
-        const RenderBuffer *worldVelRes = outputBuffers.worldVelBuffer.buffer.get();
-                            ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1297:29: warning: unused variable 'worldNormRes' [-Wunused-variable]
-        const RenderBuffer *worldNormRes = outputBuffers.worldNormBuffer.buffer.get();
-                            ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1305:24: warning: unused variable 'WorldVelStride' [-Wunused-variable]
-        const uint32_t WorldVelStride = sizeof(float) * 4;
-                       ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1661:142: warning: unused parameter 'rtEnabled' [-Wunused-parameter]
-    void FramebufferRenderer::endFramebuffers(RenderWorker *worker, const DrawBuffers *drawBuffers, const OutputBuffers *outputBuffers, bool rtEnabled) {
-                                                                                                                                             ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.cpp:1721:49: warning: unused parameter 'rtEnabled' [-Wunused-parameter]
-    void FramebufferRenderer::advanceFrame(bool rtEnabled) {
-                                                ^
-22 warnings generated.
-[165/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_render_worker.cpp.o
-[166/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_raster_shader.cpp.o
-/home/angie/Documents/Projects/rt64/src/render/rt64_raster_shader.cpp:39:31: warning: unused parameter 'shaderCompiler' [-Wunused-parameter]
-        const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
-                              ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_raster_shader.cpp:39:69: warning: unused parameter 'vsBytes' [-Wunused-parameter]
-        const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
-                                                                    ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_raster_shader.cpp:39:100: warning: unused parameter 'psBytes' [-Wunused-parameter]
-        const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
-                                                                                                   ^
-/home/angie/Documents/Projects/rt64/src/render/rt64_raster_shader.cpp:39:114: warning: unused parameter 'useBytes' [-Wunused-parameter]
-        const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
-                                                                                                                 ^
-4 warnings generated.
-[167/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_projection_processor.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_projection_processor.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_projection_processor.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_game_frame.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[168/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_shader_compiler.cpp.o
-[169/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_raster_shader_cache.cpp.o
-[170/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_render_target.cpp.o
+2 warnings generated.
+[165/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_raster_shader.cpp.o
+[166/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_projection_processor.cpp.o
+[167/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_raster_shader_cache.cpp.o
+[168/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_render_worker.cpp.o
+[169/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_render_target.cpp.o
+[170/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_shader_compiler.cpp.o
 [171/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_render_target_manager.cpp.o
 [172/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_shader_common.cpp.o
 [173/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_rsp_processor.cpp.o
 [174/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_shader_library.cpp.o
-/home/angie/Documents/Projects/rt64/src/render/rt64_shader_library.cpp:127:40: warning: unused variable 'deviceCapabilities' [-Wunused-variable]
-        const RenderDeviceCapabilities deviceCapabilities = device->getCapabilities();
-                                       ^
-1 warning generated.
-[175/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_tile_processor.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_tile_processor.cpp:7:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_game_frame.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[176/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_upscaler.cpp.o
+[175/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_upscaler.cpp.o
 /home/angie/Documents/Projects/rt64/src/render/rt64_upscaler.cpp:5:9: warning: #pragma once in main file [-Wpragma-once-outside-header]
 #pragma once
         ^
 1 warning generated.
-[177/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_transform_processor.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_transform_processor.cpp:8:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_game_frame.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[178/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_texture_cache.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_texture_cache.cpp:8:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_workload_queue.h:12:
-In file included from /home/angie/Documents/Projects/rt64/src/render/rt64_framebuffer_renderer.h:12:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
+[176/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_tile_processor.cpp.o
+[177/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_texture_cache.cpp.o
 /home/angie/Documents/Projects/rt64/src/render/rt64_texture_cache.cpp:200:40: warning: comparison of integers of different signs: 'unsigned long' and 'int' [-Wsign-compare]
             while ((offset + rowPitch) <= byteCount) {
                     ~~~~~~~~~~~~~~~~~  ^  ~~~~~~~~~
-6 warnings generated.
+1 warning generated.
+[178/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_transform_processor.cpp.o
 [179/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_vertex_processor.cpp.o
 [180/251] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_vi_renderer.cpp.o
 [181/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset.cpp.o
-[182/251] Building CXX object CMakeFiles/rt64.dir/src/rhi/rt64_render_hooks.cpp.o
-[183/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_light.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_light.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_light.h:11:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_light.cpp:82:25: warning: loop variable 'it' creates a copy from type 'std::pair<const std::basic_string<char>, RT64::PresetLights::Light> const' [-Wrange-loop-construct]
-        for (const auto it : lightMap) {
-                        ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_light.cpp:82:14: note: use reference type 'std::pair<const std::basic_string<char>, RT64::PresetLights::Light> const &' to prevent copying
-        for (const auto it : lightMap) {
-             ^~~~~~~~~~~~~~~
-                        &
-6 warnings generated.
-[184/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_material.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.h:10:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:175:29: warning: format string is not a string literal (potentially insecure) [-Wformat-security]
-                ImGui::Text(name);
-                            ^~~~
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:175:29: note: treat the string as an argument to avoid this
-                ImGui::Text(name);
-                            ^
-                            "%s", 
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:178:37: warning: format string is not a string literal (potentially insecure) [-Wformat-security]
-                ImGui::TextDisabled(name);
-                                    ^~~~
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:178:37: note: treat the string as an argument to avoid this
-                ImGui::TextDisabled(name);
-                                    ^
-                                    "%s", 
-7 warnings generated.
-[185/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_draw_call.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:15:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:56:111: warning: unused parameter 'textureCache' [-Wunused-parameter]
-    DrawCallKey DrawCallKey::fromDrawCall(const DrawCall &call, const DrawData &drawData, const TextureCache &textureCache) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:259:85: warning: unused parameter 'presetName' [-Wunused-parameter]
-    void PresetDrawCallLibraryInspector::highlightDrawCallIngame(const std::string &presetName, PresetDrawCallLibrary &library, const TextureCache &textureCache) {
-                                                                                    ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:259:120: warning: unused parameter 'library' [-Wunused-parameter]
-    void PresetDrawCallLibraryInspector::highlightDrawCallIngame(const std::string &presetName, PresetDrawCallLibrary &library, const TextureCache &textureCache) {
-                                                                                                                       ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:259:149: warning: unused parameter 'textureCache' [-Wunused-parameter]
-    void PresetDrawCallLibraryInspector::highlightDrawCallIngame(const std::string &presetName, PresetDrawCallLibrary &library, const TextureCache &textureCache) {
-                                                                                                                                                    ^
+[182/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_draw_call.cpp.o
 In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:5:
 In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:7:
 In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset.h:7:
@@ -1405,123 +353,51 @@ In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/11/../../../../includ
 /usr/bin/../lib/gcc/x86_64-linux-gnu/11/../../../../include/c++/11/ext/new_allocator.h:168:10: note: qualify call to silence this warning
         { __p->~_Up(); }
                 ^
-11 warnings generated.
-[186/251] Building CXX object CMakeFiles/rt64.dir/src/shared/rt64_hlsl_json.cpp.o
-[187/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_scene.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_scene.h:8:
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:36: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                   ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:29:113: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                                ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:34: warning: unused parameter 'library' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                 ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:33:111: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
-                                                                                                              ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_inspector.h:73:53: warning: unused parameter 'window' [-Wunused-parameter]
-        bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
-                                                    ^
-5 warnings generated.
-[188/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui_demo.cpp.o
-[189/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/backends/imgui_impl_vulkan.cpp.o
+2 warnings generated.
+[183/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_light.cpp.o
+/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_light.cpp:82:25: warning: loop variable 'it' creates a copy from type 'std::pair<const std::basic_string<char>, RT64::PresetLights::Light> const' [-Wrange-loop-construct]
+        for (const auto it : lightMap) {
+                        ^
+/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_light.cpp:82:14: note: use reference type 'std::pair<const std::basic_string<char>, RT64::PresetLights::Light> const &' to prevent copying
+        for (const auto it : lightMap) {
+             ^~~~~~~~~~~~~~~
+                        &
+1 warning generated.
+[184/251] Building CXX object CMakeFiles/rt64.dir/src/rhi/rt64_render_hooks.cpp.o
+[185/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_material.cpp.o
+/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:175:29: warning: format string is not a string literal (potentially insecure) [-Wformat-security]
+                ImGui::Text(name);
+                            ^~~~
+/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:175:29: note: treat the string as an argument to avoid this
+                ImGui::Text(name);
+                            ^
+                            "%s", 
+/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:178:37: warning: format string is not a string literal (potentially insecure) [-Wformat-security]
+                ImGui::TextDisabled(name);
+                                    ^~~~
+/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_material.cpp:178:37: note: treat the string as an argument to avoid this
+                ImGui::TextDisabled(name);
+                                    ^
+                                    "%s", 
+2 warnings generated.
+[186/251] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_scene.cpp.o
+[187/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui_demo.cpp.o
+[188/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui.cpp.o
+[189/251] Building CXX object CMakeFiles/rt64.dir/src/shared/rt64_hlsl_json.cpp.o
 [190/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui_draw.cpp.o
-[191/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui_tables.cpp.o
-[192/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui.cpp.o
+[191/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/backends/imgui_impl_vulkan.cpp.o
+[192/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui_tables.cpp.o
 [193/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/im3d/im3d.cpp.o
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:1101:8: warning: unused variable 'planeOffset' [-Wunused-variable]
-        float planeOffset = worldHeight * 0.5f;
-              ^
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:1100:8: warning: unused variable 'planeSize' [-Wunused-variable]
-        float planeSize = worldHeight * (0.5f * 0.5f);
-              ^
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:2378:115: warning: unused parameter '_worldSize' [-Wunused-parameter]
-void Context::gizmoAxisTranslation_Draw(Id _id, const Vec3& _origin, const Vec3& _axis, float _worldHeight, float _worldSize, Color _color)
-                                                                                                                  ^
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:2545:7: warning: unused variable 'ret' [-Wunused-variable]
-        bool ret = false;
-             ^
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:2603:8: warning: unused variable 'storedVec' [-Wunused-variable]
-        Vec3& storedVec = m_gizmoStateVec3;
-              ^
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:2595:110: warning: unused parameter '_angle' [-Wunused-parameter]
-void Context::gizmoAxislAngle_Draw(Id _id, const Vec3& _origin, const Vec3& _axis, float _worldRadius, float _angle, Color _color, float _minAlpha)
-                                                                                                             ^
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:2746:109: warning: unused parameter '_worldSize' [-Wunused-parameter]
-void Context::gizmoAxisScale_Draw(Id _id, const Vec3& _origin, const Vec3& _axis, float _worldHeight, float _worldSize, Color _color)
-                                                                                                            ^
-/home/angie/Documents/Projects/rt64/src/contrib/im3d/im3d.cpp:3352:13: warning: unused function 'StaticAsserts' [-Wunused-function]
-static void StaticAsserts()
-            ^
-8 warnings generated.
-[194/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPS.hlsl.rw.c.o
-[195/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVS.hlsl.rw.c.o
-[196/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui_widgets.cpp.o
-[197/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/implot/implot_demo.cpp.o
-[198/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSDynamic.hlsl.spirv.c.o
-[199/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSDynamicMS.hlsl.spirv.c.o
-[200/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/implot/implot.cpp.o
-[201/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstant.hlsl.spirv.c.o
-[202/251] Building CXX object CMakeFiles/rt64.dir/src/vulkan/rt64_vulkan.cpp.o
+[194/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/imgui/imgui_widgets.cpp.o
+[195/251] Building CXX object CMakeFiles/rt64.dir/src/vulkan/rt64_vulkan.cpp.o
 In file included from /home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:8:
 In file included from /home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.h:24:
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:3665:38: warning: unused parameter 'pData' [-Wunused-parameter]
-static void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
-                                     ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:3665:58: warning: unused parameter 'offset' [-Wunused-parameter]
-static void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
-                                                         ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:3679:47: warning: unused parameter 'pData' [-Wunused-parameter]
-static bool VmaValidateMagicValue(const void* pData, VkDeviceSize offset)
-                                              ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:3679:67: warning: unused parameter 'offset' [-Wunused-parameter]
-static bool VmaValidateMagicValue(const void* pData, VkDeviceSize offset)
-                                                                  ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:4223:34: warning: unused parameter 'n' [-Wunused-parameter]
-    void deallocate(T* p, size_t n) { VmaFree(m_pCallbacks, p); }
-                                 ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:4254:38: warning: unused parameter 'value' [-Wunused-parameter]
-    VmaVector(size_t count, const T& value, const AllocatorT& allocator) : VmaVector(count, allocator) {}
-                                     ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:6117:35: warning: unused parameter 'hAllocator' [-Wunused-parameter]
-    void SetUserData(VmaAllocator hAllocator, void* pUserData) { m_pUserData = pUserData; }
-                                  ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:6511:21: warning: unused variable 'name' [-Wunused-variable]
-        const char* name = allocation->GetName();
-                    ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:6499:56: warning: unused parameter 'offset' [-Wunused-parameter]
-void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size, void* userData) const
-                                                       ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:6499:77: warning: unused parameter 'size' [-Wunused-parameter]
-void VmaBlockMetadata::DebugLogAllocation(VkDeviceSize offset, VkDeviceSize size, void* userData) const
-                                                                            ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:8033:74: warning: unused parameter 'prevAlloc' [-Wunused-parameter]
-VmaAllocHandle VmaBlockMetadata_Linear::GetNextAllocation(VmaAllocHandle prevAlloc) const
-                                                                         ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:8040:76: warning: unused parameter 'alloc' [-Wunused-parameter]
-VkDeviceSize VmaBlockMetadata_Linear::GetNextFreeRegionSize(VmaAllocHandle alloc) const
-                                                                           ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:8232:14: warning: unused parameter 'strategy' [-Wunused-parameter]
-    uint32_t strategy,
-             ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:8410:14: warning: unused parameter 'strategy' [-Wunused-parameter]
-    uint32_t strategy,
-             ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:9041:26: warning: unused parameter 'type' [-Wunused-parameter]
-    VmaSuballocationType type,
-                         ^
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:9651:49: warning: missing field 'bytesFreed' initializer [-Wmissing-field-initializers]
     VmaDefragmentationStats m_GlobalStats = { 0 };
                                                 ^
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:9652:47: warning: missing field 'bytesFreed' initializer [-Wmissing-field-initializers]
     VmaDefragmentationStats m_PassStats = { 0 };
                                               ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:10330:57: warning: unused parameter 'hAllocator' [-Wunused-parameter]
-VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
-                                                        ^
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:11457:79: warning: missing field 'pNext' initializer [-Wmissing-field-initializers]
     VkMemoryAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
                                                                               ^
@@ -1537,9 +413,6 @@ VmaDeviceMemoryBlock::VmaDeviceMemoryBlock(VmaAllocator hAllocator)
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:11872:23: warning: missing field 'bytesFreed' initializer [-Wmissing-field-initializers]
     m_PassStats = { 0 };
                       ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:12786:61: warning: unused parameter 'pCreateInfo' [-Wunused-parameter]
-VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
-                                                            ^
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:13263:79: warning: missing field 'pNext' initializer [-Wmissing-field-initializers]
     VkMemoryAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
                                                                               ^
@@ -1573,12 +446,6 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:13488:90: warning: missing field 'pNext' initializer [-Wmissing-field-initializers]
         VkMemoryRequirements2KHR memReq2 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR };
                                                                                          ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:13592:10: warning: unused parameter 'dedicatedPreferred' [-Wunused-parameter]
-    bool dedicatedPreferred)
-         ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:14080:20: warning: unused variable 'prevDeviceMemoryCount' [-Wunused-variable]
-    const uint64_t prevDeviceMemoryCount = deviceMemoryCountIncrement.Increment(&m_DeviceMemoryCount);
-                   ^
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:14170:110: warning: missing field 'pNext' initializer [-Wmissing-field-initializers]
             VkBindBufferMemoryInfoKHR bindBufferMemoryInfo = { VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO_KHR };
                                                                                                              ^
@@ -1603,70 +470,32 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
 /home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:15114:80: warning: missing field 'pNext' initializer [-Wmissing-field-initializers]
         VkMemoryRequirements2 memReq = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2};
                                                                                ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:15677:31: warning: unused parameter 'allocator' [-Wunused-parameter]
-    VmaAllocator VMA_NOT_NULL allocator,
-                              ^
-/home/angie/Documents/Projects/rt64/src/contrib/VulkanMemoryAllocator/include/vk_mem_alloc.h:15691:31: warning: unused parameter 'allocator' [-Wunused-parameter]
-    VmaAllocator VMA_NOT_NULL allocator,
-                              ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:616:40: warning: unused parameter 'device' [-Wunused-parameter]
-    static void setObjectName(VkDevice device, VkDebugReportObjectTypeEXT objectType, uint64_t object, const std::string &name) {
-                                       ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:616:75: warning: unused parameter 'objectType' [-Wunused-parameter]
-    static void setObjectName(VkDevice device, VkDebugReportObjectTypeEXT objectType, uint64_t object, const std::string &name) {
-                                                                          ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:616:96: warning: unused parameter 'object' [-Wunused-parameter]
-    static void setObjectName(VkDevice device, VkDebugReportObjectTypeEXT objectType, uint64_t object, const std::string &name) {
-                                                                                               ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:616:123: warning: unused parameter 'name' [-Wunused-parameter]
-    static void setObjectName(VkDevice device, VkDebugReportObjectTypeEXT objectType, uint64_t object, const std::string &name) {
-                                                                                                                          ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:740:38: warning: unused parameter 'subresource' [-Wunused-parameter]
-    void *VulkanBuffer::map(uint32_t subresource, const RenderRange *readRange) {
-                                     ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:740:70: warning: unused parameter 'readRange' [-Wunused-parameter]
-    void *VulkanBuffer::map(uint32_t subresource, const RenderRange *readRange) {
-                                                                     ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:751:39: warning: unused parameter 'subresource' [-Wunused-parameter]
-    void VulkanBuffer::unmap(uint32_t subresource, const RenderRange *writtenRange) {
-                                      ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:751:71: warning: unused parameter 'writtenRange' [-Wunused-parameter]
-    void VulkanBuffer::unmap(uint32_t subresource, const RenderRange *writtenRange) {
-                                                                      ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:858:21: warning: unused variable 'view' [-Wunused-variable]
-        VkImageView view = VK_NULL_HANDLE;
-                    ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:1212:80: warning: unused parameter 'name' [-Wunused-parameter]
-    RenderPipelineProgram VulkanComputePipeline::getProgram(const std::string &name) const {
-                                                                               ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:1433:81: warning: unused parameter 'name' [-Wunused-parameter]
-    RenderPipelineProgram VulkanGraphicsPipeline::getProgram(const std::string &name) const {
-                                                                                ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:1505:142: warning: unused parameter 'previousPipeline' [-Wunused-parameter]
-    VulkanRaytracingPipeline::VulkanRaytracingPipeline(VulkanDevice *device, const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline) : VulkanPipeline(device, VulkanPipeline::Type::Raytracing) {
-                                                                                                                                             ^
-/home/angie/Documents/Projects/rt64/src/vulkan/rt64_vulkan.cpp:2826:29: warning: unused variable 'dstBuffer' [-Wunused-variable]
-        const VulkanBuffer *dstBuffer = static_cast<const VulkanBuffer *>(dstLocation.buffer);
-                            ^
-60 warnings generated.
+26 warnings generated.
+[196/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/implot/implot_demo.cpp.o
+[197/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVS.hlsl.rw.c.o
+[198/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/implot/implot.cpp.o
+[199/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPS.hlsl.rw.c.o
+[200/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSDynamicMS.hlsl.spirv.c.o
+[201/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSDynamic.hlsl.spirv.c.o
+[202/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstant.hlsl.spirv.c.o
 [203/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantFlat.hlsl.spirv.c.o
-[204/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVSDynamic.hlsl.spirv.c.o
-[205/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVSSpecConstant.hlsl.spirv.c.o
-[206/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVSSpecConstantFlat.hlsl.spirv.c.o
-[207/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbChangesClearCS.hlsl.spirv.c.o
-[208/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbChangesDrawColorPS.hlsl.spirv.c.o
-[209/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbChangesDrawDepthPS.hlsl.spirv.c.o
-[210/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantDepth.hlsl.spirv.c.o
-[211/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantDepthMS.hlsl.spirv.c.o
+[204/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantDepth.hlsl.spirv.c.o
+[205/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantDepthMS.hlsl.spirv.c.o
+[206/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVSDynamic.hlsl.spirv.c.o
+[207/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVSSpecConstant.hlsl.spirv.c.o
+[208/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterVSSpecConstantFlat.hlsl.spirv.c.o
+[209/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbChangesClearCS.hlsl.spirv.c.o
+[210/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbChangesDrawColorPS.hlsl.spirv.c.o
+[211/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbChangesDrawDepthPS.hlsl.spirv.c.o
 [212/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbReadAnyChangesCS.hlsl.spirv.c.o
 [213/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbReinterpretCS.hlsl.spirv.c.o
 [214/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbReadAnyFullCS.hlsl.spirv.c.o
-[215/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbWriteDepthCS.hlsl.spirv.c.o
-[216/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbWriteColorCS.hlsl.spirv.c.o
+[215/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbWriteColorCS.hlsl.spirv.c.o
+[216/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbWriteDepthCS.hlsl.spirv.c.o
 [217/251] Building C object CMakeFiles/rt64.dir/src/shaders/FbWriteDepthCSMS.hlsl.spirv.c.o
 [218/251] Building C object CMakeFiles/rt64.dir/src/shaders/GaussianFilterRGB3x3CS.hlsl.spirv.c.o
-[219/251] Building C object CMakeFiles/rt64.dir/src/shaders/BicubicScalingCS.hlsl.spirv.c.o
-[220/251] Building C object CMakeFiles/rt64.dir/src/shaders/BoxFilterCS.hlsl.spirv.c.o
+[219/251] Building C object CMakeFiles/rt64.dir/src/shaders/BoxFilterCS.hlsl.spirv.c.o
+[220/251] Building C object CMakeFiles/rt64.dir/src/shaders/BicubicScalingCS.hlsl.spirv.c.o
 [221/251] Building C object CMakeFiles/rt64.dir/src/shaders/HistogramAverageCS.hlsl.spirv.c.o
 [222/251] Building C object CMakeFiles/rt64.dir/src/shaders/HistogramClearCS.hlsl.spirv.c.o
 [223/251] Building C object CMakeFiles/rt64.dir/src/shaders/HistogramSetCS.hlsl.spirv.c.o
@@ -1674,26 +503,26 @@ VkResult VmaAllocator_T::Init(const VmaAllocatorCreateInfo* pCreateInfo)
 [225/251] Building C object CMakeFiles/rt64.dir/src/shaders/LuminanceHistogramCS.hlsl.spirv.c.o
 [226/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPModifyCS.hlsl.spirv.c.o
 [227/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantFlatDepth.hlsl.spirv.c.o
-[228/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPProcessCS.hlsl.spirv.c.o
-[229/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPWorldCS.hlsl.spirv.c.o
-[230/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPVertexTestZCS.hlsl.spirv.c.o
-[231/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPSmoothNormalCS.hlsl.spirv.c.o
-[232/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPVertexTestZCSMS.hlsl.spirv.c.o
-[233/251] Building C object CMakeFiles/rt64.dir/src/shaders/RtCopyDepthToColorPSMS.hlsl.spirv.c.o
-[234/251] Building C object CMakeFiles/rt64.dir/src/shaders/TextureCopyPS.hlsl.spirv.c.o
+[228/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPWorldCS.hlsl.spirv.c.o
+[229/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPProcessCS.hlsl.spirv.c.o
+[230/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl.spirv.c.o
+[231/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPVertexTestZCS.hlsl.spirv.c.o
+[232/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPSmoothNormalCS.hlsl.spirv.c.o
+[233/251] Building C object CMakeFiles/rt64.dir/src/shaders/RSPVertexTestZCSMS.hlsl.spirv.c.o
+[234/251] Building C object CMakeFiles/rt64.dir/src/shaders/RtCopyColorToDepthPSMS.hlsl.spirv.c.o
 [235/251] Building C object CMakeFiles/rt64.dir/src/shaders/RtCopyDepthToColorPS.hlsl.spirv.c.o
-[236/251] Building C object CMakeFiles/rt64.dir/src/shaders/RtCopyColorToDepthPSMS.hlsl.spirv.c.o
-[237/251] Building C object CMakeFiles/rt64.dir/src/shaders/RtCopyColorToDepthPS.hlsl.spirv.c.o
-[238/251] Building C object CMakeFiles/rt64.dir/src/shaders/VideoInterfacePSPixel.hlsl.spirv.c.o
+[236/251] Building C object CMakeFiles/rt64.dir/src/shaders/RtCopyColorToDepthPS.hlsl.spirv.c.o
+[237/251] Building C object CMakeFiles/rt64.dir/src/shaders/RtCopyDepthToColorPSMS.hlsl.spirv.c.o
+[238/251] Building C object CMakeFiles/rt64.dir/src/shaders/TextureCopyPS.hlsl.spirv.c.o
 [239/251] Building C object CMakeFiles/rt64.dir/src/shaders/VideoInterfacePSRegular.hlsl.spirv.c.o
 [240/251] Building C object CMakeFiles/rt64.dir/src/shaders/FullScreenVS.hlsl.spirv.c.o
-[241/251] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DGSLines.hlsl.spirv.c.o
+[241/251] Building C object CMakeFiles/rt64.dir/src/shaders/VideoInterfacePSPixel.hlsl.spirv.c.o
 [242/251] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DVS.hlsl.spirv.c.o
 [243/251] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DGSPoints.hlsl.spirv.c.o
-[244/251] Building C object CMakeFiles/rt64.dir/src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl.spirv.c.o
-[245/251] Building C object CMakeFiles/rt64.dir/src/shaders/TextureDecodeCS.hlsl.spirv.c.o
-[246/251] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DPS.hlsl.spirv.c.o
-[247/251] Building C object CMakeFiles/rt64.dir/src/shaders/ComposePS.hlsl.spirv.c.o
+[244/251] Building C object CMakeFiles/rt64.dir/src/shaders/TextureDecodeCS.hlsl.spirv.c.o
+[245/251] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DGSLines.hlsl.spirv.c.o
+[246/251] Building C object CMakeFiles/rt64.dir/src/shaders/ComposePS.hlsl.spirv.c.o
+[247/251] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DPS.hlsl.spirv.c.o
 [248/251] Building C object CMakeFiles/rt64.dir/src/shaders/PostProcessPS.hlsl.spirv.c.o
 [249/251] Building C object CMakeFiles/rt64.dir/src/shaders/DebugPS.hlsl.spirv.c.o
 [250/251] Building CXX object CMakeFiles/rt64.dir/src/contrib/implot/implot_items.cpp.o
