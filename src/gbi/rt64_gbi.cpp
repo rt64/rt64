@@ -5,6 +5,7 @@
 #include "rt64_gbi.h"
 
 #include <cassert>
+#include <cinttypes>
 
 #include "rt64_gbi_extended.h"
 #include "rt64_gbi_f3d.h"
@@ -171,7 +172,7 @@ namespace RT64 {
 
             // If we used an unknown value in the database, print the hash.
             if (gbiSegment.hashValue == GBI_UNKNOWN_HASH_NUMB) {
-                fprintf(stdout, "HASH: 0x%016llXULL SIZE: 0x%X\n", rdramHash, rdramHashed);
+                fprintf(stdout, "HASH: 0x%016" PRIX64 "ULL SIZE: 0x%X\n", rdramHash, rdramHashed);
             }
         };
 
