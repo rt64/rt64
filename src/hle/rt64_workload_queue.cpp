@@ -735,7 +735,7 @@ namespace RT64 {
                     }
 
                     // Do the resolve if using MSAA while target override is active and we're on the correct framebuffer pair index.
-                    if (usingMSAA && (overrideTarget != nullptr) && (overrideTargetFbPairIndex == f)) {
+                    if (usingMSAA && (overrideTarget != nullptr) && ((uint32_t)overrideTargetFbPairIndex == f)) {
                         overrideTarget->resize(ext.workloadGraphicsWorker, colorTarget->width, colorTarget->height);
                         overrideTarget->resolveFromTarget(ext.workloadGraphicsWorker, colorTarget);
                     }
@@ -831,7 +831,7 @@ namespace RT64 {
                 threadConfigurationUpdate(workloadConfig);
 
                 // FIXME: This is a very hacky way to find out if we need to advance the frame if the workload was paused for the first time.
-                if (!workload.paused || (!gameFrames[curFrameIndex].workloads.empty() && (gameFrames[curFrameIndex].workloads[0] != processCursor))) {
+                if (!workload.paused || (!gameFrames[curFrameIndex].workloads.empty() && (gameFrames[curFrameIndex].workloads[0] != (uint32_t)processCursor))) {
                     prevFrameIndex = curFrameIndex;
                     curFrameIndex = (curFrameIndex + 1) % gameFrames.size();
                 }
