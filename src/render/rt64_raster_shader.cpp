@@ -42,7 +42,7 @@ namespace RT64 {
 
         this->device = device;
         this->desc = desc;
-
+        
         const bool useMSAA = (multisampling.sampleCount > 1);
         std::unique_ptr<RenderShader> vertexShader;
         std::unique_ptr<RenderShader> pixelShader;
@@ -53,7 +53,7 @@ namespace RT64 {
             const void *PSBlob = nullptr;
             uint32_t VSBlobSize = 0;
             uint32_t PSBlobSize = 0;
-            const bool outputDepth = desc.outputDepth();
+            const bool outputDepth = desc.outputDepth(useMSAA);
             if (desc.flags.smoothShade) {
                 VSBlob = RasterVSSpecConstantBlobSPIRV;
                 VSBlobSize = uint32_t(std::size(RasterVSSpecConstantBlobSPIRV));
@@ -214,11 +214,11 @@ namespace RT64 {
             ", [[vk::location(0)]] [[vk::index(0)]] out float4 resultColor : SV_TARGET0"
             ", [[vk::location(0)]] [[vk::index(1)]] out float4 resultAlpha : SV_TARGET1";
 
-        if (desc.outputDepth()) {
+        if (desc.outputDepth(multisampling)) {
             pss << ", out float resultDepth : SV_DEPTH";
         }
 
-        if (desc.outputDepth()) {
+        if (desc.outputDepth(multisampling)) {
             pss << ") { bool outputDepth = true;";
         }
         else {
