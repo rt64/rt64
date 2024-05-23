@@ -76,6 +76,7 @@ namespace RT64 {
         threePointFiltering = true;
         refreshRate = RefreshRate::Original;
         refreshRateTarget = 60;
+        internalColorFormat = InternalColorFormat::Automatic;
         idleWorkActive = true;
         developerMode = false;
     }

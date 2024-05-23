@@ -45,7 +45,7 @@ namespace RT64 {
         FramebufferChangePool();
         ~FramebufferChangePool();
         void reset();
-        FramebufferChange &use(RenderWorker *renderWorker, FramebufferChange::Type type, uint32_t width, uint32_t height);
+        FramebufferChange &use(RenderWorker *renderWorker, FramebufferChange::Type type, uint32_t width, uint32_t height, bool usesHDR);
         const FramebufferChange *get(uint64_t id) const;
         void release(uint64_t id);
     };

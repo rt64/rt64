@@ -99,7 +99,7 @@ namespace RT64 {
         assert(worker != nullptr);
         assert(src != nullptr);
         
-        FramebufferChange &changeUsed = fbChangePool.use(worker, (type == Type::Depth) ? FramebufferChange::Type::Depth : FramebufferChange::Type::Color, width, rowCount);
+        FramebufferChange &changeUsed = fbChangePool.use(worker, (type == Type::Depth) ? FramebufferChange::Type::Depth : FramebufferChange::Type::Color, width, rowCount, shaderLibrary->usesHDR);
         uint32_t readPixels = copyRAMToNativeAndChanges(worker, changeUsed, src, rowStart, rowCount, fmt, true, shaderLibrary);
         if (readPixels > 0) {
             return &changeUsed;

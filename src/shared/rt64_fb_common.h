@@ -18,6 +18,7 @@ namespace interop {
         uint siz;
         uint ditherPattern;
         uint ditherRandomSeed;
+        uint usesHDR;
     };
 #ifdef HLSL_CPU
 };

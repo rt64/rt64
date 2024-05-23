@@ -17,8 +17,6 @@ namespace RT64 {
     struct RenderWorker;
 
     struct RenderTarget {
-        static const RenderFormat ColorBufferFormat;
-        static const RenderFormat DepthBufferFormat;
         static const long MaxDimension;
 
         std::unique_ptr<RenderTexture> texture;
@@ -45,8 +43,9 @@ namespace RT64 {
         int32_t misalignX = 0;
         int32_t invMisalignX = 0;
         bool resolvedTextureDirty = false;
+        bool usesHDR = false;
 
-        RenderTarget(uint32_t addressForName, Framebuffer::Type type, const RenderMultisampling &multisampling);
+        RenderTarget(uint32_t addressForName, Framebuffer::Type type, const RenderMultisampling &multisampling, bool usesHDR);
         ~RenderTarget();
         void releaseTextures();
         bool resize(RenderWorker *worker, uint32_t newWidth, uint32_t newHeight);
@@ -69,5 +68,7 @@ namespace RT64 {
         bool isEmpty() const;
         static void computeScaledSize(uint32_t nativeWidth, uint32_t nativeHeight, hlslpp::float2 resolutionScale, uint32_t &scaledWidth, uint32_t &scaledHeight, uint32_t &misalignmentX);
         static hlslpp::float2 computeFixedResolutionScale(uint32_t nativeWidth, hlslpp::float2 resolutionScale);
+        static RenderFormat colorBufferFormat(bool usesHDR);
+        static RenderFormat depthBufferFormat();
     };
 };

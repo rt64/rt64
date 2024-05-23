@@ -32,6 +32,7 @@ namespace interop {
             uint usesTexture1 : 1;
             uint upscale2D : 1;
             uint upscaleLOD : 1;
+            uint usesHDR : 1;
         };
 
         uint value;
@@ -118,6 +119,10 @@ namespace interop {
 
     bool renderFlagUpscaleLOD(RenderFlags flags) {
         return ((flags >> 24) & 0x1) != 0;
+    }
+
+    bool renderFlagUsesHDR(RenderFlags flags) {
+        return ((flags >> 25) & 0x1) != 0;
     }
 #endif
 

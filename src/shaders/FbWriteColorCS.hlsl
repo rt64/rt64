@@ -18,7 +18,7 @@ void CSMain(uint2 coord : SV_DispatchThreadID) {
         bool oddColumn = (offsetCoord.x & 1);
         uint randomSeed = initRand(gConstants.ditherRandomSeed, dstIndex, 16);
         uint ditherValue = DitherPatternValue(gConstants.ditherPattern, offsetCoord, randomSeed);
-        uint nativeUint = Float4ToUINT(color, gConstants.siz, gConstants.fmt, oddColumn, ditherValue);
+        uint nativeUint = Float4ToUINT(color, gConstants.siz, gConstants.fmt, oddColumn, ditherValue, gConstants.usesHDR);
         gOutput[dstIndex] = EndianSwapUINT(nativeUint, gConstants.siz);
     }
 }

@@ -26,8 +26,14 @@ namespace RT64 {
     
     // RenderTargetManager
 
+    RenderTargetManager::RenderTargetManager() { }
+
     void RenderTargetManager::setMultisampling(const RenderMultisampling &multisampling) {
         this->multisampling = multisampling;
+    }
+
+    void RenderTargetManager::setUsesHDR(bool usesHDR) {
+        this->usesHDR = usesHDR;
     }
 
     RenderTarget &RenderTargetManager::get(const RenderTargetKey &key, bool ignoreOverrides) {
@@ -44,7 +50,7 @@ namespace RT64 {
             return *target;
         }
 
-        target = std::make_unique<RenderTarget>(key.address, key.fbType, multisampling);
+        target = std::make_unique<RenderTarget>(key.address, key.fbType, multisampling, usesHDR);
         return *target;
     }
     

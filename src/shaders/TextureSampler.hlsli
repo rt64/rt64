@@ -59,7 +59,7 @@ void computeLOD(OtherMode otherMode, uint rdpTileCount, float2 primLOD, float re
     }
 }
 
-float4 clampWrapMirrorSample(const RDPTile rdpTile, const GPUTile gpuTile, int2 texelInt, uint textureIndex, uint tlut, bool canDecodeTMEM) {
+float4 clampWrapMirrorSample(const RDPTile rdpTile, const GPUTile gpuTile, int2 texelInt, uint textureIndex, uint tlut, bool canDecodeTMEM, bool usesHDR) {
     if (rdpTile.cms & G_TX_CLAMP) {
         texelInt.x = clamp(texelInt.x, 0, (round(gpuTile.tcScale.x * rdpTile.lrs) / 4) - (round(gpuTile.tcScale.x * rdpTile.uls) / 4) + round(gpuTile.tcScale.x - 1.0f));
     }
@@ -98,7 +98,8 @@ float4 clampWrapMirrorSample(const RDPTile rdpTile, const GPUTile gpuTile, int2 
         // Alpha channel in framebuffer textures represent the coverage. A modulo operation must be performed
         // to get the value that would correspond to the alpha channel when it's sampled.
         if (gpuTileFlagAlphaIsCvg(gpuTile.flags)) {
-            int cvgModulo = round(textureColor.a * 255.0f) % 8;
+            const float cvgRange = usesHDR ? 65535.0f : 255.0f;
+            int cvgModulo = round(textureColor.a * cvgRange) % 8;
             textureColor.a = (cvgModulo & 0x4) ? 1.0f : 0.0f;
         }
         
@@ -145,13 +146,14 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
     
     const uint tlut = otherMode.textLUT();
     const bool canDecodeTMEM = renderFlagCanDecodeTMEM(renderFlags);
+    const bool usesHDR = renderFlagUsesHDR(renderFlags);
     int2 texelBaseInt = floor(uvCoord);
-    float4 sample00 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(0, 0), textureIndex, tlut, canDecodeTMEM);
+    float4 sample00 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(0, 0), textureIndex, tlut, canDecodeTMEM, usesHDR);
     if (filterBilerp || linearFiltering) {
         float2 fracPart = uvCoord - texelBaseInt;
-        float4 sample01 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(0, 1), textureIndex, tlut, canDecodeTMEM);
-        float4 sample10 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(1, 0), textureIndex, tlut, canDecodeTMEM);
-        float4 sample11 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(1, 1), textureIndex, tlut, canDecodeTMEM);
+        float4 sample01 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(0, 1), textureIndex, tlut, canDecodeTMEM, usesHDR);
+        float4 sample10 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(1, 0), textureIndex, tlut, canDecodeTMEM, usesHDR);
+        float4 sample11 = clampWrapMirrorSample(rdpTile, gpuTile, texelBaseInt + int2(1, 1), textureIndex, tlut, canDecodeTMEM, usesHDR);
         if (linearFiltering) {
             return lerp(lerp(sample00, sample10, fracPart.x), lerp(sample01, sample11, fracPart.x), fracPart.y);
         }
