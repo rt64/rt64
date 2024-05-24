@@ -2213,6 +2213,7 @@ namespace RT64 {
                     ImGui::Text("Scalar Block Layout: %d", capabilities.scalarBlockLayout);
                     ImGui::Text("Present Wait: %d", capabilities.presentWait);
                     ImGui::Text("Display Timing: %d", capabilities.displayTiming);
+                    ImGui::Text("Prefer HDR: %d", capabilities.preferHDR);
                     ImGui::EndTabItem();
                 }
 
