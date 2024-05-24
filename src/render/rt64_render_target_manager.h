@@ -28,8 +28,11 @@ namespace RT64 {
         std::unordered_map<uint64_t, std::unique_ptr<RenderTarget>> targetMap;
         std::unordered_map<uint64_t, RenderTarget *> overrideMap;
         RenderMultisampling multisampling;
+        bool usesHDR = false;
 
+        RenderTargetManager();
         void setMultisampling(const RenderMultisampling &multisampling);
+        void setUsesHDR(bool usesHDR);
         RenderTarget &get(const RenderTargetKey &key, bool ignoreOverrides = false);
         void destroyAll();
         void setOverride(const RenderTargetKey &key, RenderTarget *target);

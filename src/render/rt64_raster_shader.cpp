@@ -147,6 +147,7 @@ namespace RT64 {
         creation.zDecal = !copyMode && (desc.otherMode.zMode() == ZMODE_DEC);
         creation.cvgAdd = (desc.otherMode.cvgDst() == CVG_DST_WRAP) || (desc.otherMode.cvgDst() == CVG_DST_SAVE);
         creation.NoN = desc.flags.NoN;
+        creation.usesHDR = desc.flags.usesHDR;
         creation.specConstants = specConstants;
         creation.multisampling = multisampling;
         pipeline = createPipeline(creation);
@@ -260,7 +261,7 @@ namespace RT64 {
 
         RenderGraphicsPipelineDesc pipelineDesc;
         pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-        pipelineDesc.renderTargetFormat[0] = RenderTarget::ColorBufferFormat;
+        pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(c.usesHDR);
         pipelineDesc.renderTargetCount = 1;
         pipelineDesc.cullMode = c.culling ? RenderCullMode::FRONT : RenderCullMode::NONE;
         pipelineDesc.depthClipEnabled = !c.NoN;
@@ -418,6 +419,7 @@ namespace RT64 {
         creation.vertexShader = vertexShader.get();
         creation.pixelShader = pixelShader.get();
         creation.NoN = true;
+        creation.usesHDR = shaderLibrary->usesHDR;
         creation.multisampling = multisampling;
 
         uint32_t threadIndex = 0;

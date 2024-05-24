@@ -143,7 +143,7 @@ namespace RT64 {
             RenderTextureFlags textureFlags = RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS;
             textureFlags |= RenderTextureFlag::RENDER_TARGET;
 
-            const RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(tileCopy.textureWidth, tileCopy.textureHeight, 1, RenderTarget::ColorBufferFormat, textureFlags);
+            const RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(tileCopy.textureWidth, tileCopy.textureHeight, 1, RenderTarget::colorBufferFormat(targetManager.usesHDR), textureFlags);
             tileCopy.texture = renderWorker->device->createTexture(textureDesc);
         }
 
@@ -238,7 +238,7 @@ namespace RT64 {
         cmdListCopies.cmdListCopyRegions.push_back(copyRegion);
     }
     
-    void FramebufferManager::reinterpretTileSetup(RenderWorker *renderWorker, const FramebufferOperation &op, hlslpp::float2 resolutionScale) {
+    void FramebufferManager::reinterpretTileSetup(RenderWorker *renderWorker, const FramebufferOperation &op, hlslpp::float2 resolutionScale, bool usesHDR) {
         assert(tileCopies.find(op.reinterpretTile.srcId) != tileCopies.end());
 
         // Source tile must exist.
@@ -295,13 +295,13 @@ namespace RT64 {
             RenderTextureFlags textureFlags = RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS;
             textureFlags |= RenderTextureFlag::RENDER_TARGET;
 
-            const RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(dstTile.textureWidth, dstTile.textureHeight, 1, RenderTarget::ColorBufferFormat, textureFlags);
+            const RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(dstTile.textureWidth, dstTile.textureHeight, 1, RenderTarget::colorBufferFormat(usesHDR), textureFlags);
             dstTile.texture = renderWorker->device->createTexture(textureDesc);
         }
     }
 
     void FramebufferManager::reinterpretTileRecord(RenderWorker *renderWorker, const FramebufferOperation &op, TextureCache &textureCache, hlslpp::float2 resolutionScale,
-        uint64_t submissionFrame, CommandListReinterpretations &cmdListReinterpretations)
+        uint64_t submissionFrame, bool usesHDR, CommandListReinterpretations &cmdListReinterpretations)
     {
         assert(tileCopies.find(op.reinterpretTile.srcId) != tileCopies.end());
 
@@ -325,6 +325,7 @@ namespace RT64 {
         c.ditherOffset = dstTile.ditherOffset;
         c.ditherPattern = dstTile.ditherPattern;
         c.ditherRandomSeed = uint32_t(writeTimestamp) + op.reinterpretTile.dstId;
+        c.usesHDR = usesHDR;
         dispatch.srcTexture = srcTile.texture.get();
         dispatch.dstTexture = dstTile.texture.get();
 
@@ -808,7 +809,7 @@ namespace RT64 {
             Framebuffer *fb = differentFbs[i];
             const uint8_t *fbRAM = &RDRAM[fb->addressStart];
             const FramebufferChange::Type fbChangeType = (fb->lastWriteFmt == G_IM_FMT_DEPTH) ? FramebufferChange::Type::Depth : FramebufferChange::Type::Color;
-            FramebufferChange &fbChange = fbChangePool.use(renderWorker, fbChangeType, fb->width, fb->height);
+            FramebufferChange &fbChange = fbChangePool.use(renderWorker, fbChangeType, fb->width, fb->height, shaderLibrary->usesHDR);
             const uint32_t DifferenceFractionNum = 1;
             const uint32_t DifferenceFractionDiv = 4;
             const uint32_t differentPixels = fb->copyRAMToNativeAndChanges(renderWorker, fbChange, fbRAM, 0, fb->height, fb->lastWriteFmt, false, shaderLibrary);
@@ -883,7 +884,7 @@ namespace RT64 {
                 break;
             }
             case FramebufferOperation::Type::ReinterpretTile: {
-                reinterpretTileSetup(renderWorker, op, resolutionScale);
+                reinterpretTileSetup(renderWorker, op, resolutionScale, targetManager.usesHDR);
                 break;
             }
             default:
@@ -917,7 +918,7 @@ namespace RT64 {
             }
             case FramebufferOperation::Type::ReinterpretTile: {
                 assert(textureCache != nullptr);
-                reinterpretTileRecord(renderWorker, op, *textureCache, resolutionScale, submissionFrame, cmdListReinterpretations);
+                reinterpretTileRecord(renderWorker, op, *textureCache, resolutionScale, submissionFrame, shaderLibrary->usesHDR, cmdListReinterpretations);
                 break;
             }
             default:

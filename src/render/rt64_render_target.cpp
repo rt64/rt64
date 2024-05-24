@@ -8,6 +8,7 @@
 
 #include "gbi/rt64_f3d.h"
 #include "shared/rt64_fb_common.h"
+#include "shared/rt64_render_target_copy.h"
 
 #include "rt64_raster_shader.h"
 
@@ -16,14 +17,13 @@
 namespace RT64 {
     // RenderTarget
     
-    const RenderFormat RenderTarget::ColorBufferFormat = RenderFormat::R8G8B8A8_UNORM;
-    const RenderFormat RenderTarget::DepthBufferFormat = RenderFormat::D32_FLOAT;
     const long RenderTarget::MaxDimension = 0x4000L;
 
-    RenderTarget::RenderTarget(uint32_t addressForName, Framebuffer::Type type, const RenderMultisampling &multisampling) {
+    RenderTarget::RenderTarget(uint32_t addressForName, Framebuffer::Type type, const RenderMultisampling &multisampling, bool usesHDR) {
         this->addressForName = addressForName;
         this->type = type;
         this->multisampling = multisampling;
+        this->usesHDR = usesHDR;
 
 #if PRINT_CONSTRUCTOR_DESTRUCTOR
         fprintf(stdout, "RenderTarget(0x%p)\n", this);
@@ -80,7 +80,7 @@ namespace RT64 {
         this->height = height;
 
         downsampledTextureMultiplier = 0;
-        format = ColorBufferFormat;
+        format = colorBufferFormat(usesHDR);
         
         RenderClearValue clearValue = RenderClearValue::Color(RenderColor(), format);
         texture = worker->device->createTexture(RenderTextureDesc::ColorTarget(width, height, format, multisampling, &clearValue));
@@ -104,7 +104,7 @@ namespace RT64 {
         this->height = height;
 
         downsampledTextureMultiplier = 0;
-        format = DepthBufferFormat;
+        format = depthBufferFormat();
         
         RenderClearValue clearValue = RenderClearValue::Depth(RenderDepth(), RenderFormat::D32_FLOAT);
         texture = worker->device->createTexture(RenderTextureDesc::DepthTarget(width, height, format, multisampling, &clearValue));
@@ -117,7 +117,7 @@ namespace RT64 {
         assert(worker != nullptr);
         
         if (dummyTexture == nullptr) {
-            dummyTexture = worker->device->createTexture(RenderTextureDesc::ColorTarget(width, height, ColorBufferFormat, multisampling));
+            dummyTexture = worker->device->createTexture(RenderTextureDesc::ColorTarget(width, height, colorBufferFormat(usesHDR), multisampling));
             dummyTexture->setName("Render Target Dummy");
         }
     }
@@ -152,12 +152,12 @@ namespace RT64 {
         const ShaderRecord *shaderRecord = nullptr;
         bool useDummyTexture = false;
         const bool srcUsesMSAA = (src->multisampling.sampleCount > 1);
-        if ((format == ColorBufferFormat) && (src->format == DepthBufferFormat)) {
+        if ((format == colorBufferFormat(usesHDR)) && (src->format == depthBufferFormat())) {
             shaderRecord = srcUsesMSAA ? &shaderLibrary->rtCopyDepthToColorMS : &shaderLibrary->rtCopyDepthToColor;
             requiredTextureLayout = RenderTextureLayout::COLOR_WRITE;
             setupColorFramebuffer(worker);
         }
-        else if ((format == DepthBufferFormat) && (src->format == ColorBufferFormat)) {
+        else if ((format == depthBufferFormat()) && (src->format == colorBufferFormat(usesHDR))) {
             useDummyTexture = true;
             shaderRecord = srcUsesMSAA ? &shaderLibrary->rtCopyColorToDepthMS : &shaderLibrary->rtCopyColorToDepth;
             requiredTextureLayout = RenderTextureLayout::DEPTH_WRITE;
@@ -183,6 +183,9 @@ namespace RT64 {
         worker->commandList->barriers(RenderBarrierStage::GRAPHICS, framebufferBarriers);
         worker->commandList->setFramebuffer(textureFramebuffer.get());
 
+        interop::RenderTargetCopyCB copyCB;
+        copyCB.usesHDR = usesHDR;
+
         // Record the drawing command.
         RenderViewport targetViewport = RenderViewport(float(x), float(y), float(width), float(height));
         RenderRect targetRect(x, y, x + width, y + height);
@@ -191,6 +194,7 @@ namespace RT64 {
         worker->commandList->setPipeline(shaderRecord->pipeline.get());
         worker->commandList->setGraphicsPipelineLayout(shaderRecord->pipelineLayout.get());
         worker->commandList->setGraphicsDescriptorSet(src->targetCopyDescSet->get(), 0);
+        worker->commandList->setGraphicsPushConstants(0, &copyCB);
         worker->commandList->setVertexBuffers(0, nullptr, 0, nullptr);
         worker->commandList->drawInstanced(3, 1, 0, 0);
 
@@ -224,12 +228,12 @@ namespace RT64 {
         RenderTextureLayout requiredTextureLayout = RenderTextureLayout::UNKNOWN;
         const ShaderRecord *shaderRecord = nullptr;
         bool useDummyTexture = false;
-        if (format == ColorBufferFormat) {
+        if (format == colorBufferFormat(usesHDR)) {
             shaderRecord = &shaderLibrary->fbChangesDrawColor;
             requiredTextureLayout = RenderTextureLayout::COLOR_WRITE;
             setupColorFramebuffer(worker);
         }
-        else if (format == DepthBufferFormat) {
+        else if (format == depthBufferFormat()) {
             useDummyTexture = true;
             shaderRecord = &shaderLibrary->fbChangesDrawDepth;
             requiredTextureLayout = RenderTextureLayout::DEPTH_WRITE;
@@ -341,7 +345,7 @@ namespace RT64 {
         uint32_t scaledWidth = std::max(width / downsampleMultiplier, 1U);
         uint32_t scaledHeight = std::max(height / downsampleMultiplier, 1U);
         if (downsampledTexture == nullptr) {
-            downsampledTexture = worker->device->createTexture(RenderTextureDesc::Texture2D(scaledWidth, scaledHeight, 1, ColorBufferFormat, RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
+            downsampledTexture = worker->device->createTexture(RenderTextureDesc::Texture2D(scaledWidth, scaledHeight, 1, colorBufferFormat(usesHDR), RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
             downsampledTexture->setName("Render Target Downsampled");
             downsampledTextureMultiplier = downsampleMultiplier;
         }
@@ -432,5 +436,13 @@ namespace RT64 {
         expandedColorWidthClamped += expandedColorWidthClamped & 0x1;
         resolutionScale.x = float(expandedColorWidthClamped) / float(nativeWidth);
         return resolutionScale;
+    }
+
+    RenderFormat RenderTarget::colorBufferFormat(bool usesHDR) {
+        return usesHDR ? RenderFormat::R16G16B16A16_UNORM : RenderFormat::R8G8B8A8_UNORM;
+    }
+
+    RenderFormat RenderTarget::depthBufferFormat() {
+        return RenderFormat::D32_FLOAT;
     }
 };

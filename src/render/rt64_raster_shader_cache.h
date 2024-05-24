@@ -71,6 +71,7 @@ namespace RT64 {
         OfflineList offlineList;
         OfflineDumper offlineDumper;
         std::mutex offlineDumperMutex;
+        bool usesHDR = false;
         
         RasterShaderCache(uint32_t threadCount);
         ~RasterShaderCache();

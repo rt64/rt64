@@ -13,6 +13,8 @@ namespace RT64 {
     };
 
     struct ShaderLibrary {
+        bool usesHDR = false;
+
         std::unique_ptr<RenderSampler> nearestClampSampler;
         std::unique_ptr<RenderSampler> linearClampSampler;
         std::unique_ptr<RenderSampler> nearestBorderSampler;
@@ -59,7 +61,7 @@ namespace RT64 {
         ShaderRecord videoInterfaceNearest;
         ShaderRecord videoInterfacePixel;
 
-        ShaderLibrary();
+        ShaderLibrary(bool usesHDR);
         ~ShaderLibrary();
         void setupCommonShaders(RenderInterface *rhi, RenderDevice *device);
         void setupMultisamplingShaders(RenderInterface *rhi, RenderDevice *device, const RenderMultisampling &multisampling);

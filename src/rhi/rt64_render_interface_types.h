@@ -1544,6 +1544,9 @@ namespace RT64 {
         // Present.
         bool presentWait = false;
         bool displayTiming = false;
+
+        // HDR.
+        bool preferHDR = false;
     };
 
     struct RenderInterfaceCapabilities {

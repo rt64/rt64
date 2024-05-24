@@ -456,7 +456,7 @@ namespace RT64 {
 
         RenderTargetCopyDescriptorSet(RenderDevice *device = nullptr) {
             builder.begin();
-            gInput = builder.addTexture(0);
+            gInput = builder.addTexture(1);
             builder.end();
 
             if (device != nullptr) {

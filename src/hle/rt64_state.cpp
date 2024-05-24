@@ -73,6 +73,7 @@ namespace RT64 {
 
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(ext.userConfig->msaaSampleCount(), ext.device->getCapabilities().sampleLocations);
         renderTargetManager.setMultisampling(multisampling);
+        renderTargetManager.setUsesHDR(ext.shaderLibrary->usesHDR);
     }
 
     void State::reset() {
@@ -779,6 +780,7 @@ namespace RT64 {
         // Fill out all the rendering data for the framebuffer pairs that will be uploaded.
         const UserConfiguration::Upscale2D upscale2D = ext.userConfig->upscale2D;
         const bool scaleLOD = ext.enhancementConfig->textureLOD.scale;
+        const bool usesHDR = ext.shaderLibrary->usesHDR;
         const std::vector<uint32_t> &faceIndices = workload.drawData.faceIndices;
         const std::vector<int16_t> &posShorts = workload.drawData.posShorts;
         uint32_t faceIndex = uint32_t(workload.drawRanges.faceIndices.first);
@@ -940,6 +942,7 @@ namespace RT64 {
                     flags.usesTexture0 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 0, flags.oneCycleHardwareBug);
                     flags.usesTexture1 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 1, flags.oneCycleHardwareBug);
                     flags.blenderApproximation = static_cast<unsigned>(blenderEmuReqs.approximateEmulation);
+                    flags.usesHDR = usesHDR;
 
                     // Set whether the LOD should be scaled to the display resolution according to the configuration mode and the extended GBI flags.
                     const bool usesLOD = (callDesc.otherMode.textLOD() == G_TL_LOD);
@@ -1440,7 +1443,7 @@ namespace RT64 {
                     // Set up the dummy target used for rendering the depth if no depth framebuffer is active.
                     if (depthFb == nullptr) {
                         if (dummyDepthTarget == nullptr) {
-                            dummyDepthTarget = std::make_unique<RenderTarget>(0, Framebuffer::Type::Depth, renderTargetManager.multisampling);
+                            dummyDepthTarget = std::make_unique<RenderTarget>(0, Framebuffer::Type::Depth, renderTargetManager.multisampling, renderTargetManager.usesHDR);
                             dummyDepthTarget->setupDepth(ext.framebufferGraphicsWorker, rtWidth, rtHeight);
                         }
 
@@ -1883,7 +1886,8 @@ namespace RT64 {
                     genConfigChanged = ImGui::InputInt("Downsample Multiplier", &userConfig.downsampleMultiplier) || genConfigChanged;
                     
                     ImGui::BeginDisabled(!ext.device->getCapabilities().sampleLocations);
-                    const RenderSampleCounts sampleCountsSupported = ext.device->getSampleCountsSupported(RenderTarget::ColorBufferFormat) & ext.device->getSampleCountsSupported(RenderTarget::DepthBufferFormat);
+                    const bool usesHDR = ext.shaderLibrary->usesHDR;
+                    const RenderSampleCounts sampleCountsSupported = ext.device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR)) & ext.device->getSampleCountsSupported(RenderTarget::depthBufferFormat());
                     const uint32_t antialiasingOptionCount = uint32_t(UserConfiguration::Antialiasing::OptionCount);
                     const char *antialiasingNames[antialiasingOptionCount] = { "None", "MSAA 2X", "MSAA 4X", "MSAA 8X" };
                     if (ImGui::BeginCombo("Antialiasing", antialiasingNames[uint32_t(userConfig.antialiasing)])) {
@@ -1927,6 +1931,17 @@ namespace RT64 {
                     const bool manualRefreshRate = (userConfig.refreshRate == UserConfiguration::RefreshRate::Manual);
                     if (manualRefreshRate) {
                         genConfigChanged = ImGui::InputInt("Refresh Rate Target", &userConfig.refreshRateTarget) || genConfigChanged;
+                    }
+
+                    // Store the user configuration that was used during initialization the first time we check this.
+                    static UserConfiguration::InternalColorFormat configColorFormat = UserConfiguration::InternalColorFormat::OptionCount;
+                    if (configColorFormat == UserConfiguration::InternalColorFormat::OptionCount) {
+                        configColorFormat = userConfig.internalColorFormat;
+                    }
+
+                    genConfigChanged = ImGui::Combo("Color Format", reinterpret_cast<int *>(&userConfig.internalColorFormat), "Standard\0High\0Automatic\0") || genConfigChanged;
+                    if (userConfig.internalColorFormat != configColorFormat) {
+                        ImGui::Text("You must restart the application for this change to be applied.");
                     }
 
                     genConfigChanged = ImGui::Checkbox("Three-Point Filtering", &userConfig.threePointFiltering) || genConfigChanged;
@@ -2198,6 +2213,7 @@ namespace RT64 {
                     ImGui::Text("Scalar Block Layout: %d", capabilities.scalarBlockLayout);
                     ImGui::Text("Present Wait: %d", capabilities.presentWait);
                     ImGui::Text("Display Timing: %d", capabilities.displayTiming);
+                    ImGui::Text("Prefer HDR: %d", capabilities.preferHDR);
                     ImGui::EndTabItem();
                 }
 

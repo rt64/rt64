@@ -494,7 +494,7 @@ namespace RT64 {
                     // Set up the dummy target used for rendering the depth if no depth framebuffer is active.
                     if (depthFb == nullptr) {
                         if (dummyDepthTarget == nullptr) {
-                            dummyDepthTarget = std::make_unique<RenderTarget>(0, Framebuffer::Type::Depth, targetManager.multisampling);
+                            dummyDepthTarget = std::make_unique<RenderTarget>(0, Framebuffer::Type::Depth, targetManager.multisampling, targetManager.usesHDR);
                             dummyDepthTarget->setupDepth(ext.workloadGraphicsWorker, rtWidth, rtHeight);
                         }
 
@@ -958,12 +958,13 @@ namespace RT64 {
                 // Create as many render targets as required to store the interpolated targets.
                 auto &interpolatedTargets = ext.sharedResources->interpolatedColorTargets;
                 const bool usingMSAA = (ext.sharedResources->renderTargetManager.multisampling.sampleCount > 1);
+                const bool usesHDR = ext.sharedResources->renderTargetManager.usesHDR;
                 uint32_t requiredFrames = (usingMSAA && generateInterpolatedFrames) ? displayFrames : (displayFrames - 1);
                 if ((requiredFrames > 0) && (interpolatedTargets.size() < requiredFrames)) {
                     uint32_t previousSize = uint32_t(interpolatedTargets.size());
                     interpolatedTargets.resize(requiredFrames);
                     for (uint32_t i = previousSize; i < requiredFrames; i++) {
-                        interpolatedTargets[i] = std::make_unique<RenderTarget>(interpolationTargetKey.address, Framebuffer::Type::Color, RenderMultisampling());
+                        interpolatedTargets[i] = std::make_unique<RenderTarget>(interpolationTargetKey.address, Framebuffer::Type::Color, RenderMultisampling(), usesHDR);
                     }
                 }
                 

@@ -33,6 +33,7 @@ namespace RT64 {
         bool zUpd;
         bool zDecal;
         bool cvgAdd;
+        bool usesHDR;
         std::vector<RenderSpecConstant> specConstants;
         RenderMultisampling multisampling;
     };

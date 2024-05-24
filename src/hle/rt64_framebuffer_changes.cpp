@@ -33,7 +33,7 @@ namespace RT64 {
         }
     }
 
-    FramebufferChange &FramebufferChangePool::use(RenderWorker *renderWorker, FramebufferChange::Type type, uint32_t width, uint32_t height) {
+    FramebufferChange &FramebufferChangePool::use(RenderWorker *renderWorker, FramebufferChange::Type type, uint32_t width, uint32_t height, bool usesHDR) {
         // To increase the chances of reusing buffers, we extend the width and height to a multiple of 32.
         const uint32_t Alignment = 32;
         uint32_t alignedWidth = ((width / Alignment) + ((width % Alignment) ? 1 : 0)) * Alignment;
@@ -65,7 +65,7 @@ namespace RT64 {
         RenderFormat pixelFormat;
         switch (type) {
         case FramebufferChange::Type::Color:
-            pixelFormat = RenderTarget::ColorBufferFormat;
+            pixelFormat = RenderTarget::colorBufferFormat(usesHDR);
             break;
         case FramebufferChange::Type::Depth:
             pixelFormat = RenderFormat::R32_FLOAT;
