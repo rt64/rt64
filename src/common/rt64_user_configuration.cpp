@@ -28,6 +28,7 @@ namespace RT64 {
         j["threePointFiltering"] = cfg.threePointFiltering;
         j["refreshRate"] = cfg.refreshRate;
         j["refreshRateTarget"] = cfg.refreshRateTarget;
+        j["internalColorFormat"] = cfg.internalColorFormat;
         j["idleWorkActive"] = cfg.idleWorkActive;
         j["developerMode"] = cfg.developerMode;
     }
@@ -48,6 +49,7 @@ namespace RT64 {
         cfg.threePointFiltering = j.value("threePointFiltering", defaultCfg.threePointFiltering);
         cfg.refreshRate = j.value("refreshRate", defaultCfg.refreshRate);
         cfg.refreshRateTarget = j.value("refreshRateTarget", defaultCfg.refreshRateTarget);
+        cfg.internalColorFormat = j.value("internalColorFormat", defaultCfg.internalColorFormat);
         cfg.idleWorkActive = j.value("idleWorkActive", defaultCfg.idleWorkActive);
         cfg.developerMode = j.value("developerMode", defaultCfg.developerMode);
     }
@@ -90,6 +92,7 @@ namespace RT64 {
         clampEnum<AspectRatio>(extAspectRatio);
         clampEnum<Upscale2D>(upscale2D);
         clampEnum<RefreshRate>(refreshRate);
+        clampEnum<InternalColorFormat>(internalColorFormat);
         resolutionMultiplier = std::clamp<double>(resolutionMultiplier, 0.0f, ResolutionMultiplierLimit);
         downsampleMultiplier = std::clamp<int>(downsampleMultiplier, 1, ResolutionMultiplierLimit);
         aspectTarget = std::clamp<double>(aspectTarget, 0.1f, 100.0f);
