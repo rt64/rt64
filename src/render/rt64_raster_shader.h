@@ -62,6 +62,8 @@ namespace RT64 {
         static const uint64_t RasterPSTextHash;
 
         std::unique_ptr<RenderPipeline> pipelines[64];
+        std::unique_ptr<RenderPipeline> postBlendDitherNoiseAddPipeline;
+        std::unique_ptr<RenderPipeline> postBlendDitherNoiseSubPipeline;
         std::mutex pipelinesMutex;
         bool pipelinesCreated = false;
         std::unique_ptr<RenderPipelineLayout> pipelineLayout;

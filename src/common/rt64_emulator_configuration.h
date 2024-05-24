@@ -8,11 +8,16 @@
 
 namespace RT64 {
     struct EmulatorConfiguration {
+        struct Dither {
+            bool postBlendNoise;
+        };
+
         struct Framebuffer {
             bool renderToRAM;
             bool copyWithGPU;
         };
 
+        Dither dither;
         Framebuffer framebuffer;
 
         EmulatorConfiguration();

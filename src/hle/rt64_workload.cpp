@@ -21,6 +21,8 @@ namespace RT64 {
         viOriginalRate = 0;
         workloadId = 0;
         extended.testZIndexCount = 0;
+        extended.ditherNoiseStrength = 1.0f;
+
         commandWarnings.clear();
         scriptLights.clear();
         fbChangePool.reset();

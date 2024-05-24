@@ -17,10 +17,14 @@
 #include "shaders/RasterVSDynamic.hlsl.spirv.h"
 #include "shaders/RasterVSSpecConstant.hlsl.spirv.h"
 #include "shaders/RasterVSSpecConstantFlat.hlsl.spirv.h"
+#include "shaders/PostBlendDitherNoiseAddPS.hlsl.spirv.h"
+#include "shaders/PostBlendDitherNoiseSubPS.hlsl.spirv.h"
 #ifdef _WIN32
 #   include "shaders/RasterPSDynamic.hlsl.dxil.h"
 #   include "shaders/RasterPSDynamicMS.hlsl.dxil.h"
 #   include "shaders/RasterVSDynamic.hlsl.dxil.h"
+#   include "shaders/PostBlendDitherNoiseAddPS.hlsl.dxil.h"
+#   include "shaders/PostBlendDitherNoiseSubPS.hlsl.dxil.h"
 #endif
 #include "shaders/RasterPS.hlsl.rw.h"
 #include "shaders/RasterVS.hlsl.rw.h"
@@ -30,8 +34,24 @@
 #include "rt64_render_target.h"
 
 namespace RT64 {
-    const std::string RasterPSString(reinterpret_cast<const char *>(RasterPSText), sizeof(RasterPSText));
-    const std::string RasterVSString(reinterpret_cast<const char *>(RasterVSText), sizeof(RasterVSText));
+    static const std::string RasterPSString(reinterpret_cast<const char *>(RasterPSText), sizeof(RasterPSText));
+    static const std::string RasterVSString(reinterpret_cast<const char *>(RasterVSText), sizeof(RasterVSText));
+     
+    static const RenderFormat RasterPositionFormat = RenderFormat::R32G32B32A32_FLOAT;
+    static const RenderFormat RasterTexcoordFormat = RenderFormat::R32G32_FLOAT;
+    static const RenderFormat RasterColorFormat = RenderFormat::R32G32B32A32_FLOAT;
+
+    static const RenderInputSlot RasterInputSlots[3] = {
+        RenderInputSlot(0, RenderFormatSize(RasterPositionFormat)),
+        RenderInputSlot(1, RenderFormatSize(RasterTexcoordFormat)),
+        RenderInputSlot(2, RenderFormatSize(RasterColorFormat))
+    };
+
+    static const RenderInputElement RasterInputElements[3] = {
+        RenderInputElement("POSITION", 0, 0, RasterPositionFormat, 0, 0),
+        RenderInputElement("TEXCOORD", 0, 1, RasterTexcoordFormat, 1, 0),
+        RenderInputElement("COLOR", 0, 2, RasterColorFormat, 2, 0)
+    };
 
     // RasterShader
 
@@ -244,21 +264,6 @@ namespace RT64 {
     std::unique_ptr<RenderPipeline> RasterShader::createPipeline(const PipelineCreation &c) {
         assert((!c.zDecal || !c.zUpd) && "Decals with depth write should never be created.");
 
-        const RenderFormat PositionFormat = RenderFormat::R32G32B32A32_FLOAT;
-        const RenderFormat TexcoordFormat = RenderFormat::R32G32_FLOAT;
-        const RenderFormat ColorFormat = RenderFormat::R32G32B32A32_FLOAT;
-        RenderInputSlot inputSlots[3] = {
-            RenderInputSlot(0, RenderFormatSize(PositionFormat)),
-            RenderInputSlot(1, RenderFormatSize(TexcoordFormat)),
-            RenderInputSlot(2, RenderFormatSize(ColorFormat))
-        };
-
-        RenderInputElement inputElements[3] = {
-            inputElements[0] = RenderInputElement("POSITION", 0, 0, PositionFormat, 0, 0),
-            inputElements[1] = RenderInputElement("TEXCOORD", 0, 1, TexcoordFormat, 1, 0),
-            inputElements[2] = RenderInputElement("COLOR", 0, 2, ColorFormat, 2, 0)
-        };
-
         RenderGraphicsPipelineDesc pipelineDesc;
         pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
         pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(c.usesHDR);
@@ -269,10 +274,10 @@ namespace RT64 {
         pipelineDesc.depthWriteEnabled = c.zUpd;
         pipelineDesc.depthTargetFormat = RenderFormat::D32_FLOAT;
         pipelineDesc.multisampling = c.multisampling;
-        pipelineDesc.inputSlots = inputSlots;
-        pipelineDesc.inputSlotsCount = uint32_t(std::size(inputSlots));
-        pipelineDesc.inputElements = inputElements;
-        pipelineDesc.inputElementsCount = uint32_t(std::size(inputElements));
+        pipelineDesc.inputSlots = RasterInputSlots;
+        pipelineDesc.inputSlotsCount = uint32_t(std::size(RasterInputSlots));
+        pipelineDesc.inputElements = RasterInputElements;
+        pipelineDesc.inputElementsCount = uint32_t(std::size(RasterInputElements));
         pipelineDesc.pipelineLayout = c.pipelineLayout;
         pipelineDesc.primitiveTopology = RenderPrimitiveTopology::TRIANGLE_LIST;
         pipelineDesc.vertexShader = c.vertexShader;
@@ -447,6 +452,56 @@ namespace RT64 {
         for (uint32_t i = 0; i < threadCount; i++) {
             pipelineThreads[i] = std::make_unique<std::thread>(&RasterShaderUber::threadCreatePipelines, this, i);
         }
+
+        // Create the pipelines for post blend operations.
+        std::unique_ptr<RenderShader> postBlendAddPixelShader;
+        std::unique_ptr<RenderShader> postBlendSubPixelShader;
+        switch (shaderFormat) {
+#   ifdef _WIN32
+        case RenderShaderFormat::DXIL:
+            postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobDXIL, std::size(PostBlendDitherNoiseAddPSBlobDXIL), "PSMain", shaderFormat);
+            postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobDXIL, std::size(PostBlendDitherNoiseSubPSBlobDXIL), "PSMain", shaderFormat);
+            break;
+#   endif
+        case RenderShaderFormat::SPIRV:
+            postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobSPIRV, std::size(PostBlendDitherNoiseAddPSBlobSPIRV), "PSMain", shaderFormat);
+            postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobSPIRV, std::size(PostBlendDitherNoiseSubPSBlobSPIRV), "PSMain", shaderFormat);
+            break;
+        default:
+            assert(false && "Unknown shader format.");
+            return;
+        }
+
+        RenderGraphicsPipelineDesc postBlendDesc;
+        postBlendDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+        postBlendDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(shaderLibrary->usesHDR);
+        postBlendDesc.renderTargetCount = 1;
+        postBlendDesc.cullMode = RenderCullMode::NONE;
+        postBlendDesc.depthTargetFormat = RenderFormat::D32_FLOAT;
+        postBlendDesc.multisampling = multisampling;
+        postBlendDesc.inputSlots = RasterInputSlots;
+        postBlendDesc.inputSlotsCount = uint32_t(std::size(RasterInputSlots));
+        postBlendDesc.inputElements = RasterInputElements;
+        postBlendDesc.inputElementsCount = uint32_t(std::size(RasterInputElements));
+        postBlendDesc.pipelineLayout = pipelineLayout.get();
+        postBlendDesc.primitiveTopology = RenderPrimitiveTopology::TRIANGLE_LIST;
+        postBlendDesc.vertexShader = vertexShader.get();
+        postBlendDesc.pixelShader = postBlendAddPixelShader.get();
+
+        RenderBlendDesc &targetBlend = postBlendDesc.renderTargetBlend[0];
+        targetBlend.blendEnabled = true;
+        targetBlend.srcBlend = RenderBlend::ONE;
+        targetBlend.dstBlend = RenderBlend::ONE;
+        targetBlend.blendOp = RenderBlendOperation::ADD;
+        targetBlend.srcBlendAlpha = RenderBlend::ZERO;
+        targetBlend.dstBlendAlpha = RenderBlend::ONE;
+        targetBlend.blendOpAlpha = RenderBlendOperation::ADD;
+
+        postBlendDitherNoiseAddPipeline = device->createGraphicsPipeline(postBlendDesc);
+
+        postBlendDesc.pixelShader = postBlendSubPixelShader.get();
+        targetBlend.blendOp = RenderBlendOperation::REV_SUBTRACT;
+        postBlendDitherNoiseSubPipeline = device->createGraphicsPipeline(postBlendDesc);
     }
 
     RasterShaderUber::~RasterShaderUber() {

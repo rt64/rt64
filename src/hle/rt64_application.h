@@ -164,6 +164,7 @@ namespace RT64 {
         bool usesWindowMessageFilter() override;
 #   endif
         void updateUserConfig(bool discardFBs);
+        void updateEmulatorConfig();
         void updateEnhancementConfig();
         void setFullScreen(bool fullscreen);
     };

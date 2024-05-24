@@ -242,6 +242,7 @@ namespace RT64 {
 #   endif
         
         workloadConfig.fixRectLR = ext.sharedResources->enhancementConfig.rect.fixRectLR;
+        workloadConfig.postBlendNoise = ext.sharedResources->emulatorConfig.dither.postBlendNoise;
         
         if (ext.sharedResources->fbConfigChanged || sizeChanged) {
             {
@@ -548,7 +549,7 @@ namespace RT64 {
             // Add all framebuffer pairs to the framebuffer renderer and setup the operations.
             scratchFbChangePool.reset();
             fbManager.resetOperations();
-            framebufferRenderer->resetFramebuffers(ext.workloadGraphicsWorker, ubershadersVisible, targetManager.multisampling);
+            framebufferRenderer->resetFramebuffers(ext.workloadGraphicsWorker, ubershadersVisible, workload.extended.ditherNoiseStrength, targetManager.multisampling);
 
 #       if RT_ENABLED
             if (workloadConfig.raytracingEnabled) {
@@ -581,6 +582,7 @@ namespace RT64 {
                     drawParams.deltaTimeMs = deltaTimeMs;
                     drawParams.ubershadersOnly = ubershadersOnly;
                     drawParams.fixRectLR = workloadConfig.fixRectLR;
+                    drawParams.postBlendNoise = workloadConfig.postBlendNoise;
                     drawParams.maxGameCall = std::min(gameCallCountMax - gameCallCursor, fbPair.gameCallCount);
                     framebufferRenderer->addFramebuffer(drawParams);
                 }

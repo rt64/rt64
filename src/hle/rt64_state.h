@@ -124,6 +124,7 @@ namespace RT64 {
             uint16_t refreshRate = UINT16_MAX;
             uint8_t renderToRAM = UINT8_MAX;
             bool vertexTestZActive = false;
+            float ditherNoiseStrength = 1.0f;
         };
 
         Extended extended;
@@ -155,6 +156,7 @@ namespace RT64 {
         DisplayList *popReturnAddress();
         void setRefreshRate(uint16_t refreshRate);
         void setRenderToRAM(uint8_t renderToRAM);
+        void setDitherNoiseStrength(float noiseStrength);
         uint8_t *fromRDRAM(uint32_t rdramAddress) const;
         void dumpRDRAM(const std::string &path);
         void enableExtendedGBI(uint8_t opCode);
