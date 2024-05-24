@@ -12,6 +12,7 @@ namespace interop {
     struct FrameParams {
         uint frameCount;
         uint viewUbershaders;
+        float ditherNoiseStrength;
     };
 #ifdef HLSL_CPU
 };

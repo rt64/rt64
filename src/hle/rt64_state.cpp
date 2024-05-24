@@ -672,6 +672,9 @@ namespace RT64 {
             flushFramebufferOperations(lastFbPair);
         }
         
+        // Copy the current state's extended parameters into the workload.
+        workload.extended.ditherNoiseStrength = extended.ditherNoiseStrength;
+        
         // Validate all tile copies to be used during the rendering.
         const bool extendedRenderToRAMSet = (extended.renderToRAM < UINT8_MAX);
         const bool renderToRDRAM = extendedRenderToRAMSet ? (extended.renderToRAM != 0) : ext.emulatorConfig->framebuffer.renderToRAM;
@@ -1172,7 +1175,7 @@ namespace RT64 {
                 scratchFbChangePool.reset();
                 ext.framebufferGraphicsWorker->commandList->begin();
                 framebufferManager.resetOperations();
-                framebufferRenderer->resetFramebuffers(ext.framebufferGraphicsWorker, false, renderTargetManager.multisampling);
+                framebufferRenderer->resetFramebuffers(ext.framebufferGraphicsWorker, false, workload.extended.ditherNoiseStrength, renderTargetManager.multisampling);
                 framebufferIndex = 0;
             };
 
@@ -1234,6 +1237,7 @@ namespace RT64 {
                         drawParams.deltaTimeMs = 0.0f;
                         drawParams.ubershadersOnly = false;
                         drawParams.fixRectLR = false;
+                        drawParams.postBlendNoise = ext.emulatorConfig->dither.postBlendNoise;
                         drawParams.maxGameCall = UINT_MAX;
                         framebufferRenderer->addFramebuffer(drawParams);
                     }
@@ -1785,6 +1789,7 @@ namespace RT64 {
         bool genConfigChanged = false;
         bool resConfigChanged = false;
         bool enhanceConfigChanged = false;
+        bool emulatorConfigChanged = false;
         bool shaderCacheChanged = false;
         const uint32_t previousMSAACount = userConfig.msaaSampleCount();
         Workload &workload = ext.workloadQueue->workloads[lastWorkloadIndex];
@@ -1952,10 +1957,14 @@ namespace RT64 {
                     ImGui::Separator();
                     ImGui::Text("Emulator Configuration (not persistent)");
                     ImGui::Separator();
+                    ImGui::Text("Dither");
+                    ImGui::Indent();
+                    emulatorConfigChanged = ImGui::Checkbox("Post Blend Noise", &emulatorConfig.dither.postBlendNoise) || emulatorConfigChanged;
+                    ImGui::Unindent();
                     ImGui::Text("Framebuffer");
                     ImGui::Indent();
-                    ImGui::Checkbox("Render to RAM", &emulatorConfig.framebuffer.renderToRAM);
-                    ImGui::Checkbox("Copy with GPU", &emulatorConfig.framebuffer.copyWithGPU);
+                    emulatorConfigChanged = ImGui::Checkbox("Render to RAM", &emulatorConfig.framebuffer.renderToRAM) || emulatorConfigChanged;
+                    emulatorConfigChanged = ImGui::Checkbox("Copy with GPU", &emulatorConfig.framebuffer.copyWithGPU) || emulatorConfigChanged;
                     ImGui::Unindent();
 
                     // Enhancement configuration.
@@ -2276,6 +2285,10 @@ namespace RT64 {
         if (enhanceConfigChanged) {
             ext.sharedQueueResources->setEnhancementConfig(enhancementConfig);
         }
+
+        if (emulatorConfigChanged) {
+            ext.sharedQueueResources->setEmulatorConfig(emulatorConfig);
+        }
     }
 
     void State::advanceWorkload(Workload &workload, bool paused) {
@@ -2346,6 +2359,10 @@ namespace RT64 {
 
     void State::setRenderToRAM(uint8_t renderToRAM) {
         extended.renderToRAM = renderToRAM;
+    }
+
+    void State::setDitherNoiseStrength(float noiseStrength) {
+        extended.ditherNoiseStrength = noiseStrength;
     }
 
     uint8_t *State::fromRDRAM(uint32_t rdramAddress) const {

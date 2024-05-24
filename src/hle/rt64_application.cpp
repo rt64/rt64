@@ -241,6 +241,7 @@ namespace RT64 {
         // Create the shared resources for the queues.
         sharedQueueResources = std::make_unique<SharedQueueResources>();
         sharedQueueResources->setUserConfig(userConfig, false);
+        sharedQueueResources->setEmulatorConfig(emulatorConfig);
         sharedQueueResources->setEnhancementConfig(enhancementConfig);
         sharedQueueResources->setSwapChainSize(swapChain->getWidth(), swapChain->getHeight());
         sharedQueueResources->setSwapChainRate(appWindow->getRefreshRate());
@@ -545,6 +546,10 @@ namespace RT64 {
 
     void Application::updateUserConfig(bool discardFBs) {
         sharedQueueResources->setUserConfig(userConfig, true);
+    }
+
+    void Application::updateEmulatorConfig() {
+        sharedQueueResources->setEmulatorConfig(emulatorConfig);
     }
 
     void Application::updateEnhancementConfig() {

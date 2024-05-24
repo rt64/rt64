@@ -7,6 +7,7 @@
 #include <mutex>
 
 #include "common/rt64_common.h"
+#include "common/rt64_emulator_configuration.h"
 #include "common/rt64_enhancement_configuration.h"
 #include "render/rt64_render_target_manager.h"
 
@@ -33,6 +34,7 @@ namespace RT64 {
         uint32_t targetRate = 0;
         UserConfiguration userConfig;
         EnhancementConfiguration enhancementConfig;
+        EmulatorConfiguration emulatorConfig;
         bool swapChainSizeChanged = false;
         bool rtConfigChanged = true;
         bool userConfigChanged = true;
@@ -74,6 +76,11 @@ namespace RT64 {
             userConfigChanged = true;
             fbConfigChanged = discardFBs;
             newConfigValidated = false;
+        }
+
+        void setEmulatorConfig(const EmulatorConfiguration &newEmulatorConfig) {
+            std::scoped_lock<std::mutex> configurationLock(configurationMutex);
+            emulatorConfig = newEmulatorConfig;
         }
 
         void setEnhancementConfig(const EnhancementConfiguration &newEnhancementConfig) {
