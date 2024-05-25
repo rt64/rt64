@@ -288,7 +288,7 @@ namespace RT64 {
         modelViewProjChanged = changed;
     }
 
-    void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
+    void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;

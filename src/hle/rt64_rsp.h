@@ -232,7 +232,7 @@ namespace RT64 {
         void computeModelViewProj();
         void specialComputeModelViewProj();
         void setModelViewProjChanged(bool changed);
-        void setVertex(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
+        void setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
         void setVertexPD(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
         void setVertexEXV1(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
         void setVertexColorPD(uint32_t address);
