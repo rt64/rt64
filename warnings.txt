@@ -168,41 +168,6 @@
              ~~~~~~~~ ^  ~~~~~~~~~~~~~~~~
 3 warnings generated.
 [160/257] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_state.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/hle/rt64_state.h:9:
-In file included from /home/angie/Documents/Projects/rt64/src/common/rt64_emulator_configuration.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/common/rt64_common.h:7:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/fstream:38:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/istream:38:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/ios:42:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/ios_base.h:41:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/locale_classes.h:40:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/string:53:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/basic_string.h:39:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/ext/alloc_traits.h:34:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/alloc_traits.h:33:
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:151:7: warning: destructor called on non-final 'RT64::PresetMaterial' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
-      __pointer->~_Tp();
-      ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:163:11: note: in instantiation of function template specialization 'std::_Destroy<RT64::PresetMaterial>' requested here
-            std::_Destroy(std::__addressof(*__first));
-                 ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:196:2: note: in instantiation of function template specialization 'std::_Destroy_aux<false>::__destroy<RT64::PresetMaterial *>' requested here
-        __destroy(__first, __last);
-        ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/alloc_traits.h:850:7: note: in instantiation of function template specialization 'std::_Destroy<RT64::PresetMaterial *>' requested here
-      _Destroy(__first, __last);
-      ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_vector.h:730:7: note: in instantiation of function template specialization 'std::_Destroy<RT64::PresetMaterial *, RT64::PresetMaterial>' requested here
-        std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish,
-             ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:49:12: note: in instantiation of member function 'std::vector<RT64::PresetMaterial>::~vector' requested here
-    struct PresetDrawCallLibrary : public PresetLibrary<PresetDrawCall> {
-           ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:151:19: note: qualify call to silence this warning
-      __pointer->~_Tp();
-                  ^
-1 warning generated.
 [161/257] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_vi.cpp.o
 [162/257] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_workload.cpp.o
 [163/257] Building CXX object CMakeFiles/rt64.dir/src/hle/rt64_workload_queue.cpp.o
@@ -229,62 +194,6 @@ In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../includ
 [184/257] Building CXX object CMakeFiles/rt64.dir/src/render/rt64_vi_renderer.cpp.o
 [185/257] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset.cpp.o
 [186/257] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_draw_call.cpp.o
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset.h:7:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/string:53:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/basic_string.h:39:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/ext/alloc_traits.h:34:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/alloc_traits.h:33:
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:151:7: warning: destructor called on non-final 'RT64::PresetMaterial' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
-      __pointer->~_Tp();
-      ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:163:11: note: in instantiation of function template specialization 'std::_Destroy<RT64::PresetMaterial>' requested here
-            std::_Destroy(std::__addressof(*__first));
-                 ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:196:2: note: in instantiation of function template specialization 'std::_Destroy_aux<false>::__destroy<RT64::PresetMaterial *>' requested here
-        __destroy(__first, __last);
-        ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/alloc_traits.h:850:7: note: in instantiation of function template specialization 'std::_Destroy<RT64::PresetMaterial *>' requested here
-      _Destroy(__first, __last);
-      ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_vector.h:1932:11: note: in instantiation of function template specialization 'std::_Destroy<RT64::PresetMaterial *, RT64::PresetMaterial>' requested here
-            std::_Destroy(__pos, this->_M_impl._M_finish,
-                 ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_vector.h:1601:9: note: in instantiation of member function 'std::vector<RT64::PresetMaterial>::_M_erase_at_end' requested here
-      { _M_erase_at_end(this->_M_impl._M_start); }
-        ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:193:23: note: in instantiation of member function 'std::vector<RT64::PresetMaterial>::clear' requested here
-        materialCache.clear();
-                      ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_construct.h:151:19: note: qualify call to silence this warning
-      __pointer->~_Tp();
-                  ^
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:5:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.h:7:
-In file included from /home/angie/Documents/Projects/rt64/src/preset/rt64_preset.h:7:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/string:41:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/allocator.h:46:
-In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/x86_64-linux-gnu/c++/12/bits/c++allocator.h:33:
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/new_allocator.h:181:4: warning: destructor called on non-final 'RT64::PresetMaterial' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
-        { __p->~_Up(); }
-          ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/alloc_traits.h:535:8: note: in instantiation of function template specialization 'std::__new_allocator<RT64::PresetMaterial>::destroy<RT64::PresetMaterial>' requested here
-          __a.destroy(__p);
-              ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/vector.tcc:501:21: note: in instantiation of function template specialization 'std::allocator_traits<std::allocator<RT64::PresetMaterial>>::destroy<RT64::PresetMaterial>' requested here
-            _Alloc_traits::destroy(this->_M_impl,
-                           ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/stl_vector.h:1287:4: note: in instantiation of function template specialization 'std::vector<RT64::PresetMaterial>::_M_realloc_insert<const RT64::PresetMaterial &>' requested here
-          _M_realloc_insert(end(), __x);
-          ^
-/home/angie/Documents/Projects/rt64/src/preset/rt64_preset_draw_call.cpp:231:35: note: in instantiation of member function 'std::vector<RT64::PresetMaterial>::push_back' requested here
-                    materialCache.push_back(presetIt->second);
-                                  ^
-/usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/new_allocator.h:181:10: note: qualify call to silence this warning
-        { __p->~_Up(); }
-                ^
-2 warnings generated.
 [187/257] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_light.cpp.o
 [188/257] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_material.cpp.o
 [189/257] Building CXX object CMakeFiles/rt64.dir/src/preset/rt64_preset_scene.cpp.o
@@ -346,13 +255,3 @@ In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../includ
 [245/257] Building C object CMakeFiles/rt64.dir/src/shaders/TextureCopyPS.hlsl.spirv.c.o
 [246/257] Building C object CMakeFiles/rt64.dir/src/shaders/TextureDecodeCS.hlsl.spirv.c.o
 [247/257] Building C object CMakeFiles/rt64.dir/src/shaders/VideoInterfacePSRegular.hlsl.spirv.c.o
-[248/257] Building C object CMakeFiles/rt64.dir/src/shaders/VideoInterfacePSPixel.hlsl.spirv.c.o
-[249/257] Building C object CMakeFiles/rt64.dir/src/shaders/FullScreenVS.hlsl.spirv.c.o
-[250/257] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DVS.hlsl.spirv.c.o
-[251/257] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DGSPoints.hlsl.spirv.c.o
-[252/257] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DGSLines.hlsl.spirv.c.o
-[253/257] Building C object CMakeFiles/rt64.dir/src/shaders/ComposePS.hlsl.spirv.c.o
-[254/257] Building C object CMakeFiles/rt64.dir/src/shaders/DebugPS.hlsl.spirv.c.o
-[255/257] Building C object CMakeFiles/rt64.dir/src/shaders/Im3DPS.hlsl.spirv.c.o
-[256/257] Building C object CMakeFiles/rt64.dir/src/shaders/PostProcessPS.hlsl.spirv.c.o
-[257/257] Linking CXX shared library rt64.so

@@ -34,6 +34,7 @@ namespace RT64 {
     struct PresetBase {
         bool enabled = true;
 
+        virtual ~PresetBase() = default;
         virtual bool readJson(const json &jsonObj);
         virtual bool writeJson(json &jsonObj) const;
     };
