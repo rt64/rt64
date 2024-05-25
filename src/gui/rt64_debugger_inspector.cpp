@@ -984,7 +984,7 @@ namespace RT64 {
                                     const DrawCallTile &callTile = drawData.callTiles[callDesc.tileIndex + t];
                                     const LoadTile &loadTile = callTile.loadTile;
                                     if (openCall) {
-                                        bool open = (openTileIndex == (callDesc.tileIndex + t));
+                                        bool open = ((uint32_t)openTileIndex == (callDesc.tileIndex + t));
                                         ImGui::SetNextItemOpen(open);
                                         if (open) {
                                             ImGui::SetScrollHereY(0.0f);
