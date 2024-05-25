@@ -1598,6 +1598,9 @@ namespace RT64 {
                             triangles.viewport = rawViewportWide;
                             break;
                         }
+                        case Projection::Type::None: {
+                            break;
+                        }
                         }
 
                         triangles.scissor = convertFixedRect(call.callDesc.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, int32_t(horizontalMisalignment), call.callDesc.scissorLeftOrigin, call.callDesc.scissorRightOrigin);
