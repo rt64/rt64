@@ -3,8 +3,6 @@ project(rt64)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers")
-
 option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
 if (${RT64_BUILD_EXAMPLES})
     set(RT64_STATIC ON)
@@ -59,7 +57,8 @@ add_executable(file_to_c src/tools/file_to_c.cpp)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-Wno-nullability-completeness)
+    add_compile_options(-Wall -Wextra)
+    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers)
 endif()
 
 set(ANDROID_PLATFORM android-24)
