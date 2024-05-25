@@ -291,8 +291,8 @@ namespace RT64 {
                 const uint8_t *twoPointResult = std::search(searchResult, searchResultEnd, twoPointPattern, twoPointPattern + std::size(twoPointPattern) - 1);
                 if ((f3dexResult != searchResultEnd) && (twoPointResult != searchResultEnd)) {
                     const uint32_t lastOverlay = *reinterpret_cast<const uint32_t *>(&RDRAM[dataAddress + 0x410]);
-                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[dataAddress + 0x414 ^ 2]);
-                    const uint16_t estimatedDataSize = *reinterpret_cast<const uint16_t *>(&RDRAM[dataAddress + 0x380 ^ 2]);
+                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[(dataAddress + 0x414) ^ 2]);
+                    const uint16_t estimatedDataSize = *reinterpret_cast<const uint16_t *>(&RDRAM[(dataAddress + 0x380) ^ 2]);
                     const uint32_t textSize = lastOverlay + lastOverlaySize + 1;
                     fprintf(stderr, "Detected text size is 0x%X\n", textSize);
                     fprintf(stderr, "Estimated data size is 0x%X\n", estimatedDataSize);
@@ -301,7 +301,7 @@ namespace RT64 {
                 const uint8_t *s2dexResult = std::search(searchResult, searchResultEnd, s2dexPattern, s2dexPattern + std::size(s2dexPattern) - 1);
                 if ((s2dexResult != searchResultEnd) && (twoPointResult != searchResultEnd)) {
                     const uint32_t lastOverlay = *reinterpret_cast<const uint32_t *>(&RDRAM[dataAddress + 0x31C]);
-                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[dataAddress + 0x320 ^ 2]);
+                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[(dataAddress + 0x320) ^ 2]);
                     const uint32_t textSize = lastOverlay + lastOverlaySize + 1;
                     fprintf(stderr, "Detected text size is 0x%X\n", textSize);
                 }
