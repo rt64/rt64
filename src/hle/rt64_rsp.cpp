@@ -300,7 +300,7 @@ namespace RT64 {
         setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
     }
     
-    void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
+    void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -326,7 +326,7 @@ namespace RT64 {
         setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
     }
 
-    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
+    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
