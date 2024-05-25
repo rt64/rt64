@@ -108,5 +108,6 @@ namespace RT64 {
         void buildCallHashMap(uint32_t sceneProjIndex, const Workload &workload, const Projection &proj, std::multimap<uint64_t, GameCallMap> &hashMap) const;
         void buildTransformIdMap(const Workload &workload, std::multimap<uint32_t, uint32_t> &idMap, std::vector<uint32_t> &ignoredIdVector) const;
         uint64_t hashFromCall(const GameCall &call, uint32_t matrixIdHash) const;
+        bool isDebuggerCameraEnabled(const WorkloadQueue &workloadQueue);
     };
 };

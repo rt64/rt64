@@ -59,11 +59,14 @@ namespace RT64 {
 
     struct FramebufferRenderer {
         std::vector<uint32_t> textureCacheVersions;
-        std::vector<const Texture *> textureCacheTextures;
+        std::vector<Texture *> textureCacheTextures;
+        std::vector<Texture *> textureCacheTextureReplacements;
         std::vector<uint32_t> textureCacheFreeSpaces;
-        uint32_t textureCacheSize;
-        uint32_t textureCacheGlobalVersion;
+        uint32_t textureCacheSize = 0;
+        uint32_t textureCacheGlobalVersion = 0;
+        bool textureCacheReplacementMapEnabled = false;
         std::vector<InstanceDrawCall> instanceDrawCallVector;
+        std::vector<RenderPipelineProgram> hitGroupVector;
         std::vector<interop::RenderIndices> renderIndicesVector;
         std::vector<DynamicTextureView> dynamicTextureViewVector;
         std::vector<RenderTextureBarrier> dynamicTextureBarrierVector;
@@ -73,7 +76,7 @@ namespace RT64 {
         std::array<RenderVertexBufferView, 3> indexedVertexViews;
         std::array<RenderVertexBufferView, 3> rawVertexViews;
         RenderIndexBufferView indexBufferView;
-        RenderBuffer *testZIndexBuffer;
+        RenderBuffer *testZIndexBuffer = nullptr;
         RenderIndexBufferView testZIndexBufferView;
         BufferPair renderIndicesBuffer;
         BufferPair interleavedRastersBuffer;
@@ -88,7 +91,8 @@ namespace RT64 {
         std::unique_ptr<RenderTextureView> dummyDepthTargetView;
         bool dummyDepthTargetTransitioned = false;
         std::vector<uint32_t> descriptorTextureVersions;
-        uint32_t descriptorTextureGlobalVersion;
+        uint32_t descriptorTextureGlobalVersion = 0;
+        bool descriptorTextureReplacementMapEnabled = false;
         std::unique_ptr<RSPSmoothNormalDescriptorSet> smoothDescSet;
         std::unique_ptr<RSPVertexTestZDescriptorSet> vertexTestZSet;
         interop::FrameParams frameParams;

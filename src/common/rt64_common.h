@@ -13,8 +13,10 @@
 
 #ifdef _WIN32
 #   define DLLEXPORT extern "C" __declspec(dllexport)  
+#   define CPPDLLEXPORT __declspec(dllexport)  
 #else
 #   define DLLEXPORT extern "C" __attribute__((visibility("default")))
+#   define CPPDLLEXPORT __attribute__((visibility("default")))
 #endif
 
 namespace RT64 {
@@ -47,13 +49,6 @@ namespace RT64 {
 #   define RT64_LOG_PRINTF(x, ...) do { fprintf(RT64::GlobalLogFile, x, ## __VA_ARGS__); fprintf(RT64::GlobalLogFile, "\n"); fflush(RT64::GlobalLogFile); } while (0)
 #   define RT64_LOG_PRINTF_DETAILED(x, ...) do { fprintf(RT64::GlobalLogFile, x, ## __VA_ARGS__); fprintf(RT64::GlobalLogFile, " (%s in %s:%d)\n", __FUNCTION__, __FILE__, __LINE__); fflush(RT64::GlobalLogFile); } while (0)
 #endif
-
-    inline void CalculateTextureRowWidthPadding(uint32_t rowPitch, uint32_t &rowWidth, uint32_t &rowPadding) {
-        const int RowMultiple = 256;
-        rowWidth = rowPitch;
-        rowPadding = (rowWidth % RowMultiple) ? RowMultiple - (rowWidth % RowMultiple) : 0;
-        rowWidth += rowPadding;
-    }
 
     inline float HaltonSequence(int i, int b) {
         float f = 1.0;
@@ -91,6 +86,7 @@ namespace RT64 {
 
         // Intersections can result in invalid rects if they don't overlap. Check if they're not null after using this.
         FixedRect intersection(const FixedRect &rect) const;
+        bool contains(int32_t x, int32_t y) const;
         bool fullyInside(const FixedRect &rect) const;
         int32_t left(bool ceil) const;
         int32_t top(bool ceil) const;

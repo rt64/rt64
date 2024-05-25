@@ -235,7 +235,12 @@ namespace RT64 {
 #   if RT_ENABLED
         workloadConfig.raytracingEnabled = rtEnabled;
 
-        if (rtEnabled && (ext.sharedResources->rtConfigChanged || ext.sharedResources->fbConfigChanged || sizeChanged)) {
+        if (workloadConfig.raytracingEnabled && (ext.sharedResources->rtConfigChanged || ext.sharedResources->fbConfigChanged || sizeChanged)) {
+            // Only load the RT pipeline if the device supports it.
+             if (ext.device->getCapabilities().raytracing && !ext.rtShaderCache->isSetup()) {
+                 ext.rtShaderCache->setup();
+            }
+
             framebufferRenderer->setRaytracingConfig(ext.sharedResources->rtConfig, ext.sharedResources->fbConfigChanged || sizeChanged);
             ext.sharedResources->rtConfigChanged = false;
         }
@@ -283,7 +288,7 @@ namespace RT64 {
     void WorkloadQueue::threadRenderFrame(GameFrame &curFrame, const GameFrame &prevFrame, const WorkloadConfiguration &workloadConfig,
         const DebuggerRenderer &debuggerRenderer, const DebuggerCamera &debuggerCamera, float curFrameWeight, float prevFrameWeight,
         float deltaTimeMs, RenderTargetKey overrideTargetKey, int32_t overrideTargetFbPairIndex, RenderTarget *overrideTarget,
-        uint32_t overrideTargetModifier, bool uploadVelocity, bool interpolateTiles)
+        uint32_t overrideTargetModifier, bool uploadVelocity, bool uploadExtras, bool interpolateTiles)
     {
 #   if ENABLE_HIGH_RESOLUTION_RENDERER
         std::scoped_lock<std::mutex> managerLock(ext.sharedResources->workloadMutex);
@@ -294,7 +299,7 @@ namespace RT64 {
         rendererProfiler.start();
 
         const bool aspectRatioAdjustment = (abs(workloadConfig.aspectRatioScale - 1.0f) > 1e-6f);
-        const bool processProjections = aspectRatioAdjustment || prevFrame.matched; //|| curFrame.freeCamera.enabled;
+        const bool processProjections = aspectRatioAdjustment || prevFrame.matched|| curFrame.isDebuggerCameraEnabled(*this);
         bool uploadProjections = false;
         if (processProjections) {
             ProjectionProcessor::ProcessParams projParams;
@@ -465,7 +470,7 @@ namespace RT64 {
                 for (uint32_t p = 0; p < fbPair.projectionCount; p++) {
                     const Projection &proj = fbPair.projections[p];
                     const bool perspProj = (proj.type == Projection::Type::Perspective);
-                    const bool rtProj = (perspProj && rtEnabled && fbPair.depthWrite); // TODO: Move this condition out of here, ideally by moving the shader submission elsewhere.
+                    const bool rtProj = (perspProj && workloadConfig.raytracingEnabled && fbPair.depthWrite); // TODO: Move this condition out of here, ideally by moving the shader submission elsewhere.
                     if (!rtProj) {
                         continue;
                     }
@@ -611,6 +616,11 @@ namespace RT64 {
                 uploadVelocity = false;
             }
 
+            if (uploadExtras) {
+                bufferUploaders.emplace_back(ext.workloadExtrasUploader);
+                uploadExtras = false;
+            }
+
             if (uploadProjections) {
                 bufferUploaders.emplace_back(projectionProcessor.bufferUploader.get());
                 uploadProjections = false;
@@ -627,15 +637,15 @@ namespace RT64 {
             }
 
 #       if RT_ENABLED
-            if (rtEnabled) {
+            if (workloadConfig.raytracingEnabled) {
                 ext.rtShaderCache->setNextState();
             }
 #       endif
 
             workerMutex.lock();
             ext.workloadGraphicsWorker->commandList->begin();
-            framebufferRenderer->endFramebuffers(ext.workloadGraphicsWorker, &workload.drawBuffers, &workload.outputBuffers, rtEnabled);
-            framebufferRenderer->recordSetup(ext.workloadGraphicsWorker, bufferUploaders, processRSP ? rspProcessor.get() : nullptr, processWorldVertices ? vertexProcessor.get() : nullptr, &workload.outputBuffers, rtEnabled);
+            framebufferRenderer->endFramebuffers(ext.workloadGraphicsWorker, &workload.drawBuffers, &workload.outputBuffers, workloadConfig.raytracingEnabled);
+            framebufferRenderer->recordSetup(ext.workloadGraphicsWorker, bufferUploaders, processRSP ? rspProcessor.get() : nullptr, processWorldVertices ? vertexProcessor.get() : nullptr, &workload.outputBuffers, workloadConfig.raytracingEnabled);
             
             // Record all framebuffer pairs.
             uint32_t framebufferIndex = 0;
@@ -773,7 +783,7 @@ namespace RT64 {
             targetManager.removeOverride(overrideTargetKey);
         }
 
-        framebufferRenderer->advanceFrame(rtEnabled);
+        framebufferRenderer->advanceFrame(workloadConfig.raytracingEnabled);
         rendererProfiler.end();
         rendererProfiler.log();
         rendererProfiler.reset();
@@ -819,7 +829,7 @@ namespace RT64 {
 
             if (processCursor >= 0) {
                 std::unique_lock<std::mutex> threadLock(threadMutex);
-                const Workload &workload = workloads[processCursor];
+                Workload &workload = workloads[processCursor];
                 ext.presentQueue->waitForPresentId(workload.presentId);
 
                 if (!threadsRunning) {
@@ -1025,9 +1035,15 @@ namespace RT64 {
                         curFrameWeight = 1.0f;
                     }
 
+                    const bool uploadExtras = (frame == 0) && workloadConfig.raytracingEnabled;
+                    if (uploadExtras) {
+                        BufferUploader::Upload extrasUpload = { workload.drawData.extraParams.data(), { 0, workload.drawData.extraParams.size() }, sizeof(interop::ExtraParams), RenderBufferFlag::STORAGE, {}, &workload.drawBuffers.extraParamsBuffer };
+                        ext.workloadExtrasUploader->submit(ext.workloadGraphicsWorker, { extrasUpload });
+                    }
+
                     int64_t renderTimeMicro = workloadTimer.elapsedMicroseconds();
                     threadRenderFrame(curFrame, prevFrame, workloadConfig, workload.debuggerRenderer, workload.debuggerCamera, curFrameWeight, prevFrameWeight, deltaTimeMs,
-                        interpolationTargetKey, interpolationTargetFbPairIndex, overrideTarget, overrideModifier, velocityUploaderUsed, tileInterpolationUsed);
+                        interpolationTargetKey, interpolationTargetFbPairIndex, overrideTarget, overrideModifier, velocityUploaderUsed, uploadExtras, tileInterpolationUsed);
 
                     // Add total time the frame took to render.
                     renderTimeTotalMicro += workloadTimer.elapsedMicroseconds() - renderTimeMicro;

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "common/rt64_load_types.h"
 #include "shared/rt64_color_combiner.h"
 #include "shared/rt64_extra_params.h"
 #include "shared/rt64_rdp_params.h"
@@ -131,73 +132,6 @@ namespace RT64 {
         void setChanged(DrawAttribute attribute);
         bool isChanged(DrawAttribute attribute) const;
         bool isChanged() const;
-    };
-
-    struct LoadTile {
-        uint8_t fmt;
-        uint8_t siz;
-        uint16_t line;
-        uint16_t tmem;
-        uint8_t palette;
-        uint8_t cms;
-        uint8_t cmt;
-        uint8_t masks;
-        uint8_t maskt;
-        uint8_t shifts;
-        uint8_t shiftt;
-        uint16_t uls;
-        uint16_t ult;
-        uint16_t lrs;
-        uint16_t lrt;
-    };
-
-    struct LoadTexture {
-        uint32_t address;
-        uint8_t fmt;
-        uint8_t siz;
-        uint16_t width;
-    };
-
-    struct LoadOperationTile {
-        uint8_t tile;
-        uint16_t uls;
-        uint16_t ult;
-        uint16_t lrs;
-        uint16_t lrt;
-    };
-
-    struct LoadOperationBlock {
-        uint8_t tile;
-        uint16_t uls;
-        uint16_t ult;
-        uint16_t lrs;
-        uint16_t dxt;
-    };
-
-    struct LoadOperationTLUT {
-        uint8_t tile;
-        uint16_t uls;
-        uint16_t ult;
-        uint16_t lrs;
-        uint16_t lrt;
-    };
-
-    struct LoadOperation {
-        enum class Type {
-            Tile,
-            Block,
-            TLUT
-        };
-
-        Type type;
-        LoadTile tile;
-        LoadTexture texture;
-
-        union {
-            LoadOperationTile operationTile;
-            LoadOperationBlock operationBlock;
-            LoadOperationTLUT operationTLUT;
-        };
     };
 
     struct DrawCallTile {

@@ -51,10 +51,13 @@ else()
     message(STATUS "DXC: ${DXC}")
 endif()
 
-# Build the file_to_c utility for converting binary files into a .c and .h file pair
-add_executable(file_to_c src/tools/file_to_c.cpp)
+set(ZSTD_LEGACY_SUPPORT OFF)
+set(ZSTD_BUILD_STATIC ON)
+set(ZSTD_BUILD_SHARED OFF)
 
+add_subdirectory(src/tools/file_to_c)
 add_subdirectory(src/contrib/nativefiledialog-extended)
+add_subdirectory(src/contrib/zstd/build/cmake)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Use /W4 for clang-cl, as -Wall maps to MSVC's /Wall which in turn maps to clang's -Weverything
@@ -231,8 +234,12 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/common/rt64_elapsed_timer.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_emulator_configuration.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_enhancement_configuration.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_filesystem_zip.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_load_types.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_mapped_file.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_math.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_profiling_timer.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_replacement_database.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_thread.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_timer.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_user_configuration.cpp"
@@ -324,6 +331,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_demo.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_items.cpp"
+    "${PROJECT_SOURCE_DIR}/src/contrib/miniz/miniz.c"
 )
 
 include_directories(
@@ -357,6 +365,11 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 
 # Add common libraries.
 target_link_libraries(rt64 nfd)
+target_link_libraries(rt64 libzstd_static)
+
+# Add tools.
+add_subdirectory(src/tools/texture_hasher)
+add_subdirectory(src/tools/texture_packer)
 
 # Add any Windows-specific source files and libraries
 if (WIN32)
@@ -371,6 +384,8 @@ if (WIN32)
         DXGI
         Shcore.lib
         ${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64/dxcompiler.lib)
+
+    target_include_directories(rt64 PRIVATE ${zstd_SOURCE_DIR}/lib)
 endif()
 
 target_link_directories(rt64 PRIVATE ${PROJECT_SOURCE_DIR}/src/contrib/dxc)

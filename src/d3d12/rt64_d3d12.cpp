@@ -154,6 +154,48 @@ namespace RT64 {
             return DXGI_FORMAT_R8_SNORM;
         case RenderFormat::R8_SINT:
             return DXGI_FORMAT_R8_SINT;
+        case RenderFormat::BC1_TYPELESS:
+            return DXGI_FORMAT_BC1_TYPELESS;
+        case RenderFormat::BC1_UNORM:
+            return DXGI_FORMAT_BC1_UNORM;
+        case RenderFormat::BC1_UNORM_SRGB:
+            return DXGI_FORMAT_BC1_UNORM_SRGB;
+        case RenderFormat::BC2_TYPELESS:
+            return DXGI_FORMAT_BC2_TYPELESS;
+        case RenderFormat::BC2_UNORM:
+            return DXGI_FORMAT_BC2_UNORM;
+        case RenderFormat::BC2_UNORM_SRGB:
+            return DXGI_FORMAT_BC2_UNORM_SRGB;
+        case RenderFormat::BC3_TYPELESS:
+            return DXGI_FORMAT_BC3_TYPELESS;
+        case RenderFormat::BC3_UNORM:
+            return DXGI_FORMAT_BC3_UNORM;
+        case RenderFormat::BC3_UNORM_SRGB:
+            return DXGI_FORMAT_BC3_UNORM_SRGB;
+        case RenderFormat::BC4_TYPELESS:
+            return DXGI_FORMAT_BC4_TYPELESS;
+        case RenderFormat::BC4_UNORM:
+            return DXGI_FORMAT_BC4_UNORM;
+        case RenderFormat::BC4_SNORM:
+            return DXGI_FORMAT_BC4_SNORM;
+        case RenderFormat::BC5_TYPELESS:
+            return DXGI_FORMAT_BC5_TYPELESS;
+        case RenderFormat::BC5_UNORM:
+            return DXGI_FORMAT_BC5_UNORM;
+        case RenderFormat::BC5_SNORM:
+            return DXGI_FORMAT_BC5_SNORM;
+        case RenderFormat::BC6H_TYPELESS:
+            return DXGI_FORMAT_BC6H_TYPELESS;
+        case RenderFormat::BC6H_UF16:
+            return DXGI_FORMAT_BC6H_UF16;
+        case RenderFormat::BC6H_SF16:
+            return DXGI_FORMAT_BC6H_SF16;
+        case RenderFormat::BC7_TYPELESS:
+            return DXGI_FORMAT_BC7_TYPELESS;
+        case RenderFormat::BC7_UNORM:
+            return DXGI_FORMAT_BC7_UNORM;
+        case RenderFormat::BC7_UNORM_SRGB:
+            return DXGI_FORMAT_BC7_UNORM_SRGB;
         default:
             assert(false && "Unknown format.");
             return DXGI_FORMAT_FORCE_UINT;
@@ -268,19 +310,23 @@ namespace RT64 {
             return D3D12_LOGIC_OP_CLEAR;
         }
     }
-
+    
     static D3D12_FILTER toFilter(RenderFilter minFilter, RenderFilter magFilter, RenderMipmapMode mipmapMode, bool anisotropyEnabled, bool comparisonEnabled) {
         assert(minFilter != RenderFilter::UNKNOWN);
         assert(magFilter != RenderFilter::UNKNOWN);
         assert(mipmapMode != RenderMipmapMode::UNKNOWN);
-        
-        uint32_t filterInt = 0;
-        filterInt |= (mipmapMode == RenderMipmapMode::LINEAR) ? 0x1 : 0x0;
-        filterInt |= (magFilter == RenderFilter::LINEAR) ? 0x4 : 0x0;
-        filterInt |= (minFilter == RenderFilter::LINEAR) ? 0x10 : 0x0;
-        filterInt |= anisotropyEnabled ? 0x40 : 0x0;
-        filterInt |= comparisonEnabled ? 0x80 : 0x0;
-        return D3D12_FILTER(filterInt);
+
+        if (anisotropyEnabled) {
+            return comparisonEnabled ? D3D12_FILTER_COMPARISON_ANISOTROPIC : D3D12_FILTER_ANISOTROPIC;
+        }
+        else {
+            uint32_t filterInt = 0;
+            filterInt |= (mipmapMode == RenderMipmapMode::LINEAR) ? 0x1 : 0x0;
+            filterInt |= (magFilter == RenderFilter::LINEAR) ? 0x4 : 0x0;
+            filterInt |= (minFilter == RenderFilter::LINEAR) ? 0x10 : 0x0;
+            filterInt |= comparisonEnabled ? 0x80 : 0x0;
+            return D3D12_FILTER(filterInt);
+        }
     }
 
     static D3D12_TEXTURE_ADDRESS_MODE toD3D12(RenderTextureAddressMode addressMode) {
@@ -554,14 +600,21 @@ namespace RT64 {
         }
         case RenderTextureCopyType::PLACED_FOOTPRINT: {
             const D3D12Buffer *interfaceBuffer = static_cast<const D3D12Buffer *>(location.buffer);
+            const uint32_t blockWidth = RenderFormatBlockWidth(location.placedFootprint.format);
+            const uint32_t blockCount = (location.placedFootprint.rowWidth + blockWidth - 1) / blockWidth;
             loc.pResource = (interfaceBuffer != nullptr) ? interfaceBuffer->d3d : nullptr;
             loc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
             loc.PlacedFootprint.Offset = location.placedFootprint.offset;
             loc.PlacedFootprint.Footprint.Format = toDXGI(location.placedFootprint.format);
-            loc.PlacedFootprint.Footprint.Width = location.placedFootprint.width;
-            loc.PlacedFootprint.Footprint.Height = location.placedFootprint.height;
+            loc.PlacedFootprint.Footprint.Width = ((location.placedFootprint.width + blockWidth - 1) / blockWidth) * blockWidth;
+            loc.PlacedFootprint.Footprint.Height = ((location.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
             loc.PlacedFootprint.Footprint.Depth = location.placedFootprint.depth;
-            loc.PlacedFootprint.Footprint.RowPitch = location.placedFootprint.rowWidth * RenderFormatSize(location.placedFootprint.format);
+            loc.PlacedFootprint.Footprint.RowPitch = blockCount * RenderFormatSize(location.placedFootprint.format);
+
+            // Test for conditions that might not be reported if the hardware doesn't complain about them.
+            assert(((loc.PlacedFootprint.Offset % D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT) == 0) && "Resulting offset must be aligned to 512 bytes in D3D12.");
+            assert(((loc.PlacedFootprint.Footprint.RowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) == 0) && "Resulting row pitch must be aligned to 256 bytes in D3D12.");
+
             break;
         }
         default: {
@@ -1942,6 +1995,26 @@ namespace RT64 {
         }
     }
 
+    // D3D12CommandSemaphore
+
+    D3D12CommandSemaphore::D3D12CommandSemaphore(D3D12Device *device) {
+        assert(device != nullptr);
+
+        this->device = device;
+
+        HRESULT res = device->d3d->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d));
+        if (FAILED(res)) {
+            fprintf(stderr, "CreateFence failed with error code 0x%lX.\n", res);
+            return;
+        }
+    }
+
+    D3D12CommandSemaphore::~D3D12CommandSemaphore() {
+        if (d3d != nullptr) {
+            d3d->Release();
+        }
+    }
+
     // D3D12CommandQueue
 
     D3D12CommandQueue::D3D12CommandQueue(D3D12Device *device, RenderCommandListType type) {
@@ -1987,7 +2060,12 @@ namespace RT64 {
         return std::make_unique<D3D12SwapChain>(this, renderWindow, bufferCount, format);
     }
 
-    void D3D12CommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
+    void D3D12CommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
+        for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+            D3D12CommandSemaphore *interfaceSemaphore = static_cast<D3D12CommandSemaphore *>(waitSemaphores[i]);
+            d3d->Wait(interfaceSemaphore->d3d, interfaceSemaphore->semaphoreValue);
+        }
+
         thread_local std::vector<ID3D12CommandList *> executionVector;
         executionVector.clear();
         for (uint32_t i = 0; i < commandListCount; i++) {
@@ -1997,6 +2075,12 @@ namespace RT64 {
 
         if (!executionVector.empty()) {
             d3d->ExecuteCommandLists(UINT(executionVector.size()), executionVector.data());
+        }
+
+        for (uint32_t i = 0; i < signalSemaphoreCount; i++) {
+            D3D12CommandSemaphore *interfaceSemaphore = static_cast<D3D12CommandSemaphore *>(signalSemaphores[i]);
+            interfaceSemaphore->semaphoreValue++;
+            d3d->Signal(interfaceSemaphore->d3d, interfaceSemaphore->semaphoreValue);
         }
         
         if (signalFence != nullptr) {
@@ -2094,6 +2178,10 @@ namespace RT64 {
 
     std::unique_ptr<RenderBufferFormattedView> D3D12Buffer::createBufferFormattedView(RenderFormat format) {
         return std::make_unique<D3D12BufferFormattedView>(this, format);
+    }
+
+    void D3D12Buffer::setName(const std::string &name) {
+        setObjectName(d3d, name);
     }
 
     // D3D12BufferFormattedView
@@ -2379,7 +2467,7 @@ namespace RT64 {
         samplerDesc.AddressV = toD3D12(desc.addressV);
         samplerDesc.AddressW = toD3D12(desc.addressW);
         samplerDesc.MipLODBias = desc.mipLODBias;
-        samplerDesc.MaxAnisotropy = desc.maxAnisotropy;
+        samplerDesc.MaxAnisotropy = desc.anisotropyEnabled ? desc.maxAnisotropy : 1;
         samplerDesc.ComparisonFunc = toD3D12(desc.comparisonFunc);
         samplerDesc.MinLOD = desc.minLOD;
         samplerDesc.MaxLOD = desc.maxLOD;
@@ -2978,7 +3066,7 @@ namespace RT64 {
 
             // Pick this adapter and device if it has better feature support than the current one.
             bool preferOverNothing = (adapter == nullptr) || (d3d == nullptr);
-            bool preferVideoMemory = adapterDesc.DedicatedVideoMemory > dedicatedVideoMemory;
+            bool preferVideoMemory = adapterDesc.DedicatedVideoMemory > description.dedicatedVideoMemory;
             bool preferUserChoice = false;//wcsstr(adapterDesc.Description, L"AMD") != nullptr;
             bool preferOption = preferOverNothing || preferVideoMemory || preferUserChoice;
             if (preferOption) {
@@ -2997,7 +3085,7 @@ namespace RT64 {
                 capabilities.raytracingStateUpdate = rtStateUpdateSupportOption;
                 capabilities.sampleLocations = samplePositionsOption;
                 description.name = win32::Utf16ToUtf8(adapterDesc.Description);
-                dedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
+                description.dedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
 
                 if (preferUserChoice) {
                     break;
@@ -3072,7 +3160,7 @@ namespace RT64 {
         capabilities.descriptorIndexing = true;
         capabilities.scalarBlockLayout = true;
         capabilities.presentWait = true;
-        capabilities.preferHDR = dedicatedVideoMemory > (512 * 1024 * 1024);
+        capabilities.preferHDR = description.dedicatedVideoMemory > (512 * 1024 * 1024);
 
         // Create descriptor heaps allocator.
         descriptorHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, ShaderDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -3141,6 +3229,10 @@ namespace RT64 {
 
     std::unique_ptr<RenderCommandFence> D3D12Device::createCommandFence() {
         return std::make_unique<D3D12CommandFence>(this);
+    }
+
+    std::unique_ptr<RenderCommandSemaphore> D3D12Device::createCommandSemaphore() {
+        return std::make_unique<D3D12CommandSemaphore>(this);
     }
 
     std::unique_ptr<RenderFramebuffer> D3D12Device::createFramebuffer(const RenderFramebufferDesc &desc) {

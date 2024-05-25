@@ -12,7 +12,7 @@ namespace RT64 {
     // RasterShaderCache::OfflineList
 
     static const uint32_t OfflineMagic = 0x43535452;
-    static const uint32_t OfflineVersion = 2;
+    static const uint32_t OfflineVersion = 3;
 
     RasterShaderCache::OfflineList::OfflineList() {
         entryIterator = entries.end();
@@ -92,7 +92,7 @@ namespace RT64 {
         dumpStream.open(path, std::ios::binary);
         return dumpStream.is_open();
     }
-
+    
     bool RasterShaderCache::OfflineDumper::stepDumping(const ShaderDescription &shaderDesc, const std::vector<uint8_t> &vsDxilBytes, const std::vector<uint8_t> &psDxilBytes) {
         assert(!vsDxilBytes.empty());
         assert(!psDxilBytes.empty());

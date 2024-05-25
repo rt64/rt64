@@ -133,7 +133,7 @@ namespace RT64 {
                 const void *PSLibraryBlob = useMSAA ? RasterPSLibraryMSBlobDXIL : RasterPSLibraryBlobDXIL;
                 uint32_t PSLibraryBlobSize = useMSAA ? sizeof(RasterPSLibraryMSBlobDXIL) : sizeof(RasterPSLibraryBlobDXIL);
                 shaderCompiler->dxcUtils->CreateBlobFromPinned(PSLibraryBlob, PSLibraryBlobSize, DXC_CP_ACP, (IDxcBlobEncoding **)(&blobPSLibraries[1]));
-
+                
                 // Compile both the vertex and pixel shader functions as libraries.
                 const std::wstring VertexShaderName = L"VSMain";
                 const std::wstring PixelShaderName = L"PSMain";
@@ -261,7 +261,7 @@ namespace RT64 {
         if (!multisampling) {
             pss << "uint sampleIndex = 0;";
         }
-
+        
         pss <<
             "   float4 resultColor;"
             "   float4 resultAlpha;"
@@ -424,8 +424,7 @@ namespace RT64 {
         vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
         pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
 
-        // Create the pipeline layout.
-        FramebufferRendererDescriptorCommonSet descriptorCommonSet(shaderLibrary->linearClampSampler.get(), shaderLibrary->linearMirrorSampler.get(), device->getCapabilities().raytracing);
+        FramebufferRendererDescriptorCommonSet descriptorCommonSet(shaderLibrary->samplerLibrary, device->getCapabilities().raytracing);
         FramebufferRendererDescriptorTextureSet descriptorTextureSet;
         FramebufferRendererDescriptorFramebufferSet descriptorFramebufferSet;
         RenderPipelineLayoutBuilder layoutBuilder;

@@ -151,38 +151,8 @@ namespace RT64 {
                 FramebufferPair &fbPair = workload.fbPairs[projection.fbPairIndex];
                 Projection &proj = fbPair.projections[projection.projectionIndex];
 
-                // Add all the lights, from the frame or the script to the RT projection.
-                for (const interop::PointLight &light : proj.lightManager.pointLights) {
-                    proj.addPointLight(light);
-                }
-                /*
-                // Add estimated sun light if enabled.
-                const auto &gameConfig = interpreter->state->gameConfig;
-                if (gameConfig.estimateSunLight) {
-                    proj.addPointLight(lightManager.estimatedSunLight(gameConfig.sunLightIntensity, gameConfig.sunLightDistance));
-                }
-                */
-
-                // Add all the lights from the enabled presets.
-                // TODO: Figure out a way to skip the linear lookup on the map.
-                /*
-                for (const auto &it : lightsLibrary.presetMap) {
-                    if (!it.second.enabled) {
-                        continue;
-                    }
-
-                    for (const auto &lightIt : it.second.lightMap) {
-                        if (!lightIt.second.enabled) {
-                            continue;
-                        }
-
-                        proj.addPointLight(lightIt.second.description);
-                    }
-                }
-                */
-
-                // Add all the lights added by the script.
-                for (const interop::PointLight &light : workload.scriptLights) {
+                // Add all the lights stored in the workload.
+                for (const interop::PointLight &light : workload.pointLights) {
                     proj.addPointLight(light);
                 }
             }
@@ -785,6 +755,16 @@ namespace RT64 {
         key.triangleCount = call.callDesc.triangleCount;
         key.matrixIdHash = matrixIdHash;
         return XXH3_64bits(&key, sizeof(CallMatchKey));
+    }
+
+    bool GameFrame::isDebuggerCameraEnabled(const WorkloadQueue &workloadQueue) {
+        for (uint32_t w : workloads) {
+            if (workloadQueue.workloads[w].debuggerCamera.enabled) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /*
