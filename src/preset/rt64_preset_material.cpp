@@ -172,10 +172,10 @@ namespace RT64 {
             ImGui::SameLine();
 
             if (checkboxValue) {
-                ImGui::Text(name);
+                ImGui::Text("%s", name);
             }
             else {
-                ImGui::TextDisabled(name);
+                ImGui::TextDisabled("%s", name);
             }
 
             return checkboxValue;
