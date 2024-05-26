@@ -28,50 +28,51 @@
 
 #define G_EX_VERSION                0x1
 
-#define G_EX_NOOP                   0x000000
-#define G_EX_PRINT                  0x000001
-#define G_EX_TEXRECT_V1             0x000002
-#define G_EX_FILLRECT_V1            0x000003
-#define G_EX_SETVIEWPORT_V1         0x000004
-#define G_EX_SETSCISSOR_V1          0x000005
-#define G_EX_SETRECTALIGN_V1        0x000006
-#define G_EX_SETVIEWPORTALIGN_V1    0x000007
-#define G_EX_SETSCISSORALIGN_V1     0x000008
-#define G_EX_SETREFRESHRATE_V1      0x000009
-#define G_EX_VERTEXZTEST_V1         0x00000A
-#define G_EX_ENDVERTEXZTEST_V1      0x00000B
-#define G_EX_MATRIXGROUP_V1         0x00000C
-#define G_EX_POPMATRIXGROUP_V1      0x00000D
-#define G_EX_FORCEUPSCALE2D_V1      0x00000E
-#define G_EX_FORCETRUEBILERP_V1     0x00000F
-#define G_EX_FORCESCALELOD_V1       0x000010
-#define G_EX_FORCEBRANCH_V1         0x000011
-#define G_EX_SETRENDERTORAM_V1      0x000012
-#define G_EX_EDITGROUPBYADDRESS_V1  0x000013
-#define G_EX_VERTEX_V1              0x000014
-#define G_EX_PUSHVIEWPORT_V1        0x000015
-#define G_EX_POPVIEWPORT_V1         0x000016
-#define G_EX_PUSHSCISSOR_V1         0x000017
-#define G_EX_POPSCISSOR_V1          0x000018
-#define G_EX_PUSHOTHERMODE_V1       0x000019
-#define G_EX_POPOTHERMODE_V1        0x00001A
-#define G_EX_PUSHCOMBINE_V1         0x00001B
-#define G_EX_POPCOMBINE_V1          0x00001C
-#define G_EX_PUSHPROJMATRIX_V1      0x00001D
-#define G_EX_POPPROJMATRIX_V1       0x00001E
-#define G_EX_PUSHENVCOLOR_V1        0x00001F
-#define G_EX_POPENVCOLOR_V1         0x000020
-#define G_EX_PUSHBLENDCOLOR_V1      0x000021
-#define G_EX_POPBLENDCOLOR_V1       0x000022
-#define G_EX_PUSHFOGCOLOR_V1        0x000023
-#define G_EX_POPFOGCOLOR_V1         0x000024
-#define G_EX_PUSHFILLCOLOR_V1       0x000025
-#define G_EX_POPFILLCOLOR_V1        0x000026
-#define G_EX_PUSHPRIMCOLOR_V1       0x000027
-#define G_EX_POPPRIMCOLOR_V1        0x000028
-#define G_EX_PUSHGEOMETRYMODE_V1    0x000029
-#define G_EX_POPGEOMETRYMODE_V1     0x00002A
-#define G_EX_MAX                    0x00002B
+#define G_EX_NOOP                       0x000000
+#define G_EX_PRINT                      0x000001
+#define G_EX_TEXRECT_V1                 0x000002
+#define G_EX_FILLRECT_V1                0x000003
+#define G_EX_SETVIEWPORT_V1             0x000004
+#define G_EX_SETSCISSOR_V1              0x000005
+#define G_EX_SETRECTALIGN_V1            0x000006
+#define G_EX_SETVIEWPORTALIGN_V1        0x000007
+#define G_EX_SETSCISSORALIGN_V1         0x000008
+#define G_EX_SETREFRESHRATE_V1          0x000009
+#define G_EX_VERTEXZTEST_V1             0x00000A
+#define G_EX_ENDVERTEXZTEST_V1          0x00000B
+#define G_EX_MATRIXGROUP_V1             0x00000C
+#define G_EX_POPMATRIXGROUP_V1          0x00000D
+#define G_EX_FORCEUPSCALE2D_V1          0x00000E
+#define G_EX_FORCETRUEBILERP_V1         0x00000F
+#define G_EX_FORCESCALELOD_V1           0x000010
+#define G_EX_FORCEBRANCH_V1             0x000011
+#define G_EX_SETRENDERTORAM_V1          0x000012
+#define G_EX_EDITGROUPBYADDRESS_V1      0x000013
+#define G_EX_VERTEX_V1                  0x000014
+#define G_EX_PUSHVIEWPORT_V1            0x000015
+#define G_EX_POPVIEWPORT_V1             0x000016
+#define G_EX_PUSHSCISSOR_V1             0x000017
+#define G_EX_POPSCISSOR_V1              0x000018
+#define G_EX_PUSHOTHERMODE_V1           0x000019
+#define G_EX_POPOTHERMODE_V1            0x00001A
+#define G_EX_PUSHCOMBINE_V1             0x00001B
+#define G_EX_POPCOMBINE_V1              0x00001C
+#define G_EX_PUSHPROJMATRIX_V1          0x00001D
+#define G_EX_POPPROJMATRIX_V1           0x00001E
+#define G_EX_PUSHENVCOLOR_V1            0x00001F
+#define G_EX_POPENVCOLOR_V1             0x000020
+#define G_EX_PUSHBLENDCOLOR_V1          0x000021
+#define G_EX_POPBLENDCOLOR_V1           0x000022
+#define G_EX_PUSHFOGCOLOR_V1            0x000023
+#define G_EX_POPFOGCOLOR_V1             0x000024
+#define G_EX_PUSHFILLCOLOR_V1           0x000025
+#define G_EX_POPFILLCOLOR_V1            0x000026
+#define G_EX_PUSHPRIMCOLOR_V1           0x000027
+#define G_EX_POPPRIMCOLOR_V1            0x000028
+#define G_EX_PUSHGEOMETRYMODE_V1        0x000029
+#define G_EX_POPGEOMETRYMODE_V1         0x00002A
+#define G_EX_SETDITHERNOISESTRENGTH_V1  0x00002B
+#define G_EX_MAX                        0x00002C
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -499,6 +500,12 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_POPGEOMETRYMODE_V1, 24, 0), \
         0 \
+    )
+
+#define gEXSetDitherNoiseStrength(cmd, value) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETDITHERNOISESTRENGTH_V1, 24, 0), \
+        PARAM((value) * 1024, 16, 0) \
     )
 
 #endif // RT64_EXTENDED_GBI

@@ -137,7 +137,7 @@ namespace RT64 {
 #   elif defined(__APPLE__)
         windowHandle.window = wmInfo.info.cocoa.window;
 #   else
-        static_assert(false && "Android unimplemented");
+        static_assert(false && "Unimplemented");
 #   endif
         usingSdl = true;
 #else

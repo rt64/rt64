@@ -80,6 +80,8 @@ namespace RT64 {
         uint32_t interleavedRastersCount = 0;
         BufferPair frameParamsBuffer;
         RenderPipelineLayout *rendererPipelineLayout = nullptr;
+        RenderPipeline *postBlendDitherNoiseAddPipeline = nullptr;
+        RenderPipeline *postBlendDitherNoiseSubPipeline = nullptr;
         std::unique_ptr<FramebufferRendererDescriptorCommonSet> descCommonSet;
         std::unique_ptr<FramebufferRendererDescriptorTextureSet> descTextureSet;
         std::unique_ptr<RenderTexture> dummyDepthTarget;
@@ -133,12 +135,13 @@ namespace RT64 {
             float deltaTimeMs;
             bool ubershadersOnly;
             bool fixRectLR;
+            bool postBlendNoise;
             uint32_t maxGameCall;
         };
 
         FramebufferRenderer(RenderWorker *worker, bool rtSupport, UserConfiguration::GraphicsAPI graphicsAPI, const ShaderLibrary *shaderLibrary);
         ~FramebufferRenderer();
-        void resetFramebuffers(RenderWorker *worker, bool ubershadersVisible, const RenderMultisampling &multisampling);
+        void resetFramebuffers(RenderWorker *worker, bool ubershadersVisible, float ditherNoiseStrength, const RenderMultisampling &multisampling);
         void updateTextureCache(TextureCache *textureCache);
         void createGPUTiles(const DrawCallTile *callTiles, uint32_t callTileCount, interop::GPUTile *dstGPUTiles, const FramebufferManager *fbManager, TextureCache *textureCache, uint64_t submissionFrame);
         uint32_t getDestinationIndex();

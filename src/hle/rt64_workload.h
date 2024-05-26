@@ -221,7 +221,8 @@ namespace RT64 {
         bool paused = false;
 
         struct {
-            uint32_t testZIndexCount;
+            uint32_t testZIndexCount = 0;
+            float ditherNoiseStrength = 1.0f;
         } extended;
 
         void reset();

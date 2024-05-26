@@ -1073,6 +1073,14 @@ namespace RT64 {
     }
     
     void RDP::drawRect(int32_t ulx, int32_t uly, int32_t lrx, int32_t lry, int16_t uls, int16_t ult, int16_t dsdx, int16_t dtdy, bool flip, const ExtendedAlignment &extAlignment) {
+        // Round down the left and top coordinates in fill mode or copy mode.
+        const bool usesFillMode = (otherMode.cycleType() == G_CYC_FILL);
+        const bool usesCopyMode = (otherMode.cycleType() == G_CYC_COPY);
+        if (usesFillMode || usesCopyMode) {
+            ulx &= ~3;
+            uly &= ~3;
+        }
+
         // Add global offsets to the coordinates.
         ulx += extAlignment.leftOffset;
         uly += extAlignment.topOffset;

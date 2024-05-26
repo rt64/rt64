@@ -64,6 +64,13 @@ namespace RT64 {
             OptionCount
         };
 
+        enum class InternalColorFormat {
+            Standard,
+            High,
+            Automatic,
+            OptionCount
+        };
+
         GraphicsAPI graphicsAPI;
         Resolution resolution;
         Antialiasing antialiasing;
@@ -78,6 +85,7 @@ namespace RT64 {
         bool threePointFiltering;
         RefreshRate refreshRate;
         int refreshRateTarget;
+        InternalColorFormat internalColorFormat;
         bool idleWorkActive;
         bool developerMode;
 
@@ -130,6 +138,12 @@ namespace RT64 {
         { UserConfiguration::RefreshRate::Original, "Original" },
         { UserConfiguration::RefreshRate::Display, "Display" },
         { UserConfiguration::RefreshRate::Manual, "Manual" }
+    });
+
+    NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::InternalColorFormat, {
+        { UserConfiguration::InternalColorFormat::Standard, "Standard" },
+        { UserConfiguration::InternalColorFormat::High, "High" },
+        { UserConfiguration::InternalColorFormat::Automatic, "Automatic" }
     });
 
     struct ConfigurationJSON {

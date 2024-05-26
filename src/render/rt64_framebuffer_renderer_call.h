@@ -40,6 +40,7 @@ namespace RT64 {
                 uint32_t indexStart;
                 uint32_t faceCount;
                 bool vertexTestZ;
+                bool postBlendDitherNoise;
             } triangles;
 
             struct {

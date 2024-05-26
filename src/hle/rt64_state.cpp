@@ -73,6 +73,7 @@ namespace RT64 {
 
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(ext.userConfig->msaaSampleCount(), ext.device->getCapabilities().sampleLocations);
         renderTargetManager.setMultisampling(multisampling);
+        renderTargetManager.setUsesHDR(ext.shaderLibrary->usesHDR);
     }
 
     void State::reset() {
@@ -671,6 +672,9 @@ namespace RT64 {
             flushFramebufferOperations(lastFbPair);
         }
         
+        // Copy the current state's extended parameters into the workload.
+        workload.extended.ditherNoiseStrength = extended.ditherNoiseStrength;
+        
         // Validate all tile copies to be used during the rendering.
         const bool extendedRenderToRAMSet = (extended.renderToRAM < UINT8_MAX);
         const bool renderToRDRAM = extendedRenderToRAMSet ? (extended.renderToRAM != 0) : ext.emulatorConfig->framebuffer.renderToRAM;
@@ -779,6 +783,7 @@ namespace RT64 {
         // Fill out all the rendering data for the framebuffer pairs that will be uploaded.
         const UserConfiguration::Upscale2D upscale2D = ext.userConfig->upscale2D;
         const bool scaleLOD = ext.enhancementConfig->textureLOD.scale;
+        const bool usesHDR = ext.shaderLibrary->usesHDR;
         const std::vector<uint32_t> &faceIndices = workload.drawData.faceIndices;
         const std::vector<int16_t> &posShorts = workload.drawData.posShorts;
         uint32_t faceIndex = uint32_t(workload.drawRanges.faceIndices.first);
@@ -940,6 +945,7 @@ namespace RT64 {
                     flags.usesTexture0 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 0, flags.oneCycleHardwareBug);
                     flags.usesTexture1 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 1, flags.oneCycleHardwareBug);
                     flags.blenderApproximation = static_cast<unsigned>(blenderEmuReqs.approximateEmulation);
+                    flags.usesHDR = usesHDR;
 
                     // Set whether the LOD should be scaled to the display resolution according to the configuration mode and the extended GBI flags.
                     const bool usesLOD = (callDesc.otherMode.textLOD() == G_TL_LOD);
@@ -1169,7 +1175,7 @@ namespace RT64 {
                 scratchFbChangePool.reset();
                 ext.framebufferGraphicsWorker->commandList->begin();
                 framebufferManager.resetOperations();
-                framebufferRenderer->resetFramebuffers(ext.framebufferGraphicsWorker, false, renderTargetManager.multisampling);
+                framebufferRenderer->resetFramebuffers(ext.framebufferGraphicsWorker, false, workload.extended.ditherNoiseStrength, renderTargetManager.multisampling);
                 framebufferIndex = 0;
             };
 
@@ -1231,6 +1237,7 @@ namespace RT64 {
                         drawParams.deltaTimeMs = 0.0f;
                         drawParams.ubershadersOnly = false;
                         drawParams.fixRectLR = false;
+                        drawParams.postBlendNoise = ext.emulatorConfig->dither.postBlendNoise;
                         drawParams.maxGameCall = UINT_MAX;
                         framebufferRenderer->addFramebuffer(drawParams);
                     }
@@ -1440,7 +1447,7 @@ namespace RT64 {
                     // Set up the dummy target used for rendering the depth if no depth framebuffer is active.
                     if (depthFb == nullptr) {
                         if (dummyDepthTarget == nullptr) {
-                            dummyDepthTarget = std::make_unique<RenderTarget>(0, Framebuffer::Type::Depth, renderTargetManager.multisampling);
+                            dummyDepthTarget = std::make_unique<RenderTarget>(0, Framebuffer::Type::Depth, renderTargetManager.multisampling, renderTargetManager.usesHDR);
                             dummyDepthTarget->setupDepth(ext.framebufferGraphicsWorker, rtWidth, rtHeight);
                         }
 
@@ -1782,6 +1789,7 @@ namespace RT64 {
         bool genConfigChanged = false;
         bool resConfigChanged = false;
         bool enhanceConfigChanged = false;
+        bool emulatorConfigChanged = false;
         bool shaderCacheChanged = false;
         const uint32_t previousMSAACount = userConfig.msaaSampleCount();
         Workload &workload = ext.workloadQueue->workloads[lastWorkloadIndex];
@@ -1883,7 +1891,8 @@ namespace RT64 {
                     genConfigChanged = ImGui::InputInt("Downsample Multiplier", &userConfig.downsampleMultiplier) || genConfigChanged;
                     
                     ImGui::BeginDisabled(!ext.device->getCapabilities().sampleLocations);
-                    const RenderSampleCounts sampleCountsSupported = ext.device->getSampleCountsSupported(RenderTarget::ColorBufferFormat) & ext.device->getSampleCountsSupported(RenderTarget::DepthBufferFormat);
+                    const bool usesHDR = ext.shaderLibrary->usesHDR;
+                    const RenderSampleCounts sampleCountsSupported = ext.device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR)) & ext.device->getSampleCountsSupported(RenderTarget::depthBufferFormat());
                     const uint32_t antialiasingOptionCount = uint32_t(UserConfiguration::Antialiasing::OptionCount);
                     const char *antialiasingNames[antialiasingOptionCount] = { "None", "MSAA 2X", "MSAA 4X", "MSAA 8X" };
                     if (ImGui::BeginCombo("Antialiasing", antialiasingNames[uint32_t(userConfig.antialiasing)])) {
@@ -1929,6 +1938,17 @@ namespace RT64 {
                         genConfigChanged = ImGui::InputInt("Refresh Rate Target", &userConfig.refreshRateTarget) || genConfigChanged;
                     }
 
+                    // Store the user configuration that was used during initialization the first time we check this.
+                    static UserConfiguration::InternalColorFormat configColorFormat = UserConfiguration::InternalColorFormat::OptionCount;
+                    if (configColorFormat == UserConfiguration::InternalColorFormat::OptionCount) {
+                        configColorFormat = userConfig.internalColorFormat;
+                    }
+
+                    genConfigChanged = ImGui::Combo("Color Format", reinterpret_cast<int *>(&userConfig.internalColorFormat), "Standard\0High\0Automatic\0") || genConfigChanged;
+                    if (userConfig.internalColorFormat != configColorFormat) {
+                        ImGui::Text("You must restart the application for this change to be applied.");
+                    }
+
                     genConfigChanged = ImGui::Checkbox("Three-Point Filtering", &userConfig.threePointFiltering) || genConfigChanged;
                     genConfigChanged = ImGui::Checkbox("High Performance State", &userConfig.idleWorkActive) || genConfigChanged;
                     
@@ -1937,10 +1957,14 @@ namespace RT64 {
                     ImGui::Separator();
                     ImGui::Text("Emulator Configuration (not persistent)");
                     ImGui::Separator();
+                    ImGui::Text("Dither");
+                    ImGui::Indent();
+                    emulatorConfigChanged = ImGui::Checkbox("Post Blend Noise", &emulatorConfig.dither.postBlendNoise) || emulatorConfigChanged;
+                    ImGui::Unindent();
                     ImGui::Text("Framebuffer");
                     ImGui::Indent();
-                    ImGui::Checkbox("Render to RAM", &emulatorConfig.framebuffer.renderToRAM);
-                    ImGui::Checkbox("Copy with GPU", &emulatorConfig.framebuffer.copyWithGPU);
+                    emulatorConfigChanged = ImGui::Checkbox("Render to RAM", &emulatorConfig.framebuffer.renderToRAM) || emulatorConfigChanged;
+                    emulatorConfigChanged = ImGui::Checkbox("Copy with GPU", &emulatorConfig.framebuffer.copyWithGPU) || emulatorConfigChanged;
                     ImGui::Unindent();
 
                     // Enhancement configuration.
@@ -2198,6 +2222,7 @@ namespace RT64 {
                     ImGui::Text("Scalar Block Layout: %d", capabilities.scalarBlockLayout);
                     ImGui::Text("Present Wait: %d", capabilities.presentWait);
                     ImGui::Text("Display Timing: %d", capabilities.displayTiming);
+                    ImGui::Text("Prefer HDR: %d", capabilities.preferHDR);
                     ImGui::EndTabItem();
                 }
 
@@ -2259,6 +2284,10 @@ namespace RT64 {
 
         if (enhanceConfigChanged) {
             ext.sharedQueueResources->setEnhancementConfig(enhancementConfig);
+        }
+
+        if (emulatorConfigChanged) {
+            ext.sharedQueueResources->setEmulatorConfig(emulatorConfig);
         }
     }
 
@@ -2330,6 +2359,10 @@ namespace RT64 {
 
     void State::setRenderToRAM(uint8_t renderToRAM) {
         extended.renderToRAM = renderToRAM;
+    }
+
+    void State::setDitherNoiseStrength(float noiseStrength) {
+        extended.ditherNoiseStrength = noiseStrength;
     }
 
     uint8_t *State::fromRDRAM(uint32_t rdramAddress) const {

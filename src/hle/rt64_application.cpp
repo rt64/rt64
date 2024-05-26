@@ -193,10 +193,25 @@ namespace RT64 {
         workloadGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Workload Graphics", RenderCommandListType::DIRECT);
         presentGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Present Graphics", RenderCommandListType::DIRECT);
         swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, 2, RenderFormat::B8G8R8A8_UNORM);
+
+        // Detect if the application should use HDR framebuffers or not.
+        bool usesHDR;
+        switch (userConfig.internalColorFormat) {
+        case UserConfiguration::InternalColorFormat::High:
+            usesHDR = true;
+            break;
+        case UserConfiguration::InternalColorFormat::Automatic:
+            usesHDR = device->getCapabilities().preferHDR;
+            break;
+        case UserConfiguration::InternalColorFormat::Standard:
+        default:
+            usesHDR = false;
+            break;
+        }
         
         // Before configuring multisampling, make sure the device actually supports it for the formats we'll use. If it doesn't, turn off antialiasing in the configuration.
-        const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::ColorBufferFormat);
-        const RenderSampleCounts depthSampleCounts = device->getSampleCountsSupported(RenderTarget::DepthBufferFormat);
+        const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR));
+        const RenderSampleCounts depthSampleCounts = device->getSampleCountsSupported(RenderTarget::depthBufferFormat());
         const RenderSampleCounts commonSampleCounts = colorSampleCounts & depthSampleCounts;
         if ((commonSampleCounts & userConfig.msaaSampleCount()) == 0) {
             userConfig.antialiasing = UserConfiguration::Antialiasing::None;
@@ -204,7 +219,7 @@ namespace RT64 {
 
         // Create the shader library.
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(userConfig.msaaSampleCount(), device->getCapabilities().sampleLocations);
-        shaderLibrary = std::make_unique<ShaderLibrary>();
+        shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR);
         shaderLibrary->setupCommonShaders(renderInterface.get(), device.get());
         shaderLibrary->setupMultisamplingShaders(renderInterface.get(), device.get(), multisampling);
         
@@ -240,10 +255,12 @@ namespace RT64 {
         // Create the shared resources for the queues.
         sharedQueueResources = std::make_unique<SharedQueueResources>();
         sharedQueueResources->setUserConfig(userConfig, false);
+        sharedQueueResources->setEmulatorConfig(emulatorConfig);
         sharedQueueResources->setEnhancementConfig(enhancementConfig);
         sharedQueueResources->setSwapChainSize(swapChain->getWidth(), swapChain->getHeight());
         sharedQueueResources->setSwapChainRate(appWindow->getRefreshRate());
         sharedQueueResources->renderTargetManager.setMultisampling(multisampling);
+        sharedQueueResources->renderTargetManager.setUsesHDR(usesHDR);
 
         WorkloadQueue::External workloadExt;
         workloadExt.device = device.get();
@@ -543,6 +560,10 @@ namespace RT64 {
 
     void Application::updateUserConfig(bool discardFBs) {
         sharedQueueResources->setUserConfig(userConfig, true);
+    }
+
+    void Application::updateEmulatorConfig() {
+        sharedQueueResources->setEmulatorConfig(emulatorConfig);
     }
 
     void Application::updateEnhancementConfig() {

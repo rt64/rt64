@@ -47,15 +47,19 @@ namespace RT64 {
     const GBIInstance   F3DLX_1_21_REJ            = { "F3DLX 1.21.Rej",                            GBIUCode::F3DEX,       { true,   false,  true,   false,  false } };
     const GBIInstance   F3DEX_1_23                = { "F3DEX 1.23",                                GBIUCode::F3DEX,       { false,  false,  false,  false,  false } };
     const GBIInstance   F3DEX_NON_1_22            = { "F3DEX.NoN 1.22",                            GBIUCode::F3DEX,       { false,  true,   false,  false,  false } };
+    const GBIInstance   F3DEX2_FIFO_2_04H         = { "F3DEX2.fifo 2.04H",                         GBIUCode::F3DEX2,      { false,  false,  false,  true,   false } };
     const GBIInstance   F3DEX2_FIFO_2_05          = { "F3DEX2.fifo 2.05",                          GBIUCode::F3DEX2,      { false,  false,  false,  false,  false } };
     const GBIInstance   F3DEX2_FIFO_2_07          = { "F3DEX2.fifo 2.07",                          GBIUCode::F3DEX2,      { false,  false,  false,  false,  false } };
     const GBIInstance   F3DEX2_FIFO_2_08          = { "F3DEX2.fifo 2.08",                          GBIUCode::F3DEX2,      { false,  false,  false,  false,  false } };
     const GBIInstance   F3DEX2_FIFO_2_08_PL       = { "F3DEX2.fifo 2.08 (POSLIGHT)",               GBIUCode::F3DEX2,      { false,  false,  false,  false,  true  } };
     const GBIInstance   F3DEX2_NON_FIFO_2_05      = { "F3DEX2.NoN.fifo 2.05",                      GBIUCode::F3DEX2,      { false,  true,   false,  false,  false } };
     const GBIInstance   F3DEX2_NON_FIFO_2_08      = { "F3DEX2.NoN.fifo 2.08",                      GBIUCode::F3DEX2,      { false,  true,   false,  false,  false } };
+    const GBIInstance   F3DEX2_NON_FIFO_2_08H     = { "F3DEX2.NoN.fifo 2.08H",                     GBIUCode::F3DEX2,      { false,  true,   false,  true,   false } };
     const GBIInstance   F3DZEX2_NON_FIFO_2_06H    = { "F3DZEX2.NoN.fifo 2.06H",                    GBIUCode::F3DZEX2,     { false,  true,   false,  false,  false } };
     const GBIInstance   F3DZEX2_NON_FIFO_2_08I    = { "F3DZEX2.NoN.fifo 2.08I",                    GBIUCode::F3DZEX2,     { false,  true,   false,  false,  true  } };
     const GBIInstance   F3DZEX2_NON_FIFO_2_08J    = { "F3DZEX2.NoN.fifo 2.08J",                    GBIUCode::F3DZEX2,     { false,  true,   false,  false,  true  } };
+    const GBIInstance   S2DEX_1_07                = { "S2DEX 1.07",                                GBIUCode::S2DEX,       { false,  false,  false,  false,  false } };
+    const GBIInstance   S2DEX2_FIFO_2_04          = { "S2DEX.fifo 2.04",                           GBIUCode::S2DEX2,      { false,  false,  false,  false,  false } };
     const GBIInstance   S2DEX2_FIFO_2_05          = { "S2DEX.fifo 2.05",                           GBIUCode::S2DEX2,      { false,  false,  false,  false,  false } };
     const GBIInstance   S2DEX2_FIFO_2_05_SAFE     = { "S2DEX.fifo 2.05 [Safe]",                    GBIUCode::S2DEX2,      { false,  false,  false,  false,  false } };
     const GBIInstance   S2DEX2_FIFO_2_08          = { "S2DEX2.fifo 2.08",                          GBIUCode::S2DEX2,      { false,  false,  false,  false,  false } };
@@ -66,41 +70,49 @@ namespace RT64 {
     // 
     //                  Length      Hash                    Known instances               
     //     
-    static std::array<GBISegment, 17> textSegments = {
+    static std::array<GBISegment, 21> textSegments = {
             GBISegment{ 0x1408,     0xF50165C013FCB8A2ULL,  { &F3D_SM64 } },
             GBISegment{ 0x1430,     0x9A7772037D709388ULL,  { &F3DEX_1_21 } },
             GBISegment{ 0x13D0,     0x1BEA638E869B0195ULL,  { &F3DLX_1_21_REJ } }, // Needs confirmation.
             GBISegment{ 0x1430,     0xAC03DE5B7B1E710FULL,  { &F3DEX_1_23 } },
             GBISegment{ 0x1430,     0x454B7C0482C64F7FULL,  { &F3DEX_NON_1_22 } },
+            GBISegment{ 0x1390,     0x15C2462591E78D2BULL,  { &F3DEX2_FIFO_2_04H } }, // Needs confirmation.
             GBISegment{ 0x1390,     0xBA192DFA28437D3DULL,  { &F3DEX2_FIFO_2_05 } },
             GBISegment{ 0x1390,     0x8C1C9814E75E1B4BULL,  { &F3DEX2_FIFO_2_07 } },
             GBISegment{ 0x1390,     0xCF55FAE288BFE48DULL,  { &F3DEX2_FIFO_2_08 } }, // Needs confirmation.
             GBISegment{ 0x1630,     0x4588323F6F7E7720ULL,  { &F3DEX2_FIFO_2_08_PL } },
             GBISegment{ 0x1390,     0x0856C0CA45B9ABC4ULL,  { &F3DEX2_NON_FIFO_2_05 } },
             GBISegment{ 0x1390,     0x4C12DAE0534D7135ULL,  { &F3DEX2_NON_FIFO_2_08 } }, // Needs confirmation.
+            GBISegment{ 0x1390,     0x35D374BE816BC7DAULL,  { &F3DEX2_NON_FIFO_2_08H } }, // Needs confirmation.
             GBISegment{ 0x1390,     0x1A24186AD41D2568ULL,  { &F3DZEX2_NON_FIFO_2_06H } },
             GBISegment{ 0x1630,     0xF5EE0949F308CFE3ULL,  { &F3DZEX2_NON_FIFO_2_08I } },
             GBISegment{ 0x1630,     0x7502444D3DDBD4BFULL,  { &F3DZEX2_NON_FIFO_2_08J } },
+            GBISegment{ 0x17E0,     0x874A5915C0C4C8A8ULL,  { &S2DEX_1_07 } },
+            GBISegment{ 0x18C0,     0xB524D27BED87DE3AULL,  { &S2DEX2_FIFO_2_04 } },
             GBISegment{ 0x18C0,     0x7F6DEA6A33FF67BDULL,  { &S2DEX2_FIFO_2_05 } },
             GBISegment{ 0x18C0,     0x252C09A4BBB2F9D3ULL,  { &S2DEX2_FIFO_2_05_SAFE } },
             GBISegment{ 0x18C0,     0x9300F34F3B438634ULL,  { &S2DEX2_FIFO_2_08 } },
     };
 
-    static std::array<GBISegment, 17> dataSegments = {
+    static std::array<GBISegment, 21> dataSegments = {
             GBISegment{ 0x800,      0x276AC049785A7E70ULL,  { &F3D_SM64 } },
             GBISegment{ 0x800,      0x4B5FDED20C137EC1ULL,  { &F3DEX_1_21 } },
             GBISegment{ 0x800,      0x3828B4F75B0A0E6AULL,  { &F3DEX_1_23 } },
             GBISegment{ 0x800,      0x484C6940F5072C39ULL,  { &F3DLX_1_21_REJ } }, // Needs confirmation.
             GBISegment{ 0x800,      0x2A0468F401EEBDFAULL,  { &F3DEX_NON_1_22 } },
+            GBISegment{ 0x420,      0x4484B6D3398C3B6CULL,  { &F3DEX2_FIFO_2_04H } }, // Needs confirmation.
             GBISegment{ 0x420,      0xF71B0A57D680F2B3ULL,  { &F3DEX2_FIFO_2_05 } },
             GBISegment{ 0x420,      0xF8649121FAB40A06ULL,  { &F3DEX2_FIFO_2_07 } },
             GBISegment{ 0x420,      0x3D4CAB9C82AD3772ULL,  { &F3DEX2_FIFO_2_08 } }, // Needs confirmation.
             GBISegment{ 0x420,      0xB411ADC06FAA9D83ULL,  { &F3DEX2_FIFO_2_08_PL } },
             GBISegment{ 0x420,      0xE57A61CA7770A4EAULL,  { &F3DEX2_NON_FIFO_2_05 } },
             GBISegment{ 0x420,      0x3BE3FAD9073FEB78ULL,  { &F3DEX2_NON_FIFO_2_08 } }, // Needs confirmation.
+            GBISegment{ 0x420,      0xE762274AB4B747CDULL,  { &F3DEX2_NON_FIFO_2_08H } }, // Needs confirmation.
             GBISegment{ 0x420,      0xE3E5C20BC750105EULL,  { &F3DZEX2_NON_FIFO_2_06H } },
             GBISegment{ 0x420,      0x002D7FA254ABD8E7ULL,  { &F3DZEX2_NON_FIFO_2_08I } },
             GBISegment{ 0x420,      0x6069A2803CB39E66ULL,  { &F3DZEX2_NON_FIFO_2_08J } },
+            GBISegment{ 0x3C0,      0x2018F33CBC3E2818ULL,  { &S2DEX_1_07 } },
+            GBISegment{ 0x390,      0xB3108E4928CB6B1DULL,  { &S2DEX2_FIFO_2_04 } },
             GBISegment{ 0x390,      0x47829093527F366BULL,  { &S2DEX2_FIFO_2_05 } }, // Needs confirmation.
             GBISegment{ 0x390,      0x01DE3936615B8C9CULL,  { &S2DEX2_FIFO_2_05_SAFE } },
             GBISegment{ 0x390,      0x50EF0DFBD3A8CD0FULL,  { &S2DEX2_FIFO_2_08 } },

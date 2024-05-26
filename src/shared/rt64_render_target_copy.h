@@ -9,10 +9,8 @@
 #ifdef HLSL_CPU
 namespace interop {
 #endif
-    struct FrameParams {
-        uint frameCount;
-        uint viewUbershaders;
-        float ditherNoiseStrength;
+    struct RenderTargetCopyCB {
+        uint usesHDR;
     };
 #ifdef HLSL_CPU
 };

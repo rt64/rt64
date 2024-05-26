@@ -20,6 +20,7 @@
 #undef None
 #undef Status
 #undef LockMask
+#undef ControlMask
 #elif defined(__APPLE__)
 typedef struct _NSWindow NSWindow;
 #endif
@@ -1547,6 +1548,9 @@ namespace RT64 {
 
         // Framebuffers.
         uint64_t maxTextureSize = 0;
+
+        // HDR.
+        bool preferHDR = false;
     };
 
     struct RenderInterfaceCapabilities {

@@ -163,6 +163,7 @@ namespace RT64 {
 
         frameParams.frameCount = 0;
         frameParams.viewUbershaders = false;
+        frameParams.ditherNoiseStrength = 1.0f;
 
         shaderUploader = std::make_unique<BufferUploader>(worker->device);
         descCommonSet = std::make_unique<FramebufferRendererDescriptorCommonSet>(shaderLibrary->linearClampSampler.get(), shaderLibrary->linearMirrorSampler.get(), worker->device->getCapabilities().raytracing, worker->device);
@@ -180,11 +181,12 @@ namespace RT64 {
         dummyDepthTarget.reset();
     }
     
-    void FramebufferRenderer::resetFramebuffers(RenderWorker *worker, bool ubershadersVisible, const RenderMultisampling &multisampling) {
+    void FramebufferRenderer::resetFramebuffers(RenderWorker *worker, bool ubershadersVisible, float ditherNoiseStrength, const RenderMultisampling &multisampling) {
         instanceDrawCallVector.clear();
         renderIndicesVector.clear();
         rspSmoothNormalVector.clear();
         frameParams.viewUbershaders = ubershadersVisible;
+        frameParams.ditherNoiseStrength = ditherNoiseStrength;
         framebufferCount = 0;
 
         // Create dummy depth target if it hasn't been created yet.
@@ -485,6 +487,15 @@ namespace RT64 {
             }
         };
 
+        auto drawCallTriangles = [&](const InstanceDrawCall &drawCall) {
+            if (drawCall.type == InstanceDrawCall::Type::IndexedTriangles) {
+                worker->commandList->drawIndexedInstanced(drawCall.triangles.faceCount * 3, 1, drawCall.triangles.indexStart, 0, 0);
+            }
+            else {
+                worker->commandList->drawInstanced(drawCall.triangles.faceCount * 3, 1, drawCall.triangles.indexStart, 0);
+            }
+        };
+
         switchToGraphicsPipeline();
         
         for (uint32_t i : rasterScene.instanceIndices) {
@@ -552,12 +563,14 @@ namespace RT64 {
                 
                 rasterParams.renderIndex = i;
                 worker->commandList->setGraphicsPushConstants(0, &rasterParams);
+                drawCallTriangles(drawCall);
 
-                if (drawCall.type == InstanceDrawCall::Type::IndexedTriangles) {
-                    worker->commandList->drawIndexedInstanced(triangles.faceCount * 3, 1, triangles.indexStart, 0, 0);
-                }
-                else {
-                    worker->commandList->drawInstanced(triangles.faceCount * 3, 1, triangles.indexStart, 0);
+                if (triangles.postBlendDitherNoise) {
+                    worker->commandList->setPipeline(postBlendDitherNoiseAddPipeline);
+                    drawCallTriangles(drawCall);
+                    worker->commandList->setPipeline(postBlendDitherNoiseSubPipeline);
+                    drawCallTriangles(drawCall);
+                    previousPipeline = nullptr;
                 }
 
                 break;
@@ -1286,6 +1299,8 @@ namespace RT64 {
         RenderTargetDrawCall &targetDrawCall = framebuffer.renderTargetDrawCall;
         const RasterShaderUber *rasterShaderUber = p.rasterShaderCache->getGPUShaderUber();
         rendererPipelineLayout = rasterShaderUber->pipelineLayout.get();
+        postBlendDitherNoiseAddPipeline = rasterShaderUber->postBlendDitherNoiseAddPipeline.get();
+        postBlendDitherNoiseSubPipeline = rasterShaderUber->postBlendDitherNoiseSubPipeline.get();
         const DrawData &drawData = p.curWorkload->drawData;
         const DrawBuffers &drawBuffers = p.curWorkload->drawBuffers;
         const OutputBuffers &outputBuffers = p.curWorkload->outputBuffers;
@@ -1515,6 +1530,7 @@ namespace RT64 {
                         
                         triangles.faceCount = call.callDesc.triangleCount;
                         triangles.vertexTestZ = (vertexTestZCallIndex >= 0);
+                        triangles.postBlendDitherNoise = false;
 
                         float invRatioScale = 1.0f / aspectRatioScale;
                         float horizontalMisalignment = 0.0f;
@@ -1567,6 +1583,13 @@ namespace RT64 {
                             }
 
                             triangles.viewport = convertViewportRect(fixedRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
+
+                            if (p.postBlendNoise) {
+                                // Indicate if post blend dither noise should be applied.
+                                bool rgbDitherNoise = (call.shaderDesc.otherMode.rgbDither() == G_CD_NOISE);
+                                triangles.postBlendDitherNoise = rgbDitherNoise && !call.shaderDesc.otherMode.zCmp() && !call.shaderDesc.otherMode.zUpd();
+                            }
+
                             break;
                         }
                         case Projection::Type::Triangle: {

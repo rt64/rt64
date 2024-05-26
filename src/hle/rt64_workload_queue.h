@@ -55,6 +55,7 @@ namespace RT64 {
             float extAspectPercentage = 1.0f;
             uint32_t targetRate = 0;
             bool fixRectLR = false;
+            bool postBlendNoise = false;
         };
 
         External ext;

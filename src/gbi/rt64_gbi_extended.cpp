@@ -281,6 +281,11 @@ namespace RT64 {
             state->rsp->popGeometryMode();
         }
 
+        void setDitherNoiseStrengthV1(State *state, DisplayList **dl) {
+            const uint16_t noiseStrength = (*dl)->p1(0, 16);
+            state->setDitherNoiseStrength(noiseStrength / 1024.0f);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -380,6 +385,7 @@ namespace RT64 {
             Map[G_EX_POPPRIMCOLOR_V1] = &popPrimColorV1;
             Map[G_EX_PUSHGEOMETRYMODE_V1] = &pushGeometryModeV1;
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
+            Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
             MapInitialized = true;
         }
     }

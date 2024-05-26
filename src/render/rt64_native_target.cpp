@@ -161,6 +161,7 @@ namespace RT64 {
         nativeCB.siz = siz;
         nativeCB.ditherPattern = 0;
         nativeCB.ditherRandomSeed = 0;
+        nativeCB.usesHDR = shaderLibrary->usesHDR;
 
         // Assert for formats that have not been implemented yet because hardware verification is pending.
         assert((nativeCB.siz != G_IM_SIZ_4b) && "Unimplemented 4 bits Readback mode.");
@@ -247,6 +248,7 @@ namespace RT64 {
         nativeCB.siz = siz;
         nativeCB.ditherPattern = ditherPattern;
         nativeCB.ditherRandomSeed = ditherRandomSeed;
+        nativeCB.usesHDR = shaderLibrary->usesHDR;
 
         // Assert for formats that have not been implemented yet because hardware verification is pending.
         assert((nativeCB.siz != G_IM_SIZ_4b) && "Unimplemented 4 bits Writeback mode.");

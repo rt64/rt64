@@ -5,6 +5,7 @@
 #include "rt64_shader_library.h"
 
 #include "common/rt64_common.h"
+#include "shared/rt64_render_target_copy.h"
 #include "shared/rt64_rsp_vertex_test_z.h"
 
 #ifndef __APPLE__
@@ -156,7 +157,9 @@
 namespace RT64 {
     // ShaderLibrary
 
-    ShaderLibrary::ShaderLibrary() { }
+    ShaderLibrary::ShaderLibrary(bool usesHDR) {
+        this->usesHDR = usesHDR;
+    }
 
     ShaderLibrary::~ShaderLibrary() { }
 
@@ -518,7 +521,7 @@ namespace RT64 {
             RenderGraphicsPipelineDesc pipelineDesc;
             pipelineDesc.pipelineLayout = textureCopy.pipelineLayout.get();
             pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-            pipelineDesc.renderTargetFormat[0] = RenderTarget::ColorBufferFormat;
+            pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
             pipelineDesc.renderTargetCount = 1;
             pipelineDesc.vertexShader = fullScreenVertexShader.get();
             pipelineDesc.pixelShader = pixelShader.get();
@@ -604,7 +607,7 @@ namespace RT64 {
             RenderGraphicsPipelineDesc pipelineDesc;
             pipelineDesc.pipelineLayout = fbChangesDrawColor.pipelineLayout.get();
             pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-            pipelineDesc.renderTargetFormat[0] = RenderTarget::ColorBufferFormat;
+            pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
             pipelineDesc.renderTargetCount = 1;
             pipelineDesc.vertexShader = fullScreenVertexShader.get();
             pipelineDesc.pixelShader = colorShader.get();
@@ -626,6 +629,7 @@ namespace RT64 {
             RenderTargetCopyDescriptorSet descriptorSet;
             layoutBuilder.begin();
             layoutBuilder.addDescriptorSet(descriptorSet);
+            layoutBuilder.addPushConstant(0, 0, sizeof(interop::RenderTargetCopyCB), RenderShaderStageFlag::PIXEL);
             layoutBuilder.end();
             rtCopyDepthToColor.pipelineLayout = layoutBuilder.create(device);
             rtCopyDepthToColorMS.pipelineLayout = layoutBuilder.create(device);
@@ -636,7 +640,7 @@ namespace RT64 {
             std::unique_ptr<RenderShader> depthToColorMSShader = device->createShader(CREATE_SHADER_INPUTS(RtCopyDepthToColorPSMSBlobDXIL, RtCopyDepthToColorPSMSBlobSPIRV, RtCopyDepthToColorPSMSBlobMSL, "PSMain", shaderFormat));
             RenderGraphicsPipelineDesc pipelineDesc;
             pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-            pipelineDesc.renderTargetFormat[0] = RenderTarget::ColorBufferFormat;
+            pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
             pipelineDesc.renderTargetCount = 1;
             pipelineDesc.vertexShader = fullScreenVertexShader.get();
             pipelineDesc.pipelineLayout = rtCopyDepthToColor.pipelineLayout.get();
@@ -675,7 +679,7 @@ namespace RT64 {
             RenderGraphicsPipelineDesc pipelineDesc;
             pipelineDesc.pipelineLayout = postProcess.pipelineLayout.get();
             pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::AlphaBlend();
-            pipelineDesc.renderTargetFormat[0] = RenderTarget::ColorBufferFormat;
+            pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
             pipelineDesc.renderTargetCount = 1;
             pipelineDesc.vertexShader = fullScreenVertexShader.get();
             pipelineDesc.pixelShader = pixelShader.get();
@@ -700,7 +704,7 @@ namespace RT64 {
             RenderGraphicsPipelineDesc pipelineDesc;
             pipelineDesc.pipelineLayout = debug.pipelineLayout.get();
             pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::AlphaBlend();
-            pipelineDesc.renderTargetFormat[0] = RenderTarget::ColorBufferFormat;
+            pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
             pipelineDesc.renderTargetCount = 1;
             pipelineDesc.vertexShader = fullScreenVertexShader.get();
             pipelineDesc.pixelShader = pixelShader.get();

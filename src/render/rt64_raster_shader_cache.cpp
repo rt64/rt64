@@ -12,7 +12,7 @@ namespace RT64 {
     // RasterShaderCache::OfflineList
 
     static const uint32_t OfflineMagic = 0x43535452;
-    static const uint32_t OfflineVersion = 1;
+    static const uint32_t OfflineVersion = 2;
 
     RasterShaderCache::OfflineList::OfflineList() {
         entryIterator = entries.end();
@@ -174,8 +174,11 @@ namespace RT64 {
                         shaderCache->offlineList.step(offlineListEntry);
 
                         // Make sure the hash hasn't been submitted yet by the game. If it hasn't, mark it as such and use this entry of the list.
+                        // Also make sure the internal color format used by the shader is compatible.
                         uint64_t shaderHash = offlineListEntry.shaderDesc.hash();
-                        if (shaderCache->shaderHashes.find(shaderHash) == shaderCache->shaderHashes.end()) {
+                        const bool matchesColorFormat = (offlineListEntry.shaderDesc.flags.usesHDR == shaderCache->usesHDR);
+                        const bool hashMissing = (shaderCache->shaderHashes.find(shaderHash) == shaderCache->shaderHashes.end());
+                        if (matchesColorFormat && hashMissing) {
                             shaderDesc = offlineListEntry.shaderDesc;
                             shaderCache->shaderHashes[shaderHash] = true;
                             fromOfflineList = true;
@@ -213,6 +216,12 @@ namespace RT64 {
                     const std::unique_lock<std::mutex> lock(shaderCache->offlineDumperMutex);
                     if (shaderCache->offlineDumper.isDumping()) {
                         shaderCache->offlineDumper.stepDumping(shaderDesc, dumperVsBytes, dumperPsBytes);
+
+                        // Toggle the use of HDR and compile another shader.
+                        ShaderDescription shaderDescAlt = shaderDesc;
+                        shaderDescAlt.flags.usesHDR = (shaderDescAlt.flags.usesHDR == 0);
+                        std::make_unique<RasterShader>(shaderCache->device, shaderDescAlt, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), shaderVsBytes, shaderPsBytes, useShaderBytes);
+                        shaderCache->offlineDumper.stepDumping(shaderDescAlt, dumperVsBytes, dumperPsBytes);
                     }
                 }
 
@@ -256,6 +265,7 @@ namespace RT64 {
         this->multisampling = multisampling;
 
         shaderUber = std::make_unique<RasterShaderUber>(device, shaderFormat, multisampling, shaderLibrary, threadCount);
+        usesHDR = shaderLibrary->usesHDR;
     }
 
     void RasterShaderCache::submit(const ShaderDescription &desc) {

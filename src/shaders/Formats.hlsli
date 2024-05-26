@@ -92,11 +92,12 @@ float4 RGBA16ToFloat4(uint rgba16) {
     );
 }
 
-uint Float4ToRGBA16(float4 i, uint dither) {
+uint Float4ToRGBA16(float4 i, uint dither, bool usesHDR) {
+    const float cvgRange = usesHDR ? 65535.0f : 255.0f;
     uint r = round(clamp(i.r * 255.0f, 0.0f, 255.0f));
     uint g = round(clamp(i.g * 255.0f, 0.0f, 255.0f));
     uint b = round(clamp(i.b * 255.0f, 0.0f, 255.0f));
-    int cvgModulo = round(i.a * 255.0f) % 8;
+    int cvgModulo = round(i.a * cvgRange) % 8;
     uint a = (cvgModulo & 0x4) ? 1 : 0;
     r = min(r + dither, 255) >> 3;
     g = min(g + dither, 255) >> 3;

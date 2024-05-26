@@ -3622,6 +3622,16 @@ namespace RT64 {
             return;
         }
 
+        // Find the biggest device local memory available on the device.
+        VkDeviceSize memoryHeapSize = 0;
+        const VkPhysicalDeviceMemoryProperties *memoryProps = nullptr;
+        vmaGetMemoryProperties(allocator, &memoryProps);
+        for (uint32_t i = 0; i < memoryProps->memoryHeapCount; i++) {
+            if (memoryProps->memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+                memoryHeapSize = std::max(memoryProps->memoryHeaps[i].size, memoryHeapSize);
+            }
+        }
+
         // Fill capabilities.
         capabilities.raytracing = rtSupported;
         capabilities.raytracingStateUpdate = false;
@@ -3631,6 +3641,7 @@ namespace RT64 {
         capabilities.presentWait = presentWait;
         capabilities.displayTiming = supportedOptionalExtensions.find(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME) != supportedOptionalExtensions.end();
         capabilities.maxTextureSize = physicalDeviceProperties.limits.maxImageDimension2D;
+        capabilities.preferHDR = memoryHeapSize > (512 * 1024 * 1024);
 
         // Fill Vulkan-only capabilities.
         loadStoreOpNoneSupported = supportedOptionalExtensions.find(VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME) != supportedOptionalExtensions.end();

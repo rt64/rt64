@@ -16,6 +16,11 @@
 #   define D3D12_DEBUG_LAYER_SUPRESS_SAMPLE_POSITIONS_ERROR // Supress error message that's been fixed in newer Agility SDK versions.
 #endif
 
+// Old Windows SDK versions don't provide this macro, so we workaround it by making sure it is defined.
+#ifndef D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE
+#define D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
+#endif
+
 namespace RT64 {
     static const uint32_t ShaderDescriptorHeapSize = 65536;
     static const uint32_t TargetDescriptorHeapSize = 16384;
@@ -2925,7 +2930,11 @@ namespace RT64 {
             }
 
             // Determine the shader model supported by the device.
+#       if SM_5_1_SUPPORTED
             const D3D_SHADER_MODEL supportedShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_5_1 };
+#       else
+            const D3D_SHADER_MODEL supportedShaderModels[] = { D3D_SHADER_MODEL_6_0 };
+#       endif
             D3D12_FEATURE_DATA_SHADER_MODEL dataShaderModel = {};
             for (uint32_t i = 0; i < _countof(supportedShaderModels); i++) {
                 dataShaderModel.HighestShaderModel = supportedShaderModels[i];
@@ -3058,6 +3067,7 @@ namespace RT64 {
         capabilities.scalarBlockLayout = true;
         capabilities.presentWait = true;
         capabilities.maxTextureSize = 16384;
+        capabilities.preferHDR = dedicatedVideoMemory > (512 * 1024 * 1024);
 
         // Create descriptor heaps allocator.
         descriptorHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, ShaderDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
