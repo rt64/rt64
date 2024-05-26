@@ -218,9 +218,10 @@ namespace RT64 {
                         shaderCache->offlineDumper.stepDumping(shaderDesc, dumperVsBytes, dumperPsBytes);
 
                         // Toggle the use of HDR and compile another shader.
-                        shaderDesc.flags.usesHDR = (shaderDesc.flags.usesHDR == 0);
-                        std::make_unique<RasterShader>(shaderCache->device, shaderDesc, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), shaderVsBytes, shaderPsBytes, useShaderBytes);
-                        shaderCache->offlineDumper.stepDumping(shaderDesc, dumperVsBytes, dumperPsBytes);
+                        ShaderDescription shaderDescAlt = shaderDesc;
+                        shaderDescAlt.flags.usesHDR = (shaderDescAlt.flags.usesHDR == 0);
+                        std::make_unique<RasterShader>(shaderCache->device, shaderDescAlt, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), shaderVsBytes, shaderPsBytes, useShaderBytes);
+                        shaderCache->offlineDumper.stepDumping(shaderDescAlt, dumperVsBytes, dumperPsBytes);
                     }
                 }
 

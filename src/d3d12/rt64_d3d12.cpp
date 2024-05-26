@@ -2926,7 +2926,11 @@ namespace RT64 {
             }
 
             // Determine the shader model supported by the device.
+#       if SM_5_1_SUPPORTED
             const D3D_SHADER_MODEL supportedShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_5_1 };
+#       else
+            const D3D_SHADER_MODEL supportedShaderModels[] = { D3D_SHADER_MODEL_6_0 };
+#       endif
             D3D12_FEATURE_DATA_SHADER_MODEL dataShaderModel = {};
             for (uint32_t i = 0; i < _countof(supportedShaderModels); i++) {
                 dataShaderModel.HighestShaderModel = supportedShaderModels[i];
