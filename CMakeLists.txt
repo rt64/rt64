@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
-project(rt64)
+project(rt64 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
+if (APPLE)
+    enable_language(OBJC OBJCXX)
+endif()
 
 option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
 if (${RT64_BUILD_EXAMPLES})
@@ -327,6 +331,15 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 # Add common libraries.
 target_link_libraries(rt64 nfd)
 
+# Add any Apple-specific source files and libraries
+if (APPLE)
+    target_sources(rt64 PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/vulkan/rt64_vulkan_apple.mm"
+    )
+
+    target_link_libraries(rt64 "-framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics")
+endif()
+
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE
@@ -352,6 +365,28 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     find_package(X11 REQUIRED)
     target_include_directories(rt64 PUBLIC ${X11_INCLUDE_DIR} ${X11_Xrandr_INCLUDE_PATH})
     target_link_libraries(rt64 ${X11_LIBRARIES} ${X11_Xrandr_LIB})
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    find_package(Vulkan REQUIRED)
+    message(STATUS "Vulkan found: ${Vulkan_FOUND}")
+
+    message(CHECK_START "Checking support for MoltenVK")
+    if (EXISTS $ENV{MOLTENVK_SDK}/lib/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a)
+        set(MOLTENVK_ROOT $ENV{MOLTENVK_SDK}/lib/MoltenVK.xcframework)
+        add_library(MoltenVK STATIC IMPORTED)
+        set_target_properties(
+            MoltenVK PROPERTIES
+            IMPORTED_LOCATION ${MOLTENVK_ROOT}/macos-arm64_x86_64/libMoltenVK.a
+            INTERFACE_INCLUDE_DIRECTORIES "$ENV{MOLTENVK_SDK}/include/MoltenVK;$ENV{MOLTENVK_SDK}/include/vulkan"
+        )
+        message(CHECK_PASS "Found: ${MOLTENVK_ROOT}")
+    else ()
+        message(CHECK_FAIL "Unable to find MoltenVK")
+        message(FATAL_ERROR "Set MOLTENVK_SDK to MoltenVK path")
+    endif ()
+
+    target_link_libraries(rt64 ${VULKAN_LIBRARY} MoltenVK)
 endif()
 
 preprocess_shader(rt64 "src/shaders/RasterPS.hlsl")

@@ -21,6 +21,10 @@
 //#   define VULKAN_OBJECT_NAMES_ENABLED
 #endif
 
+#ifdef __APPLE__
+#include "rt64_vulkan_apple.h"
+#endif
+
 // TODO:
 // - Fix resource pools.
 
@@ -48,6 +52,8 @@ namespace RT64 {
         VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
 #   elif defined(__linux__)
         VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+#   elif defined(__APPLE__)
+        "VK_MVK_macos_surface"
 #   endif
     };
 
@@ -58,6 +64,7 @@ namespace RT64 {
     static const std::unordered_set<std::string> RequiredDeviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
 #   ifdef VULKAN_OBJECT_NAMES_ENABLED
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #   endif
@@ -1798,7 +1805,8 @@ namespace RT64 {
 
         VkDescriptorPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.maxSets = 1;
+//        poolInfo.maxSets = 1;
+        poolInfo.maxSets = poolSizes.size() * 200;
         poolInfo.pPoolSizes = !poolSizes.empty() ? poolSizes.data() : nullptr;
         poolInfo.poolSizeCount = uint32_t(poolSizes.size());
 
@@ -1861,6 +1869,19 @@ namespace RT64 {
         res = vkCreateXlibSurfaceKHR(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateXlibSurfaceKHR failed with error code 0x%X.\n", res);
+            return;
+        }
+#   elif defined(__APPLE__)
+        assert(renderWindow.window  != 0);
+        assert(renderWindow.view  != 0);
+        VkMacOSSurfaceCreateInfoMVK surfaceCreateInfo = {};
+        surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
+        surfaceCreateInfo.pView = renderWindow.view;
+
+        VulkanInterface *renderInterface = commandQueue->device->renderInterface;
+        res = vkCreateMacOSSurfaceMVK(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
+        if (res != VK_SUCCESS) {
+            fprintf(stderr, "vkCreateMacOSSurfaceMVK failed with error code 0x%X.\n", res);
             return;
         }
 #   endif
@@ -2190,6 +2211,11 @@ namespace RT64 {
         XWindowAttributes attributes;
         XGetWindowAttributes(renderWindow.display, renderWindow.window, &attributes);
         // The attributes width and height members do not include the border.
+        dstWidth = attributes.width;
+        dstHeight = attributes.height;
+#   elif defined(__APPLE__)
+        CocoaWindowAttributes attributes;
+        CocoaGetWindowAttributes(renderWindow.window, &attributes);
         dstWidth = attributes.width;
         dstHeight = attributes.height;
 #   endif
