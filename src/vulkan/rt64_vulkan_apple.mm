@@ -12,3 +12,7 @@ void CocoaGetWindowAttributes(void* window, CocoaWindowAttributes *attributes) {
     attributes->width = frame.size.width;
     attributes->height = frame.size.height;
 }
+
+const char* GetMainBundlePath() {
+    return strdup([[NSBundle mainBundle].bundlePath UTF8String]);
+}

@@ -253,7 +253,7 @@ namespace RT64 {
         }
 
         void fullSync(State *state, DisplayList **dl) {
-            RT64_LOG_PRINTF("GBI_RDP::fullSync()");
+            // RT64_LOG_PRINTF("GBI_RDP::fullSync()");
             state->fullSync();
             state->dpInterrupt();
         }

@@ -10,3 +10,5 @@ struct CocoaWindowAttributes {
 };
 
 void CocoaGetWindowAttributes(void* window, CocoaWindowAttributes *attributes);
+
+const char* GetMainBundlePath();

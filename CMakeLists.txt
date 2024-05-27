@@ -337,7 +337,7 @@ if (APPLE)
         "${PROJECT_SOURCE_DIR}/src/vulkan/rt64_vulkan_apple.mm"
     )
 
-    target_link_libraries(rt64 "-framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics")
+    target_link_libraries(rt64 "-framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics -framework IOKit -framework AppKit -framework IOSurface")
 endif()
 
 # Add any Windows-specific source files and libraries
@@ -386,7 +386,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         message(FATAL_ERROR "Set MOLTENVK_SDK to MoltenVK path")
     endif ()
 
-    target_link_libraries(rt64 ${VULKAN_LIBRARY} MoltenVK)
+    target_link_libraries(rt64 ${VULKAN_LIBRARY})
 endif()
 
 preprocess_shader(rt64 "src/shaders/RasterPS.hlsl")
