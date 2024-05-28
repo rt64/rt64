@@ -159,7 +159,7 @@ namespace RT64 {
         // Driver workarounds.
         //
         // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
-        bool isRDNA3 = true; device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
+        bool isRDNA3 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
         bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
         if (isRDNA3 && useHDRinD3D12) {
             device.reset();
