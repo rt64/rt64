@@ -22,3 +22,10 @@ int GetWindowRefreshRate(void* window) {
     NSScreen *screen = [nsWindow screen];
     return (int)[screen maximumFramesPerSecond];
 }
+
+// takes a c++ lambda and dispatches it on the main thread
+void DispatchOnMainThread(std::function<void()> func) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        func();
+    });
+}
