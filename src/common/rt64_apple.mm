@@ -1,10 +1,10 @@
 
-#include "rt64_vulkan_apple.h"
+#include "rt64_apple.h"
 
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 
-void CocoaGetWindowAttributes(void* window, CocoaWindowAttributes *attributes) {
+void GetWindowAttributes(void* window, CocoaWindowAttributes *attributes) {
     NSWindow *nsWindow = (NSWindow *)window;
     NSRect frame = [nsWindow frame];
     attributes->x = frame.origin.x;
@@ -13,8 +13,8 @@ void CocoaGetWindowAttributes(void* window, CocoaWindowAttributes *attributes) {
     attributes->height = frame.size.height;
 }
 
-const char* GetMainBundlePath() {
-    return strdup([[NSBundle mainBundle].bundlePath UTF8String]);
+const char* GetHomeDirectory() {
+    return strdup([NSHomeDirectory() UTF8String]);
 }
 
 int GetWindowRefreshRate(void* window) {

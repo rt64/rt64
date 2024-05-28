@@ -22,7 +22,7 @@
 #endif
 
 #ifdef __APPLE__
-#include "rt64_vulkan_apple.h"
+#include "common/rt64_apple.h"
 #endif
 
 // TODO:
@@ -2215,7 +2215,7 @@ namespace RT64 {
         dstHeight = attributes.height;
 #   elif defined(__APPLE__)
         CocoaWindowAttributes attributes;
-        CocoaGetWindowAttributes(renderWindow.window, &attributes);
+        GetWindowAttributes(renderWindow.window, &attributes);
         dstWidth = attributes.width;
         dstHeight = attributes.height;
 #   endif

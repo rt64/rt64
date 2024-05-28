@@ -14,7 +14,7 @@
 #   define Status int
 #   include <X11/extensions/Xrandr.h>
 #elif defined(__APPLE__)
-#   include "vulkan/rt64_vulkan_apple.h"
+#   include "common/rt64_apple.h"
 #endif
 
 #include "common/rt64_common.h"
