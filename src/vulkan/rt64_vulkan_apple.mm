@@ -16,3 +16,9 @@ void CocoaGetWindowAttributes(void* window, CocoaWindowAttributes *attributes) {
 const char* GetMainBundlePath() {
     return strdup([[NSBundle mainBundle].bundlePath UTF8String]);
 }
+
+int GetWindowRefreshRate(void* window) {
+    NSWindow *nsWindow = (NSWindow *)window;
+    NSScreen *screen = [nsWindow screen];
+    return (int)[screen maximumFramesPerSecond];
+}

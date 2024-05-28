@@ -12,3 +12,5 @@ struct CocoaWindowAttributes {
 void CocoaGetWindowAttributes(void* window, CocoaWindowAttributes *attributes);
 
 const char* GetMainBundlePath();
+
+int GetRefreshRate(void* window);
