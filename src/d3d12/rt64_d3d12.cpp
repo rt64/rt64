@@ -2966,12 +2966,9 @@ namespace RT64 {
 
             // Pick this adapter and device if it has better feature support than the current one.
             bool preferOverNothing = (adapter == nullptr) || (d3d == nullptr);
-            bool preferShaderModel = (dataShaderModel.HighestShaderModel > shaderModel);
-            bool preferRtSupport = rtSupportOption && !capabilities.raytracing;
-            bool preferRtStateUpdateSupport = rtStateUpdateSupportOption && !capabilities.raytracingStateUpdate;
             bool preferVideoMemory = adapterDesc.DedicatedVideoMemory > dedicatedVideoMemory;
             bool preferUserChoice = false;//wcsstr(adapterDesc.Description, L"AMD") != nullptr;
-            bool preferOption = preferOverNothing || preferShaderModel || preferRtSupport || preferRtStateUpdateSupport || preferVideoMemory || preferUserChoice;
+            bool preferOption = preferOverNothing || preferVideoMemory || preferUserChoice;
             if (preferOption) {
                 if (d3d != nullptr) {
                     d3d->Release();
