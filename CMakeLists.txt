@@ -337,7 +337,7 @@ if (APPLE)
         "${PROJECT_SOURCE_DIR}/src/common/rt64_apple.mm"
     )
 
-    target_link_libraries(rt64 "-framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics -framework IOKit -framework AppKit -framework IOSurface")
+    # target_link_libraries(rt64 "-framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics -framework IOKit -framework AppKit -framework IOSurface")
 endif()
 
 # Add any Windows-specific source files and libraries
@@ -368,25 +368,13 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    find_package(Vulkan REQUIRED)
-    message(STATUS "Vulkan found: ${Vulkan_FOUND}")
-
-    message(CHECK_START "Checking support for MoltenVK")
-    if (EXISTS $ENV{MOLTENVK_SDK}/lib/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a)
-        set(MOLTENVK_ROOT $ENV{MOLTENVK_SDK}/lib/MoltenVK.xcframework)
-        add_library(MoltenVK STATIC IMPORTED)
-        set_target_properties(
-            MoltenVK PROPERTIES
-            IMPORTED_LOCATION ${MOLTENVK_ROOT}/macos-arm64_x86_64/libMoltenVK.a
-            INTERFACE_INCLUDE_DIRECTORIES "$ENV{MOLTENVK_SDK}/include/MoltenVK;$ENV{MOLTENVK_SDK}/include/vulkan"
-        )
-        message(CHECK_PASS "Found: ${MOLTENVK_ROOT}")
-    else ()
-        message(CHECK_FAIL "Unable to find MoltenVK")
-        message(FATAL_ERROR "Set MOLTENVK_SDK to MoltenVK path")
-    endif ()
-
-    target_link_libraries(rt64 ${VULKAN_LIBRARY})
+    find_package(Vulkan QUIET)
+    if(TARGET Vulkan::Vulkan)
+        # Note: We don't use target_link_libraries for Vulkan::Vulkan to avoid a static dependency on libvulkan1
+        target_include_directories(rt64 PRIVATE ${Vulkan_INCLUDE_DIRS})
+    elseif(DEFINED ENV{VULKAN_SDK})
+        target_include_directories(rt64 PRIVATE "$ENV{VULKAN_SDK}/include")
+    endif()
 endif()
 
 preprocess_shader(rt64 "src/shaders/RasterPS.hlsl")

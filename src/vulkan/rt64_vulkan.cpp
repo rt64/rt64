@@ -22,6 +22,7 @@
 #endif
 
 #ifdef __APPLE__
+#include <MoltenVK/mvk_vulkan.h>
 #include "common/rt64_apple.h"
 #endif
 
@@ -53,7 +54,8 @@ namespace RT64 {
 #   elif defined(__linux__)
         VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
 #   elif defined(__APPLE__)
-        "VK_MVK_macos_surface"
+        "VK_MVK_macos_surface",
+        VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
 #   endif
     };
 
@@ -64,7 +66,7 @@ namespace RT64 {
     static const std::unordered_set<std::string> RequiredDeviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,        
 #   ifdef VULKAN_OBJECT_NAMES_ENABLED
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #   endif
@@ -80,6 +82,7 @@ namespace RT64 {
         VK_KHR_PRESENT_ID_EXTENSION_NAME,
         VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
         VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME,
+        VK_EXT_LAYER_SETTINGS_EXTENSION_NAME
     };
 
     // Common functions.
@@ -511,7 +514,9 @@ namespace RT64 {
             flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
             flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
             flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+        #ifndef __APPLE__
             flags |= VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
+        #endif
             flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
             flags |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
@@ -3959,6 +3964,17 @@ namespace RT64 {
             return;
         }
 
+        const VkBool32 setting_display_watermark = VK_TRUE;
+        const VkLayerSettingEXT settings[] = {
+            {kMVKMoltenVKDriverLayerName, "MVK_CONFIG_DISPLAY_WATERMARK", VK_LAYER_SETTING_TYPE_BOOL32_EXT, 1, &setting_display_watermark},
+            {kMVKMoltenVKDriverLayerName, "MVK_CONFIG_SHADER_CONVERSION_FLIP_VERTEX_Y", VK_LAYER_SETTING_TYPE_BOOL32_EXT, 1, &setting_display_watermark},
+        };
+
+        const VkLayerSettingsCreateInfoEXT layer_settings_create_info = {
+            VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT, nullptr,
+            static_cast<uint32_t>(std::size(settings)), settings
+        };
+
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "RT64";
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -3968,9 +3984,14 @@ namespace RT64 {
 
         VkInstanceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pNext = &layer_settings_create_info;
         createInfo.pApplicationInfo = &appInfo;
         createInfo.ppEnabledLayerNames = nullptr;
         createInfo.enabledLayerCount = 0;
+
+        #ifdef __APPLE__
+        createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        #endif
 
         // Check for extensions.
         uint32_t extensionCount;
