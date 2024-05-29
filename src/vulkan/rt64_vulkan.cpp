@@ -23,6 +23,7 @@
 
 #ifdef __APPLE__
 #include <MoltenVK/mvk_vulkan.h>
+#include <vulkan/vulkan_beta.h>
 #include "common/rt64_apple.h"
 #endif
 
@@ -66,7 +67,10 @@ namespace RT64 {
     static const std::unordered_set<std::string> RequiredDeviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,        
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,     
+#   ifdef __APPLE__
+        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+#   endif
 #   ifdef VULKAN_OBJECT_NAMES_ENABLED
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #   endif
@@ -1017,6 +1021,9 @@ namespace RT64 {
         setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         setLayoutInfo.pBindings = !setBindings.empty() ? setBindings.data() : nullptr;
         setLayoutInfo.bindingCount = uint32_t(setBindings.size());
+    #ifdef __APPLE__
+        setLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+    #endif
         
         thread_local std::vector<VkDescriptorBindingFlags> bindingFlags;
         VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo = {};
@@ -1814,6 +1821,9 @@ namespace RT64 {
         poolInfo.maxSets = poolSizes.size() * 9000;
         poolInfo.pPoolSizes = !poolSizes.empty() ? poolSizes.data() : nullptr;
         poolInfo.poolSizeCount = uint32_t(poolSizes.size());
+#   ifdef __APPLE__
+        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+#   endif
 
         VkResult res = vkCreateDescriptorPool(device->vk, &poolInfo, nullptr, &descriptorPool);
         if (res == VK_SUCCESS) {
