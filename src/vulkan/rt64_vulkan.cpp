@@ -1817,13 +1817,14 @@ namespace RT64 {
 
         VkDescriptorPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-//        poolInfo.maxSets = 1;
-        poolInfo.maxSets = poolSizes.size() * 9000;
-        poolInfo.pPoolSizes = !poolSizes.empty() ? poolSizes.data() : nullptr;
-        poolInfo.poolSizeCount = uint32_t(poolSizes.size());
-#   ifdef __APPLE__
+#  ifdef __APPLE__
+        poolInfo.maxSets = 5000;
         poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-#   endif
+#  else
+        poolInfo.maxSets = 1;
+#  endif
+        poolInfo.pPoolSizes = !poolSizes.empty() ? poolSizes.data() : nullptr;
+        poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 
         VkResult res = vkCreateDescriptorPool(device->vk, &poolInfo, nullptr, &descriptorPool);
         if (res == VK_SUCCESS) {
