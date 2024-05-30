@@ -22,4 +22,6 @@
 build/
 .vscode/
 .idea
+.cache
+compile_commands.json
 cmake-build-debug*

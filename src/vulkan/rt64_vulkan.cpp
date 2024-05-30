@@ -24,6 +24,7 @@
 #ifdef __APPLE__
 #include <MoltenVK/mvk_vulkan.h>
 #include <vulkan/vulkan_beta.h>
+#include "vulkan/vulkan_metal.h"
 #include "common/rt64_apple.h"
 #endif
 
@@ -55,7 +56,7 @@ namespace RT64 {
 #   elif defined(__linux__)
         VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
 #   elif defined(__APPLE__)
-        "VK_MVK_macos_surface",
+        VK_EXT_METAL_SURFACE_EXTENSION_NAME,
         VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
 #   endif
     };
@@ -1890,14 +1891,14 @@ namespace RT64 {
 #   elif defined(__APPLE__)
         assert(renderWindow.window  != 0);
         assert(renderWindow.view  != 0);
-        VkMacOSSurfaceCreateInfoMVK surfaceCreateInfo = {};
-        surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
-        surfaceCreateInfo.pView = renderWindow.view;
+        VkMetalSurfaceCreateInfoEXT surfaceCreateInfo = {};
+        surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+        surfaceCreateInfo.pLayer = renderWindow.getMetalLayerPointer();
 
         VulkanInterface *renderInterface = commandQueue->device->renderInterface;
-        res = vkCreateMacOSSurfaceMVK(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
+        res = vkCreateMetalSurfaceEXT(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
         if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkCreateMacOSSurfaceMVK failed with error code 0x%X.\n", res);
+            fprintf(stderr, "vkCreateMetalSurfaceEXT failed with error code 0x%X.\n", res);
             return;
         }
 #   endif

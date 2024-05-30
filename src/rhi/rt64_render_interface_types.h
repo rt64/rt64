@@ -23,6 +23,7 @@
 #undef ControlMask
 #elif defined(__APPLE__)
 typedef struct _NSWindow NSWindow;
+#include <SDL_metal.h>
 #endif
 
 namespace RT64 {
@@ -43,12 +44,13 @@ namespace RT64 {
 #elif defined(__APPLE__)
     struct RenderWindow {
         void* window;
-        void* view;
+        SDL_MetalView view;
         
         bool operator==(const struct RenderWindow& rhs) const {
             return window == rhs.window;
         }
         bool operator!=(const struct RenderWindow& rhs) const { return !(*this == rhs); }
+        void* getMetalLayerPointer() { return SDL_Metal_GetLayer(view); }
     };
 #else
     static_assert(false, "RenderWindow was not defined for this platform.");
