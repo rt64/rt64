@@ -16,7 +16,6 @@
 #   include "res/bluenoise/LDR_64_64_64_RGB1.h"
 #endif
 
-//#define TEST_RENDER_INTERFACE
 //#define LOG_DISPLAY_LISTS
 
 namespace RT64 {
@@ -111,6 +110,19 @@ namespace RT64 {
             }
         }
 #   endif
+
+        // Create the application window.
+        const char *windowTitle = "RT64";
+        appWindow = std::make_unique<ApplicationWindow>();
+        if (core.window != RenderWindow{}) {
+            appWindow->setup(core.window, this, threadId);
+        }
+        else {
+            appWindow->setup(windowTitle, this);
+        }
+
+        // Detect refresh rate from the display the window is located at.
+        appWindow->detectRefreshRate();
         
         // Create a render interface with the preferred backend.
         switch (userConfig.graphicsAPI) {
@@ -137,29 +149,34 @@ namespace RT64 {
 
         createdGraphicsAPI = userConfig.graphicsAPI;
 
-#   ifdef TEST_RENDER_INTERFACE
-        // Execute a blocking test that creates a window and draws some geometry to test the render interface.
-        RenderInterfaceTest(renderInterface.get());
-#   endif
-
-        // Create the application window.
-        const char *windowTitle = "RT64";
-        appWindow = std::make_unique<ApplicationWindow>();
-        if (core.window != RenderWindow{}) {
-            appWindow->setup(core.window, this, threadId);
-        }
-        else {
-            appWindow->setup(windowTitle, this);
-        }
-
-        // Detect refresh rate from the display the window is located at.
-        appWindow->detectRefreshRate();
-
-        // Create the render device for the window
+        // Create the render device
         device = renderInterface->createDevice();
         if (device == nullptr) {
             fprintf(stderr, "Unable to find compatible graphics device.\n");
             return SetupResult::GraphicsDeviceNotFound;
+        }
+
+        // Driver workarounds.
+        //
+        // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
+        bool isRDNA3 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
+        bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
+        if (isRDNA3 && useHDRinD3D12) {
+            device.reset();
+            renderInterface.reset();
+            renderInterface = CreateVulkanInterface();
+            if (renderInterface == nullptr) {
+                fprintf(stderr, "Unable to initialize graphics API.\n");
+                return SetupResult::GraphicsAPINotFound;
+            }
+
+            createdGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+
+            device = renderInterface->createDevice();
+            if (device == nullptr) {
+                fprintf(stderr, "Unable to find compatible graphics device.\n");
+                return SetupResult::GraphicsDeviceNotFound;
+            }
         }
 
         // Call the init hook if one was attached.

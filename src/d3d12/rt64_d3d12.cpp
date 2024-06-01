@@ -2984,6 +2984,7 @@ namespace RT64 {
                 capabilities.raytracing = rtSupportOption;
                 capabilities.raytracingStateUpdate = rtStateUpdateSupportOption;
                 capabilities.sampleLocations = samplePositionsOption;
+                description.name = win32::Utf16ToUtf8(adapterDesc.Description);
                 dedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
 
                 if (preferUserChoice) {
@@ -3285,6 +3286,10 @@ namespace RT64 {
 
     const RenderDeviceCapabilities &D3D12Device::getCapabilities() const {
         return capabilities;
+    }
+
+    const RenderDeviceDescription &D3D12Device::getDescription() const {
+        return description;
     }
 
     RenderSampleCounts D3D12Device::getSampleCountsSupported(RenderFormat format) const {
