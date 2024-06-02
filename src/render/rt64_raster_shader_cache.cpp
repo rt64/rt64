@@ -367,4 +367,9 @@ namespace RT64 {
 
         descQueueChanged.notify_all();
     }
+
+    uint32_t RasterShaderCache::shaderCount() {
+        std::unique_lock<std::mutex> lock(GPUShadersMutex);
+        return GPUShaders.size();
+    }
 };

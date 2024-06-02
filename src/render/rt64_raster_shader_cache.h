@@ -86,5 +86,6 @@ namespace RT64 {
         bool stopOfflineDumper();
         bool loadOfflineList(std::istream &stream);
         void resetOfflineList();
+        uint32_t shaderCount();
     };
 };
