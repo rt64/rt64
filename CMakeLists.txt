@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
-project(rt64)
+project(rt64 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
+if (APPLE)
+    enable_language(OBJC OBJCXX)
+endif()
 
 option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
 if (${RT64_BUILD_EXAMPLES})
@@ -327,6 +331,15 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 # Add common libraries.
 target_link_libraries(rt64 nfd)
 
+# Add any Apple-specific source files and libraries
+if (APPLE)
+    target_sources(rt64 PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/common/rt64_apple.mm"
+    )
+
+    # target_link_libraries(rt64 "-framework Metal -framework Foundation -framework QuartzCore -framework CoreGraphics -framework IOKit -framework AppKit -framework IOSurface")
+endif()
+
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE
@@ -352,6 +365,16 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     find_package(X11 REQUIRED)
     target_include_directories(rt64 PUBLIC ${X11_INCLUDE_DIR} ${X11_Xrandr_INCLUDE_PATH})
     target_link_libraries(rt64 ${X11_LIBRARIES} ${X11_Xrandr_LIB})
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    find_package(Vulkan QUIET)
+    if(TARGET Vulkan::Vulkan)
+        # Note: We don't use target_link_libraries for Vulkan::Vulkan to avoid a static dependency on libvulkan1
+        target_include_directories(rt64 PRIVATE ${Vulkan_INCLUDE_DIRS})
+    elseif(DEFINED ENV{VULKAN_SDK})
+        target_include_directories(rt64 PRIVATE "$ENV{VULKAN_SDK}/include")
+    endif()
 endif()
 
 preprocess_shader(rt64 "src/shaders/RasterPS.hlsl")

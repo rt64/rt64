@@ -9,6 +9,11 @@
 #include <chrono>
 #include <thread>
 
+#ifdef __APPLE__
+#include <SDL.h>
+#include <SDL_syswm.h>
+#endif
+
 #ifdef _WIN64
 #include "shaders/RenderInterfaceTestPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestRT.hlsl.dxil.h"
@@ -520,7 +525,7 @@ namespace RT64 {
         Test.computeSecondSet->setTexture(Test.computeSecondSet->gTarget, Test.colorTarget.get(), RenderTextureLayout::GENERAL);
 #   endif
 #   if ENABLE_RT
-        Test.rtSet->setTexture(Test.rtSet->gOutput, Test.colorTarget.get(), RenderTextureLayout::GENERAL);
+        Test.rtSet->setTexture(Test.rtSet->gOutput, Test.colorTargetMS.get(), RenderTextureLayout::GENERAL);
 #   endif
     }
     
@@ -790,7 +795,54 @@ namespace RT64 {
     }
 #elif defined(__APPLE__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
-        assert(false);
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+            fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
+            return;
+        }
+
+        SDL_Window *window = SDL_CreateWindow("Render Interface Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_METAL);
+        if (window == nullptr) {
+            fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
+            SDL_Quit();
+            return;
+        }
+
+        // Setup Metal view.
+        SDL_MetalView view = SDL_Metal_CreateView(window);
+
+        // SDL_Window's handle can be used directly if needed
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        SDL_GetWindowWMInfo(window, &wmInfo);
+
+        TestInitialize(renderInterface, { wmInfo.info.cocoa.window, view });
+        TestResize();
+
+        bool running = true;
+        while (running) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                switch (event.type) {
+                    case SDL_QUIT:
+                        running = false;
+                        break;
+
+                    case SDL_WINDOWEVENT:
+                        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                            TestResize();
+                        }
+                        break;
+                }
+            }
+
+            TestDraw();
+            SDL_Delay(16); // Approximate 60 FPS
+        }
+
+        TestShutdown();
+        SDL_Metal_DestroyView(view);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
     }
 #endif
 };

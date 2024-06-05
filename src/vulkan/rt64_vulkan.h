@@ -17,6 +17,8 @@
 #define VK_USE_PLATFORM_ANDROID_KHR
 #elif defined(__linux__)
 #define VK_USE_PLATFORM_XLIB_KHR
+#elif defined(__APPLE__)
+#define VK_USE_PLATFORM_METAL_EXT
 #endif
 
 #include "volk/volk.h"

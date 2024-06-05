@@ -13,6 +13,8 @@
 #elif defined(__linux__)
 #   define Status int
 #   include <X11/extensions/Xrandr.h>
+#elif defined(__APPLE__)
+#   include "common/rt64_apple.h"
 #endif
 
 #include "common/rt64_common.h"
@@ -200,6 +202,11 @@ namespace RT64 {
         }
 
         fullScreen = newFullScreen;
+#   elif defined(__APPLE__)
+        DispatchOnMainThread([this] {
+            WindowToggleFullscreen(windowHandle.window);
+        });
+        fullScreen = newFullScreen;
 #   endif
     }
     
@@ -265,6 +272,8 @@ namespace RT64 {
                 break;
             }
         }
+#   elif defined(__APPLE__)
+        refreshRate = GetWindowRefreshRate(windowHandle.window);
 #   endif
     }
 
@@ -284,6 +293,11 @@ namespace RT64 {
 #   elif defined(__linux__)
         XWindowAttributes attributes;
         XGetWindowAttributes(windowHandle.display, windowHandle.window, &attributes);
+        newWindowLeft = attributes.x;
+        newWindowTop = attributes.y;
+#   elif defined(__APPLE__)
+        CocoaWindowAttributes attributes;
+        GetWindowAttributes(windowHandle.window, &attributes);
         newWindowLeft = attributes.x;
         newWindowTop = attributes.y;
 #   endif

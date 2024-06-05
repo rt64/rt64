@@ -21,6 +21,13 @@
 //#   define VULKAN_OBJECT_NAMES_ENABLED
 #endif
 
+#ifdef __APPLE__
+#include <MoltenVK/mvk_vulkan.h>
+#include <vulkan/vulkan_beta.h>
+#include "vulkan/vulkan_metal.h"
+#include "common/rt64_apple.h"
+#endif
+
 // TODO:
 // - Fix resource pools.
 
@@ -48,6 +55,9 @@ namespace RT64 {
         VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
 #   elif defined(__linux__)
         VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+#   elif defined(__APPLE__)
+        VK_EXT_METAL_SURFACE_EXTENSION_NAME,
+        VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
 #   endif
     };
 
@@ -58,6 +68,10 @@ namespace RT64 {
     static const std::unordered_set<std::string> RequiredDeviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,     
+#   ifdef __APPLE__
+        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+#   endif
 #   ifdef VULKAN_OBJECT_NAMES_ENABLED
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #   endif
@@ -73,6 +87,7 @@ namespace RT64 {
         VK_KHR_PRESENT_ID_EXTENSION_NAME,
         VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
         VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME,
+        VK_EXT_LAYER_SETTINGS_EXTENSION_NAME
     };
 
     // Common functions.
@@ -504,7 +519,9 @@ namespace RT64 {
             flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
             flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
             flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+        #ifndef __APPLE__
             flags |= VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
+        #endif
             flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
             flags |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
@@ -1005,6 +1022,9 @@ namespace RT64 {
         setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         setLayoutInfo.pBindings = !setBindings.empty() ? setBindings.data() : nullptr;
         setLayoutInfo.bindingCount = uint32_t(setBindings.size());
+    #ifdef __APPLE__
+        setLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+    #endif
         
         thread_local std::vector<VkDescriptorBindingFlags> bindingFlags;
         VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo = {};
@@ -1798,9 +1818,14 @@ namespace RT64 {
 
         VkDescriptorPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+#  ifdef __APPLE__
+        poolInfo.maxSets = 5000;
+        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+#  else
         poolInfo.maxSets = 1;
+#  endif
         poolInfo.pPoolSizes = !poolSizes.empty() ? poolSizes.data() : nullptr;
-        poolInfo.poolSizeCount = uint32_t(poolSizes.size());
+        poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 
         VkResult res = vkCreateDescriptorPool(device->vk, &poolInfo, nullptr, &descriptorPool);
         if (res == VK_SUCCESS) {
@@ -1861,6 +1886,19 @@ namespace RT64 {
         res = vkCreateXlibSurfaceKHR(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateXlibSurfaceKHR failed with error code 0x%X.\n", res);
+            return;
+        }
+#   elif defined(__APPLE__)
+        assert(renderWindow.window  != 0);
+        assert(renderWindow.view  != 0);
+        VkMetalSurfaceCreateInfoEXT surfaceCreateInfo = {};
+        surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+        surfaceCreateInfo.pLayer = renderWindow.getMetalLayerPointer();
+
+        VulkanInterface *renderInterface = commandQueue->device->renderInterface;
+        res = vkCreateMetalSurfaceEXT(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
+        if (res != VK_SUCCESS) {
+            fprintf(stderr, "vkCreateMetalSurfaceEXT failed with error code 0x%X.\n", res);
             return;
         }
 #   endif
@@ -2190,6 +2228,11 @@ namespace RT64 {
         XWindowAttributes attributes;
         XGetWindowAttributes(renderWindow.display, renderWindow.window, &attributes);
         // The attributes width and height members do not include the border.
+        dstWidth = attributes.width;
+        dstHeight = attributes.height;
+#   elif defined(__APPLE__)
+        CocoaWindowAttributes attributes;
+        GetWindowAttributes(renderWindow.window, &attributes);
         dstWidth = attributes.width;
         dstHeight = attributes.height;
 #   endif
@@ -3951,6 +3994,10 @@ namespace RT64 {
         createInfo.pApplicationInfo = &appInfo;
         createInfo.ppEnabledLayerNames = nullptr;
         createInfo.enabledLayerCount = 0;
+
+        #ifdef __APPLE__
+        createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        #endif
 
         // Check for extensions.
         uint32_t extensionCount;
