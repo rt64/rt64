@@ -383,6 +383,7 @@ namespace RT64 {
         std::unique_ptr<D3D12DescriptorHeapAllocator> colorTargetHeapAllocator;
         std::unique_ptr<D3D12DescriptorHeapAllocator> depthTargetHeapAllocator;
         RenderDeviceCapabilities capabilities;
+        RenderDeviceDescription description;
 
         D3D12Device(D3D12Interface *renderInterface);
         ~D3D12Device() override;
@@ -404,6 +405,7 @@ namespace RT64 {
         void setTopLevelASBuildInfo(RenderTopLevelASBuildInfo &buildInfo, const RenderTopLevelASInstance *instances, uint32_t instanceCount, bool preferFastBuild, bool preferFastTrace) override;
         void setShaderBindingTableInfo(RenderShaderBindingTableInfo &tableInfo, const RenderShaderBindingGroups &groups, const RenderPipeline *pipeline, RenderDescriptorSet **descriptorSets, uint32_t descriptorSetCount) override;
         const RenderDeviceCapabilities &getCapabilities() const override;
+        const RenderDeviceDescription &getDescription() const override;
         RenderSampleCounts getSampleCountsSupported(RenderFormat format) const override;
         void release();
         bool isValid() const;

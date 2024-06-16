@@ -1530,6 +1530,11 @@ namespace RT64 {
         RenderShaderBindingGroupsInfo groups;
     };
 
+    struct RenderDeviceDescription {
+        std::string name = "Unknown";
+        uint32_t driverVersion = 0;
+    };
+
     struct RenderDeviceCapabilities {
         // Raytracing.
         bool raytracing = false;

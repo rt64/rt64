@@ -208,6 +208,7 @@ namespace RT64 {
         virtual void setTopLevelASBuildInfo(RenderTopLevelASBuildInfo &buildInfo, const RenderTopLevelASInstance *instances, uint32_t instanceCount, bool preferFastBuild = true, bool preferFastTrace = false) = 0;
         virtual void setShaderBindingTableInfo(RenderShaderBindingTableInfo &tableInfo, const RenderShaderBindingGroups &groups, const RenderPipeline *pipeline, RenderDescriptorSet **descriptorSets, uint32_t descriptorSetCount) = 0;
         virtual const RenderDeviceCapabilities &getCapabilities() const = 0;
+        virtual const RenderDeviceDescription &getDescription() const = 0;
         virtual RenderSampleCounts getSampleCountsSupported(RenderFormat format) const = 0;
     };
 

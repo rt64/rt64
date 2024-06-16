@@ -327,6 +327,7 @@ namespace RT64 {
 #endif
         MetalInterface *renderInterface = nullptr;
         RenderDeviceCapabilities capabilities;
+        RenderDeviceDescription description;
 
         explicit MetalDevice(MetalInterface *renderInterface);
         ~MetalDevice() override;
@@ -348,6 +349,7 @@ namespace RT64 {
         void setTopLevelASBuildInfo(RenderTopLevelASBuildInfo &buildInfo, const RenderTopLevelASInstance *instances, uint32_t instanceCount, bool preferFastBuild, bool preferFastTrace) override;
         void setShaderBindingTableInfo(RenderShaderBindingTableInfo &tableInfo, const RenderShaderBindingGroups &groups, const RenderPipeline *pipeline, RenderDescriptorSet **descriptorSets, uint32_t descriptorSetCount) override;
         const RenderDeviceCapabilities &getCapabilities() const override;
+        const RenderDeviceDescription &getDescription() const override;
         RenderSampleCounts getSampleCountsSupported(RenderFormat format) const override;
         void release();
         bool isValid() const;

@@ -2198,6 +2198,11 @@ namespace RT64 {
                     }
 #               endif
                     ImGui::NewLine();
+                    
+                    ImGui::Text("Offline Shaders: %d", ext.rasterShaderCache->offlineList.entries.size());
+                    ImGui::Text("Specialized Shaders: %d", ext.rasterShaderCache->shaderCount());
+
+                    ImGui::NewLine();
 
                     bool ubershadersOnly = ext.workloadQueue->ubershadersOnly;
                     ImGui::Checkbox("Ubershaders Only", &ubershadersOnly);

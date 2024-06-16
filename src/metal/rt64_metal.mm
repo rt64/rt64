@@ -1163,6 +1163,7 @@ namespace RT64 {
         // TODO: check if this came after MacFamily2
         capabilities.scalarBlockLayout = true;
         capabilities.presentWait = true;
+        description.name = "Metal";
     }
 
     MetalDevice::~MetalDevice() {
@@ -1241,6 +1242,10 @@ namespace RT64 {
 
     const RenderDeviceCapabilities &MetalDevice::getCapabilities() const {
         return capabilities;
+    }
+
+    const RenderDeviceDescription &MetalDevice::getDescription() const {
+        return description;
     }
 
     RenderSampleCounts MetalDevice::getSampleCountsSupported(RenderFormat format) const {
