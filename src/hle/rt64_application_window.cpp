@@ -251,10 +251,12 @@ namespace RT64 {
             if ((crtcInfo != nullptr) && (crtcInfo->mode != 0L)) {
                 activeModeID = crtcInfo->mode; 
             }
+            XRRFreeCrtcInfo(crtcInfo);
         }
 
         if (activeModeID == 0L) {
             fprintf(stderr, "Unable to find active mode through XRRGetScreenResources and XRRGetCrtcInfo.\n");
+            XRRFreeScreenResources(screenResources);
             return;
         }
 
@@ -265,6 +267,8 @@ namespace RT64 {
                 break;
             }
         }
+
+        XRRFreeScreenResources(screenResources);
 #   endif
     }
 
