@@ -271,7 +271,7 @@ namespace RT64 {
             writeShader = &shaderLibrary->fbWriteColor;
         }
         
-        assert((fmt != G_IM_FMT_DEPTH) || (siz == G_IM_SIZ_16b) && "Depth format is not allowed outside of 16-bits.");
+        assert(((fmt != G_IM_FMT_DEPTH) || (siz == G_IM_SIZ_16b)) && "Depth format is not allowed outside of 16-bits.");
         
         // We need at least one read buffer in the history to use to write the output to.
         if (readBufferHistory.empty()) {

@@ -79,7 +79,7 @@ namespace RT64 {
             return false;
         }
 
-        for (const auto it : lightMap) {
+        for (const auto& it : lightMap) {
             json jlight;
             jlight["name"] = it.first;
             jlight["description"] = it.second.description;

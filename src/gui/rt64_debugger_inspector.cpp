@@ -261,7 +261,7 @@ namespace RT64 {
         uint32_t totalSyncCount = 0;
         for (uint32_t f = 0; f < workload.fbPairCount; f++) {
             auto &fbPair = workload.fbPairs[f];
-            if (renderer.framebufferIndex == f) {
+            if ((uint32_t)renderer.framebufferIndex == f) {
                 renderer.framebufferAddress = renderer.framebufferDepth ? fbPair.depthImage.address : fbPair.colorImage.address;
             }
 
@@ -896,7 +896,7 @@ namespace RT64 {
                                     ImGui::PushID(l);
                                     
                                     if (openCall) {
-                                        bool open = (openLoadIndex == (callDesc.loadIndex + l));
+                                        bool open = ((uint32_t)openLoadIndex == (callDesc.loadIndex + l));
                                         ImGui::SetNextItemOpen(open);
                                         if (open) {
                                             ImGui::SetScrollHereY(0.0f);
@@ -984,7 +984,7 @@ namespace RT64 {
                                     const DrawCallTile &callTile = drawData.callTiles[callDesc.tileIndex + t];
                                     const LoadTile &loadTile = callTile.loadTile;
                                     if (openCall) {
-                                        bool open = (openTileIndex == (callDesc.tileIndex + t));
+                                        bool open = ((uint32_t)openTileIndex == (callDesc.tileIndex + t));
                                         ImGui::SetNextItemOpen(open);
                                         if (open) {
                                             ImGui::SetScrollHereY(0.0f);

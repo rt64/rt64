@@ -2198,9 +2198,9 @@ namespace RT64 {
                     }
 #               endif
                     ImGui::NewLine();
-                    
-                    ImGui::Text("Offline Shaders: %d", ext.rasterShaderCache->offlineList.entries.size());
-                    ImGui::Text("Specialized Shaders: %d", ext.rasterShaderCache->shaderCount());
+
+                    ImGui::Text("Offline Shaders: %zu", ext.rasterShaderCache->offlineList.entries.size());
+                    ImGui::Text("Specialized Shaders: %u", ext.rasterShaderCache->shaderCount());
 
                     ImGui::NewLine();
 

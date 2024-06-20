@@ -288,7 +288,7 @@ namespace RT64 {
         modelViewProjChanged = changed;
     }
 
-    void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
+    void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -300,7 +300,7 @@ namespace RT64 {
         setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
     }
     
-    void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
+    void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -326,7 +326,7 @@ namespace RT64 {
         setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
     }
 
-    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint8_t dstIndex) {
+    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -1099,7 +1099,7 @@ namespace RT64 {
             int &stackSize = proj ? extended.viewProjMatrixIdStackSize : extended.modelMatrixIdStackSize;
             bool &stackChanged = proj ? extended.viewProjMatrixIdStackChanged : extended.modelMatrixIdStackChanged;
             if (push) {
-                if (stackSize < stack.size()) {
+                if ((size_t)stackSize < stack.size()) {
                     stackSize++;
                 }
                 else {

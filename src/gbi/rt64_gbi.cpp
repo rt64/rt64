@@ -5,6 +5,7 @@
 #include "rt64_gbi.h"
 
 #include <cassert>
+#include <cinttypes>
 
 #include "rt64_gbi_extended.h"
 #include "rt64_gbi_f3d.h"
@@ -171,7 +172,7 @@ namespace RT64 {
 
             // If we used an unknown value in the database, print the hash.
             if (gbiSegment.hashValue == GBI_UNKNOWN_HASH_NUMB) {
-                fprintf(stdout, "HASH: 0x%016llXULL SIZE: 0x%X\n", rdramHash, rdramHashed);
+                fprintf(stdout, "HASH: 0x%016" PRIX64 "ULL SIZE: 0x%X\n", rdramHash, rdramHashed);
             }
         };
 
@@ -290,8 +291,8 @@ namespace RT64 {
                 const uint8_t *twoPointResult = std::search(searchResult, searchResultEnd, twoPointPattern, twoPointPattern + std::size(twoPointPattern) - 1);
                 if ((f3dexResult != searchResultEnd) && (twoPointResult != searchResultEnd)) {
                     const uint32_t lastOverlay = *reinterpret_cast<const uint32_t *>(&RDRAM[dataAddress + 0x410]);
-                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[dataAddress + 0x414 ^ 2]);
-                    const uint16_t estimatedDataSize = *reinterpret_cast<const uint16_t *>(&RDRAM[dataAddress + 0x380 ^ 2]);
+                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[(dataAddress + 0x414) ^ 2]);
+                    const uint16_t estimatedDataSize = *reinterpret_cast<const uint16_t *>(&RDRAM[(dataAddress + 0x380) ^ 2]);
                     const uint32_t textSize = lastOverlay + lastOverlaySize + 1;
                     fprintf(stderr, "Detected text size is 0x%X\n", textSize);
                     fprintf(stderr, "Estimated data size is 0x%X\n", estimatedDataSize);
@@ -300,7 +301,7 @@ namespace RT64 {
                 const uint8_t *s2dexResult = std::search(searchResult, searchResultEnd, s2dexPattern, s2dexPattern + std::size(s2dexPattern) - 1);
                 if ((s2dexResult != searchResultEnd) && (twoPointResult != searchResultEnd)) {
                     const uint32_t lastOverlay = *reinterpret_cast<const uint32_t *>(&RDRAM[dataAddress + 0x31C]);
-                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[dataAddress + 0x320 ^ 2]);
+                    const uint16_t lastOverlaySize = *reinterpret_cast<const uint16_t *>(&RDRAM[(dataAddress + 0x320) ^ 2]);
                     const uint32_t textSize = lastOverlay + lastOverlaySize + 1;
                     fprintf(stderr, "Detected text size is 0x%X\n", textSize);
                 }

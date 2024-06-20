@@ -197,7 +197,7 @@ namespace RT64 {
         else {
             const uint8_t *srcData = reinterpret_cast<const uint8_t *>(bytes);
             size_t offset = 0;
-            while ((offset + rowPitch) <= byteCount) {
+            while ((offset + rowPitch) <= (size_t)byteCount) {
                 memcpy(dstData, srcData, rowPitch);
                 srcData += rowPitch;
                 offset += rowPitch;

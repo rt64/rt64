@@ -1200,7 +1200,7 @@ namespace RT64 {
 
         bool depthState = false;
         worker->commandList->setFramebuffer(targetDrawCall.fbStorage->colorDepthWrite.get());
-        for (const auto pair : targetDrawCall.sceneIndices) {
+        for (const auto& pair : targetDrawCall.sceneIndices) {
 #       if RT_ENABLED
             if (pair.second) {
                 const auto &rtScene = targetDrawCall.rtScenes[pair.first];
@@ -1241,7 +1241,7 @@ namespace RT64 {
                 submitDepthAccess(worker, targetDrawCall.fbStorage, true, depthState);
                 submitRaytracingScene(worker, targetDrawCall.fbStorage->colorTarget, rtScene);
             }
-            else 
+            else
 #       endif
             {
                 const RasterScene &rasterScene = targetDrawCall.rasterScenes[pair.first];
@@ -1596,6 +1596,9 @@ namespace RT64 {
                             instanceDrawCall.type = InstanceDrawCall::Type::RawTriangles;
                             triangles.indexStart = call.meshDesc.rawVertexStart;
                             triangles.viewport = rawViewportWide;
+                            break;
+                        }
+                        case Projection::Type::None: {
                             break;
                         }
                         }

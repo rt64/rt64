@@ -109,7 +109,7 @@ namespace RT64 {
         hlslpp::float3 sunCol = { 0.8f, 0.7f, 0.6f };
         float biggestIntensity = 0;
         int biggestDirLight = -1;
-        for (int i = 0; i < directionalLights.size(); i++) {
+        for (size_t i = 0; i < directionalLights.size(); i++) {
             if (directionalLights[i].intensityTotal > biggestIntensity) {
                 biggestDirLight = i;
                 biggestIntensity = directionalLights[i].intensityTotal;

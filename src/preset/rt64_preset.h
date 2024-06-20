@@ -34,6 +34,7 @@ namespace RT64 {
     struct PresetBase {
         bool enabled = true;
 
+        virtual ~PresetBase() = default;
         virtual bool readJson(const json &jsonObj);
         virtual bool writeJson(json &jsonObj) const;
     };
@@ -60,7 +61,7 @@ namespace RT64 {
         }
 
         void writeJson(json &jroot) {
-            for (const auto it : presetMap) {
+            for (const auto& it : presetMap) {
                 json jpreset;
                 jpreset["name"] = it.first;
                 it.second.writeJson(jpreset);
