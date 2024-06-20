@@ -248,10 +248,13 @@ namespace RT64 {
         RRMode activeModeID = 0;
         for (int i = 0; i < screenResources->ncrtc; ++i) {
             XRRCrtcInfo *crtcInfo = XRRGetCrtcInfo(windowHandle.display, screenResources, screenResources->crtcs[i]);
-            if ((crtcInfo != nullptr) && (crtcInfo->mode != 0L)) {
-                activeModeID = crtcInfo->mode; 
+            if (crtcInfo != nullptr) {
+                if (crtcInfo->mode != 0L) {
+                    activeModeID = crtcInfo->mode; 
+                }
+                
+                XRRFreeCrtcInfo(crtcInfo);
             }
-            XRRFreeCrtcInfo(crtcInfo);
         }
 
         if (activeModeID == 0L) {
