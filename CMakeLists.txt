@@ -295,6 +295,9 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_demo.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_items.cpp"
+
+    "${PROJECT_SOURCE_DIR}/src/api/rt64_api_common.cpp"
+    "${PROJECT_SOURCE_DIR}/src/api/rt64_api_plugin.cpp"
 )
 
 include_directories(
