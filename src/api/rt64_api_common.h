@@ -6,6 +6,21 @@
 #include "m64p_common.h"
 #include "m64p_plugin.h"
 #include "m64p_types.h"
+#include "m64p_vidext.h"
+
+// mupen64plus function pointers for the video extension functions
+extern ptr_VidExt_InitWithRenderMode CoreVideo_InitWithRenderMode;
+extern ptr_VidExt_Quit CoreVideo_Quit;
+extern ptr_VidExt_SetCaption CoreVideo_SetCaption;
+extern ptr_VidExt_ToggleFullScreen CoreVideo_ToggleFullScreen;
+extern ptr_VidExt_ResizeWindow CoreVideo_ResizeWindow;
+extern ptr_VidExt_VK_GetSurface CoreVideo_VK_GetSurface;
+extern ptr_VidExt_VK_GetInstanceExtensions CoreVideo_VK_GetInstanceExtensions;
+extern ptr_VidExt_SetVideoMode CoreVideo_SetVideoMode;
+
+// TODO: move this to applicationwindow?
+extern int window_width;
+extern int window_height;
 
 #ifdef _WIN32
 namespace pj64 {

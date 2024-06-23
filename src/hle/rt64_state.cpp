@@ -1866,7 +1866,7 @@ namespace RT64 {
         // Check the debugger popup regardless of the active inspector mode.
         bool debuggerSelected = debuggerInspector.checkPopup(workload);
 
-        if (ImGui::Begin("Game editor")) {
+        if (ImGui::Begin("Game editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             if (ImGui::BeginTabBar("##tabs", ImGuiTabBarFlags_None)) {
                 if (ImGui::BeginTabItem("Configuration")) {
                     // General configuration.

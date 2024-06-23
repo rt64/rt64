@@ -116,7 +116,7 @@ namespace RT64 {
             specConstants.emplace_back(4, desc.flags.value);
         }
         else {
-#       if defined(_WIN32)
+#       if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN) // TODO.....
             if (useBytes) {
                 vertexShader = device->createShader(vsBytes->data(), vsBytes->size(), "VSMain", shaderFormat);
                 pixelShader = device->createShader(psBytes->data(), psBytes->size(), "PSMain", shaderFormat);
@@ -378,7 +378,7 @@ namespace RT64 {
         uint32_t PSBlobSize = 0;
         const bool useMSAA = (multisampling.sampleCount > 1);
         switch (shaderFormat) {
-#   ifdef _WIN32
+#   if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
         case RenderShaderFormat::DXIL:
             VSBlob = RasterVSDynamicBlobDXIL;
             PSBlob = useMSAA ? RasterPSDynamicMSBlobDXIL : RasterPSDynamicBlobDXIL;

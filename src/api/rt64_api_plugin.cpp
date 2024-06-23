@@ -4,6 +4,9 @@
 
 #include "rt64_api_common.h"
 
+#include <SDL.h>
+#include "imgui/backends/imgui_impl_sdl2.h"
+
 #define PLUGIN_NAME                 "RT64 Video Plugin"
 #define PLUGIN_VERSION              0x020509
 #define VIDEO_PLUGIN_API_VERSION    0x020200
@@ -13,7 +16,46 @@
 #   define LOG_PLUGIN_API_CALLS
 #endif
 
+/* definitions of pointers to Core video extension functions */
+ptr_VidExt_InitWithRenderMode CoreVideo_InitWithRenderMode = NULL;
+ptr_VidExt_Quit CoreVideo_Quit = NULL;
+ptr_VidExt_SetCaption CoreVideo_SetCaption = NULL;
+ptr_VidExt_ToggleFullScreen CoreVideo_ToggleFullScreen = NULL;
+ptr_VidExt_ResizeWindow CoreVideo_ResizeWindow = NULL;
+ptr_VidExt_VK_GetSurface CoreVideo_VK_GetSurface = NULL;
+ptr_VidExt_VK_GetInstanceExtensions CoreVideo_VK_GetInstanceExtensions = NULL;
+ptr_VidExt_SetVideoMode CoreVideo_SetVideoMode = NULL;
+
+#ifdef _WIN32
+#define DLSYM(a, b) GetProcAddress(a, b)
+#else
+#include <dlfcn.h>
+#define DLSYM(a, b) dlsym(a, b)
+#endif
+
 DLLEXPORT m64p_error CALL PluginStartup(m64p_dynlib_handle CoreLibHandle, void *Context, void (*DebugCallback)(void *, int, const char *)) {
+    CoreVideo_InitWithRenderMode = (ptr_VidExt_InitWithRenderMode)DLSYM(CoreLibHandle, "VidExt_InitWithRenderMode");
+    CoreVideo_Quit = (ptr_VidExt_Quit)DLSYM(CoreLibHandle, "VidExt_Quit");
+    CoreVideo_SetCaption = (ptr_VidExt_SetCaption)DLSYM(CoreLibHandle, "VidExt_SetCaption");
+    CoreVideo_ToggleFullScreen = (ptr_VidExt_ToggleFullScreen)DLSYM(CoreLibHandle, "VidExt_ToggleFullScreen");
+    CoreVideo_ResizeWindow = (ptr_VidExt_ResizeWindow)DLSYM(CoreLibHandle, "VidExt_ResizeWindow");
+    CoreVideo_VK_GetSurface = (ptr_VidExt_VK_GetSurface)DLSYM(CoreLibHandle, "VidExt_VK_GetSurface");
+    CoreVideo_VK_GetInstanceExtensions = (ptr_VidExt_VK_GetInstanceExtensions)DLSYM(CoreLibHandle, "VidExt_VK_GetInstanceExtensions");
+    CoreVideo_SetVideoMode = (ptr_VidExt_SetVideoMode)DLSYM(CoreLibHandle, "VidExt_SetVideoMode");
+    if (CoreVideo_InitWithRenderMode == NULL ||
+        CoreVideo_Quit == NULL ||
+        CoreVideo_SetCaption == NULL ||
+        CoreVideo_ToggleFullScreen == NULL ||
+        CoreVideo_ResizeWindow == NULL ||
+        CoreVideo_VK_GetSurface == NULL ||
+        CoreVideo_VK_GetInstanceExtensions == NULL ||
+        CoreVideo_SetVideoMode == NULL) {
+        return M64ERR_SYSTEM_FAIL;
+    }
+    return M64ERR_SUCCESS;
+}
+
+DLLEXPORT m64p_error CALL PluginShutdown(void) {   
     return M64ERR_SUCCESS;
 }
 
@@ -32,9 +74,7 @@ DLLEXPORT m64p_error CALL PluginGetVersion(m64p_plugin_type *PluginType, int *Pl
         *PluginNamePtr = PLUGIN_NAME;
 
     if (Capabilities != NULL)
-    {
         *Capabilities = 0;
-    }
                     
     return M64ERR_SUCCESS;
 }
@@ -52,7 +92,10 @@ DLLEXPORT void CALL MoveScreen(int xpos, int ypos) {
 }
 
 DLLEXPORT void CALL RomClosed(void) {
-    // Do nothing.
+    if (RT64::API.app != nullptr) {
+        RT64::API.app->end();
+        RT64::API.app.reset();
+    }
 }
 
 DLLEXPORT int CALL RomOpen(void) {
@@ -61,7 +104,6 @@ DLLEXPORT int CALL RomOpen(void) {
         RT64::ApplicationWindow *appWindow = RT64::API.app->appWindow.get();
         appWindow->makeResizable();
     }
-
     return 1;
 }
 
@@ -106,8 +148,12 @@ DLLEXPORT int CALL InitiateGFX(PluginGraphicsInfo graphicsInfo) {
     return (RT64::API.app->setup(0) == RT64::Application::SetupResult::Success);
 }
 
+int window_width  = 640;
+int window_height = 480;
+
 DLLEXPORT void CALL ResizeVideoOutput(int width, int height) {
-    // Do nothing.
+    window_width  = width;
+    window_height = height;
 }
 
 DLLEXPORT void CALL FBRead(uint32_t addr) {
@@ -137,3 +183,85 @@ DLLEXPORT void CALL SetRenderingCallback(void (*callback)(int)) {
 DLLEXPORT void CALL CaptureScreen(const char *Directory) {
     // Unused.
 }
+
+// TODO: PR this to mupen64plus....
+DLLEXPORT void CALL SDL_KeyDown(int keymod, int keysym)
+{
+    SDL_Event event;
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.mod = keymod;
+    event.key.keysym.sym = keysym;
+    if (RT64::API.app->presentQueue->inspector != nullptr) {
+        ImGui_ImplSDL2_ProcessEvent(&event);
+    }
+}
+
+DLLEXPORT void CALL SDL_KeyUp(int keymod, int keysym)
+{
+    SDL_Event event;
+    event.type = SDL_KEYUP;
+    event.key.keysym.mod = SDL_SCANCODE_TO_KEYCODE(keymod);
+    event.key.keysym.sym = SDL_SCANCODE_TO_KEYCODE(keysym);
+
+    if (keysym == SDL_SCANCODE_F10)
+    {
+        if (RT64::API.app->userConfig.developerMode) {
+            fprintf(stderr, "creating inspector...\n");
+            const std::lock_guard<std::mutex> lock(RT64::API.app->presentQueue->inspectorMutex);
+            if (RT64::API.app->presentQueue->inspector == nullptr) {
+                RT64::API.app->presentQueue->inspector = std::make_unique<RT64::Inspector>(RT64::API.app->device.get(), RT64::API.app->swapChain.get(), RT64::API.app->createdGraphicsAPI);
+                if (!RT64::API.app->userPaths.isEmpty()) {
+                    RT64::API.app->presentQueue->inspector->setIniPath(RT64::API.app->userPaths.imguiPath);
+                }
+
+                RT64::API.app->freeCamClearQueued = true;
+                ImGui_ImplSDL2_InitForVulkan(nullptr); // TODO: move this elsewhere...
+                //appWindow->blockSdlKeyboard();
+            }
+            else if (RT64::API.app->presentQueue->inspector != nullptr) {
+                RT64::API.app->presentQueue->inspector.reset(nullptr);
+                //appWindow->unblockSdlKeyboard();
+            }
+        }
+        else {
+            fprintf(stdout, "Inspector is not available: developer mode is not enabled in the configuration.\n");
+        }
+        return;
+    }
+
+    if (RT64::API.app->presentQueue->inspector != nullptr) {
+        ImGui_ImplSDL2_ProcessEvent(&event);
+    }
+}
+
+DLLEXPORT void CALL MouseMove(int x, int y)
+{
+    SDL_Event event;
+    event.type = SDL_MOUSEMOTION;
+    event.motion.which = 1;
+    event.motion.x = x;
+    event.motion.y = y;
+
+    if (RT64::API.app->presentQueue->inspector != nullptr) {
+        //printf("MouseMove x = %i, y = %i\n", x,y);
+        ImGui_ImplSDL2_ProcessEvent(&event);
+    }
+}
+
+DLLEXPORT void CALL MouseButton(int left, int right)
+{
+    if (RT64::API.app->presentQueue->inspector != nullptr) {
+        printf("MouseButton left = %i\n", left);
+        SDL_Event event;
+
+        event.type = left ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+        event.button.button = SDL_BUTTON_LEFT;
+        ImGui_ImplSDL2_ProcessEvent(&event);
+
+        event.type = right ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+        event.button.button = SDL_BUTTON_RIGHT;
+        ImGui_ImplSDL2_ProcessEvent(&event);
+    }
+}
+
+
