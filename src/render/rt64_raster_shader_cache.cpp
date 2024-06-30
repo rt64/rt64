@@ -12,7 +12,7 @@ namespace RT64 {
     // RasterShaderCache::OfflineList
 
     static const uint32_t OfflineMagic = 0x43535452;
-    static const uint32_t OfflineVersion = 2;
+    static const uint32_t OfflineVersion = 3;
 
     RasterShaderCache::OfflineList::OfflineList() {
         entryIterator = entries.end();

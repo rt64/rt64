@@ -400,8 +400,7 @@ namespace RT64 {
         vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
         pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
 
-        // Create the pipeline layout.
-        FramebufferRendererDescriptorCommonSet descriptorCommonSet(shaderLibrary->linearClampSampler.get(), shaderLibrary->linearMirrorSampler.get(), device->getCapabilities().raytracing);
+        FramebufferRendererDescriptorCommonSet descriptorCommonSet(shaderLibrary->samplerLibrary, device->getCapabilities().raytracing);
         FramebufferRendererDescriptorTextureSet descriptorTextureSet;
         FramebufferRendererDescriptorFramebufferSet descriptorFramebufferSet;
         RenderPipelineLayoutBuilder layoutBuilder;

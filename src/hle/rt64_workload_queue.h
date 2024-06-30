@@ -31,6 +31,7 @@ namespace RT64 {
         struct External {
             RenderDevice *device = nullptr;
             RenderWorker *workloadGraphicsWorker = nullptr;
+            BufferUploader *workloadExtrasUploader = nullptr;
             BufferUploader *workloadVelocityUploader = nullptr;
             BufferUploader *workloadTilesUploader = nullptr;
             PresentQueue *presentQueue = nullptr;
@@ -111,7 +112,7 @@ namespace RT64 {
         void threadRenderFrame(GameFrame &curFrame, const GameFrame &prevFrame, const WorkloadConfiguration &workloadConfig,
             const DebuggerRenderer &debuggerRenderer, const DebuggerCamera &debuggerCamera, float curFrameWeight, float prevFrameWeight,
             float deltaTimeMs, RenderTargetKey overrideTargetKey, int32_t overrideTargetFbPairIndex, RenderTarget *overrideTarget,
-            uint32_t overrideTargetModifier, bool uploadVelocity, bool interpolateTiles);
+            uint32_t overrideTargetModifier, bool uploadVelocity, bool uploadExtras, bool interpolateTiles);
 
         void threadAdvanceBarrier();
         void threadAdvanceWorkloadId(uint64_t newWorkloadId);

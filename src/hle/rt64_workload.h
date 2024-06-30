@@ -204,7 +204,7 @@ namespace RT64 {
         OutputBuffers outputBuffers;
         std::vector<FramebufferPair> fbPairs;
         std::vector<CommandWarning> commandWarnings;
-        std::vector<interop::PointLight> scriptLights;
+        std::vector<interop::PointLight> pointLights;
         uint32_t fbPairCount;
         uint32_t fbPairSubmitted;
         uint32_t gameCallCount;

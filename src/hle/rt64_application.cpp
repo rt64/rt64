@@ -106,7 +106,7 @@ namespace RT64 {
             currentScript = std::move(scriptLibrary.loadGameScript(scriptAPI.get()));
             if ((currentScript != nullptr) && !currentScript->initialize()) {
                 fprintf(stderr, "Failed to initialize game script.\n");
-                return false;
+                currentScript.reset();
             }
         }
 #   endif
@@ -189,10 +189,11 @@ namespace RT64 {
         drawDataUploader = std::make_unique<BufferUploader>(device.get());
         transformsUploader = std::make_unique<BufferUploader>(device.get());
         tilesUploader = std::make_unique<BufferUploader>(device.get());
+        workloadExtrasUploader = std::make_unique<BufferUploader>(device.get());
         workloadVelocityUploader = std::make_unique<BufferUploader>(device.get());
         workloadTilesUploader = std::make_unique<BufferUploader>(device.get());
         framebufferGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Framebuffer Graphics", RenderCommandListType::DIRECT);
-        textureComputeWorker = std::make_unique<RenderWorker>(device.get(), "Texture Compute", RenderCommandListType::COMPUTE);
+        textureComputeWorker = std::make_unique<RenderWorker>(device.get(), "Texture Compute", RenderCommandListType::DIRECT); // TODO: Change this back after DDS decoder is made its own worker.
         workloadGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Workload Graphics", RenderCommandListType::DIRECT);
         presentGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Present Graphics", RenderCommandListType::DIRECT);
         swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, 2, RenderFormat::B8G8R8A8_UNORM);
@@ -244,7 +245,7 @@ namespace RT64 {
         // Create the blue noise texture, upload it and wait for it to finish.
         std::unique_ptr<RenderBuffer> blueNoiseUploadBuffer;
         workloadGraphicsWorker->commandList->begin();
-        TextureCache::setRGBA32(&blueNoiseTexture, workloadGraphicsWorker.get(), LDR_64_64_64_RGB1_BGRA8, int(sizeof(LDR_64_64_64_RGB1_BGRA8)), 512, 512, 512 * 4, blueNoiseUploadBuffer, textureCache->uploadResourcePool.get());
+        TextureCache::setRGBA32(&blueNoiseTexture, workloadGraphicsWorker.get(), LDR_64_64_64_RGB1_BGRA8, int(sizeof(LDR_64_64_64_RGB1_BGRA8)), 512, 512, 512 * 4, blueNoiseUploadBuffer);
         workloadGraphicsWorker->commandList->end();
         workloadGraphicsWorker->execute();
         workloadGraphicsWorker->wait();
@@ -268,6 +269,7 @@ namespace RT64 {
         WorkloadQueue::External workloadExt;
         workloadExt.device = device.get();
         workloadExt.workloadGraphicsWorker = workloadGraphicsWorker.get();
+        workloadExt.workloadExtrasUploader = workloadExtrasUploader.get();
         workloadExt.workloadVelocityUploader = workloadVelocityUploader.get();
         workloadExt.workloadTilesUploader = workloadTilesUploader.get();
         workloadExt.presentQueue = presentQueue.get();
@@ -317,9 +319,6 @@ namespace RT64 {
         stateExt.createdGraphicsAPI = createdGraphicsAPI;
 #   if RT_ENABLED
         stateExt.rtConfig = &rtConfig;
-#   endif
-#   if SCRIPT_ENABLED
-        stateExt.currentScript = currentScript.get();
 #   endif
         state->setup(stateExt);
 
@@ -438,7 +437,8 @@ namespace RT64 {
 
         switch (message) {
         case WM_KEYDOWN: {
-            if (wParam == VK_F1) {
+            switch (wParam) {
+            case VK_F1: {
                 if (userConfig.developerMode) {
                     const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
                     if (presentQueue->inspector == nullptr) {
@@ -461,20 +461,21 @@ namespace RT64 {
 
                 return true;
             }
-            else if (wParam == VK_F2) {
-#           if RT_ENABLED
-                // Only load the RT pipeline if the device supports it.
-                if (device->getCapabilities().raytracing && !rtShaderCache->isSetup()) {
-                    rtShaderCache->setup();
-                }
-#           endif
-                
+            case VK_F2: {
                 workloadQueue->rtEnabled = !workloadQueue->rtEnabled;
                 return true;
             }
-            else if (wParam == VK_F3) {
+            case VK_F3: {
                 presentQueue->viewRDRAM = !presentQueue->viewRDRAM;
                 return true;
+            }
+            case VK_F4: {
+                textureCache->textureMap.replacementMapEnabled = !textureCache->textureMap.replacementMapEnabled;
+                return true;
+            }
+            default:
+                // Ignore key.
+                break;
             }
         }
         };
@@ -507,6 +508,7 @@ namespace RT64 {
         drawDataUploader.reset();
         transformsUploader.reset();
         tilesUploader.reset();
+        workloadExtrasUploader.reset();
         workloadVelocityUploader.reset();
         workloadTilesUploader.reset();
         sharedQueueResources.reset();

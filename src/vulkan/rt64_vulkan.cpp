@@ -189,6 +189,48 @@ namespace RT64 {
             return VK_FORMAT_R8_SNORM;
         case RenderFormat::R8_SINT:
             return VK_FORMAT_R8_SINT;
+        case RenderFormat::BC1_TYPELESS:
+            return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+        case RenderFormat::BC1_UNORM:
+            return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+        case RenderFormat::BC1_UNORM_SRGB:
+            return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+        case RenderFormat::BC2_TYPELESS:
+            return VK_FORMAT_BC2_UNORM_BLOCK;
+        case RenderFormat::BC2_UNORM:
+            return VK_FORMAT_BC2_UNORM_BLOCK;
+        case RenderFormat::BC2_UNORM_SRGB:
+            return VK_FORMAT_BC2_SRGB_BLOCK;
+        case RenderFormat::BC3_TYPELESS:
+            return VK_FORMAT_BC3_UNORM_BLOCK;
+        case RenderFormat::BC3_UNORM:
+            return VK_FORMAT_BC3_UNORM_BLOCK;
+        case RenderFormat::BC3_UNORM_SRGB:
+            return VK_FORMAT_BC3_SRGB_BLOCK;
+        case RenderFormat::BC4_TYPELESS:
+            return VK_FORMAT_BC4_UNORM_BLOCK;
+        case RenderFormat::BC4_UNORM:
+            return VK_FORMAT_BC4_UNORM_BLOCK;
+        case RenderFormat::BC4_SNORM:
+            return VK_FORMAT_BC4_SNORM_BLOCK;
+        case RenderFormat::BC5_TYPELESS:
+            return VK_FORMAT_BC5_UNORM_BLOCK;
+        case RenderFormat::BC5_UNORM:
+            return VK_FORMAT_BC5_UNORM_BLOCK;
+        case RenderFormat::BC5_SNORM:
+            return VK_FORMAT_BC5_SNORM_BLOCK;
+        case RenderFormat::BC6H_TYPELESS:
+            return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+        case RenderFormat::BC6H_UF16:
+            return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+        case RenderFormat::BC6H_SF16:
+            return VK_FORMAT_BC6H_SFLOAT_BLOCK;
+        case RenderFormat::BC7_TYPELESS:
+            return VK_FORMAT_BC7_UNORM_BLOCK;
+        case RenderFormat::BC7_UNORM:
+            return VK_FORMAT_BC7_UNORM_BLOCK;
+        case RenderFormat::BC7_UNORM_SRGB:
+            return VK_FORMAT_BC7_SRGB_BLOCK;
         default:
             assert(false && "Unknown format.");
             return VK_FORMAT_UNDEFINED;
@@ -805,7 +847,7 @@ namespace RT64 {
         imageInfo.arrayLayers = 1;
         imageInfo.samples = VkSampleCountFlagBits(desc.multisampling.sampleCount);
         imageInfo.tiling = toVk(desc.textureArrangement);
-        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         imageInfo.usage |= (desc.flags & RenderTextureFlag::RENDER_TARGET) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0;
@@ -2829,14 +2871,15 @@ namespace RT64 {
             assert(dstTexture != nullptr);
             assert(srcBuffer != nullptr);
 
+            const uint32_t blockWidth = RenderFormatBlockWidth(dstTexture->desc.format);
             VkBufferImageCopy imageCopy = {};
             imageCopy.bufferOffset = srcLocation.placedFootprint.offset;
-            imageCopy.bufferRowLength = srcLocation.placedFootprint.rowWidth;
-            imageCopy.bufferImageHeight = srcLocation.placedFootprint.height;
+            imageCopy.bufferRowLength = ((srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth) * blockWidth;
+            imageCopy.bufferImageHeight = ((srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
             imageCopy.imageSubresource.aspectMask = (dstTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             imageCopy.imageSubresource.baseArrayLayer = 0;
             imageCopy.imageSubresource.layerCount = 1;
-            imageCopy.imageSubresource.mipLevel = 0;
+            imageCopy.imageSubresource.mipLevel = dstLocation.subresource.index;
             imageCopy.imageOffset.x = dstX;
             imageCopy.imageOffset.y = dstY;
             imageCopy.imageOffset.z = dstZ;
@@ -2850,11 +2893,11 @@ namespace RT64 {
             imageCopy.srcSubresource.aspectMask = (srcTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             imageCopy.srcSubresource.baseArrayLayer = 0;
             imageCopy.srcSubresource.layerCount = 1;
-            imageCopy.srcSubresource.mipLevel = 0;
+            imageCopy.srcSubresource.mipLevel = srcLocation.subresource.index;
             imageCopy.dstSubresource.aspectMask = (dstTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             imageCopy.dstSubresource.baseArrayLayer = 0;
             imageCopy.dstSubresource.layerCount = 1;
-            imageCopy.dstSubresource.mipLevel = 0;
+            imageCopy.dstSubresource.mipLevel = dstLocation.subresource.index;
             imageCopy.dstOffset.x = dstX;
             imageCopy.dstOffset.y = dstY;
             imageCopy.dstOffset.z = dstZ;

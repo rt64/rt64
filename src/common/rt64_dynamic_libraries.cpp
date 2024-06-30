@@ -19,7 +19,7 @@ namespace RT64 {
         NameRequiredPair("dxil.dll", true),
         NameRequiredPair("dxcompiler.dll", true),
 #   if DLSS_ENABLED
-        NameRequiredPair("nvngx_dlss.dll", false),
+        NameRequiredPair("nvngx_dlssd.dll", false),
 #   endif
     };
 

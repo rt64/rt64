@@ -1099,7 +1099,7 @@ namespace RT64 {
             int &stackSize = proj ? extended.viewProjMatrixIdStackSize : extended.modelMatrixIdStackSize;
             bool &stackChanged = proj ? extended.viewProjMatrixIdStackChanged : extended.modelMatrixIdStackChanged;
             if (push) {
-                if ((size_t)stackSize < stack.size()) {
+                if (size_t(stackSize) < stack.size()) {
                     stackSize++;
                 }
                 else {

@@ -40,30 +40,17 @@ namespace RT64 {
             drawData.prevProjTransforms = drawData.projTransforms;
             drawData.prevViewProjTransforms = drawData.viewProjTransforms;
         }
-        
-        /*
-        const auto &freeCamera = p.curFrame->freeCamera;
-        if (freeCamera.enabled && (freeCamera.sceneIndex < p.curFrame->perspectiveScenes.size())) {
-            GameScene &scene = p.curFrame->perspectiveScenes[freeCamera.sceneIndex];
-            for (const GameScene::Projection &sceneProj : scene.projections) {
-                const GameProjection &proj = p.curFrame->fbPairs[sceneProj.fbPairIndex].projections[sceneProj.projectionIndex];
-                drawData.modViewTransforms[proj.transformsIndex] = freeCamera.viewMatrix;
-                drawData.modProjTransforms[proj.transformsIndex] = freeCamera.projMatrix;
-                drawData.modViewProjTransforms[proj.transformsIndex] = hlslpp::mul(freeCamera.viewMatrix, freeCamera.projMatrix);
-            }
-        }
-        */
 
         for (size_t s = 0; s < p.curFrame->perspectiveScenes.size(); s++) {
-            processScene(p, p.curFrame->perspectiveScenes[s], true);
+            processScene(p, p.curFrame->perspectiveScenes[s], s, true);
         }
 
         for (size_t s = 0; s < p.curFrame->orthographicScenes.size(); s++) {
-            processScene(p, p.curFrame->orthographicScenes[s], false);
+            processScene(p, p.curFrame->orthographicScenes[s], s, false);
         }
     }
 
-    void ProjectionProcessor::processScene(const ProcessParams &p, const GameScene &scene, bool useScissorDetection) {
+    void ProjectionProcessor::processScene(const ProcessParams &p, const GameScene &scene, size_t sceneIndex, bool useScissorDetection) {
         for (size_t i = 0; i < scene.projections.size(); i++) {
             const GameIndices::Projection &sceneProj = scene.projections[i];
             Workload &workload = p.workloadQueue->workloads[sceneProj.workloadIndex];
@@ -99,13 +86,19 @@ namespace RT64 {
             projMatrix = drawData.projTransforms[proj.transformsIndex];
             viewProjMatrix = drawData.viewProjTransforms[proj.transformsIndex];
 
+            // Debugger camera.
+            if (workload.debuggerCamera.enabled && (proj.type == Projection::Type::Perspective) && (workload.debuggerCamera.sceneIndex == sceneIndex)) {
+                viewMatrix = workload.debuggerCamera.viewMatrix;
+                projMatrix = workload.debuggerCamera.projMatrix;
+            }
+
             adjustProjectionMatrix(projMatrix, projRatioScale);
 
             const interop::float4x4 *prevProjMatrix = nullptr;
             const interop::float4x4 *prevViewMatrix = nullptr;
             const RigidBody *rigidBody = nullptr;
             const GameFrameMap::WorkloadMap &workloadMap = p.curFrame->frameMap.workloads[sceneProj.workloadIndex];
-            if ((p.prevFrame != nullptr) && workloadMap.mapped) {
+            if ((p.prevFrame != nullptr) && workloadMap.mapped && !workload.debuggerCamera.enabled) {
                 const GameFrameMap::ViewProjectionMap &viewProjMap = workloadMap.viewProjections[proj.transformsIndex];
                 if (viewProjMap.mapped) {
                     const Workload &prevWorkload = p.workloadQueue->workloads[workloadMap.prevWorkloadIndex];

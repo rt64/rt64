@@ -13,8 +13,10 @@
 
 #ifdef _WIN32
 #   define DLLEXPORT extern "C" __declspec(dllexport)  
+#   define CPPDLLEXPORT __declspec(dllexport)  
 #else
 #   define DLLEXPORT extern "C" __attribute__((visibility("default")))
+#   define CPPDLLEXPORT __attribute__((visibility("default")))
 #endif
 
 namespace RT64 {
@@ -91,6 +93,7 @@ namespace RT64 {
 
         // Intersections can result in invalid rects if they don't overlap. Check if they're not null after using this.
         FixedRect intersection(const FixedRect &rect) const;
+        bool contains(int32_t x, int32_t y) const;
         bool fullyInside(const FixedRect &rect) const;
         int32_t left(bool ceil) const;
         int32_t top(bool ceil) const;

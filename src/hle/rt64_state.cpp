@@ -274,25 +274,15 @@ namespace RT64 {
                     const uint32_t lineShift = RGBA32 ? 1 : 0;
                     dstCallTile.lineWidth = tile.line << ((4 + lineShift) - tile.siz);
 
-                    // Estimate sampling width based on masks.
-                    if (tile.masks > 0) {
-                        dstCallTile.sampleWidth = static_cast<uint16_t>(1 << tile.masks);
-                    }
-                    // Estimate sampling width based on clamp.
-                    else {
-                        const int32_t tileWidth = std::max(static_cast<int32_t>(tile.lrs - tile.uls), 0);
-                        dstCallTile.sampleWidth = static_cast<uint16_t>((tileWidth + 4) / 4);
-                    }
-
-                    // Estimate sampling height based on maskt.
-                    if (tile.maskt > 0) {
-                        dstCallTile.sampleHeight = static_cast<uint16_t>(1 << tile.maskt);
-                    }
-                    // Estimate sampling height based on clamp.
-                    else {
-                        const int32_t tileHeight = std::max(static_cast<int32_t>(tile.lrt - tile.ult), 0);
-                        dstCallTile.sampleHeight = static_cast<uint16_t>((tileHeight + 4) / 4);
-                    }
+                    // Estimate sampling width and height based on masks ands tiles, whichever are smaller.
+                    const bool clampS = (tile.masks == 0) || (tile.cms & G_TX_CLAMP);
+                    const bool clampT = (tile.maskt == 0) || (tile.cmt & G_TX_CLAMP);
+                    const int32_t tileWidth = clampS ? std::max((tile.lrs - tile.uls + 4) / 4, 0) : 0xFFFF;
+                    const int32_t tileHeight = clampT ? std::max((tile.lrt - tile.ult + 4) / 4, 0) : 0xFFFF;
+                    const int32_t maskWidth = (tile.masks > 0) ? static_cast<int32_t>(1 << tile.masks) : 0xFFFF;
+                    const int32_t maskHeight = (tile.maskt > 0) ? static_cast<int32_t>(1 << tile.maskt) : 0xFFFF;
+                    dstCallTile.sampleWidth = static_cast<uint16_t>(std::min(tileWidth, maskWidth));
+                    dstCallTile.sampleHeight = static_cast<uint16_t>(std::min(tileHeight, maskHeight));
 
                     // Check if we need to use raw TMEM decoding because the tile can sample more bytes than TMEM actually allows.
                     if ((dstCallTile.sampleWidth > 0) && (dstCallTile.sampleHeight > 0)) {
@@ -328,6 +318,63 @@ namespace RT64 {
                         dstRDPTile.lrt = float(tile.ult);
                         dstRDPTile.cms |= G_TX_CLAMP;
                         dstRDPTile.cmt |= G_TX_CLAMP;
+                    }
+
+                    auto clampAlignedToMask = [](uint8_t mask, uint16_t ul, uint16_t lr) {
+                        uint16_t maskSize = 1 << mask;
+                        uint16_t ulPixel = ul / 4;
+                        uint16_t lrPixel = (lr + 4) / 4;
+                        return (lrPixel - ulPixel) == maskSize;
+                    };
+
+                    bool nativeSamplerSupported = true;
+                    if ((tile.masks > 0) && (tile.cms & G_TX_CLAMP)) {
+                        nativeSamplerSupported = nativeSamplerSupported && clampAlignedToMask(tile.masks, tile.uls, tile.lrs);
+                    }
+
+                    if ((tile.maskt > 0) && (tile.cmt & G_TX_CLAMP)) {
+                        nativeSamplerSupported = nativeSamplerSupported && clampAlignedToMask(tile.maskt, tile.ult, tile.lrt);
+                    }
+
+                    if (nativeSamplerSupported) {
+                        auto nativeSamplerFromAddressing = [](uint8_t cms, uint8_t cmt) {
+                            switch (cms) {
+                            case G_TX_WRAP:
+                                switch (cmt) {
+                                case G_TX_WRAP:                  return NATIVE_SAMPLER_WRAP_WRAP;
+                                case G_TX_MIRROR:                return NATIVE_SAMPLER_WRAP_MIRROR;
+                                case G_TX_CLAMP:                 return NATIVE_SAMPLER_WRAP_CLAMP;
+                                case (G_TX_MIRROR | G_TX_CLAMP): return NATIVE_SAMPLER_WRAP_CLAMP;
+                                default:                         return NATIVE_SAMPLER_NONE;
+                                }
+                            case G_TX_MIRROR:
+                                switch (cmt) {
+                                case G_TX_WRAP:                  return NATIVE_SAMPLER_MIRROR_WRAP;
+                                case G_TX_MIRROR:                return NATIVE_SAMPLER_MIRROR_MIRROR;
+                                case G_TX_CLAMP:                 return NATIVE_SAMPLER_MIRROR_CLAMP;
+                                case (G_TX_MIRROR | G_TX_CLAMP): return NATIVE_SAMPLER_MIRROR_CLAMP;
+                                default:                         return NATIVE_SAMPLER_NONE;
+                                }
+                            case G_TX_CLAMP:
+                            case (G_TX_MIRROR | G_TX_CLAMP):
+                                switch (cmt) {
+                                case G_TX_WRAP:                  return NATIVE_SAMPLER_CLAMP_WRAP;
+                                case G_TX_MIRROR:                return NATIVE_SAMPLER_CLAMP_MIRROR;
+                                case G_TX_CLAMP:                 return NATIVE_SAMPLER_CLAMP_CLAMP;
+                                case (G_TX_MIRROR | G_TX_CLAMP): return NATIVE_SAMPLER_CLAMP_CLAMP;
+                                default:                         return NATIVE_SAMPLER_NONE;
+                                }
+                            default:
+                                return NATIVE_SAMPLER_NONE;
+                            }
+                        };
+
+                        uint8_t nativeCms = (tile.masks == 0) ? (tile.cms | G_TX_CLAMP) : tile.cms;
+                        uint8_t nativeCmt = (tile.maskt == 0) ? (tile.cmt | G_TX_CLAMP) : tile.cmt;
+                        dstRDPTile.nativeSampler = nativeSamplerFromAddressing(nativeCms, nativeCmt);;
+                    }
+                    else {
+                        dstRDPTile.nativeSampler = NATIVE_SAMPLER_NONE;
                     }
                     
                     // Check if there's any valid tile copies that could be used. The line width requirement has to match for 
@@ -544,6 +591,10 @@ namespace RT64 {
     void State::fullSyncFramebufferPairTiles(Workload &workload, FramebufferPair &fbPair, uint32_t &loadOpCursor, uint32_t &rdpTileCursor) {
         auto loadOperation = [&](uint32_t loadOpIndex) {
             const auto &loadOp = workload.drawData.loadOperations[loadOpIndex];
+
+            // For emulating how Rice hashes textures, we need information about the load operation that was performed in the particular TMEM address.
+            rdp->rice.lastLoadOpByTMEM[loadOp.tile.tmem] = loadOp;
+
             switch (loadOp.type) {
             case LoadOperation::Type::Block:
                 rdp->loadBlockOperation(loadOp.tile, loadOp.texture, false);
@@ -555,7 +606,7 @@ namespace RT64 {
                 rdp->loadTLUTOperation(loadOp.tile, loadOp.texture, false);
                 break;
             };
-            };
+        };
 
         auto uploadTile = [&](uint32_t rdpTileIndex, FramebufferPair &fbPair, const DrawCall &drawCall) {
             auto &callTile = workload.drawData.callTiles[rdpTileIndex];
@@ -565,7 +616,7 @@ namespace RT64 {
 
             if (!callTile.tileCopyUsed) {
                 if (callTile.rawTMEM) {
-                    callTile.tmemHashOrID = textureManager.uploadTMEM(this, ext.textureCache, workload.submissionFrame, 0, RDP_TMEM_BYTES);
+                    callTile.tmemHashOrID = textureManager.uploadTMEM(this, callTile.loadTile, ext.textureCache, workload.submissionFrame, 0, RDP_TMEM_BYTES, callTile.sampleWidth, callTile.sampleHeight, callTile.tlut);
                 }
                 else {
                     callTile.tmemHashOrID = textureManager.uploadTexture(this, callTile.loadTile, ext.textureCache, workload.submissionFrame, callTile.sampleWidth, callTile.sampleHeight, callTile.tlut);
@@ -616,7 +667,7 @@ namespace RT64 {
                     const bool CI4 = (callTile.loadTile.siz == G_IM_SIZ_4b);
                     const uint16_t byteOffset = (RDP_TMEM_BYTES >> 1) + (CI4 ? (callTile.loadTile.palette << 7) : 0);
                     const uint16_t byteCount = CI4 ? 0x100 : 0x800;
-                    tlutHash = textureManager.uploadTMEM(this, ext.textureCache, workload.submissionFrame, byteOffset, byteCount);
+                    tlutHash = textureManager.uploadTMEM(this, {}, ext.textureCache, workload.submissionFrame, byteOffset, byteCount, 0, 0, 0);
                 }
 
                 // Create a tile copy and tile reinterperation operation and queue it.
@@ -799,7 +850,6 @@ namespace RT64 {
                     auto &debuggerDesc = gameCall.debuggerDesc;
                     auto &meshDesc = gameCall.meshDesc;
                     auto &shaderDesc = gameCall.shaderDesc;
-                    auto &extraParams = gameCall.callDesc.extraParams;
                     lerpDesc.enabled = true;
                     debuggerDesc.highlightColor = 0;
 
@@ -816,105 +866,9 @@ namespace RT64 {
                         rawVertexIndex += callDesc.triangleCount * 3;
                     }
 
-                    extraParams.lockMask = 0.0f;
-                    extraParams.ignoreNormalFactor = 0.0f;
-                    extraParams.uvDetailScale = 1.0f;
-                    extraParams.reflectionFactor = 0.0f;
-                    extraParams.reflectionFresnelFactor = 1.0f;
-                    extraParams.roughnessFactor = 0.0f;
-                    extraParams.refractionFactor = 0.0f;
-                    extraParams.shadowCatcherFactor = 0.0f;
-                    extraParams.specularColor = { 0.5f, 0.5f, 0.5f };
-                    extraParams.specularExponent = 5.0f;
-                    extraParams.solidAlphaMultiplier = 1.0f;
-                    extraParams.shadowAlphaMultiplier = 1.0f;
-                    extraParams.diffuseColorMix = { 0.0f, 0.0f, 0.0f, 0.0f };
-                    extraParams.depthOrderBias = 0.0f;
-                    extraParams.depthDecalBias = 0.0f;
-                    extraParams.shadowRayBias = 1.0f;
-                    extraParams.selfLight.x = 0.0f;
-                    extraParams.selfLight.y = 0.0f;
-                    extraParams.selfLight.z = 0.0f;
-                    extraParams.lightGroupMaskBits = 0xFFFFFFFF;
-                    extraParams.rspLightDiffuseMix = gameConfig.rspLightAsDiffuse ? gameConfig.rspLightIntensity : 0.0f;
                     shaderDesc.colorCombiner = callDesc.colorCombiner;
                     shaderDesc.otherMode = callDesc.otherMode;
                     shaderDesc.flags = {};
-
-                    // TODO: Reimplement proper decals in RT.
-                    const float DepthDecalBias = 0.02f;
-                    if (callDesc.otherMode.zMode() == ZMODE_DEC) {
-                        extraParams.depthOrderBias = DepthDecalBias;
-                        extraParams.depthDecalBias = DepthDecalBias;
-                    }
-                    else if (!callDesc.otherMode.zCmp() && !callDesc.otherMode.zUpd()) {
-                        extraParams.selfLight = { 1.0f, 1.0f, 1.0f };
-                        extraParams.lightGroupMaskBits = 0;
-                    }
-
-                    const DrawCallKey callKey = DrawCallKey::fromDrawCall(callDesc, workload.drawData, *ext.textureCache);
-                    const auto keyRange = drawCallLibrary.findMaterialsInCache(callKey, materialLibrary);
-                    const auto &lightPresetMap = lightsLibrary.presetMap;
-                    for (auto it = keyRange.first; it != keyRange.second; it++) {
-                        const PresetMaterial &presetMaterial = drawCallLibrary.materialCache[it->second];
-                        extraParams.applyExtraAttributes(presetMaterial.description);
-                        lerpDesc.enabled = presetMaterial.interpolation.enabled;
-#                   if SCRIPT_ENABLED
-                        lerpDesc.matchCallback = presetMaterial.interpolation.callMatchCallback;
-#                   endif
-
-#                   ifdef LIGHTS_NOT_WORKING
-                        // TODO: Cache lights as well.
-                        const std::string &lightPreset = presetMaterial.light.presetName;
-                        if (!lightPreset.empty()) {
-                            auto lightIt = lightPresetMap.find(lightPreset);
-                            if (lightIt != lightPresetMap.end()) {
-                                const auto &lightMap = lightIt->second.lightMap;
-                                for (const auto &light : lightMap) {
-                                    if (!light.second.enabled) {
-                                        continue;
-                                    }
-
-                                    // HACK: Generate some fake Id for the light until interpolation is in.
-                                    uint32_t lightIndex = lightCount++;
-                                    adjustVector(lights, lightCount);
-                                    auto &l = lights[lightIndex];
-                                    l = light.second.description;
-
-                                    const auto &t = drawData.modelTransforms[dstCall.callDesc.maxModelMatrix].m;
-                                    const float lightScale = presetMaterial.light.scale;
-                                    l.position = { t[3][0] * lightScale, t[3][1] * lightScale, t[3][2] * lightScale };
-
-                                    const float primColorTint = presetMaterial.light.primColorTint;
-                                    if (primColorTint > 0.0f) {
-                                        const hlslpp::float3 tintColor = Lerp({ 1.0f, 1.0f, 1.0f }, { mat.primColor.x, mat.primColor.y, mat.primColor.z }, primColorTint);
-                                        l.diffuseColor = l.diffuseColor * tintColor;
-                                        l.specularColor = l.specularColor * tintColor;
-                                    }
-
-                                    const float primAlphaAttenuation = presetMaterial.light.primAlphaAttenuation;
-                                    if (primAlphaAttenuation > 0.0f) {
-                                        const float alpha = 1.0f + (mat.primColor.w - 1.0f) * primAlphaAttenuation;
-                                        l.attenuationRadius *= alpha;
-                                    }
-
-                                    const float envColorTint = presetMaterial.light.envColorTint;
-                                    if (envColorTint > 0.0f) {
-                                        const hlslpp::float3 tintColor = Lerp({ 1.0f, 1.0f, 1.0f }, { mat.envColor.x, mat.envColor.y, mat.envColor.z }, envColorTint);
-                                        l.diffuseColor = l.diffuseColor * tintColor;
-                                        l.specularColor = l.specularColor * tintColor;
-                                    }
-
-                                    const float envAlphaAttenuation = presetMaterial.light.envAlphaAttenuation;
-                                    if (envAlphaAttenuation > 0.0f) {
-                                        const float alpha = 1.0f + (mat.envColor.w - 1.0f) * envAlphaAttenuation;
-                                        l.attenuationRadius *= alpha;
-                                    }
-                                }
-                            }
-                        }
-#                   endif
-                    }
 
                     // Check if the blender uses a standard fog cycle. We override it and indicate it on
                     // the material for the RT path to use its own fog handling.
@@ -934,16 +888,14 @@ namespace RT64 {
                     
                     // Describe the shader.
                     const bool forceLinearFiltering = (callDesc.extendedFlags.forceTrueBilerp == G_EX_BILERP_ALL) || ((callDesc.extendedFlags.forceTrueBilerp == G_EX_BILERP_ONLY) && (callDesc.otherMode.textFilt() == G_TF_BILERP));
+                    const bool oneCycleHardwareBug = (callDesc.otherMode.cycleType() == G_CYC_1CYCLE);
                     auto &flags = shaderDesc.flags;
                     flags.rect = (proj.type == Projection::Type::Rectangle);
-                    flags.normalMap = false;
                     flags.linearFiltering = linearFiltering || forceLinearFiltering;
                     flags.smoothNormal = (callDesc.geometryMode & G_LIGHTING) == 0;
-                    flags.normalMap = false;
-                    flags.shadowAlpha = (extraParams.shadowAlphaMultiplier < 1.0f);
-                    flags.oneCycleHardwareBug = (callDesc.otherMode.cycleType() == G_CYC_1CYCLE);
-                    flags.usesTexture0 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 0, flags.oneCycleHardwareBug);
-                    flags.usesTexture1 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 1, flags.oneCycleHardwareBug);
+                    flags.shadowAlpha = false; //(extraParams.shadowAlphaMultiplier < 1.0f);
+                    flags.usesTexture0 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 0, oneCycleHardwareBug);
+                    flags.usesTexture1 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 1, oneCycleHardwareBug);
                     flags.blenderApproximation = static_cast<unsigned>(blenderEmuReqs.approximateEmulation);
                     flags.usesHDR = usesHDR;
 
@@ -971,6 +923,7 @@ namespace RT64 {
                     flags.canDecodeTMEM = false;
                     if (callDesc.tileCount > 0) {
                         auto &callTiles = workload.drawData.callTiles;
+                        const bool canDoNativeSamplers = (callDesc.tileCount <= 2);
                         for (uint32_t t = 0; t < callDesc.tileCount; t++) {
                             const DrawCallTile &callTile = callTiles[callDesc.tileIndex + t];
                             if (callTile.rawTMEM) {
@@ -1004,28 +957,34 @@ namespace RT64 {
                                 flags.cmt0 = tile0.cmt;
                                 flags.cms1 = tile0.cms;
                                 flags.cmt1 = tile0.cmt;
+                                flags.nativeSampler0 = tile0.nativeSampler;
+                                flags.nativeSampler1 = tile0.nativeSampler;
                             }
                             else {
                                 flags.dynamicTiles = true;
                                 flags.cms0 = flags.cmt0 = 0;
                                 flags.cms1 = flags.cmt1 = 0;
+                                flags.nativeSampler0 = flags.nativeSampler1 = NATIVE_SAMPLER_NONE;
                             }
                         }
                         else {
                             flags.dynamicTiles = false;
                             flags.cms0 = tile0.cms;
                             flags.cmt0 = tile0.cmt;
+                            flags.nativeSampler0 = tile0.nativeSampler;
 
                             if (callDesc.tileCount > 1) {
                                 const interop::RDPTile &tile1 = rdpTiles[callDesc.tileIndex + 1];
                                 flags.cms1 = tile1.cms;
                                 flags.cmt1 = tile1.cmt;
+                                flags.nativeSampler1 = tile1.nativeSampler;
                             }
                             // If there's only one tile available and it can sample TEXEL1 for some reason (e.g. LOD),
                             // the safest approach is to copy over the parameters from the first tile.
                             else {
                                 flags.cms1 = tile0.cms;
                                 flags.cmt1 = tile0.cmt;
+                                flags.nativeSampler1 = tile0.nativeSampler;
                             }
                         }
                     }
@@ -1034,6 +993,7 @@ namespace RT64 {
                         flags.dynamicTiles = false;
                         flags.cms0 = flags.cmt0 = 0;
                         flags.cms1 = flags.cmt1 = 0;
+                        flags.nativeSampler0 = flags.nativeSampler1 = NATIVE_SAMPLER_NONE;
                     }
 
                     // Submit the shader to the cache so compilation can start right away.
@@ -1050,7 +1010,6 @@ namespace RT64 {
                     renderParams.flags = shaderDesc.flags;
 
                     workload.drawData.rdpParams.emplace_back(gameCall.callDesc.rdpParams);
-                    workload.drawData.extraParams.emplace_back(gameCall.callDesc.extraParams);
                     workload.drawData.renderParams.emplace_back(renderParams);
                 }
             }
@@ -1541,9 +1500,9 @@ namespace RT64 {
 
 #   if SCRIPT_ENABLED
         // Notify the current script the frame is about to end and should be processed.
-        if (ext.currentScript != nullptr) {
-            ext.currentScript->processFullSync();
-            workload.scriptLights = scriptLights;
+        if (ext.app->currentScript != nullptr) {
+            ext.app->currentScript->processFullSync();
+            workload.pointLights = scriptLights;
         }
 #   endif
 
@@ -1565,6 +1524,145 @@ namespace RT64 {
         lastWorkloadIndex = ext.workloadQueue->writeCursor;
         if (ext.userConfig->developerMode) {
             inspect();
+        }
+
+        // Add any lights to the workload from the presets that are activated.
+        for (const auto &it : lightsLibrary.presetMap) {
+            if (!it.second.enabled) {
+                continue;
+            }
+
+            for (const auto &lightIt : it.second.lightMap) {
+                if (!lightIt.second.enabled) {
+                    continue;
+                }
+
+                workload.pointLights.emplace_back(lightIt.second.description);
+            }
+        }
+
+        for (uint32_t f = 0; f < workload.fbPairCount; f++) {
+            FramebufferPair &fbPair = workload.fbPairs[f];
+            for (uint32_t p = 0; p < fbPair.projectionCount; p++) {
+                Projection &proj = fbPair.projections[p];
+                for (uint32_t d = 0; d < proj.gameCallCount; d++) {
+                    GameCall &gameCall = proj.gameCalls[d];
+                    auto &extraParams = gameCall.callDesc.extraParams;
+                    extraParams.lockMask = 0.0f;
+                    extraParams.ignoreNormalFactor = 0.0f;
+                    extraParams.uvDetailScale = 1.0f;
+                    extraParams.reflectionFactor = 0.0f;
+                    extraParams.reflectionFresnelFactor = 1.0f;
+                    extraParams.roughnessFactor = 0.0f;
+                    extraParams.refractionFactor = 0.0f;
+                    extraParams.shadowCatcherFactor = 0.0f;
+                    extraParams.specularColor = { 0.5f, 0.5f, 0.5f };
+                    extraParams.specularExponent = 5.0f;
+                    extraParams.solidAlphaMultiplier = 1.0f;
+                    extraParams.shadowAlphaMultiplier = 1.0f;
+                    extraParams.diffuseColorMix = { 0.0f, 0.0f, 0.0f, 0.0f };
+                    extraParams.depthOrderBias = 0.0f;
+                    extraParams.depthDecalBias = 0.0f;
+                    extraParams.shadowRayBias = 1.0f;
+                    extraParams.selfLight.x = 0.0f;
+                    extraParams.selfLight.y = 0.0f;
+                    extraParams.selfLight.z = 0.0f;
+                    extraParams.lightGroupMaskBits = 0xFFFFFFFF;
+                    extraParams.rspLightDiffuseMix = gameConfig.rspLightAsDiffuse ? gameConfig.rspLightIntensity : 0.0f;
+
+                    // TODO: Reimplement proper decals in RT.
+                    const float DepthDecalBias = 0.02f;
+                    if (gameCall.callDesc.otherMode.zMode() == ZMODE_DEC) {
+                        extraParams.depthOrderBias = DepthDecalBias;
+                        extraParams.depthDecalBias = DepthDecalBias;
+                    }
+                    else if (!gameCall.callDesc.otherMode.zCmp() && !gameCall.callDesc.otherMode.zUpd()) {
+                        extraParams.selfLight = { 1.0f, 1.0f, 1.0f };
+                        extraParams.lightGroupMaskBits = 0;
+                    }
+
+                    const DrawCallKey callKey = DrawCallKey::fromDrawCall(gameCall.callDesc, workload.drawData, *ext.textureCache);
+                    const auto keyRange = drawCallLibrary.findMaterialsInCache(callKey, materialLibrary);
+                    const auto &lightPresetMap = lightsLibrary.presetMap;
+                    for (auto it = keyRange.first; it != keyRange.second; it++) {
+                        const PresetMaterial &presetMaterial = drawCallLibrary.materialCache[it->second];
+                        extraParams.applyExtraAttributes(presetMaterial.description);
+                        gameCall.lerpDesc.enabled = presetMaterial.interpolation.enabled;
+#                   if SCRIPT_ENABLED
+                        gameCall.lerpDesc.matchCallback = presetMaterial.interpolation.callMatchCallback;
+#                   endif
+
+                        // TODO: Cache lights as well.
+                        const std::string &lightPreset = presetMaterial.light.presetName;
+                        if (!lightPreset.empty()) {
+                            auto lightIt = lightPresetMap.find(lightPreset);
+                            if (lightIt != lightPresetMap.end()) {
+                                const auto &lightMap = lightIt->second.lightMap;
+                                for (const auto &light : lightMap) {
+                                    if (!light.second.enabled) {
+                                        continue;
+                                    }
+
+                                    interop::PointLight pointLight = light.second.description;
+                                    const interop::float4x4 &worldTransform = workload.drawData.worldTransforms[gameCall.callDesc.maxWorldMatrix];
+                                    const float lightScale = presetMaterial.light.scale;
+                                    pointLight.position.x = pointLight.position.x * lightScale + worldTransform[3][0];
+                                    pointLight.position.y = pointLight.position.y * lightScale + worldTransform[3][1];
+                                    pointLight.position.z = pointLight.position.z * lightScale + worldTransform[3][2];
+                                    pointLight.attenuationRadius *= lightScale;
+
+                                    const interop::float4 &primColor = gameCall.callDesc.rdpParams.primColor;
+                                    const interop::float4 &envColor = gameCall.callDesc.rdpParams.envColor;
+                                    const float primColorTint = presetMaterial.light.primColorTint;
+                                    if (primColorTint > 0.0f) {
+                                        const hlslpp::float3 tintColor = hlslpp::lerp(hlslpp::float3(1.0f, 1.0f, 1.0f), hlslpp::float3(primColor.x, primColor.y, primColor.z), primColorTint);
+                                        pointLight.diffuseColor = pointLight.diffuseColor * tintColor;
+                                        pointLight.specularColor = pointLight.specularColor * tintColor;
+                                    }
+
+                                    const float primAlphaAttenuation = presetMaterial.light.primAlphaAttenuation;
+                                    if (primAlphaAttenuation > 0.0f) {
+                                        const float alpha = 1.0f + (primColor.w - 1.0f) * primAlphaAttenuation;
+                                        pointLight.attenuationRadius *= alpha;
+                                    }
+
+                                    const float envColorTint = presetMaterial.light.envColorTint;
+                                    if (envColorTint > 0.0f) {
+                                        const hlslpp::float3 tintColor = hlslpp::lerp(hlslpp::float3(1.0f, 1.0f, 1.0f), hlslpp::float3(envColor.x, envColor.y, envColor.z), envColorTint);
+                                        pointLight.diffuseColor = pointLight.diffuseColor * tintColor;
+                                        pointLight.specularColor = pointLight.specularColor * tintColor;
+                                    }
+
+                                    const float envAlphaAttenuation = presetMaterial.light.envAlphaAttenuation;
+                                    if (envAlphaAttenuation > 0.0f) {
+                                        const float alpha = 1.0f + (envColor.w - 1.0f) * envAlphaAttenuation;
+                                        pointLight.attenuationRadius *= alpha;
+                                    }
+
+                                    // TODO: Needs to be associated to an scene.
+                                    workload.pointLights.emplace_back(pointLight);
+                                }
+                            }
+                        }
+                    }
+
+                    workload.drawData.extraParams.emplace_back(gameCall.callDesc.extraParams);
+                }
+
+                if (proj.type == Projection::Type::Perspective) {
+                    // Add estimated sun light if enabled.
+                    if (gameConfig.estimateSunLight) {
+                        proj.addPointLight(proj.lightManager.estimatedSunLight(gameConfig.sunLightIntensity, gameConfig.sunLightDistance));
+                    }
+                }
+
+#if 0
+                // Add all the lights identified from the projection.
+                for (const interop::PointLight &light : proj.lightManager.pointLights) {
+                    proj.addPointLight(light);
+                }
+#endif
+            }
         }
         
         // Advance the workload queue at the end of a full synchronization.
@@ -1796,18 +1894,19 @@ namespace RT64 {
         InspectorMode inspectorMode = InspectorMode::None;
         inspector->newFrame(ext.framebufferGraphicsWorker);
 
-        /*
-        // TODO: Use another cursor method.
-        POINT cursorPos = {};
-        const HWND hwnd = appWindow->windowHandle;
-        GetCursorPos(&cursorPos);
-        ScreenToClient(hwnd, &cursorPos);
-        const int windowLeft = 0;
-        const int windowTop = 0;
-        const int windowWidth = device->getWidth();
-        const int windowHeight = device->getHeight();
-        const float aspectRatio = static_cast<float>(windowWidth) / windowHeight;
+        if (ext.app->freeCamClearQueued) {
+            debuggerInspector.camera.enabled = false;
+            ext.app->freeCamClearQueued = false;
+        }
 
+        if (debuggerInspector.camera.enabled) {
+            ImVec2 mousePos = ImGui::GetIO().MousePos;
+            ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+            cameraController.moveCursor(debuggerInspector.camera, { mousePos.x, mousePos.y }, { displaySize.x, displaySize.y });
+        }
+
+        /*
+        const float aspectRatio = static_cast<float>(windowWidth) / windowHeight;
         hlslpp::float2 cursorPosF = {
             static_cast<float>(cursorPos.x) / windowWidth,
             static_cast<float>(cursorPos.y) / windowHeight
@@ -1817,13 +1916,6 @@ namespace RT64 {
             (static_cast<float>(cursorPos.x) - windowLeft) / windowWidth * 2.0f - 1.0f,
             1.0f - 2.0f * ((static_cast<float>(cursorPos.y) - windowTop) / windowHeight)
         };
-
-        if (freeCamClearQueued) {
-            gameFrame.freeCamera.enabled = false;
-            freeCamClearQueued = false;
-        }
-
-        cameraController.moveCursor(gameFrame, { cursorPos.x, cursorPos.y }, { windowWidth, windowHeight });
 
         //projectionInspector.updateView(previousFrame.projMatrix, previousFrame.viewMatrix, previousFrame.invViewMatrix, previousFrame.fovRadians, previousFrame.nearPlane, previousFrame.farPlane);
         //projectionInspector.moveCursor(cursorPosF);
@@ -1856,12 +1948,30 @@ namespace RT64 {
         //appData.m_cursorRayOrigin = Im3d::Vec3(viewPos.x, viewPos.y, viewPos.z);
         //appData.m_cursorRayDirection = Im3d::Vec3(rayDir.x, rayDir.y, rayDir.z);
         //appData.m_keyDown[Im3d::Mouse_Left] = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-        //
-        //// Right click debugging shortcut.
-        //if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImGui::GetIO().WantCaptureMouse) {
-        //  debuggerInspector.rightClick(gameFrame, cursorNDCPos, widthScale);
-        //}
         */
+
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImGui::GetIO().WantCaptureMouse) {
+            // We need to figure out the dimensions of where the viewport is being rendered at first.
+            ext.sharedQueueResources->configurationMutex.lock();
+            const hlslpp::float2 resolutionScale = ext.sharedQueueResources->resolutionScale;
+            const uint32_t downsampleMultiplier = ext.userConfig->downsampleMultiplier;
+            ext.sharedQueueResources->configurationMutex.unlock();
+            RenderViewport viewport;
+            RenderRect scissor;
+            hlslpp::float2 fbHdRegion;
+            VIRenderer::getViewportAndScissor(ext.swapChain, lastScreenVI, resolutionScale, downsampleMultiplier, viewport, scissor, fbHdRegion);
+
+            // Convert the mouse coordinates to native coordinates.
+            // FIXME: This needs a lot more work to be compatible with games with less standard VI modes.
+            hlslpp::float2 screenCursorPos;
+            ImVec2 nativeMousePos = ImGui::GetMousePos();
+            const float aspectRatio = resolutionScale.x / resolutionScale.y;
+            screenCursorPos.x = ((nativeMousePos.x - (viewport.x + viewport.width / 2)) / viewport.width) * aspectRatio;
+            screenCursorPos.y = (nativeMousePos.y - (viewport.y + viewport.height / 2)) / viewport.height;
+            screenCursorPos.x = (VI::Width / 4) + screenCursorPos.x * (VI::Width / 2);
+            screenCursorPos.y = (VI::Height / 4) + screenCursorPos.y * (VI::Height / 2);
+            debuggerInspector.rightClick(workload, screenCursorPos);
+        }
 
         // Check the debugger popup regardless of the active inspector mode.
         bool debuggerSelected = debuggerInspector.checkPopup(workload);
@@ -2023,6 +2133,47 @@ namespace RT64 {
                     }
 
                     ImGui::Unindent();
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Textures")) {
+                    const std::string textureReplacementPath = ext.textureCache->textureMap.replacementMap.directoryPath.u8string();
+                    ImGui::Text("Texture replacement path: %s", textureReplacementPath.c_str());
+                    ImGui::BeginChild("##textureReplacements", ImVec2(0, -64));
+                    ImGui::EndChild();
+
+                    const bool loadDirectory = ImGui::Button("Load directory");
+                    ImGui::SameLine();
+                    const bool saveDirectory = ImGui::Button("Save directory");
+                    ImGui::SameLine();
+                    const bool dumpTextures = ImGui::Button(dumpingTexturesDirectory.empty() ? "Start Dumping Textures" : "Stop Dumping Textures");
+                    if (loadDirectory) {
+                        std::filesystem::path newPath = FileDialog::getDirectoryPath();
+                        if (!newPath.empty()) {
+                            ext.textureCache->loadReplacementDirectory(newPath);
+                        }
+                    }
+                    else if (saveDirectory) {
+                        ext.textureCache->saveReplacementDatabase();
+                    }
+                    else if (dumpTextures) {
+                        if (dumpingTexturesDirectory.empty()) {
+                            dumpingTexturesDirectory = FileDialog::getDirectoryPath();
+                            textureManager.dumpedSet.clear();
+                        }
+                        else {
+                            dumpingTexturesDirectory.clear();
+                        }
+                    }
+
+                    if (!textureReplacementPath.empty()) {
+                        ImGui::SameLine();
+                        const bool removeUnused = ImGui::Button("Remove Unused Entries");
+                        if (removeUnused) {
+                            ext.textureCache->removeUnusedEntriesFromDatabase();
+                        }
+                    }
+
                     ImGui::EndTabItem();
                 }
 

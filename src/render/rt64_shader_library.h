@@ -6,6 +6,8 @@
 
 #include "rhi/rt64_render_interface.h"
 
+#include "rt64_sampler_library.h"
+
 namespace RT64 {
     struct ShaderRecord {
         std::unique_ptr<RenderPipeline> pipeline;
@@ -14,14 +16,9 @@ namespace RT64 {
 
     struct ShaderLibrary {
         bool usesHDR = false;
+        SamplerLibrary samplerLibrary;
 
-        std::unique_ptr<RenderSampler> nearestClampSampler;
-        std::unique_ptr<RenderSampler> linearClampSampler;
-        std::unique_ptr<RenderSampler> nearestBorderSampler;
-        std::unique_ptr<RenderSampler> linearBorderSampler;
-        std::unique_ptr<RenderSampler> nearestMirrorSampler;
-        std::unique_ptr<RenderSampler> linearMirrorSampler;
-
+        // All shaders.
         ShaderRecord bicubicScaling;
         ShaderRecord boxFilter;
         ShaderRecord compose;

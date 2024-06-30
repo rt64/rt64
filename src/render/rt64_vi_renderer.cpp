@@ -47,16 +47,16 @@ namespace RT64 {
         switch (p.filtering) {
         case UserConfiguration::Filtering::Nearest:
             shader = &p.shaderLibrary->videoInterfaceNearest;
-            sampler = p.shaderLibrary->nearestBorderSampler.get();
+            sampler = p.shaderLibrary->samplerLibrary.nearest.borderBorder.get();
             break;
         case UserConfiguration::Filtering::AntiAliasedPixelScaling:
             shader = &p.shaderLibrary->videoInterfacePixel;
-            sampler = p.shaderLibrary->linearBorderSampler.get();
+            sampler = p.shaderLibrary->samplerLibrary.linear.borderBorder.get();
             break;
         case UserConfiguration::Filtering::Linear:
         default:
             shader = &p.shaderLibrary->videoInterfaceLinear;
-            sampler = p.shaderLibrary->linearBorderSampler.get();
+            sampler = p.shaderLibrary->samplerLibrary.linear.borderBorder.get();
             break;
         }
 
@@ -67,42 +67,10 @@ namespace RT64 {
 
         descriptorSet->setTexture(descriptorSet->gInput, p.texture, RenderTextureLayout::SHADER_READ);
 
-        // We define three different coordinate spaces to work with to translate the VI parameters into the Window.
-        //
-        // VideoSD: This corresponds to the SD TV Scanline space, which is what the VI natively works on.
-        // 
-        // VideoHD: This corresponds to what the imaginary "HD" TV would be if it supported the amount of scanlines
-        // desired by the resolution scale (divided by the downsampling scale) and a wider aspect ratio.
-        // 
-        // Window: The native coordinate space of the device's render target.
-        //
-        // The provided buffer doesn't necessarily have the same dimensions that the VI will sample to display it 
-        // on the screen. To work around that, the viewport the buffer will be drawn in will be expanded so only
-        // the region of interest is rendered. A scissor will cut it off correctly according to the coordinates
-        // specified by the VI.
-        const hlslpp::float2 sdSize = { float(VI::Width), float(VI::Height) };
-        const hlslpp::float2 hdSize = computeHDSize(sdSize, p.resolutionScale, p.downsamplingScale);
-        const hlslpp::float2 windowSize = { float(p.swapChain->getWidth()), float(p.swapChain->getHeight()) };
-        const hlslpp::uint2 fbSize = p.vi->fbSize();
-        const hlslpp::float2 fbSdRegion = { float(fbSize.x), float(fbSize.y) };
-        const hlslpp::float2 fbHdRegion = computeHDSize(fbSdRegion, p.resolutionScale, p.downsamplingScale);
-
-        // Query the VI for the current rendering area.
-        // Scale all the rectangles to the space of the Window.
-        RectI viViewRect = p.vi->viewRectangle();
-        RectI viCropRect = p.vi->cropRectangle();
-        hlslpp::float2 topLeftViewport = fromSDtoHD({ float(viViewRect.x), float(viViewRect.y) }, sdSize, hdSize);
-        hlslpp::float2 bottomRightViewport = fromSDtoHD({ float(viViewRect.x + viViewRect.w), float(viViewRect.y + viViewRect.h) }, sdSize, hdSize);
-        topLeftViewport = fromHDtoWindow(topLeftViewport, hdSize, windowSize);
-        bottomRightViewport = fromHDtoWindow(bottomRightViewport, hdSize, windowSize);
-
-        hlslpp::float2 topLeftScissor = fromSDtoHD({ float(viCropRect.x), float(viCropRect.y) }, sdSize, hdSize);
-        hlslpp::float2 bottomRightScissor = fromSDtoHD({ float(viCropRect.x + viCropRect.w), float(viCropRect.y + viCropRect.h) }, sdSize, hdSize);
-        topLeftScissor = fromHDtoWindow(topLeftScissor, hdSize, windowSize);
-        bottomRightScissor = fromHDtoWindow(bottomRightScissor, hdSize, windowSize);
-
-        RenderViewport viewport(topLeftViewport.x, topLeftViewport.y, bottomRightViewport.x - topLeftViewport.x, bottomRightViewport.y - topLeftViewport.y);
-        RenderRect scissor(lround(topLeftScissor.x), lround(topLeftScissor.y), lround(bottomRightScissor.x), lround(bottomRightScissor.y));
+        RenderViewport viewport;
+        RenderRect scissor;
+        hlslpp::float2 fbHdRegion;
+        getViewportAndScissor(p.swapChain, *p.vi, p.resolutionScale, p.downsamplingScale, viewport, scissor, fbHdRegion);
         p.commandList->setViewports(viewport);
         p.commandList->setScissors(scissor);
 
@@ -117,5 +85,44 @@ namespace RT64 {
         p.commandList->setGraphicsPushConstants(0, &pushConstants);
         p.commandList->setVertexBuffers(0, nullptr, 0, nullptr);
         p.commandList->drawInstanced(3, 1, 0, 0);
+    }
+
+    void VIRenderer::getViewportAndScissor(const RenderSwapChain *swapChain, const VI &vi, hlslpp::float2 resolutionScale, uint32_t downsamplingScale, RenderViewport &viewport, RenderRect &scissor, hlslpp::float2 &fbHdRegion) {
+        // We define three different coordinate spaces to work with to translate the VI parameters into the Window.
+        //
+        // VideoSD: This corresponds to the SD TV Scanline space, which is what the VI natively works on.
+        // 
+        // VideoHD: This corresponds to what the imaginary "HD" TV would be if it supported the amount of scanlines
+        // desired by the resolution scale (divided by the downsampling scale) and a wider aspect ratio.
+        // 
+        // Window: The native coordinate space of the device's render target.
+        //
+        // The provided buffer doesn't necessarily have the same dimensions that the VI will sample to display it 
+        // on the screen. To work around that, the viewport the buffer will be drawn in will be expanded so only
+        // the region of interest is rendered. A scissor will cut it off correctly according to the coordinates
+        // specified by the VI.
+        const hlslpp::float2 sdSize = { float(VI::Width), float(VI::Height) };
+        const hlslpp::float2 hdSize = computeHDSize(sdSize, resolutionScale, downsamplingScale);
+        const hlslpp::float2 windowSize = { float(swapChain->getWidth()), float(swapChain->getHeight()) };
+        const hlslpp::uint2 fbSize = vi.fbSize();
+        const hlslpp::float2 fbSdRegion = { float(fbSize.x), float(fbSize.y) };
+        fbHdRegion = computeHDSize(fbSdRegion, resolutionScale, downsamplingScale);
+
+        // Query the VI for the current rendering area.
+        // Scale all the rectangles to the space of the Window.
+        RectI viViewRect = vi.viewRectangle();
+        RectI viCropRect = vi.cropRectangle();
+        hlslpp::float2 topLeftViewport = fromSDtoHD({ float(viViewRect.x), float(viViewRect.y) }, sdSize, hdSize);
+        hlslpp::float2 bottomRightViewport = fromSDtoHD({ float(viViewRect.x + viViewRect.w), float(viViewRect.y + viViewRect.h) }, sdSize, hdSize);
+        topLeftViewport = fromHDtoWindow(topLeftViewport, hdSize, windowSize);
+        bottomRightViewport = fromHDtoWindow(bottomRightViewport, hdSize, windowSize);
+
+        hlslpp::float2 topLeftScissor = fromSDtoHD({ float(viCropRect.x), float(viCropRect.y) }, sdSize, hdSize);
+        hlslpp::float2 bottomRightScissor = fromSDtoHD({ float(viCropRect.x + viCropRect.w), float(viCropRect.y + viCropRect.h) }, sdSize, hdSize);
+        topLeftScissor = fromHDtoWindow(topLeftScissor, hdSize, windowSize);
+        bottomRightScissor = fromHDtoWindow(bottomRightScissor, hdSize, windowSize);
+
+        viewport = RenderViewport(topLeftViewport.x, topLeftViewport.y, bottomRightViewport.x - topLeftViewport.x, bottomRightViewport.y - topLeftViewport.y);
+        scissor = RenderRect(lround(topLeftScissor.x), lround(topLeftScissor.y), lround(bottomRightScissor.x), lround(bottomRightScissor.y));
     }
 };

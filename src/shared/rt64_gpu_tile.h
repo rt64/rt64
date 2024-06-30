@@ -14,7 +14,9 @@ namespace interop {
         struct {
             uint alphaIsCvg : 1;
             uint highRes : 1;
+            uint fromCopy : 1;
             uint rawTMEM : 1;
+            uint hasMipmaps : 1;
         };
 
         uint value;
@@ -31,8 +33,16 @@ namespace interop {
         return flags & 0x2;
     }
 
-    bool gpuTileFlagRawTMEM(GPUTileFlags flags) {
+    bool gpuTileFlagFromCopy(GPUTileFlags flags) {
         return flags & 0x4;
+    }
+
+    bool gpuTileFlagRawTMEM(GPUTileFlags flags) {
+        return flags & 0x8;
+    }
+
+    bool gpuTileFlagHasMipmaps(GPUTileFlags flags) {
+        return flags & 0x10;
     }
 #endif
     struct GPUTile {

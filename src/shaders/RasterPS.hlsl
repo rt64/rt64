@@ -109,7 +109,6 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
     
     computeLOD(otherMode, instanceRenderIndices[gConstants.renderIndex].rdpTileCount, instanceRDPParams[instanceIndex].primLOD, lodScale, ddxuvx, ddyuvy, tileIndex0, tileIndex1, lodFraction);
 
-    const bool oneCycleHardwareBug = (otherMode.cycleType() == G_CYC_1CYCLE);
     float4 texVal0 = float4(0.0f, 0.0f, 0.0f, 1.0f);
     float4 texVal1 = float4(0.0f, 0.0f, 0.0f, 1.0f);
     if (renderFlagUsesTexture0(rp.flags)) {
@@ -118,27 +117,30 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
         if (!renderFlagDynamicTiles(rp.flags)) {
             rdpTile.cms = renderCMS0(rp.flags);
             rdpTile.cmt = renderCMT0(rp.flags);
+            rdpTile.nativeSampler = renderFlagNativeSampler0(rp.flags);
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
         const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
-        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, diffuseTexIndex, rdpTile, gpuTile, false);
+        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, false);
     }
     
     if (renderFlagUsesTexture1(rp.flags)) {
-        const bool oneCycleBug = renderFlagOneCycleHardwareBug(rp.flags);
-        const uint globalTileIndex = instanceRenderIndices[gConstants.renderIndex].rdpTileIndex + (oneCycleBug ? tileIndex0 : tileIndex1);
+        const bool oneCycleHardwareBug = (otherMode.cycleType() == G_CYC_1CYCLE);
+        const uint globalTileIndex = instanceRenderIndices[gConstants.renderIndex].rdpTileIndex + (oneCycleHardwareBug ? tileIndex0 : tileIndex1);
         RDPTile rdpTile = RDPTiles[globalTileIndex];
         if (!renderFlagDynamicTiles(rp.flags)) {
-            rdpTile.cms = oneCycleBug ? renderCMS0(rp.flags) : renderCMS1(rp.flags);
-            rdpTile.cmt = oneCycleBug ? renderCMT0(rp.flags) : renderCMT1(rp.flags);
+            rdpTile.cms = oneCycleHardwareBug ? renderCMS0(rp.flags) : renderCMS1(rp.flags);
+            rdpTile.cmt = oneCycleHardwareBug ? renderCMT0(rp.flags) : renderCMT1(rp.flags);
+            rdpTile.nativeSampler = oneCycleHardwareBug ? renderFlagNativeSampler0(rp.flags) : renderFlagNativeSampler1(rp.flags);
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
         const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
-        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, diffuseTexIndex, rdpTile, gpuTile, oneCycleBug);
+        const uint nativeSampler = renderFlagNativeSampler1(rp.flags);
+        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, oneCycleHardwareBug);
     }
     
     // Color combiner.
@@ -239,7 +241,7 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
         float4 highlightColor = RGBA32ToFloat4(highlightColorUint);
         resultColor = lerp(resultColor, highlightColor, highlightColor.a);
     }
-
+    
 #ifdef DYNAMIC_RENDER_PARAMS
     if (FrParams.viewUbershaders) {
         resultColor.rgb = lerp(resultColor.rgb, float3(1.0f, 0.0f, 0.0f), 0.5f);

@@ -7,13 +7,12 @@
 #include <sstream>
 #include <filesystem>
 
+#include "common/rt64_common.h"
 #include "common/rt64_emulator_configuration.h"
 #include "common/rt64_enhancement_configuration.h"
 #include "common/rt64_elapsed_timer.h"
 #include "common/rt64_profiling_timer.h"
 #include "common/rt64_user_paths.h"
-#include "gui/rt64_camera_controller.h"
-#include "gui/rt64_debugger_inspector.h"
 #include "shared/rt64_point_light.h"
 #include "preset/rt64_preset_draw_call.h"
 #include "preset/rt64_preset_light.h"
@@ -34,8 +33,6 @@
 #if SCRIPT_ENABLED
 #   include "script/rt64_script.h"
 #endif
-
-#undef Success
 
 namespace RT64 {
     struct ApplicationConfiguration {
@@ -115,6 +112,7 @@ namespace RT64 {
         std::unique_ptr<BufferUploader> drawDataUploader;
         std::unique_ptr<BufferUploader> transformsUploader;
         std::unique_ptr<BufferUploader> tilesUploader;
+        std::unique_ptr<BufferUploader> workloadExtrasUploader;
         std::unique_ptr<BufferUploader> workloadVelocityUploader;
         std::unique_ptr<BufferUploader> workloadTilesUploader;
         std::unique_ptr<RenderWorker> textureComputeWorker;
@@ -128,7 +126,6 @@ namespace RT64 {
         std::unique_ptr<SharedQueueResources> sharedQueueResources;
         std::unique_ptr<RenderInterface> renderInterface;
         std::atomic<bool> debuggerPaused;
-        CameraController cameraController;
         uint64_t frameCounter;
         uint32_t threadsAvailable;
         ProfilingTimer dlApiProfiler = ProfilingTimer(120);

@@ -28,8 +28,6 @@ namespace RT64 {
                 uint32_t hitGroupIndex;
                 uint32_t queryMask;
                 bool cullDisable;
-                RenderPipelineProgram surfaceProgram;
-                RenderPipelineProgram shadowProgram;
             } raytracing;
             
             struct {

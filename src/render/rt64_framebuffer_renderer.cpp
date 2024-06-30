@@ -166,7 +166,7 @@ namespace RT64 {
         frameParams.ditherNoiseStrength = 1.0f;
 
         shaderUploader = std::make_unique<BufferUploader>(worker->device);
-        descCommonSet = std::make_unique<FramebufferRendererDescriptorCommonSet>(shaderLibrary->linearClampSampler.get(), shaderLibrary->linearMirrorSampler.get(), worker->device->getCapabilities().raytracing, worker->device);
+        descCommonSet = std::make_unique<FramebufferRendererDescriptorCommonSet>(shaderLibrary->samplerLibrary, worker->device->getCapabilities().raytracing, worker->device);
 
 #   if RT_ENABLED
         if (rtSupport) {
@@ -183,6 +183,7 @@ namespace RT64 {
     
     void FramebufferRenderer::resetFramebuffers(RenderWorker *worker, bool ubershadersVisible, float ditherNoiseStrength, const RenderMultisampling &multisampling) {
         instanceDrawCallVector.clear();
+        hitGroupVector.clear();
         renderIndicesVector.clear();
         rspSmoothNormalVector.clear();
         frameParams.viewUbershaders = ubershadersVisible;
@@ -218,9 +219,11 @@ namespace RT64 {
         const std::unique_lock<std::mutex> textureMapLock(textureCache->textureMapMutex);
         textureCacheVersions = textureCache->textureMap.versions;
         textureCacheTextures = textureCache->textureMap.textures;
+        textureCacheTextureReplacements = textureCache->textureMap.textureReplacements;
         textureCacheFreeSpaces = textureCache->textureMap.freeSpaces;
         textureCacheSize = static_cast<uint32_t>(textureCacheTextures.size());
         textureCacheGlobalVersion = textureCache->textureMap.globalVersion;
+        textureCacheReplacementMapEnabled = textureCache->textureMap.replacementMapEnabled;
         dynamicTextureViewVector.clear();
         dynamicTextureBarrierVector.clear();
     }
@@ -248,25 +251,29 @@ namespace RT64 {
                     gpuTile.textureIndex = getTextureIndex(tileCopy);
                     gpuTile.flags.alphaIsCvg = !callTile.reinterpretTile;
                     gpuTile.flags.highRes = true;
+                    gpuTile.flags.fromCopy = true;
                     gpuTile.flags.rawTMEM = false;
+                    gpuTile.flags.hasMipmaps = false;
                 }
             }
             else {
                 // Retrieve the texture from the cache or use a blank texture if not found.
                 uint32_t textureIndex = 0;
-                textureCache->useTexture(callTile.tmemHashOrID, submissionFrame, textureIndex);
+                bool textureReplaced = false;
+                bool hasMipmaps = false;
+                textureCache->useTexture(callTile.tmemHashOrID, submissionFrame, textureIndex, gpuTile.tcScale, textureReplaced, hasMipmaps);
 
                 // Describe the GPU tile for a regular texture.
-                gpuTile.tcScale.x = 1.0f;
-                gpuTile.tcScale.y = 1.0f;
-                gpuTile.ulScale.x = 1.0f;
-                gpuTile.ulScale.y = 1.0f;
+                gpuTile.ulScale.x = gpuTile.tcScale.x;
+                gpuTile.ulScale.y = gpuTile.tcScale.y;
                 gpuTile.texelShift = { 0, 0 };
                 gpuTile.texelMask = { UINT_MAX, UINT_MAX };
                 gpuTile.textureIndex = textureIndex;
                 gpuTile.flags.alphaIsCvg = false;
-                gpuTile.flags.highRes = false;
-                gpuTile.flags.rawTMEM = callTile.rawTMEM;
+                gpuTile.flags.highRes = textureReplaced;
+                gpuTile.flags.fromCopy = false;
+                gpuTile.flags.rawTMEM = !textureReplaced && callTile.rawTMEM;
+                gpuTile.flags.hasMipmaps = hasMipmaps;
             }
         }
     }
@@ -305,10 +312,15 @@ namespace RT64 {
         assert(worker != nullptr);
         assert(drawBuffers != nullptr);
         
-        if ((descTextureSet == nullptr) || (descTextureSet->textureCacheSize < (textureCacheSize + 1))) {
+        const bool createSet = (descTextureSet == nullptr) || (descTextureSet->textureCacheSize < (textureCacheSize + 1));
+        if (createSet) {
             descTextureSet = std::make_unique<FramebufferRendererDescriptorTextureSet>(worker->device, ((textureCacheSize + 1) * 3) / 2);
+        }
+
+        if (createSet || (descriptorTextureReplacementMapEnabled != textureCacheReplacementMapEnabled)) {
             descriptorTextureVersions.clear();
             descriptorTextureGlobalVersion = 0;
+            descriptorTextureReplacementMapEnabled = textureCacheReplacementMapEnabled;
         }
 
 #   if RT_ENABLED
@@ -338,9 +350,9 @@ namespace RT64 {
             descCommonSet->setTexture(descCommonSet->gFlow, rtResources->flowTexture.get(), RenderTextureLayout::GENERAL);
             descCommonSet->setTexture(descCommonSet->gReactiveMask, rtResources->reactiveMaskTexture.get(), RenderTextureLayout::GENERAL);
             descCommonSet->setTexture(descCommonSet->gLockMask, rtResources->lockMaskTexture.get(), RenderTextureLayout::GENERAL);
-            descCommonSet->setTexture(descCommonSet->gNormal, rtResources->normalTexture[rtResources->swapBuffers ? 1 : 0].get(), RenderTextureLayout::GENERAL);
+            descCommonSet->setTexture(descCommonSet->gNormalRoughness, rtResources->normalRoughnessTexture[rtResources->swapBuffers ? 1 : 0].get(), RenderTextureLayout::GENERAL);
             descCommonSet->setTexture(descCommonSet->gDepth, rtResources->depthTexture[rtResources->swapBuffers ? 1 : 0].get(), RenderTextureLayout::GENERAL);
-            descCommonSet->setTexture(descCommonSet->gPrevNormal, rtResources->normalTexture[rtResources->swapBuffers ? 0 : 1].get(), RenderTextureLayout::GENERAL);
+            descCommonSet->setTexture(descCommonSet->gPrevNormalRoughness, rtResources->normalRoughnessTexture[rtResources->swapBuffers ? 0 : 1].get(), RenderTextureLayout::GENERAL);
             descCommonSet->setTexture(descCommonSet->gPrevDepth, rtResources->depthTexture[rtResources->swapBuffers ? 0 : 1].get(), RenderTextureLayout::GENERAL);
             descCommonSet->setTexture(descCommonSet->gPrevDirectLightAccum, rtResources->directLightTexture[rtResources->swapBuffers ? 0 : 1].get(), RenderTextureLayout::GENERAL);
             descCommonSet->setTexture(descCommonSet->gPrevIndirectLightAccum, rtResources->indirectLightTexture[rtResources->swapBuffers ? 0 : 1].get(), RenderTextureLayout::GENERAL);
@@ -384,11 +396,14 @@ namespace RT64 {
                     continue;
                 }
 
-                if (textureCacheTextures[i]->texture == nullptr) {
-                    descTextureSet->setTexture(i, textureCacheTextures[i]->tmem.get(), RenderTextureLayout::SHADER_READ);
+                if (textureCacheReplacementMapEnabled && (textureCacheTextureReplacements[i] != nullptr)) {
+                    descTextureSet->setTexture(i, textureCacheTextureReplacements[i]->texture.get(), RenderTextureLayout::SHADER_READ);
+                }
+                else if (textureCacheTextures[i]->texture != nullptr) {
+                    descTextureSet->setTexture(i, textureCacheTextures[i]->texture.get(), RenderTextureLayout::SHADER_READ);
                 }
                 else {
-                    descTextureSet->setTexture(i, textureCacheTextures[i]->texture.get(), RenderTextureLayout::SHADER_READ);
+                    descTextureSet->setTexture(i, textureCacheTextures[i]->tmem.get(), RenderTextureLayout::SHADER_READ);
                 }
             }
 
@@ -699,12 +714,12 @@ namespace RT64 {
 
         // Enable light reprojection if denoising is enabled.
 #   ifdef DI_REPROJECTION_SUPPORT
-        globalParamsBufferData.diReproject = !rtResources->skipReprojection && denoiserEnabled && (globalParamsBufferData.diSamples > 0) ? 1 : 0;
+        globalParamsBufferData.diReproject = !rtResources->skipReprojection && denoiserEnabled && (globalParamsBufferData.diSamples > 0) && (rtResources->upscalerMode != UpscaleMode::DLSS) ? 1 : 0;
 #   else
         rtParams.diReproject = 0;
 #   endif
 
-        rtParams.giReproject = !rtResources->skipReprojection && rtResources->denoiserEnabled && (rtParams.giSamples > 0) ? 1 : 0;
+        rtParams.giReproject = !rtResources->skipReprojection && rtResources->denoiserEnabled && (rtParams.giSamples > 0) && (rtResources->upscalerMode != UpscaleMode::DLSS) ? 1 : 0;
         rtParams.binaryLockMask = (rtResources->upscalerMode != UpscaleMode::FSR);
         rtParams.interleavedRastersCount = interleavedRastersCount;
         
@@ -712,7 +727,7 @@ namespace RT64 {
         RenderDescriptorSet *descRealDepthSet = framebuffer.descRealFbSet->get();
         RenderDescriptorSet *descriptorSets[] = { descCommonSet->get(), descTextureSet->get(), descTextureSet->get(), descRealDepthSet };
         rtResources->updateTopLevelASResources(worker, instanceDrawCallVector, rtScene.instanceIndices);
-        rtResources->createShaderBindingTable(worker, rtState, descriptorSets, uint32_t(std::size(descriptorSets)), instanceDrawCallVector, rtScene.instanceIndices);
+        rtResources->createShaderBindingTable(worker, rtState, descriptorSets, uint32_t(std::size(descriptorSets)), hitGroupVector);
         rtResources->updateLightsBuffer(worker, rtScene);
     }
     
@@ -735,8 +750,8 @@ namespace RT64 {
                 RenderTextureBarrier(rtResources->directLightTexture[1].get(), RenderTextureLayout::GENERAL),
                 RenderTextureBarrier(rtResources->indirectLightTexture[0].get(), RenderTextureLayout::GENERAL),
                 RenderTextureBarrier(rtResources->indirectLightTexture[1].get(), RenderTextureLayout::GENERAL),
-                RenderTextureBarrier(rtResources->normalTexture[0].get(), RenderTextureLayout::GENERAL),
-                RenderTextureBarrier(rtResources->normalTexture[1].get(), RenderTextureLayout::GENERAL),
+                RenderTextureBarrier(rtResources->normalRoughnessTexture[0].get(), RenderTextureLayout::GENERAL),
+                RenderTextureBarrier(rtResources->normalRoughnessTexture[1].get(), RenderTextureLayout::GENERAL),
                 RenderTextureBarrier(rtResources->filteredDirectLightTexture[0].get(), RenderTextureLayout::GENERAL),
                 RenderTextureBarrier(rtResources->filteredDirectLightTexture[1].get(), RenderTextureLayout::GENERAL),
                 RenderTextureBarrier(rtResources->filteredIndirectLightTexture[0].get(), RenderTextureLayout::GENERAL),
@@ -784,7 +799,7 @@ namespace RT64 {
             RenderTextureBarrier(rtResources->shadingSpecularTexture.get(), RenderTextureLayout::GENERAL),
             RenderTextureBarrier(rtResources->reflectionTexture.get(), RenderTextureLayout::GENERAL),
             RenderTextureBarrier(rtResources->refractionTexture.get(), RenderTextureLayout::GENERAL),
-            RenderTextureBarrier(rtResources->normalTexture[rtResources->swapBuffers ? 1 : 0].get(), RenderTextureLayout::GENERAL),
+            RenderTextureBarrier(rtResources->normalRoughnessTexture[rtResources->swapBuffers ? 1 : 0].get(), RenderTextureLayout::GENERAL),
         };
 
         worker->commandList->barriers(RenderBarrierStage::COMPUTE, shadingBarriers, uint32_t(std::size(shadingBarriers)));
@@ -858,7 +873,7 @@ namespace RT64 {
         }
 
         // Copy indirect light raw buffer to the first indirect filtered buffer.
-        bool denoiseGI = rtResources->denoiserEnabled && (rtResources->rtParams.giSamples > 0);
+        bool denoiseGI = rtResources->denoiserEnabled && (rtResources->rtParams.giSamples > 0) && (rtResources->upscalerMode != UpscaleMode::DLSS);
         {
             RenderTexture *source = rtResources->indirectLightTexture[rtResources->swapBuffers ? 1 : 0].get();
             RenderTexture *dest = rtResources->filteredIndirectLightTexture[denoiseGI ? 0 : 1].get();
@@ -1039,7 +1054,8 @@ namespace RT64 {
         }
 
         Upscaler *upscaler = rtResources->getUpscaler(rtResources->upscalerMode);
-        if (rtResources->upscaleActive && (upscaler != nullptr)) {
+        const bool upscalerActive = rtResources->upscaleActive && (upscaler != nullptr);
+        if (upscalerActive) {
             thread_local std::vector<RenderTextureBarrier> beforeBarriers;
             thread_local std::vector<RenderTextureBarrier> afterBarriers;
             beforeBarriers.clear();
@@ -1059,13 +1075,15 @@ namespace RT64 {
 
             Upscaler::UpscaleParameters params;
             params.inRect = { 0, 0, static_cast<int>(rtResources->textureWidth), static_cast<int>(rtResources->textureHeight) };
+            params.inDiffuseAlbedo = rtResources->diffuseTexture.get();
+            params.inSpecularAlbedo = rtResources->shadingSpecularTexture.get();
+            params.inNormalRoughness = rtResources->normalRoughnessTexture[rtResources->swapBuffers ? 1 : 0].get();
             params.inColor = rtOutputCur;
             params.inFlow = rtResources->flowTexture.get();
             params.inReactiveMask = rtResources->upscalerReactiveMask ? rtResources->reactiveMaskTexture.get() : nullptr;
             params.inLockMask = rtResources->upscalerLockMask ? rtResources->lockMaskTexture.get() : nullptr;
             params.inDepth = rtDepthCur;
             params.outColor = rtResources->upscaledOutputTexture.get();
-            params.sharpness = rtResources->upscalerSharpness;
             params.jitterX = -rtResources->rtParams.pixelJitter.x;
             params.jitterY = -rtResources->rtParams.pixelJitter.y;
             params.deltaTime = rtScene.deltaTime * 1000.0f;
@@ -1200,7 +1218,7 @@ namespace RT64 {
 
         bool depthState = false;
         worker->commandList->setFramebuffer(targetDrawCall.fbStorage->colorDepthWrite.get());
-        for (const auto& pair : targetDrawCall.sceneIndices) {
+        for (const auto &pair : targetDrawCall.sceneIndices) {
 #       if RT_ENABLED
             if (pair.second) {
                 const auto &rtScene = targetDrawCall.rtScenes[pair.first];
@@ -1485,10 +1503,16 @@ namespace RT64 {
                     if (rtProj) {
                         instanceDrawCall.type = InstanceDrawCall::Type::Raytracing;
 
+                        if (hitGroupVector.empty()) {
+                            // TODO: Support specialized shaders.
+                            //const RaytracingShaderPrograms &shaderPrograms = p.ubershadersOnly ? rtState->shaderProgramsMap.find(UberShaderHash)->second : rtState->getShaderPrograms(call.shaderDesc);
+                            const RaytracingShaderPrograms &shaderPrograms = rtState->shaderProgramsMap.find(UberShaderHash)->second;
+                            hitGroupVector.emplace_back(shaderPrograms.surface);
+                            hitGroupVector.emplace_back(shaderPrograms.shadow);
+                        }
+
                         auto &raytracing = instanceDrawCall.raytracing;
-                        const RaytracingShaderPrograms &shaderPrograms = p.ubershadersOnly ? rtState->shaderProgramsMap.find(UberShaderHash)->second : rtState->getShaderPrograms(call.shaderDesc);
-                        raytracing.surfaceProgram = shaderPrograms.surface;
-                        raytracing.shadowProgram = shaderPrograms.shadow;
+                        raytracing.hitGroupIndex = 0;
                         raytracing.cullDisable = !call.shaderDesc.flags.culling;
 
                         const interop::OtherMode &otherMode = call.callDesc.otherMode;
@@ -1598,9 +1622,9 @@ namespace RT64 {
                             triangles.viewport = rawViewportWide;
                             break;
                         }
-                        case Projection::Type::None: {
+                        case Projection::Type::None:
+                        default:
                             break;
-                        }
                         }
 
                         triangles.scissor = convertFixedRect(call.callDesc.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, int32_t(horizontalMisalignment), call.callDesc.scissorLeftOrigin, call.callDesc.scissorRightOrigin);
@@ -1693,7 +1717,7 @@ namespace RT64 {
 
 #   if RT_ENABLED
         // FIXME: Add support for multiple raytracing scenes.
-        Framebuffer *chosenFramebufer = nullptr;
+        Framebuffer *chosenFramebuffer = nullptr;
         RaytracingScene *chosenRtScene = nullptr;
         if (rtEnabled) {
             rtResources->updateBottomLevelASResources(worker);
@@ -1701,7 +1725,7 @@ namespace RT64 {
             for (uint32_t i = 0; i < framebufferCount; i++) {
                 RenderTargetDrawCall &targetDrawCall = framebufferVector[i].renderTargetDrawCall;
                 if (!targetDrawCall.rtScenes.empty()) {
-                    chosenFramebufer = &framebufferVector[i];
+                    chosenFramebuffer = &framebufferVector[i];
                     chosenRtScene = &targetDrawCall.rtScenes[0];
                 }
             }
@@ -1713,9 +1737,9 @@ namespace RT64 {
                 rtResources->updateOutputBuffers = false;
             }
 
-            const RenderMultisampling multisampling = chosenFramebufer->renderTargetDrawCall.fbStorage->colorTarget->multisampling;
+            const RenderTarget *framebufferTarget = chosenFramebuffer->renderTargetDrawCall.fbStorage->colorTarget;
             interleavedRastersCount = static_cast<uint32_t>(chosenRtScene->interleavedRasters.size());
-            rtResources->updateInterleavedRenderTargets(worker, chosenRtScene->screenWidth, chosenRtScene->screenHeight, interleavedRastersCount, multisampling);
+            rtResources->updateInterleavedRenderTargets(worker, chosenRtScene->screenWidth, chosenRtScene->screenHeight, interleavedRastersCount, framebufferTarget->multisampling, framebufferTarget->usesHDR);
 
             for (uint32_t i = 0; i < interleavedRastersCount; i++) {
                 auto &intRaster = chosenRtScene->interleavedRasters[i];
@@ -1723,8 +1747,8 @@ namespace RT64 {
                 RenderTarget *depthTarget = rtResources->interleavedDepthTargetVector[i].get();
                 intRaster.colorTextureIndex = getTextureIndex(colorTarget);
                 intRaster.depthTextureIndex = getTextureIndex(depthTarget);
-                chosenFramebufer->transitionRenderTargetSet.emplace(colorTarget);
-                chosenFramebufer->transitionRenderTargetSet.emplace(depthTarget);
+                chosenFramebuffer->transitionRenderTargetSet.emplace(colorTarget);
+                chosenFramebuffer->transitionRenderTargetSet.emplace(depthTarget);
             }
 
             // Must have at least one element in the vector.

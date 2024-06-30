@@ -51,9 +51,8 @@ else()
     message(STATUS "DXC: ${DXC}")
 endif()
 
-# Build the file_to_c utility for converting binary files into a .c and .h file pair
-add_executable(file_to_c src/tools/file_to_c.cpp)
-
+add_subdirectory(src/tools/file_to_c)
+add_subdirectory(src/tools/texture_hasher)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -202,8 +201,10 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/common/rt64_elapsed_timer.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_emulator_configuration.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_enhancement_configuration.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_load_types.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_math.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_profiling_timer.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_replacement_database.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_thread.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_timer.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_user_configuration.cpp"
