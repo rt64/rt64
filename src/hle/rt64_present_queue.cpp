@@ -92,7 +92,7 @@ namespace RT64 {
         presentThread = new std::thread(&PresentQueue::threadLoop, this);
     }
 
-    void PresentQueue::threadPresent(const Present &present) {
+    void PresentQueue::threadPresent(const Present &present, bool &swapChainValid) {
         FramebufferManager &fbManager = ext.sharedResources->framebufferManager;
         RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
         const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
@@ -264,7 +264,6 @@ namespace RT64 {
             }
         }
         
-        bool swapChainValid = true;
         for (int32_t i = 0; i < framesToPresent; i++) {
             uint32_t frameCountersNextPresented = 0;
             if ((framesToPresent > 1) && (usingMSAA || (i > 0))) {
@@ -432,6 +431,7 @@ namespace RT64 {
         bool skipPresent = false;
         uint32_t displayTimingRate = UINT32_MAX;
         const bool displayTiming = ext.device->getCapabilities().displayTiming;
+        bool swapChainValid = false;
         while (presentThreadRunning) {
             {
                 std::unique_lock<std::mutex> cursorLock(cursorMutex);
@@ -448,13 +448,13 @@ namespace RT64 {
 
             if (processCursor >= 0) {
                 std::unique_lock<std::mutex> threadLock(threadMutex);
-                const bool needsResize = ext.swapChain->needsResize();
+                const bool needsResize = ext.swapChain->needsResize() || !swapChainValid;
                 if (needsResize) {
                     ext.presentGraphicsWorker->commandList->begin();
                     ext.presentGraphicsWorker->commandList->end();
                     ext.presentGraphicsWorker->execute();
                     ext.presentGraphicsWorker->wait();
-                    ext.swapChain->resize();
+                    swapChainValid = ext.swapChain->resize();
                     swapChainFramebuffers.clear();
                     ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
                 }
@@ -490,7 +490,7 @@ namespace RT64 {
                     notifyPresentId(present);
                 }
                 else {
-                    threadPresent(present);
+                    threadPresent(present, swapChainValid);
                 }
 
                 if (!present.fbOperations.empty()) {
