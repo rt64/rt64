@@ -4,7 +4,7 @@
 
 #pragma once
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
 
 #include <Windows.h>
 #include <dxcapi.h>

@@ -16,6 +16,14 @@
 #   include "render/rt64_dlss.h"
 #endif
 
+#if RT64_BUILD_PLUGIN
+#   include "api/rt64_api_common.h"
+#endif
+
+// cursed hacky thing
+#include "../api/rt64_api_common.h"
+
+
 #ifndef NDEBUG
 #   define VULKAN_VALIDATION_LAYER_ENABLED
 //#   define VULKAN_OBJECT_NAMES_ENABLED
@@ -42,6 +50,7 @@ namespace RT64 {
 
     static const std::unordered_set<std::string> RequiredInstanceExtensions = {
         VK_KHR_SURFACE_EXTENSION_NAME,
+#if 0
 #   if defined(_WIN64)
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #   elif defined(__ANDROID__)
@@ -49,6 +58,7 @@ namespace RT64 {
 #   elif defined(__linux__)
         VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
 #   endif
+#endif
     };
 
     static const std::unordered_set<std::string> OptionalInstanceExtensions = {
@@ -1824,6 +1834,31 @@ namespace RT64 {
 
         VkResult res;
 
+#   ifdef RT64_BUILD_PLUGIN
+        const bool isPJ64 = (RT64::API.apiType == RT64::APIType::Project64);
+        if (!isPJ64)
+        {
+            m64p_error ret;
+            // TODO: get resolution from configuration file...
+            ret = CoreVideo_SetVideoMode(640, 480, 0, M64VIDEO_WINDOWED, M64VIDEOFLAG_SUPPORT_RESIZING);
+            if (ret != M64ERR_SUCCESS)
+            {
+                fprintf(stderr, "CoreVideo_SetVideoMode failed with error code %i.\n", ret);
+                return;
+            }
+
+            VulkanInterface *renderInterface = commandQueue->device->renderInterface;
+            ret = CoreVideo_VK_GetSurface((void**)&surface, (void*)renderInterface->instance);
+            if (ret != M64ERR_SUCCESS)
+            {
+                fprintf(stderr, "CoreVideo_VK_GetSurface failed with error code %i.\n", ret);
+                return;
+            }
+        }
+        else
+        {
+#   endif
+
 #   ifdef _WIN64
         assert(renderWindow != 0);
         VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
@@ -1837,7 +1872,7 @@ namespace RT64 {
             fprintf(stderr, "vkCreateWin32SurfaceKHR failed with error code 0x%X.\n", res);
             return;
         }
-#   elif defined(__ANDROID__)
+#   elif defined(__ANDROID__) && !defined(RT64_BUILD_PLUGIN)
         assert(renderWindow != nullptr);
         VkAndroidSurfaceCreateInfoKHR surfaceCreateInfo = {};
         surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
@@ -1849,7 +1884,7 @@ namespace RT64 {
             fprintf(stderr, "vkCreateAndroidSurfaceKHR failed with error code 0x%X.\n", res);
             return;
         }
-#   elif defined(__linux__)
+#   elif defined(__linux__) && !defined(RT64_BUILD_PLUGIN)
         assert(renderWindow.display != 0);
         assert(renderWindow.window != 0);
         VkXlibSurfaceCreateInfoKHR surfaceCreateInfo = {};
@@ -1862,6 +1897,9 @@ namespace RT64 {
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateXlibSurfaceKHR failed with error code 0x%X.\n", res);
             return;
+        }
+#   endif
+#   ifdef RT64_BUILD_PLUGIN
         }
 #   endif
 
@@ -2178,6 +2216,15 @@ namespace RT64 {
     }
 
     void VulkanSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
+#   if defined(RT64_BUILD_PLUGIN)
+        const bool isPJ64 = (RT64::API.apiType == RT64::APIType::Project64);
+        if (!isPJ64) {
+            dstWidth  = window_width;
+            dstHeight = window_height;
+            return;
+        }
+#   endif
+
 #   if defined(_WIN64)
         RECT rect;
         GetClientRect(renderWindow, &rect);
@@ -2186,7 +2233,7 @@ namespace RT64 {
 #   elif defined(__ANDROID__)
         dstWidth = ANativeWindow_getWidth(renderWindow);
         dstHeight = ANativeWindow_getHeight(renderWindow);
-#   elif defined(__linux__)
+#   elif defined(__linux__) && !defined(RT64_BUILD_PLUGIN)
         XWindowAttributes attributes;
         XGetWindowAttributes(renderWindow.display, renderWindow.window, &attributes);
         // The attributes width and height members do not include the border.
@@ -3953,11 +4000,42 @@ namespace RT64 {
         createInfo.enabledLayerCount = 0;
 
         // Check for extensions.
-        uint32_t extensionCount;
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        const char** extensionNames = nullptr;
+        uint32_t extensionCount = 0;
+        std::vector<VkExtensionProperties> availableExtensions;
+#   ifdef RT64_BUILD_PLUGIN
+        const bool isPJ64 = (RT64::API.apiType == RT64::APIType::Project64);
+        if (!isPJ64) {
+            m64p_error ret;
+            ret = CoreVideo_InitWithRenderMode(M64P_RENDER_VULKAN);
+            if (ret != M64ERR_SUCCESS)
+            {
+                fprintf(stderr, "CoreVideo_InitWithRenderMode failed with error code %i.\n", ret);
+                return;
+            }
 
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+            ret = CoreVideo_VK_GetInstanceExtensions(&extensionNames, &extensionCount);
+            if (ret != M64ERR_SUCCESS)
+            {
+                fprintf(stderr, "CoreVideo_VK_GetInstanceExtensions failed with %i\n", ret);
+                return;
+            }
+
+            for (int i = 0; i < extensionCount; i++)
+            {
+                VkExtensionProperties extensionProperty = {};
+                // TODO: find a less ugly way to do this
+                strcpy(extensionProperty.extensionName, extensionNames[i]);
+                availableExtensions.push_back(extensionProperty);
+            }
+        } else {
+#   endif
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        availableExtensions.resize(extensionCount);
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+#   ifdef RT64_BUILD_PLUGIN
+        }
+#   endif
 
         std::unordered_set<std::string> missingRequiredExtensions = RequiredInstanceExtensions;
         std::unordered_set<std::string> supportedOptionalExtensions;
@@ -3996,6 +4074,16 @@ namespace RT64 {
             enabledExtensions.push_back(extension.c_str());
         }
 
+#   ifdef RT64_BUILD_PLUGIN
+        if (!isPJ64) {
+            // for mupen64plus we need to keep the given
+            // extension list
+            for (uint32_t i = 0; i < extensionCount; i++) {
+                enabledExtensions.push_back(availableExtensions[i].extensionName);
+            }
+        }
+#   endif
+
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
         createInfo.enabledExtensionCount = uint32_t(enabledExtensions.size());
 
@@ -4031,7 +4119,13 @@ namespace RT64 {
     }
 
     VulkanInterface::~VulkanInterface() {
+
         if (instance != nullptr) {
+            const bool isPJ64 = (RT64::API.apiType == RT64::APIType::Project64);
+            if (!isPJ64) {
+                printf("VulkanInterface teardown\n");
+                CoreVideo_Quit();
+            }
             vkDestroyInstance(instance, nullptr);
         }
     }

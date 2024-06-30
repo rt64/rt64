@@ -22,6 +22,10 @@
 #   include "d3d12/rt64_d3d12.h"
 #endif
 
+#if defined(RT64_BUILD_PLUGIN)
+#   include "api/rt64_api_common.h"
+#endif
+
 // Volk must be included before the ImGui Vulkan backend.
 #include "vulkan/rt64_vulkan.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -73,14 +77,14 @@ namespace RT64 {
         ImPlot::CreateContext();
         ImGui::StyleColorsDark();
 
-#   ifdef _WIN32
+#   if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
         RenderWindow renderWindow = swapChain->getWindow();
         ImGui_ImplWin32_Init(renderWindow);
 #   endif
 
         switch (graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12: {
-#       ifdef _WIN32
+#       if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
             D3D12Device *interfaceDevice = static_cast<D3D12Device *>(device);
             RenderDescriptorRange descriptorRange(RenderDescriptorRangeType::TEXTURE, 0, 1);
             descriptorSet = interfaceDevice->createDescriptorSet(RenderDescriptorSetDesc(&descriptorRange, 1));
@@ -136,7 +140,7 @@ namespace RT64 {
     Inspector::~Inspector() {
         switch (graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12: {
-#       ifdef _WIN32
+#       if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
             ImGui_ImplDX12_Shutdown();
 #       else
             assert(false && "Unsupported Graphics API.");
@@ -153,10 +157,11 @@ namespace RT64 {
             break;
         }
 
-#   ifdef _WIN32
+#   if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
         ImGui_ImplWin32_Shutdown();
 #   else
-        assert(false && "Unimplemented.");
+        // if mupen64plus, dont assert...
+        //assert(false && "Unimplemented.");
 #   endif
 
         ImPlot::DestroyContext();
@@ -174,15 +179,20 @@ namespace RT64 {
 
         frameMutex.lock();
 
-#   ifdef _WIN32
+#   if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
         ImGui_ImplWin32_NewFrame();
+#   elif defined(RT64_BUILD_PLUGIN)
+        // ????????
+        // if mupen64plus == true, dont assert....
+        ImGuiIO &io = ImGui::GetIO();
+        io.DisplaySize = ImVec2((float)window_width, (float)window_height);
 #   else
-        assert(false && "Unimplemented.");
+        //assert(false && "Unimplemented.");
 #   endif
 
         switch (graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12: {
-#       ifdef _WIN32
+#       if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
             ImGui_ImplDX12_NewFrame();
 #       else
             assert(false && "Unsupported Graphics API.");
@@ -214,7 +224,7 @@ namespace RT64 {
         if (drawData != nullptr) {
             switch (graphicsAPI) {
             case UserConfiguration::GraphicsAPI::D3D12: {
-#       ifdef _WIN32
+#       if defined(_WIN32) && !defined(RT64_BUILD_PLUGIN)
                 D3D12CommandList *interfaceCommandList = static_cast<D3D12CommandList *>(commandList);
                 interfaceCommandList->checkDescriptorHeaps();
                 ImGui_ImplDX12_RenderDrawData(drawData, interfaceCommandList->d3d);
