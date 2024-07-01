@@ -171,6 +171,7 @@ namespace RT64 {
 
     struct RenderCommandQueue {
         virtual ~RenderCommandQueue() { }
+        virtual std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) = 0;
         virtual std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) = 0;
         virtual void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence = nullptr) = 0;
         virtual void waitForCommandFence(RenderCommandFence *fence) = 0;
@@ -189,7 +190,6 @@ namespace RT64 {
 
     struct RenderDevice {
         virtual ~RenderDevice() { }
-        virtual std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) = 0;
         virtual std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) = 0;
         virtual std::unique_ptr<RenderShader> createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) = 0;
         virtual std::unique_ptr<RenderSampler> createSampler(const RenderSamplerDesc &desc) = 0;
