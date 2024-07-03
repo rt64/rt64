@@ -27,7 +27,7 @@ namespace RT64 {
     struct D3D12Texture;
 
     struct D3D12DescriptorHeapAllocator {
-        enum {
+        enum : uint32_t {
             INVALID_OFFSET = 0xFFFFFFFFU
         };
 
