@@ -221,7 +221,9 @@ namespace RT64 {
         void reset();
         Projection::Type getCurrentProjectionType() const;
         void addCurrentProjection(Projection::Type type);
+        uint32_t maskPhysicalAddress(uint32_t address);
         uint32_t fromSegmented(uint32_t segAddress);
+        uint32_t fromSegmentedMasked(uint32_t segAddress);
         void setSegment(uint32_t seg, uint32_t address);
         void matrix(uint32_t address, uint8_t params);
         void popMatrix(uint32_t count);
@@ -276,6 +278,7 @@ namespace RT64 {
         void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup);
         void popMatrixId(uint8_t count, bool proj);
         void forceBranch(bool force);
+        void extendRdram(bool isExtended);
         void clearExtended();
         void setGBI(GBI *gbi);
     };
