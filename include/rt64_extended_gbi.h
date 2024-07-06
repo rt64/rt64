@@ -509,7 +509,7 @@ typedef union {
         PARAM((value) * 1024, 16, 0) \
     )
 
-#define gEXSetRdramExtended(cmd, isExtended) \
+#define gEXSetRDRAMExtended(cmd, isExtended) \
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETRDRAMEXTENDED_V1, 24, 0), \
         PARAM(isExtended, 1, 0) \

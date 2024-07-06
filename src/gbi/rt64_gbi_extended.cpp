@@ -286,9 +286,9 @@ namespace RT64 {
             state->setDitherNoiseStrength(noiseStrength / 1024.0f);
         }
 
-        void setRdramExtendedV1(State *state, DisplayList **dl) {
+        void setRDRAMExtendedV1(State *state, DisplayList **dl) {
             const uint8_t extended = (*dl)->p1(0, 1);
-            state->setExtendedRdram(extended);
+            state->setExtendedRDRAM(extended);
         }
 
         void noOpHook(State *state, DisplayList **dl) {
@@ -391,7 +391,7 @@ namespace RT64 {
             Map[G_EX_PUSHGEOMETRYMODE_V1] = &pushGeometryModeV1;
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
-            Map[G_EX_SETRDRAMEXTENDED_V1] = &setRdramExtendedV1;
+            Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
             MapInitialized = true;
         }
     }

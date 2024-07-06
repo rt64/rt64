@@ -2370,8 +2370,8 @@ namespace RT64 {
         extended.ditherNoiseStrength = noiseStrength;
     }
     
-    void State::setExtendedRdram(bool isExtended) {
-        extended.extendRdram = isExtended;
+    void State::setExtendedRDRAM(bool isExtended) {
+        extended.extendRDRAM = isExtended;
     }
 
     uint8_t *State::fromRDRAM(uint32_t rdramAddress) const {

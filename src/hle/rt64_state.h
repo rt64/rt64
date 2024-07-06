@@ -125,7 +125,7 @@ namespace RT64 {
             uint8_t renderToRAM = UINT8_MAX;
             bool vertexTestZActive = false;
             float ditherNoiseStrength = 1.0f;
-            bool extendRdram = false;
+            bool extendRDRAM = false;
         };
 
         Extended extended;
@@ -158,7 +158,7 @@ namespace RT64 {
         void setRefreshRate(uint16_t refreshRate);
         void setRenderToRAM(uint8_t renderToRAM);
         void setDitherNoiseStrength(float noiseStrength);
-        void setExtendedRdram(bool isExtended);
+        void setExtendedRDRAM(bool isExtended);
         uint8_t *fromRDRAM(uint32_t rdramAddress) const;
         void dumpRDRAM(const std::string &path);
         void enableExtendedGBI(uint8_t opCode);
