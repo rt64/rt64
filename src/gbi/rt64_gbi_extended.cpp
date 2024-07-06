@@ -286,6 +286,11 @@ namespace RT64 {
             state->setDitherNoiseStrength(noiseStrength / 1024.0f);
         }
 
+        void setRDRAMExtendedV1(State *state, DisplayList **dl) {
+            const uint8_t extended = (*dl)->p1(0, 1);
+            state->setExtendedRDRAM(extended);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -293,7 +298,7 @@ namespace RT64 {
                 uint32_t hookOp = (*dl)->p1(28, 4);
                 switch (hookOp) {
                 case RT64_HOOK_OP_GETVERSION: {
-                    const uint32_t rdramAddress = state->rsp->fromSegmented(hookValue);
+                    const uint32_t rdramAddress = state->rsp->fromSegmentedMasked(hookValue);
                     uint32_t *returnRDRAM = reinterpret_cast<uint32_t *>(state->fromRDRAM(rdramAddress));
                     *returnRDRAM = G_EX_VERSION;
                     break;
@@ -317,7 +322,7 @@ namespace RT64 {
                         state->pushReturnAddress(*dl);
                     }
 
-                    const uint32_t rdramAddress = state->rsp->fromSegmented(hookValue);
+                    const uint32_t rdramAddress = state->rsp->fromSegmentedMasked(hookValue);
                     *dl = reinterpret_cast<DisplayList *>(state->fromRDRAM(rdramAddress)) - 1;
                     break;
                 }
@@ -386,6 +391,7 @@ namespace RT64 {
             Map[G_EX_PUSHGEOMETRYMODE_V1] = &pushGeometryModeV1;
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
+            Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
             MapInitialized = true;
         }
     }

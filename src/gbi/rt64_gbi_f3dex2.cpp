@@ -77,7 +77,7 @@ namespace RT64 {
                 state->rsp->setClipRatio((*dl)->w1);
                 break;
             case G_MW_SEGMENT:
-                state->rsp->setSegment((*dl)->p0(2, 4), (*dl)->w1 & 0x00FFFFFF);
+                state->rsp->setSegment((*dl)->p0(2, 4), (*dl)->w1);
                 break;
             case G_MW_FOG:
                 state->rsp->setFog((int16_t)((*dl)->p1(16, 16)), (int16_t)((*dl)->p1(0, 16)));

@@ -133,7 +133,7 @@ namespace RT64 {
 
             RDP *rdp = state->rdp.get();
             RSP *rsp = state->rsp.get();
-            const uint32_t rdramAddress = state->rsp->fromSegmented((*dl)->w1);
+            const uint32_t rdramAddress = state->rsp->fromSegmentedMasked((*dl)->w1);
             // TODO load this into the S2D struct buffer for a more accurate implementation in case there's ever command state bleed.
             const uObjBg *bgObject = reinterpret_cast<const uObjBg *>(state->fromRDRAM(rdramAddress));
             const uObjBg_t &bg = bgObject->bg;
@@ -398,7 +398,7 @@ namespace RT64 {
             
             RDP *rdp = state->rdp.get();
             RSP* rsp = state->rsp.get();
-            const uint32_t rdramAddress = state->rsp->fromSegmented((*dl)->w1);
+            const uint32_t rdramAddress = state->rsp->fromSegmentedMasked((*dl)->w1);
             // TODO load this into the S2D struct buffer for a more accurate implementation in case there's ever command state bleed.
             const uObjBg *bgObject = reinterpret_cast<const uObjBg *>(state->fromRDRAM(rdramAddress));
             const uObjBg_t &bg = bgObject->bg;
@@ -451,7 +451,7 @@ namespace RT64 {
 
         void readS2DStruct(State *state, uint32_t ptr, uint32_t loadSize) {
             // Convert the segmented obj pointer
-            uint32_t rdramAddress = state->rsp->fromSegmented(ptr);
+            uint32_t rdramAddress = state->rsp->fromSegmentedMasked(ptr);
             // Mask the address as the RSP DMA hardware would
             rdramAddress &= RSP_DMA_MASK;
             // Truncate the load size as the ucode does

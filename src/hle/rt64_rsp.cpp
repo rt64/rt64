@@ -90,8 +90,26 @@ namespace RT64 {
         clearExtended();
     }
 
+    // Masks addresses as the RSP DMA hardware would.
+    uint32_t RSP::maskPhysicalAddress(uint32_t address) {
+        if (state->extended.extendRDRAM && ((address & 0xF0000000) == 0x80000000)) {
+            return address - 0x80000000;
+        }
+        return address & 0x00FFFFF8;
+    }
+
+    // Performs a lookup in the segment table to convert the given address.
     uint32_t RSP::fromSegmented(uint32_t segAddress) {
+        if (state->extended.extendRDRAM && ((segAddress & 0xF0000000) == 0x80000000)) {
+            return segAddress;
+        }
         return segments[((segAddress) >> 24) & 0x0F] + ((segAddress) & 0x00FFFFFF);
+    }
+
+    // Converts the given segmented address and then applies the RSP DMA physical address mask.
+    // Used in cases where the RSP performs a DMA with a segmented address as the input. 
+    uint32_t RSP::fromSegmentedMasked(uint32_t segAddress) {
+        return maskPhysicalAddress(fromSegmented(segAddress));
     }
 
     void RSP::setSegment(uint32_t seg, uint32_t address) {
@@ -100,7 +118,7 @@ namespace RT64 {
     }
 
     void RSP::matrix(uint32_t address, uint8_t params) {
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
         const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
 
@@ -258,7 +276,7 @@ namespace RT64 {
         RT64_LOG_PRINTF("RSP::forceMatrix(0x%08X)", address);
 #   endif
 
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
         modelViewProjMatrix = fixedMatrix->toMatrix4x4();
         modelViewProjInserted = true;
@@ -294,7 +312,7 @@ namespace RT64 {
             return;
         }
 
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const Vertex *dlVerts = reinterpret_cast<const Vertex *>(state->fromRDRAM(rdramAddress));
         memcpy(&vertices[dstIndex], dlVerts, sizeof(Vertex) * vtxCount);
         setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
@@ -306,7 +324,7 @@ namespace RT64 {
             return;
         }
 
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const VertexPD *dlVerts = reinterpret_cast<const VertexPD *>(state->fromRDRAM(rdramAddress));
         for (uint32_t i = 0; i < vtxCount; i++) {
             Vertex &dst = vertices[dstIndex + i];
@@ -334,7 +352,7 @@ namespace RT64 {
 
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const VertexEXV1 *dlVerts = reinterpret_cast<const VertexEXV1 *>(state->fromRDRAM(rdramAddress));
         auto &velShorts = workload.drawData.velShorts;
         for (uint32_t i = 0; i < vtxCount; i++) {
@@ -349,7 +367,7 @@ namespace RT64 {
     }
 
     void RSP::setVertexColorPD(uint32_t address) {
-        vertexColorPDAddress = fromSegmented(address);
+        vertexColorPDAddress = fromSegmentedMasked(address);
     }
 
     Projection::Type RSP::getCurrentProjectionType() const {
@@ -720,7 +738,7 @@ namespace RT64 {
         const float screenZ = workload.drawData.posScreen[globalIndex][2] * DepthRange;
         const float zValueFloat = zValue / 65536.0f;
         if (forceBranch || (screenZ < zValueFloat)) {
-            const uint32_t rdramAddress = fromSegmented(branchDl);
+            const uint32_t rdramAddress = fromSegmentedMasked(branchDl);
             *dl = reinterpret_cast<DisplayList *>(state->fromRDRAM(rdramAddress)) - 1;
         }
     }
@@ -732,7 +750,7 @@ namespace RT64 {
         const uint32_t globalIndex = indices[vtxIndex];
         const float posW = workload.drawData.posTransformed[globalIndex][3];
         if (forceBranch || (posW < static_cast<float>(wValue))) {
-            const uint32_t rdramAddress = fromSegmented(branchDl);
+            const uint32_t rdramAddress = fromSegmentedMasked(branchDl);
             *dl = reinterpret_cast<DisplayList *>(state->fromRDRAM(rdramAddress)) - 1;
         }
     }
@@ -778,7 +796,7 @@ namespace RT64 {
     }
     
     void RSP::setViewport(uint32_t address, uint16_t ori, int16_t offx, int16_t offy) {
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const Vp_t *vp = reinterpret_cast<const Vp_t *>(state->fromRDRAM(rdramAddress));
         interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
         viewport.scale.x = float(vp->vscale[1]) / 4.0f;
@@ -807,7 +825,7 @@ namespace RT64 {
     
     void RSP::setLight(uint8_t index, uint32_t address) {
         assert((index >= 0) && (index <= RSP_MAX_LIGHTS));
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const uint8_t *data = reinterpret_cast<const uint8_t *>(state->fromRDRAM(rdramAddress));
         memcpy(&lights[index], data, sizeof(Light));
         lightsChanged = true;
@@ -836,7 +854,7 @@ namespace RT64 {
 
     void RSP::setLookAt(uint8_t index, uint32_t address) {
         assert(index < 2);
-        const uint32_t rdramAddress = fromSegmented(address);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
         const DirLight *dirLight = reinterpret_cast<const DirLight *>(state->fromRDRAM(rdramAddress));
         auto &dstLookAt = (index == 1) ? lookAt.y : lookAt.x;
         if ((dirLight->dirx != 0) || (dirLight->diry != 0) || (dirLight->dirz != 0)) {
@@ -1077,7 +1095,7 @@ namespace RT64 {
         };
 
         if (idIsAddress && editGroup) {
-            const uint32_t rdramAddress = fromSegmented(id);
+            const uint32_t rdramAddress = fromSegmentedMasked(id);
             const int workloadCursor = state->ext.workloadQueue->writeCursor;
             Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
 

@@ -222,10 +222,17 @@ namespace RT64 {
         }
     };
 
+    uint32_t RDP::maskAddress(uint32_t address) {
+        if (state->extended.extendRDRAM && ((address & 0xF0000000) == 0x80000000)) {
+            return address - 0x80000000;
+        }
+        return address & RDP_ADDRESS_MASK;
+    }
+
     void RDP::setColorImage(uint8_t fmt, uint8_t siz, uint16_t width, uint32_t address) {
         // Make sure the new color image is actually different. Some games will set the color image
         // multiple times despite setting the exact same parameters.
-        const uint32_t newAddress = address & RDP_ADDRESS_MASK;
+        const uint32_t newAddress = maskAddress(address);
         if ((colorImage.fmt != fmt) ||
             (colorImage.siz != siz) ||
             (colorImage.width != width) ||
@@ -244,7 +251,7 @@ namespace RT64 {
     }
 
     void RDP::setDepthImage(uint32_t address) {
-        const uint32_t newAddress = address & RDP_ADDRESS_MASK;
+        const uint32_t newAddress = maskAddress(address);
         if (depthImage.address != newAddress) {
             depthImage.address = newAddress;
             depthImage.changed = true;
@@ -259,7 +266,7 @@ namespace RT64 {
         texture.fmt = fmt;
         texture.siz = siz;
         texture.width = width;
-        texture.address = address & RDP_ADDRESS_MASK;
+        texture.address = maskAddress(address);
         state->updateDrawStatusAttribute(DrawAttribute::Texture);
 
 #   ifdef LOG_TEXTURE_IMAGE_METHODS

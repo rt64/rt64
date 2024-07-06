@@ -142,6 +142,7 @@ namespace RT64 {
         void checkFramebufferOverlap(uint32_t tmemStart, uint32_t tmemWords, uint32_t tmemMask, uint32_t addressStart, uint32_t addressEnd, uint32_t tileWidth, uint32_t tileHeight, bool RGBA32, bool makeTileCopy);
         void checkImageOverlap(uint32_t addressStart, uint32_t addressEnd);
         int32_t movedFromOrigin(int32_t x, uint16_t ori);
+        uint32_t maskAddress(uint32_t address);
         void setColorImage(uint8_t fmt, uint8_t siz, uint16_t width, uint32_t address);
         void setDepthImage(uint32_t address);
         void setTextureImage(uint8_t fmt, uint8_t siz, uint16_t width, uint32_t address);

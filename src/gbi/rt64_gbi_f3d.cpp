@@ -78,7 +78,7 @@ namespace RT64 {
                 state->pushReturnAddress(*dl);
             }
 
-            const uint32_t rdramAddress = state->rsp->fromSegmented((*dl)->w1);
+            const uint32_t rdramAddress = state->rsp->fromSegmentedMasked((*dl)->w1);
             *dl = reinterpret_cast<DisplayList *>(state->fromRDRAM(rdramAddress)) - 1;
         }
 
@@ -121,7 +121,7 @@ namespace RT64 {
                 // TODO
                 break;
             case G_MW_SEGMENT:
-                state->rsp->setSegment((*dl)->p0(10, 4), (*dl)->w1 & 0x00FFFFFF);
+                state->rsp->setSegment((*dl)->p0(10, 4), (*dl)->w1);
                 break;
             case G_MW_FOG:
                 state->rsp->setFog((int16_t)((*dl)->p1(16, 16)), (int16_t)((*dl)->p1(0, 16)));
