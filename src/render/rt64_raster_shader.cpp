@@ -198,7 +198,7 @@ namespace RT64 {
 
         // Generate vertex shader.
         std::stringstream vss;
-        vss << RenderParamsText;
+        vss << std::string_view(RenderParamsText, sizeof(RenderParamsText));
         vss << "RenderParams getRenderParams() {" + renderParamsCode + "; return rp; }";
         vss <<
             "void RasterVS(const RenderParams, in float4, in float2, in float4, out float4, out float2, out float4, out float4);"
@@ -224,7 +224,7 @@ namespace RT64 {
 
         // Generate pixel shader.
         std::stringstream pss;
-        pss << RenderParamsText;
+        pss << std::string_view(RenderParamsText, sizeof(RenderParamsText));
         pss << "RenderParams getRenderParams() {" + renderParamsCode + "; return rp; }";
         pss <<
             "bool RasterPS(const RenderParams, bool, float4, float2, float4, float4, uint, out float4, out float4, out float);"
