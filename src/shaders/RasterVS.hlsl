@@ -3,12 +3,14 @@
 //
 
 #include "shared/rt64_raster_params.h"
+#include "shared/rt64_render_flags.h"
 
 #include "FbRendererCommon.hlsli"
+#include "Library.hlsli"
 
 [[vk::push_constant]] ConstantBuffer<RasterParams> gConstants : register(b0, space0);
 
-void RasterVS(const RenderParams rp, in float4 iPosition, in float2 iUV, in float4 iColor, out float4 oPosition, out float2 oUV, out float4 oSmoothColor, out float4 oFlatColor) {
+LIBRARY_EXPORT void RasterVS(const RenderParams rp, in float4 iPosition, in float2 iUV, in float4 iColor, out float4 oPosition, out float2 oUV, out float4 oSmoothColor, out float4 oFlatColor) {
     float4 ndcPos = iPosition;
     
     // Skip any sort of transformation on the coordinates when rendering rects.

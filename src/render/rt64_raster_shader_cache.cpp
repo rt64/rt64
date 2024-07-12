@@ -33,7 +33,7 @@ namespace RT64 {
                 break;
             }
 
-            if ((magic != OfflineMagic) || (version != OfflineVersion) || (vsHash != RasterShaderUber::RasterVSTextHash) || (psHash != RasterShaderUber::RasterPSTextHash)) {
+            if ((magic != OfflineMagic) || (version != OfflineVersion) || (vsHash != RasterShaderUber::RasterVSLibraryHash) || (psHash != RasterShaderUber::RasterPSLibraryHash)) {
                 return false;
             }
 
@@ -100,8 +100,8 @@ namespace RT64 {
         uint32_t psDxilSize = uint32_t(psDxilBytes.size());
         dumpStream.write(reinterpret_cast<const char *>(&OfflineMagic), sizeof(uint32_t));
         dumpStream.write(reinterpret_cast<const char *>(&OfflineVersion), sizeof(uint32_t));
-        dumpStream.write(reinterpret_cast<const char *>(&RasterShaderUber::RasterVSTextHash), sizeof(uint64_t));
-        dumpStream.write(reinterpret_cast<const char *>(&RasterShaderUber::RasterPSTextHash), sizeof(uint64_t));
+        dumpStream.write(reinterpret_cast<const char *>(&RasterShaderUber::RasterVSLibraryHash), sizeof(uint64_t));
+        dumpStream.write(reinterpret_cast<const char *>(&RasterShaderUber::RasterPSLibraryHash), sizeof(uint64_t));
         dumpStream.write(reinterpret_cast<const char *>(&shaderDesc), sizeof(ShaderDescription));
         dumpStream.write(reinterpret_cast<const char *>(&vsDxilSize), sizeof(uint32_t));
         dumpStream.write(reinterpret_cast<const char *>(vsDxilBytes.data()), vsDxilSize);
@@ -220,7 +220,7 @@ namespace RT64 {
                         // Toggle the use of HDR and compile another shader.
                         ShaderDescription shaderDescAlt = shaderDesc;
                         shaderDescAlt.flags.usesHDR = (shaderDescAlt.flags.usesHDR == 0);
-                        std::make_unique<RasterShader>(shaderCache->device, shaderDescAlt, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), shaderVsBytes, shaderPsBytes, useShaderBytes);
+                        std::unique_ptr<RasterShader> altShader = std::make_unique<RasterShader>(shaderCache->device, shaderDescAlt, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), shaderVsBytes, shaderPsBytes, useShaderBytes);
                         shaderCache->offlineDumper.stepDumping(shaderDescAlt, dumperVsBytes, dumperPsBytes);
                     }
                 }

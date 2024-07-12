@@ -20,8 +20,12 @@ namespace RT64 {
 
         ShaderCompiler();
         ~ShaderCompiler();
+
         void compile(const std::string &shaderCode, const std::wstring &entryName, const std::wstring &profile,
             RenderShaderFormat shaderFormat, IDxcBlob **shaderBlob) const;
+
+        void link(const std::wstring &entryName, const std::wstring &profile, IDxcBlob **libraryBlobs,
+            const wchar_t **libraryBlobNames, uint32_t libraryBlobCount, IDxcBlob **shaderBlob) const;
     };
 };
 

@@ -8,6 +8,7 @@
 #include "TextureDecoder.hlsli"
 
 #include "shared/rt64_other_mode.h"
+#include "shared/rt64_render_flags.h"
 #include "shared/rt64_render_params.h"
 
 #define SIMULATE_LOW_PRECISION 1
