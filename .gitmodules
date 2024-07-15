@@ -46,3 +46,6 @@
 [submodule "src/contrib/nativefiledialog-extended"]
 	path = src/contrib/nativefiledialog-extended
 	url = https://github.com/btzy/nativefiledialog-extended
+[submodule "src/contrib/ddspp"]
+	path = src/contrib/ddspp
+	url = https://github.com/redorav/ddspp.git
