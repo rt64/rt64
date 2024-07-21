@@ -6,7 +6,12 @@
 
 #include <unordered_set>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-undefined-compare"
+#pragma clang diagnostic ignored "-Wswitch"
 #include "D3D12MemAlloc.cpp"
+#pragma clang diagnostic pop
+
 #include "utf8conv/utf8conv.h"
 
 #ifndef NDEBUG
@@ -590,7 +595,7 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&hostHeap));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -601,7 +606,7 @@ namespace RT64 {
             heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
             res = device->d3d->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&shaderHeap));
             if (FAILED(res)) {
-                fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%X.\n", res);
+                fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%lX.\n", res);
                 return;
             }
 
@@ -1086,13 +1091,13 @@ namespace RT64 {
         IDXGIFactory4 *dxgiFactory = commandQueue->device->renderInterface->dxgiFactory;
         HRESULT res = dxgiFactory->CreateSwapChainForHwnd(commandQueue->d3d, renderWindow, &swapChainDesc, nullptr, nullptr, &swapChain1);
         if (FAILED(res)) {
-            fprintf(stderr, "CreateSwapChainForHwnd failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateSwapChainForHwnd failed with error code 0x%lX.\n", res);
             return;
         }
 
         res = dxgiFactory->MakeWindowAssociation(renderWindow, DXGI_MWA_NO_ALT_ENTER);
         if (FAILED(res)) {
-            fprintf(stderr, "MakeWindowAssociation failed with error code 0x%X.\n", res);
+            fprintf(stderr, "MakeWindowAssociation failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -1154,7 +1159,7 @@ namespace RT64 {
 
         HRESULT res = d3d->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
         if (FAILED(res)) {
-            fprintf(stderr, "ResizeBuffers failed with error code 0x%X.\n", res);
+            fprintf(stderr, "ResizeBuffers failed with error code 0x%lX.\n", res);
             return false;
         }
 
@@ -1299,13 +1304,13 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateCommandAllocator(commandListType, IID_PPV_ARGS(&commandAllocator));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateCommandAllocator failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateCommandAllocator failed with error code 0x%lX.\n", res);
             return;
         }
 
         res = device->d3d->CreateCommandList(0, commandListType, commandAllocator, nullptr, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateCommandList failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateCommandList failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -1398,7 +1403,7 @@ namespace RT64 {
             }
             
             // MSAA Depth targets with multisampling require separate barriers.
-            const bool msaaDepthTarget = (interfaceTexture->desc.flags && RenderTextureFlag::DEPTH_TARGET) && (interfaceTexture->desc.multisampling.sampleCount > 1);
+            const bool msaaDepthTarget = (interfaceTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) && (interfaceTexture->desc.multisampling.sampleCount > 1);
             if (msaaDepthTarget && interfaceTexture->desc.multisampling.sampleLocationsEnabled) {
                 setSamplePositions(interfaceTexture);
                 d3d->ResourceBarrier(1, &resourceBarrier);
@@ -1912,7 +1917,7 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateFence failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateFence failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -1960,7 +1965,7 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateCommandQueue failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateCommandQueue failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -2046,7 +2051,7 @@ namespace RT64 {
 
         HRESULT res = device->allocator->CreateResource(&allocationDesc, &resourceDesc, resourceStates, nullptr, &allocation, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateResource failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateResource failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -2152,7 +2157,7 @@ namespace RT64 {
 
         HRESULT res = device->allocator->CreateResource(&allocationDesc, &resourceDesc, resourceStates, (desc.optimizedClearValue != nullptr) ? &optimizedClearValue : nullptr, &allocation, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateResource failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateResource failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -2293,7 +2298,7 @@ namespace RT64 {
         this->size = desc.size;
         this->type = desc.type;
 
-        assert((buffer->desc.flags && RenderBufferFlag::ACCELERATION_STRUCTURE) && "Buffer must be enabled for acceleration structures.");
+        assert((buffer->desc.flags & RenderBufferFlag::ACCELERATION_STRUCTURE) && "Buffer must be enabled for acceleration structures.");
     }
 
     D3D12AccelerationStructure::~D3D12AccelerationStructure() { }
@@ -2315,7 +2320,7 @@ namespace RT64 {
 
         HRESULT res = device->allocator->CreatePool(&poolDesc, &d3d);
         if (FAILED(res)) {
-            fprintf(stderr, "CreatePool failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreatePool failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -2726,21 +2731,21 @@ namespace RT64 {
             const D3D12RaytracingPipeline *previousRaytracingPipeline = static_cast<const D3D12RaytracingPipeline *>(previousPipeline);
             HRESULT res = device->d3d->AddToStateObject(&pipelineDesc, previousRaytracingPipeline->stateObject, IID_PPV_ARGS(&stateObject));
             if (FAILED(res)) {
-                fprintf(stderr, "AddToStateObject failed with error code 0x%X.\n", res);
+                fprintf(stderr, "AddToStateObject failed with error code 0x%lX.\n", res);
                 return;
             }
         }
         else {
             HRESULT res = device->d3d->CreateStateObject(&pipelineDesc, IID_PPV_ARGS(&stateObject));
             if (FAILED(res)) {
-                fprintf(stderr, "CreateStateObject failed with error code 0x%X.\n", res);
+                fprintf(stderr, "CreateStateObject failed with error code 0x%lX.\n", res);
                 return;
             }
         }
 
         HRESULT res = stateObject->QueryInterface(IID_PPV_ARGS(&stateObjectProperties));
         if (FAILED(res)) {
-            fprintf(stderr, "QueryInterface failed with error code 0x%X.\n", res);
+            fprintf(stderr, "QueryInterface failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -2886,7 +2891,7 @@ namespace RT64 {
 
         res = device->d3d->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateRootSignature failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateRootSignature failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -2913,7 +2918,7 @@ namespace RT64 {
             adapterOption->GetDesc1(&adapterDesc);
 
             // Ignore remote or software adapters.
-            if (adapterDesc.Flags & (DXGI_ADAPTER_FLAG_REMOTE || DXGI_ADAPTER_FLAG_SOFTWARE)) {
+            if (adapterDesc.Flags & (DXGI_ADAPTER_FLAG_REMOTE | DXGI_ADAPTER_FLAG_SOFTWARE)) {
                 adapterOption->Release();
                 continue;
             }
@@ -3009,7 +3014,7 @@ namespace RT64 {
 
         res = D3D12MA::CreateAllocator(&allocatorDesc, &allocator);
         if (FAILED(res)) {
-            fprintf(stderr, "D3D12MA::CreateAllocator failed with error code 0x%X.\n", res);
+            fprintf(stderr, "D3D12MA::CreateAllocator failed with error code 0x%lX.\n", res);
             release();
             return;
         }
@@ -3348,7 +3353,7 @@ namespace RT64 {
 
         HRESULT res = CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&dxgiFactory));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateDXGIFactory2 failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateDXGIFactory2 failed with error code 0x%lX.\n", res);
             return;
         }
 

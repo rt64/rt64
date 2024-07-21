@@ -15,13 +15,13 @@ namespace RT64 {
     ShaderCompiler::ShaderCompiler() {
         HRESULT res = DxcCreateInstance(CLSID_DxcCompiler, __uuidof(IDxcCompiler), (void **)(&dxcCompiler));
         if (FAILED(res)) {
-            fprintf(stderr, "DxcCreateInstance(DxcCompiler) failed with error code 0x%X.\n", res);
+            fprintf(stderr, "DxcCreateInstance(DxcCompiler) failed with error code 0x%lX.\n", res);
             return;
         }
 
         res = DxcCreateInstance(CLSID_DxcUtils, __uuidof(IDxcUtils), (void **)(&dxcUtils));
         if (FAILED(res)) {
-            fprintf(stderr, "DxcCreateInstance(DxcUtils) failed with error code 0x%X.\n", res);
+            fprintf(stderr, "DxcCreateInstance(DxcUtils) failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -62,7 +62,7 @@ namespace RT64 {
         IDxcBlobEncoding *textBlob = nullptr;
         HRESULT res = dxcUtils->CreateBlobFromPinned((LPBYTE)shaderCode.c_str(), (uint32_t)shaderCode.size(), DXC_CP_ACP, &textBlob);
         if (FAILED(res)) {
-            fprintf(stderr, "CreateBlobFromPinned failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateBlobFromPinned failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -105,14 +105,14 @@ namespace RT64 {
         IDxcLinker *dxcLinker = nullptr;
         HRESULT res = DxcCreateInstance(CLSID_DxcLinker, __uuidof(IDxcLinker), (void **)(&dxcLinker));
         if (FAILED(res)) {
-            fprintf(stderr, "DxcCreateInstance(DxcLinker) failed with error code 0x%X.\n", res);
+            fprintf(stderr, "DxcCreateInstance(DxcLinker) failed with error code 0x%lX.\n", res);
             return;
         }
 
         for (uint32_t i = 0; i < libraryBlobCount; i++) {
             res = dxcLinker->RegisterLibrary(libraryBlobNames[i], libraryBlobs[i]);
             if (FAILED(res)) {
-                fprintf(stderr, "RegisterLibrary failed with error code 0x%X.\n", res);
+                fprintf(stderr, "RegisterLibrary failed with error code 0x%lX.\n", res);
                 return;
             }
         }

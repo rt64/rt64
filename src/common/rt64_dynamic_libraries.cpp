@@ -31,14 +31,14 @@ namespace RT64 {
 #   if defined(_WIN32)
         HMODULE moduleHandle = nullptr;
         if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, LPCWSTR(LocalFunction), &moduleHandle)) {
-            fprintf(stderr, "GetModuleHandleExW failed with error code 0x%X\n", GetLastError());
+            fprintf(stderr, "GetModuleHandleExW failed with error code 0x%lX\n", GetLastError());
             return false;
         }
 
         WCHAR modulePath[FILENAME_MAX];
         DWORD modulePathSz = GetModuleFileNameW(moduleHandle, modulePath, sizeof(modulePath));
         if ((modulePathSz == 0) || (modulePathSz >= sizeof(modulePath))) {
-            fprintf(stderr, "GetModuleFileNameW failed with error code 0x%X\n", GetLastError());
+            fprintf(stderr, "GetModuleFileNameW failed with error code 0x%lX\n", GetLastError());
             return false;
         }
 
@@ -51,7 +51,7 @@ namespace RT64 {
             const std::wstring libraryPath = fullPathStr + win32::Utf8ToUtf16(pair.first);
             HMODULE libraryModule = LoadLibraryW(libraryPath.c_str());
             if (pair.second && (libraryModule == nullptr)) {
-                fprintf(stderr, "LoadLibraryW with path %ls failed with error code 0x%X\n", libraryPath.c_str(), GetLastError());
+                fprintf(stderr, "LoadLibraryW with path %ls failed with error code 0x%lX\n", libraryPath.c_str(), GetLastError());
                 return false;
             }
         }
