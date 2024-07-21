@@ -57,7 +57,12 @@ add_executable(file_to_c src/tools/file_to_c.cpp)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-Wall -Wextra)
+    # Use /W4 for clang-cl, as -Wall maps to MSVC's /Wall which in turn maps to clang's -Weverything
+    if (CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+        add_compile_options(/W4)
+    else()
+        add_compile_options(-Wall -Wextra)
+    endif()
     add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers)
     add_compile_options(-Werror)
 endif()
