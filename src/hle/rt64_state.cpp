@@ -975,7 +975,6 @@ namespace RT64 {
                             const DrawCallTile &callTile = callTiles[callDesc.tileIndex + t];
                             if (callTile.rawTMEM) {
                                 flags.canDecodeTMEM = true;
-                                break;
                             }
 
                             if (callTile.syncRequired && !callTile.tileCopyUsed) {

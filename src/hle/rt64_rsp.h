@@ -221,9 +221,10 @@ namespace RT64 {
         void reset();
         Projection::Type getCurrentProjectionType() const;
         void addCurrentProjection(Projection::Type type);
-        uint32_t maskPhysicalAddress(uint32_t address);
+        template<uint32_t mask> uint32_t maskPhysicalAddress(uint32_t address);
         uint32_t fromSegmented(uint32_t segAddress);
         uint32_t fromSegmentedMasked(uint32_t segAddress);
+        uint32_t fromSegmentedMaskedPD(uint32_t segAddress);
         void setSegment(uint32_t seg, uint32_t address);
         void matrix(uint32_t address, uint8_t params);
         void popMatrix(uint32_t count);

@@ -44,6 +44,7 @@ namespace RT64 {
     //                  Constant                      Identifier                                   UCode                    LowP    NoN     ReJ     MVP     Point
     // 
     const GBIInstance   F3D_SM64                  = { "SW Version: 2.0D, 04-01-96 (SM64)",         GBIUCode::F3D,         { false,  false,  false,  false,  false } };
+    const GBIInstance   F3D_PD                    = { "SW Version: Unknown (PD)",                  GBIUCode::F3DPD,       { false,  false,  false,  false,  false } };
     const GBIInstance   F3DEX_1_21                = { "F3DEX 1.21",                                GBIUCode::F3DEX,       { false,  false,  false,  false,  false } };
     const GBIInstance   F3DLX_1_21_REJ            = { "F3DLX 1.21.Rej",                            GBIUCode::F3DEX,       { true,   false,  true,   false,  false } };
     const GBIInstance   F3DEX_1_23                = { "F3DEX 1.23",                                GBIUCode::F3DEX,       { false,  false,  false,  false,  false } };
@@ -71,8 +72,9 @@ namespace RT64 {
     // 
     //                  Length      Hash                    Known instances               
     //     
-    static std::array<GBISegment, 21> textSegments = {
+    static std::array<GBISegment, 22> textSegments = {
             GBISegment{ 0x1408,     0xF50165C013FCB8A2ULL,  { &F3D_SM64 } },
+            GBISegment{ 0x1418,     0xAEBF9966DD0486DDULL,  { &F3D_PD } },
             GBISegment{ 0x1430,     0x9A7772037D709388ULL,  { &F3DEX_1_21 } },
             GBISegment{ 0x13D0,     0x1BEA638E869B0195ULL,  { &F3DLX_1_21_REJ } }, // Needs confirmation.
             GBISegment{ 0x1430,     0xAC03DE5B7B1E710FULL,  { &F3DEX_1_23 } },
@@ -95,8 +97,9 @@ namespace RT64 {
             GBISegment{ 0x18C0,     0x9300F34F3B438634ULL,  { &S2DEX2_FIFO_2_08 } },
     };
 
-    static std::array<GBISegment, 21> dataSegments = {
+    static std::array<GBISegment, 22> dataSegments = {
             GBISegment{ 0x800,      0x276AC049785A7E70ULL,  { &F3D_SM64 } },
+            GBISegment{ 0x800,      0x72AD2373CEC74AA7ULL,  { &F3D_PD } },
             GBISegment{ 0x800,      0x4B5FDED20C137EC1ULL,  { &F3DEX_1_21 } },
             GBISegment{ 0x800,      0x3828B4F75B0A0E6AULL,  { &F3DEX_1_23 } },
             GBISegment{ 0x800,      0x484C6940F5072C39ULL,  { &F3DLX_1_21_REJ } }, // Needs confirmation.

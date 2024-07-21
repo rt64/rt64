@@ -91,11 +91,11 @@ namespace RT64 {
     }
 
     // Masks addresses as the RSP DMA hardware would.
-    uint32_t RSP::maskPhysicalAddress(uint32_t address) {
+    template<uint32_t mask> uint32_t RSP::maskPhysicalAddress(uint32_t address) {
         if (state->extended.extendRDRAM && ((address & 0xF0000000) == 0x80000000)) {
             return address - 0x80000000;
         }
-        return address & 0x00FFFFF8;
+        return address & mask;
     }
 
     // Performs a lookup in the segment table to convert the given address.
@@ -109,7 +109,11 @@ namespace RT64 {
     // Converts the given segmented address and then applies the RSP DMA physical address mask.
     // Used in cases where the RSP performs a DMA with a segmented address as the input. 
     uint32_t RSP::fromSegmentedMasked(uint32_t segAddress) {
-        return maskPhysicalAddress(fromSegmented(segAddress));
+        return maskPhysicalAddress<0x00FFFFF8>(fromSegmented(segAddress));
+    }
+
+    uint32_t RSP::fromSegmentedMaskedPD(uint32_t segAddress) {
+        return maskPhysicalAddress<0x00FFFFFC>(fromSegmented(segAddress));
     }
 
     void RSP::setSegment(uint32_t seg, uint32_t address) {
@@ -324,7 +328,7 @@ namespace RT64 {
             return;
         }
 
-        const uint32_t rdramAddress = fromSegmentedMasked(address);
+        const uint32_t rdramAddress = fromSegmentedMaskedPD(address);
         const VertexPD *dlVerts = reinterpret_cast<const VertexPD *>(state->fromRDRAM(rdramAddress));
         for (uint32_t i = 0; i < vtxCount; i++) {
             Vertex &dst = vertices[dstIndex + i];
