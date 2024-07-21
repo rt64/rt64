@@ -6,11 +6,17 @@
 
 #include <unordered_set>
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wtautological-undefined-compare"
 #pragma clang diagnostic ignored "-Wswitch"
+#endif
+
 #include "D3D12MemAlloc.cpp"
+
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 
 #include "utf8conv/utf8conv.h"
 
