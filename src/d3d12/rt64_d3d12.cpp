@@ -1343,7 +1343,10 @@ namespace RT64 {
 
     void D3D12CommandList::end() {
         assert(open);
-        
+
+        // It's required to reset the sample positions before the command list ends.
+        resetSamplePositions();
+
         d3d->Close();
         open = false;
         targetFramebuffer = nullptr;
@@ -1352,7 +1355,6 @@ namespace RT64 {
         activeGraphicsPipelineLayout = nullptr;
         activeGraphicsPipeline = nullptr;
         activeTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
-        activeSamplePositions = false;
         descriptorHeapsSet = false;
     }
     
@@ -1413,12 +1415,11 @@ namespace RT64 {
             if (msaaDepthTarget && interfaceTexture->desc.multisampling.sampleLocationsEnabled) {
                 setSamplePositions(interfaceTexture);
                 d3d->ResourceBarrier(1, &resourceBarrier);
+                resetSamplePositionsRequired = true;
             }
             else {
                 barrierVector.emplace_back(resourceBarrier);
             }
-
-            resetSamplePositionsRequired = resetSamplePositionsRequired || msaaDepthTarget;
         }
 
         if (resetSamplePositionsRequired) {
