@@ -90,7 +90,13 @@ namespace RT64 {
 
         size_t getSize(const std::string &path) const override {
             std::error_code ec;
-            return std::filesystem::file_size(path, ec);
+            size_t fileSize = std::filesystem::file_size(directoryPath / std::filesystem::u8path(path), ec);
+            if (!ec) {
+                return fileSize;
+            }
+            else {
+                return 0;
+            }
         }
 
         bool exists(const std::string &path) const override {
