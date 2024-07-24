@@ -1309,8 +1309,8 @@ namespace RT64 {
         textureMap.replace(hash, newTexture, true);
         return true;
     }
-    
-    bool TextureCache::loadReplacementDirectory(const std::filesystem::path &dirOrZipPath, const std::string &zipBasePath) {
+
+    void TextureCache::clearReplacementDirectories() {
         // Wait for the streaming threads to be finished.
         waitForAllStreamThreads(true);
 
@@ -1338,6 +1338,13 @@ namespace RT64 {
         std::unique_lock lock(textureMapMutex);
         textureMap.clearReplacements();
         textureMap.replacementMap.clear(textureMap.evictedTextures);
+        textureMap.replacementMap.fileSystemPath.clear();
+    }
+    
+    bool TextureCache::loadReplacementDirectory(const std::filesystem::path &dirOrZipPath, const std::string &zipBasePath) {
+        clearReplacementDirectories();
+
+        std::unique_lock lock(textureMapMutex);
         textureMap.replacementMap.fileSystemPath = dirOrZipPath;
 
         if (std::filesystem::is_regular_file(dirOrZipPath)) {

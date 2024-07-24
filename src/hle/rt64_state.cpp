@@ -2167,7 +2167,7 @@ namespace RT64 {
                     ImGui::SameLine();
                     const bool saveDirectory = ImGui::Button("Save directory");
                     ImGui::SameLine();
-                    const bool dumpTextures = ImGui::Button(dumpingTexturesDirectory.empty() ? "Start Dumping Textures" : "Stop Dumping Textures");
+                    const bool dumpTextures = ImGui::Button(dumpingTexturesDirectory.empty() ? "Start dumping textures" : "Stop dumping textures");
                     if (loadPack) {
                         std::filesystem::path newPack = FileDialog::getOpenFilename({ FileFilter("RTZ Files", "rtz") });
                         if (!newPack.empty()) {
@@ -2195,9 +2195,15 @@ namespace RT64 {
 
                     if (!textureReplacementPath.empty()) {
                         ImGui::SameLine();
-                        const bool removeUnused = ImGui::Button("Remove Unused Entries");
+                        const bool removeUnused = ImGui::Button("Remove unused entries");
                         if (removeUnused) {
                             ext.textureCache->removeUnusedEntriesFromDatabase();
+                        }
+
+                        ImGui::SameLine();
+                        const bool unloadTextures = ImGui::Button("Unload textures");
+                        if (unloadTextures) {
+                            ext.textureCache->clearReplacementDirectories();
                         }
                     }
 
