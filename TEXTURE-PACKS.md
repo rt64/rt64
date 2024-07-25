@@ -180,7 +180,7 @@ When finished, a `.rtz` file should be available with the same name as the direc
 
 ## Performance
 
-- If all recommendations were followed correctly, end users should not experience stutters in most cases when playing with the final texture pack.
+- If all recommendations were followed correctly, end users should not experience stutters in most cases when playing with the texture pack.
 - While it is recommended for end users to store the texture pack in the fastest storage available to them, texture packs have been verified to work without stutters even from mechanical hard drives.
 - There are no memory requirements for end users to use a texture pack, as textures are just streamed in and kicked off the cache based on the user's available video memory.
 - Preloaded textures and the low mipmap cache will permanently consume a chunk off this streaming pool. Make sure there's as few preloaded files as possible and that the low mipmap cache isn't too big (shoot for around 100 to 200 MB at most).
