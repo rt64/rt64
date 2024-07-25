@@ -147,7 +147,7 @@ Generate a texture dump by:
 3. Start a dump to a directory by clicking on the button.
 4. Play the game and try to encounter as many instances of unique textures as you can.
 
-The texture dump is not what is commonly known as a texture dump in other emulators, but rather includes raw memory dumps from `TMEM`, `RDRAM` and the necessary tile information for hash generation, making the data easily archivable and reusable in the future. These dumps are archivable and reusable in the future if necessary.
+The texture dump is not what is commonly known as a texture dump in other emulators, but rather includes raw memory dumps from `TMEM`, `RDRAM` and the necessary tile information for hash generation. These dumps are archivable and can be reused in the future if necessary.
 
 > [!NOTE]  
 > The current version of the dumper does not support making PNG versions out of the texture dumps because RT64 can only decode textures on the GPU. This will come in a future version of the tool to make it easier to identify the contents of the dumps.
