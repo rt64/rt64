@@ -120,7 +120,7 @@ If the game you're trying to mod already has a texture pack available, then the 
 
 If you wish to shrink the size of a database to its essentials to improve the loading time of the texture pack, you can use the "Remove Unused Entries" button in Developer Mode in the Textures tab. This will remove any entries for textures that could not be found inside the texture pack directory.
 
-If you plan to just reuse a database file created by someone else, you can skip ahead to the [texture_packer](https://github.com/rt64/rt64/TEXTURE-PACKS.md#texture_packer) section.
+If you plan to just reuse a database file created by someone else, you can skip ahead to the [texture_packer](#texture_packer) section.
 
 ### History and Limitations of Rice Hashes
 
@@ -130,7 +130,7 @@ Unfortunately, Rice is pretty much the standard for most of the texture packs th
 
 ### Generating Hashes
 
-To automate hash generation, use the `texture_hasher` tool included in the texture pack tools zip file. This tool processes [texture dumps created by RT64](https://github.com/rt64/rt64/TEXTURE-PACKS.md#texture-dumps) and generates matching hashes for both RT64 and Rice formats. Note that a 1:1 correspondence might not always be possible due to errors in the original implementation of Rice. If automatic matching is not feasible, you can manually specify the name of the texture with the RT64 hash or do the replacement manually inside RT64 for convenience. Do not attempt to assign a Rice hash manually, as it is not possible to rely on this algorithm to get unique usable values anymore and you are likely to run into collisions.
+To automate hash generation, use the `texture_hasher` tool included in the texture pack tools zip file. This tool processes [texture dumps created by RT64](#texture-dumps) and generates matching hashes for both RT64 and Rice formats. Note that a 1:1 correspondence might not always be possible due to errors in the original implementation of Rice. If automatic matching is not feasible, you can manually specify the name of the texture with the RT64 hash or do the replacement manually inside RT64 for convenience. Do not attempt to assign a Rice hash manually, as it is not possible to rely on this algorithm to get unique usable values anymore and you are likely to run into collisions.
 
 ```powershell
 ./texture_hasher <dump_directory> --rice
