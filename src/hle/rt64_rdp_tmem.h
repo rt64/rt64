@@ -20,6 +20,5 @@ namespace RT64 {
         uint64_t uploadTexture(State *state, const LoadTile &loadTile, TextureCache *textureCache, uint64_t creationFrame, uint16_t width, uint16_t height, uint32_t tlut);
         void dumpTexture(uint64_t hash, State *state, const LoadTile &loadTile, uint16_t width, uint16_t height, uint32_t tlut);
         void removeHashes(const std::vector<uint64_t> &hashes);
-        static bool requiresRawTMEM(const LoadTile &loadTile, uint16_t width, uint16_t height);
     };
 };

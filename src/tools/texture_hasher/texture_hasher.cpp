@@ -350,17 +350,17 @@ void addRiceHash(const std::filesystem::path &directory, const std::string &hash
     }
 
     // Extract the version from the hash name with the suffix.
-    const size_t vPos = hashNameWithSuffix.find_first_of(".v");
+    const std::string dotV = ".v";
+    const size_t vPos = hashNameWithSuffix.find_first_of(dotV);
     bool redoHash = false;
     if (vPos != std::string::npos) {
-        size_t dotAfterVPos = hashNameWithSuffix.find_first_of(".", vPos + 1);
-        if (dotAfterVPos != std::string::npos) {
-            int versionFromName = std::stoi(hashNameWithSuffix.substr(vPos, dotAfterVPos - vPos));
+        try {
+            int versionFromName = std::stoi(hashNameWithSuffix.substr(vPos + dotV.size()));
             if (versionFromName != RT64::TMEMHasher::CurrentHashVersion) {
                 redoHash = true;
             }
         }
-        else {
+        catch (const std::exception &e) {
             redoHash = true;
         }
     }
@@ -368,9 +368,9 @@ void addRiceHash(const std::filesystem::path &directory, const std::string &hash
         redoHash = true;
     }
 
-    // Redo the hash if necessary by loading from TMEM.
+    // Redo the hash if necessary by loading from TMEM. If it requires raw TMEM, the hash is already correct.
     std::string currentHashName;
-    if (redoHash) {
+    if (redoHash && !RT64::TMEMHasher::requiresRawTMEM(drawTile, drawWidth, drawHeight)) {
         std::vector<uint8_t> tmemBytes;
         if (!loadBytesFromFile(directory / (hashNameWithSuffix + TMEMExtension), tmemBytes)) {
             return;
@@ -380,7 +380,7 @@ void addRiceHash(const std::filesystem::path &directory, const std::string &hash
         currentHashName = RT64::ReplacementDatabase::hashToString(hash);
     }
     else {
-        currentHashName = currentHashName.substr(0, vPos);
+        currentHashName = hashNameWithSuffix.substr(0, vPos);
     }
 
     uint32_t riceCrc = RiceCRC32(rdramBytes.data(), width, height, drawTile.siz, bpl);

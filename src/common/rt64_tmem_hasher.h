@@ -88,5 +88,14 @@ namespace RT64 {
 
             return XXH3_64bits_digest(&xxh3);
         }
+
+        static bool requiresRawTMEM(const LoadTile &loadTile, uint16_t width, uint16_t height) {
+            const uint32_t TMEMBytes = 4096;
+            const bool RGBA32 = (loadTile.siz == G_IM_SIZ_32b) && (loadTile.fmt == G_IM_FMT_RGBA);
+            const uint32_t tmemSize = RGBA32 ? (TMEMBytes >> 1) : TMEMBytes;
+            const uint32_t lastRowBytes = width << std::min(loadTile.siz, uint8_t(G_IM_SIZ_16b)) >> 1;
+            const uint32_t bytesToHash = (loadTile.line << 3) * (height - 1) + lastRowBytes;
+            return (bytesToHash > tmemSize);
+        }
     };
 };
