@@ -141,7 +141,11 @@ namespace RT64 {
                 }
             }
             else if (config.autoPath == ReplacementAutoPath::RT64) {
-                // TODO
+                size_t firstDotSymbol = fileName.find_first_of(".");
+                if (firstDotSymbol != std::string::npos) {
+                    std::string rt64Hash = toLower(fileName.substr(0, firstDotSymbol));
+                    autoPathMap[rt64Hash] = FileSystem::toForwardSlashes(relativePath);
+                }
             }
         }
 
