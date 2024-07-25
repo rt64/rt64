@@ -116,11 +116,11 @@ RT64 uses its own hashing scheme based on `TMEM`, the 4 KB of texture memory use
 
 ### Do I need to generate hashes?
 
-If the game you're trying to mod already has a texture pack available, then the most likely answer is no. You can just grab the database file off a texture pack someone has created already. **It is possible to include a database file without having all the files included in the database**.
+If the game you're trying to mod already has a texture pack available for RT64, then the most likely answer is no. You can just grab the database file off a texture pack someone has created already. **It is possible to include a database file without having all the files included in the database**.
 
 If you wish to shrink the size of a database to its essentials to improve the loading time of the texture pack, you can use the "Remove Unused Entries" button in Developer Mode in the Textures tab. This will remove any entries for textures that could not be found inside the texture pack directory.
 
-If you plan to just reuse a database file created by someone else, you can skip ahead to the [texture_packer](#texture_packer) section.
+If you plan to just reuse a database file created by someone else, you can skip ahead to the ["Create Pack"](create-pack) section.
 
 ### History and Limitations of Rice Hashes
 
@@ -152,9 +152,7 @@ The texture dump is not what is commonly known as a texture dump in other emulat
 > [!NOTE]  
 > The current version of the dumper does not support making PNG versions out of the texture dumps because RT64 can only decode textures on the GPU. This will come in a future version of the tool to make it easier to identify the contents of the dumps.
 
-## Tools
-
-### texture_packer
+## Create Pack
 
 The `texture_packer` tool is used to create distributable texture packs. It compresses all the textures available in the directory, including the `rt64.json` database file and the low mipmap cache, into a `.rtz` file. The pack itself is just a zip with a different file extension, but it is heavily recommended to use the tool as it'll use zstd as the compression algorithm, which is both really fast for decompression at runtime and achieves very good compression ratios. Users can load the texture pack with the resulting `.rtz` file without needing to extract it.
 
