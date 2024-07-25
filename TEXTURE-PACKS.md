@@ -75,7 +75,7 @@ The configuration file (`rt64.json`) follows this format:
 
 ### Operation Filters
 
-Operation filters define how textures should be loaded based on wildcard patterns. Filters are processed in the order they appear. Keep this in mind to resolve any potential conflicts between the filters.
+Operation filters are optional filters that define how textures should be loaded based on wildcard patterns. Filters are processed in the order they appear. Keep this in mind to resolve any potential conflicts between the filters. Feel free to ignore this feature until you feel the need to control the loading behavior of the textures in more detail.
 
 - **wildcard**: Pattern to match texture paths. Use * to indicate any number of characters (including *zero*) and ? to indicate any *one* character.
 - **operation**: Determines the loading behavior. Possible values are:
