@@ -85,7 +85,7 @@ Operation filters define how textures should be loaded based on wildcard pattern
 
 ### Textures
 
-Each texture entry maps hashes to texture paths:
+Each texture entry can map hashes together as well as an optional file path.
 
 - **hashes**: The hash that identifies a texture uniquely according to each algorithm such as Rice or RT64.
 - **path**: An optional path to the texture file relative to the root of the texture pack.
