@@ -152,10 +152,11 @@ The texture dump is not what is commonly known as a texture dump in other emulat
 > [!NOTE]  
 > The current version of the dumper does not support making PNG versions out of the texture dumps because RT64 can only decode textures on the GPU. This will come in a future version of the tool to make it easier to identify the contents of the dumps.
 
-## Create Pack
+## Creating Packs
 
-The `texture_packer` tool is used to create distributable texture packs. It compresses all the textures available in the directory, including the `rt64.json` database file and the low mipmap cache, into a `.rtz` file. The pack itself is just a zip with a different file extension, but it is heavily recommended to use the tool as it'll use zstd as the compression algorithm, which is both really fast for decompression at runtime and achieves very good compression ratios. Users can load the texture pack with the resulting `.rtz` file without needing to extract it.
+The `texture_packer` tool is used to create distributable texture packs. It compresses all the textures available in the directory, including the `rt64.json` database file and the low mipmap cache, into a `.rtz` file. The pack itself is just a zip with a different file extension, but it is heavily recommended to use the tool as it'll use `zstd` as the compression algorithm, which is both really fast for decompression at runtime and achieves very good compression ratios. Users can load the texture pack with the resulting `.rtz` file without needing to extract it.
 
+### Low Mipmap Cache
 When using DDS texture files, it is **heavily recommended** to generate a low mipmap cache before creating the final pack. The cache will include all the low quality mipmaps extracted from the DDS textures in one big file that will be loaded at the start of the game. These textures will be used in place while the higher quality version loads, basically eliminating most visual pop-in that can happen while textures load in the background. Note that it will be necessary to regenerate this cache any time the contents of the DDS files are changed.
 
 The cache can be generated with the following command.
@@ -164,6 +165,7 @@ The cache can be generated with the following command.
 ```
 You can test out the low mipmap cache in RT64 by loading the texture pack directory before creating the final pack file. You can use this to verify if the process worked successfully.
 
+### Pack File
 Creating the final `.rtz` file can be done with the following command. 
 - If both DDS and PNG files for a particular texture exist, only the DDS file will be included in the `.rtz`.
 ```powershell
