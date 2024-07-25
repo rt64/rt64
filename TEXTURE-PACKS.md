@@ -112,7 +112,7 @@ It's not possible to make these type of replacements while using a pack in `.rtz
 
 ## Hashing Schemes
 
-RT64 uses its own hashing scheme based on `TMEM`, the 4 KB of texture memory used by the N64, which is known to be much more accurate at identifying textures. It also supports the Rice hash format for compatibility with existing texture packs. Note that RT64 cannot produce Rice hashes at runtime due to the limitations and inaccuracies of the Rice algorithm.
+RT64 uses its own hashing scheme based on using [XXH3](https://github.com/Cyan4973/xxHash) on the bytes from `TMEM`, the 4 KB of texture memory used by the N64, which is known to be much more accurate at identifying textures. It also supports the Rice hash format for compatibility with existing texture packs. Note that RT64 cannot produce Rice hashes at runtime due to the limitations and inaccuracies of the Rice algorithm.
 
 ### Do I Need To Generate Hashes?
 
