@@ -1079,17 +1079,21 @@ namespace RT64 {
                         descSet->setTexture(descSet->TMEM, dstTexture->tmem.get(), RenderTextureLayout::SHADER_READ);
                         descSet->setTexture(descSet->RGBA32, dstTexture->texture.get(), RenderTextureLayout::GENERAL);
                         beforeDecodeBarriers.emplace_back(dstTexture->texture.get(), RenderTextureLayout::GENERAL);
+                    }
 
-                        // If the databases that were loaded have different hash versions, we have much to attempt to check for all possible replacements with all possible hashes.
-                        for (uint32_t hashVersion : textureMap.replacementMap.resolvedHashVersions) {
-                            // If the database uses an older hash version, we hash TMEM again with the version corresponding to the database.
-                            uint64_t databaseHash = upload.hash;
-                            if (hashVersion < TMEMHasher::CurrentHashVersion) {
-                                databaseHash = TMEMHasher::hash(upload.bytesTMEM.data(), upload.loadTile, upload.width, upload.height, upload.tlut, hashVersion);
-                            }
+                    // If the databases that were loaded have different hash versions, we have much to attempt to check for all possible replacements with all possible hashes.
+                    for (uint32_t hashVersion : textureMap.replacementMap.resolvedHashVersions) {
+                        // If the database uses an older hash version, we hash TMEM again with the version corresponding to the database.
+                        uint64_t databaseHash = upload.hash;
+                        if (upload.decodeTMEM && (hashVersion < TMEMHasher::CurrentHashVersion)) {
+                            databaseHash = TMEMHasher::hash(upload.bytesTMEM.data(), upload.loadTile, upload.width, upload.height, upload.tlut, hashVersion);
+                        }
 
-                            // Add this hash so it's checked for a replacement.
-                            replacementQueueCopy.emplace_back(ReplacementCheck{ upload.hash, databaseHash });
+                        // Add this hash so it's checked for a replacement.
+                        replacementQueueCopy.emplace_back(ReplacementCheck{ upload.hash, databaseHash });
+
+                        if (!upload.decodeTMEM) {
+                            break;
                         }
                     }
                 }
