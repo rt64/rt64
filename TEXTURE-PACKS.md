@@ -116,7 +116,7 @@ RT64 uses its own hashing scheme based on `TMEM`, the 4 KB of texture memory use
 
 ### Do I need to generate hashes?
 
-If the game you're trying to mod already has a texture pack available for RT64, then the most likely answer is no. You can just grab the database file off a texture pack someone has created already. **It is possible to include a database file without having all the files included in the database**.
+If the game you're trying to mod already has a texture pack available for RT64, then the most likely answer is no. You can just grab the database file off a texture pack someone has created already. **It is possible to include a database file without having all the files defined inside it**.
 
 If you wish to shrink the size of a database to its essentials to improve the loading time of the texture pack, you can use the "Remove Unused Entries" button in Developer Mode in the Textures tab. This will remove any entries for textures that could not be found inside the texture pack directory.
 
