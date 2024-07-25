@@ -406,7 +406,7 @@ int main(int argc, char *argv[]) {
         bool failedCaseValidation = false;
         for (auto it : resolvedPathMap) {
             std::string dbPath = RT64::ReplacementDatabase::removeKnownExtension(database.getReplacement(it.first).path);
-            dbPath = RT64::ReplacementDatabase::toForwardSlashes(dbPath);
+            dbPath = RT64::FileSystem::toForwardSlashes(dbPath);
             if (dbPath.empty()) {
                 continue;
             }
@@ -464,46 +464,48 @@ int main(int argc, char *argv[]) {
         }
         else {
             fprintf(stderr, "Unable to find %s. Make sure to generate this file using --create-low-mip-cache before creating the texture pack so DDS files can have proper streaming.\n", RT64::ReplacementLowMipCacheFilename.c_str());
-            return 1;
+            compressionFailed = true;
         }
 
-        // Create all worker threads.
-        std::list<std::unique_ptr<std::thread>> compressionThreads;
-        for (uint32_t i = 0; i < threadCount; i++) {
-            compressionThreads.emplace_back(std::make_unique<std::thread>(&compressionThread));
-        }
-
-        uint32_t outputQueueProcessed = 0;
-        while ((outputQueueProcessed < outputQueueTotal) && !compressionFailed) {
-            CompressionOutput output;
-
-            {
-                std::unique_lock lock(outputQueueMutex);
-                outputQueueChanged.wait(lock, []() {
-                    return !outputQueue.empty() || compressionFailed;
-                });
-
-                output = std::move(outputQueue.front());
-                outputQueue.pop();
+        if (!compressionFailed) {
+            // Create all worker threads.
+            std::list<std::unique_ptr<std::thread>> compressionThreads;
+            for (uint32_t i = 0; i < threadCount; i++) {
+                compressionThreads.emplace_back(std::make_unique<std::thread>(&compressionThread));
             }
 
-            if (!output.zipPath.empty()) {
-                mz_uint flags = useCompression ? MZ_ZIP_FLAG_COMPRESSED_DATA : 0;
-                if (!mz_zip_writer_add_mem_ex(&zipArchive, output.zipPath.c_str(), output.fileData.data(), output.fileData.size(), nullptr, 0, flags, useCompression ? output.uncompressedSize : 0, output.checksum)) {
-                    fprintf(stderr, "Failed to add %s to pack.\n", output.zipPath.c_str());
-                    compressionFailed = true;
+            uint32_t outputQueueProcessed = 0;
+            while ((outputQueueProcessed < outputQueueTotal) && !compressionFailed) {
+                CompressionOutput output;
+
+                {
+                    std::unique_lock lock(outputQueueMutex);
+                    outputQueueChanged.wait(lock, []() {
+                        return !outputQueue.empty() || compressionFailed;
+                        });
+
+                    output = std::move(outputQueue.front());
+                    outputQueue.pop();
                 }
 
-                outputQueueProcessed++;
-                if ((outputQueueProcessed % 100) == 0 || (outputQueueProcessed == outputQueueTotal)) {
-                    fprintf(stdout, "Processed (%d/%d): %s.\n", outputQueueProcessed, outputQueueTotal, output.zipPath.c_str());
+                if (!output.zipPath.empty()) {
+                    mz_uint flags = useCompression ? MZ_ZIP_FLAG_COMPRESSED_DATA : 0;
+                    if (!mz_zip_writer_add_mem_ex(&zipArchive, output.zipPath.c_str(), output.fileData.data(), output.fileData.size(), nullptr, 0, flags, useCompression ? output.uncompressedSize : 0, output.checksum)) {
+                        fprintf(stderr, "Failed to add %s to pack.\n", output.zipPath.c_str());
+                        compressionFailed = true;
+                    }
+
+                    outputQueueProcessed++;
+                    if ((outputQueueProcessed % 100) == 0 || (outputQueueProcessed == outputQueueTotal)) {
+                        fprintf(stdout, "Processed (%d/%d): %s.\n", outputQueueProcessed, outputQueueTotal, output.zipPath.c_str());
+                    }
                 }
             }
-        }
 
-        for (auto &thread : compressionThreads) {
-            thread->join();
-            thread.reset();
+            for (auto &thread : compressionThreads) {
+                thread->join();
+                thread.reset();
+            }
         }
 
         if (!compressionFailed) {

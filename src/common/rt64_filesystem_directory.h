@@ -74,9 +74,20 @@ namespace RT64 {
         }
 
         std::string makeCanonical(const std::string &path) const override {
-            return std::filesystem::relative(std::filesystem::canonical(directoryPath / std::filesystem::u8path(path)), directoryPath).u8string();
-        }
+            std::error_code ec;
+            std::filesystem::path canonicalPath = std::filesystem::canonical(directoryPath / std::filesystem::u8path(path), ec);
+            if (ec) {
+                return std::string();
+            }
 
+            std::filesystem::path relativePath = std::filesystem::relative(canonicalPath, directoryPath, ec);
+            if (ec) {
+                return std::string();
+            }
+
+            return relativePath.u8string();
+        }
+        
         bool load(const std::string &path, uint8_t *fileData, size_t fileDataMaxByteCount) const override {
             std::ifstream fileStream(directoryPath / std::filesystem::u8path(path), std::ios::binary);
             if (fileStream.is_open()) {
@@ -100,6 +111,10 @@ namespace RT64 {
         }
 
         bool exists(const std::string &path) const override {
+            if (path.empty()) {
+                return false;
+            }
+
             return std::filesystem::exists(directoryPath / std::filesystem::u8path(path));
         }
 

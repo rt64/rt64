@@ -159,8 +159,9 @@ namespace RT64 {
     }
     
     void DebuggerInspector::inspect(RenderWorker *directWorker, const VI &vi, Workload &workload, FramebufferManager &fbManager, TextureCache &textureCache, DrawCallKey &outDrawCallKey, bool &outCreateDrawCallKey, RenderWindow window) {
-        const char ReplaceErrorModalId[32] = "Replace error";
-        const char ReplaceOutdatedModalId[32] = "Replace outdated";
+        const char ReplaceErrorModalId[] = "Replace error";
+        const char ReplaceOutdatedModalId[] = "Replace outdated";
+        const char ReplaceDirectoryOnlyModalId[] = "Replace directory only";
 
         auto textTransformGroup = [](const char *label, const TransformGroup &group) {
             ImGui::Text("%s", label);
@@ -1084,14 +1085,17 @@ namespace RT64 {
                                             ImGui::SameLine();
 
                                             if (ImGui::Button("Replace")) {
-                                                const uint32_t hashVersion = textureCache.textureMap.replacementMap.db.config.hashVersion;
-                                                if (hashVersion < TMEMHasher::CurrentHashVersion) {
+                                                if (!textureCache.textureMap.replacementMap.fileSystemIsDirectory) {
+                                                    ImGui::OpenPopup(ReplaceDirectoryOnlyModalId);
+                                                }
+                                                else if (textureCache.textureMap.replacementMap.directoryDatabase.config.hashVersion < TMEMHasher::CurrentHashVersion) {
                                                     ImGui::OpenPopup(ReplaceOutdatedModalId);
                                                 }
                                                 else {
                                                     std::filesystem::path textureFilename = FileDialog::getOpenFilename({ FileFilter("Image Files", "dds,png") });
                                                     if (!textureFilename.empty()) {
-                                                        std::filesystem::path relativePath = std::filesystem::relative(textureFilename, textureCache.textureMap.replacementMap.fileSystemPath);
+                                                        std::filesystem::path directoryPath = textureCache.textureMap.replacementMap.replacementDirectories.front().dirOrZipPath;
+                                                        std::filesystem::path relativePath = std::filesystem::relative(textureFilename, directoryPath);
                                                         if (!relativePath.empty()) {
                                                             textureCache.addReplacement(callTile.tmemHashOrID, relativePath.u8string());
                                                         }
@@ -1122,6 +1126,16 @@ namespace RT64 {
                                                 ImGui::Text("The texture database must be upgraded before being able to do manual replacements (use the texture hasher tool).");
 
                                                 if (ImGui::Button("Close##replaceOutdated")) {
+                                                    ImGui::CloseCurrentPopup();
+                                                }
+
+                                                ImGui::EndPopup();
+                                            }
+
+                                            if (ImGui::BeginPopupModal(ReplaceDirectoryOnlyModalId)) {
+                                                ImGui::Text("Textures can only be replaced when loading a texture pack as a single directory.");
+
+                                                if (ImGui::Button("Close##replaceDirectoryOnly")) {
                                                     ImGui::CloseCurrentPopup();
                                                 }
 

@@ -2156,8 +2156,11 @@ namespace RT64 {
                 }
 
                 if (ImGui::BeginTabItem("Textures")) {
-                    const std::string textureReplacementPath = ext.textureCache->textureMap.replacementMap.fileSystemPath.u8string();
-                    ImGui::Text("Texture replacement path: %s", textureReplacementPath.c_str());
+                    for (const ReplacementDirectory &replacementDirectory : ext.textureCache->textureMap.replacementMap.replacementDirectories) {
+                        const std::string replacementPath = replacementDirectory.dirOrZipPath.u8string();
+                        ImGui::Text("Texture replacement path: %s", replacementPath.c_str());
+                    }
+
                     ImGui::BeginChild("##textureReplacements", ImVec2(0, -64));
                     ImGui::EndChild();
 
@@ -2171,13 +2174,13 @@ namespace RT64 {
                     if (loadPack) {
                         std::filesystem::path newPack = FileDialog::getOpenFilename({ FileFilter("RTZ Files", "rtz") });
                         if (!newPack.empty()) {
-                            ext.textureCache->loadReplacementDirectory(newPack);
+                            ext.textureCache->loadReplacementDirectory(ReplacementDirectory(newPack));
                         }
                     }
                     else if (loadDirectory) {
                         std::filesystem::path newDirectory = FileDialog::getDirectoryPath();
                         if (!newDirectory.empty()) {
-                            ext.textureCache->loadReplacementDirectory(newDirectory);
+                            ext.textureCache->loadReplacementDirectory(ReplacementDirectory(newDirectory));
                         }
                     }
                     else if (saveDirectory) {
@@ -2193,17 +2196,54 @@ namespace RT64 {
                         }
                     }
 
-                    if (!textureReplacementPath.empty()) {
+                    if (ext.textureCache->textureMap.replacementMap.fileSystemIsDirectory) {
                         ImGui::SameLine();
                         const bool removeUnused = ImGui::Button("Remove unused entries");
                         if (removeUnused) {
                             ext.textureCache->removeUnusedEntriesFromDatabase();
                         }
+                    }
 
+                    if (!ext.textureCache->textureMap.replacementMap.replacementDirectories.empty()) {
                         ImGui::SameLine();
                         const bool unloadTextures = ImGui::Button("Unload textures");
                         if (unloadTextures) {
                             ext.textureCache->clearReplacementDirectories();
+                        }
+                    }
+
+                    const bool loadPacks = ImGui::Button("Load packs");
+                    ImGui::SameLine();
+                    const bool loadDirectories = ImGui::Button("Load directories");
+                    ImGui::SameLine();
+                    if (loadPacks) {
+                        // Ask for packs until the user cancels it.
+                        std::vector<ReplacementDirectory> replacementDirectories;
+                        std::filesystem::path newPack;
+                        do {
+                            newPack = FileDialog::getOpenFilename({ FileFilter("RTZ Files", "rtz") });
+                            if (!newPack.empty()) {
+                                replacementDirectories.emplace_back(ReplacementDirectory(newPack));
+                            }
+                        } while (!newPack.empty());
+
+                        if (!replacementDirectories.empty()) {
+                            ext.textureCache->loadReplacementDirectories(replacementDirectories);
+                        }
+                    }
+                    else if (loadDirectories) {
+                        // Ask for directories until the user cancels it.
+                        std::vector<ReplacementDirectory> replacementDirectories;
+                        std::filesystem::path newDirectory;
+                        do {
+                            newDirectory = FileDialog::getDirectoryPath();
+                            if (!newDirectory.empty()) {
+                                replacementDirectories.emplace_back(ReplacementDirectory(newDirectory));
+                            }
+                        } while (!newDirectory.empty());
+
+                        if (!replacementDirectories.empty()) {
+                            ext.textureCache->loadReplacementDirectories(replacementDirectories);
                         }
                     }
 

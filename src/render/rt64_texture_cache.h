@@ -54,6 +54,16 @@ namespace RT64 {
     typedef std::pair<uint32_t, uint64_t> AccessPair;
     typedef std::list<AccessPair> AccessList;
 
+    struct ReplacementDirectory {
+        std::filesystem::path dirOrZipPath;
+        std::string zipBasePath; // Only applies to Zip.
+
+        ReplacementDirectory(const std::filesystem::path &dirOrZipPath, const std::string &zipBasePath = "") {
+            this->dirOrZipPath = dirOrZipPath;
+            this->zipBasePath = zipBasePath;
+        }
+    };
+
     struct ReplacementMap {
         struct MapEntry {
             std::string relativePath;
@@ -65,25 +75,25 @@ namespace RT64 {
         typedef std::unordered_map<uint64_t, MapEntry> LoadedTextureMap;
         typedef std::unordered_map<Texture *, LoadedTextureMap::iterator> LoadedTextureReverseMap;
 
-        ReplacementDatabase db;
         LoadedTextureMap loadedTextureMap;
         LoadedTextureReverseMap loadedTextureReverseMap;
         std::list<Texture *> unusedTextureList;
         std::unordered_set<std::string> streamRelativePathSet;
         std::unordered_map<uint64_t, ReplacementResolvedPath> resolvedPathMap;
+        std::vector<uint32_t> resolvedHashVersions;
         std::unordered_map<std::string, LowMipCacheTexture> lowMipCacheTextures;
         std::unique_ptr<FileSystem> fileSystem;
-        std::filesystem::path fileSystemPath;
+        std::vector<ReplacementDirectory> replacementDirectories;
         uint64_t usedTexturePoolSize = 0;
         uint64_t cachedTexturePoolSize = 0;
         uint64_t maxTexturePoolSize = 0;
+        ReplacementDatabase directoryDatabase;
         bool fileSystemIsDirectory = false;
 
         ReplacementMap();
         ~ReplacementMap();
         void clear(std::vector<Texture *> &evictedTextures);
         void evict(std::vector<Texture *> &evictedTextures);
-        bool readDatabase(const std::vector<uint8_t> &bytes);
         bool saveDatabase(std::ostream &stream);
         void removeUnusedEntriesFromDatabase();
         bool getResolvedPathFromHash(uint64_t tmemHash, ReplacementResolvedPath &resolvedPath) const;
@@ -225,7 +235,8 @@ namespace RT64 {
         bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex);
         bool addReplacement(uint64_t hash, const std::string &relativePath);
         void clearReplacementDirectories();
-        bool loadReplacementDirectory(const std::filesystem::path &dirOrZipPath, const std::string &zipBasePath = "");
+        bool loadReplacementDirectory(const ReplacementDirectory &replacementDirectory);
+        bool loadReplacementDirectories(const std::vector<ReplacementDirectory> &replacementDirectories);
         bool saveReplacementDatabase();
         void removeUnusedEntriesFromDatabase();
         bool evict(uint64_t submissionFrame, std::vector<uint64_t> &evictedHashes);

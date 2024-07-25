@@ -6,6 +6,7 @@
 
 #include "rt64_common.h"
 
+#include <algorithm>
 #include <memory>
 
 namespace RT64 {
@@ -51,6 +52,11 @@ namespace RT64 {
 
             fileData.resize(fileDataSize);
             return load(path, fileData.data(), fileDataSize);
+        }
+
+        static std::string toForwardSlashes(std::string str) {
+            std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return (c == '\\') ? '/' : c; });
+            return str;
         }
     };
 };

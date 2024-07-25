@@ -122,7 +122,7 @@ namespace RT64 {
         return resolution;
     }
     
-    void ReplacementDatabase::resolvePaths(const FileSystem *fileSystem, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing, std::vector<uint64_t> *hashesToPreload) {
+    void ReplacementDatabase::resolvePaths(const FileSystem *fileSystem, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing, std::unordered_set<uint64_t> *hashesToPreload) {
         std::unordered_map<std::string, std::string> autoPathMap;
         for (const std::string &relativePath : *fileSystem) {
             const std::filesystem::path relativePathFs = std::filesystem::u8path(relativePath);
@@ -137,7 +137,7 @@ namespace RT64 {
                 size_t lastUnderscoreSymbol = fileName.find_last_of("_");
                 if ((firstHashSymbol != std::string::npos) && (lastUnderscoreSymbol != std::string::npos) && (lastUnderscoreSymbol > firstHashSymbol)) {
                     std::string riceHash = toLower(fileName.substr(firstHashSymbol + 1, lastUnderscoreSymbol - firstHashSymbol - 1));
-                    autoPathMap[riceHash] = toForwardSlashes(relativePath);
+                    autoPathMap[riceHash] = FileSystem::toForwardSlashes(relativePath);
                 }
             }
             else if (config.autoPath == ReplacementAutoPath::RT64) {
@@ -147,22 +147,23 @@ namespace RT64 {
 
         std::vector<ReplacementOperationFilter> standarizedFilters = operationFilters;
         for (ReplacementOperationFilter &filter : standarizedFilters) {
-            filter.wildcard = toForwardSlashes(filter.wildcard);
+            filter.wildcard = FileSystem::toForwardSlashes(filter.wildcard);
         }
 
-        auto addResolvedPath = [&](uint64_t hash, const std::string &relativePath, uint32_t databaseIndex) {
+        auto addResolvedPath = [&](uint64_t hash, const std::string &relativePath) {
+            // Do not modify the entry if it's already in the map.
+            if (resolvedPathMap.find(hash) != resolvedPathMap.end()) {
+                return;
+            }
+
             ReplacementResolvedPath &resolvedPath = resolvedPathMap[hash];
             resolvedPath.relativePath = relativePath;
-            resolvedPath.databaseIndex = databaseIndex;
             resolvedPath.operation = resolveOperation(relativePath, standarizedFilters);
 
             if ((resolvedPath.operation == ReplacementOperation::Preload) && (hashesToPreload != nullptr)) {
-                hashesToPreload->emplace_back(hash);
+                hashesToPreload->insert(hash);
             }
         };
-
-        // Clear any existing automatic assignments.
-        resolvedPathMap.clear();
 
         // Assign paths to all entries in the database.
         // If the entry already has a relative path, look for textures with extensions that are valid.
@@ -171,16 +172,16 @@ namespace RT64 {
         for (const ReplacementTexture &texture : textures) {
             if (!texture.path.empty()) {
                 uint64_t hashRT64 = ReplacementDatabase::stringToHash(texture.hashes.rt64);
-                std::string relativePath = toForwardSlashes(texture.path);
+                std::string relativePath = FileSystem::toForwardSlashes(texture.path);
                 std::string relativePathBase = removeKnownExtension(relativePath);
                 bool fileExists = false;
                 for (uint32_t i = 0; i < std::size(ReplacementKnownExtensions); i++) {
                     const std::string relativePathKnown = relativePathBase + ReplacementKnownExtensions[i];
                     std::string canonicalPath = fileSystem->makeCanonical(relativePathKnown);
-                    if (fileSystem->exists(canonicalPath)) {
+                    if (!canonicalPath.empty() && fileSystem->exists(canonicalPath)) {
                         if (!onlyDDS || (i == 0)) {
-                            std::string relativePathFinal = toForwardSlashes(canonicalPath);
-                            addResolvedPath(hashRT64, relativePathFinal, textureIndex);
+                            std::string relativePathFinal = FileSystem::toForwardSlashes(canonicalPath);
+                            addResolvedPath(hashRT64, relativePathFinal);
                         }
 
                         fileExists = true;
@@ -206,7 +207,7 @@ namespace RT64 {
                 auto it = autoPathMap.find(searchString);
                 if (it != autoPathMap.end()) {
                     uint64_t hashRT64 = ReplacementDatabase::stringToHash(texture.hashes.rt64);
-                    addResolvedPath(hashRT64, it->second, textureIndex);
+                    addResolvedPath(hashRT64, it->second);
                 }
             }
 
@@ -252,11 +253,6 @@ namespace RT64 {
 
     std::string ReplacementDatabase::toLower(std::string str) {
         std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
-        return str;
-    };
-
-    std::string ReplacementDatabase::toForwardSlashes(std::string str) {
-        std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return (c == '\\') ? '/' : c; });
         return str;
     };
 

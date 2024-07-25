@@ -3,6 +3,7 @@
 //
 
 #include <filesystem>
+#include <unordered_set>
 
 #include <json/json.hpp>
 
@@ -67,7 +68,6 @@ namespace RT64 {
 
     struct ReplacementResolvedPath {
         std::string relativePath;
-        uint32_t databaseIndex = 0;
         ReplacementOperation operation = ReplacementOperation::Stream;
     };
 
@@ -93,14 +93,13 @@ namespace RT64 {
         ReplacementTexture getReplacement(const std::string &hash) const;
         void buildHashMaps();
         ReplacementOperation resolveOperation(const std::string &relativePath, const std::vector<ReplacementOperationFilter> &filters);
-        void resolvePaths(const FileSystem *fileSystem, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing = nullptr, std::vector<uint64_t> *hashesToPreload = nullptr);
+        void resolvePaths(const FileSystem *fileSystem, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing = nullptr, std::unordered_set<uint64_t> *hashesToPreload = nullptr);
         static uint64_t stringToHash(const std::string &str);
         static std::string hashToString(uint32_t hash);
         static std::string hashToString(uint64_t hash);
         static bool isExtensionKnown(const std::string &extension);
         static bool endsWith(const std::string &str, const std::string &end);
         static std::string toLower(std::string str);
-        static std::string toForwardSlashes(std::string str);
         static std::string removeKnownExtension(const std::string &path);
     };
 

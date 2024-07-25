@@ -11,6 +11,7 @@
 // Needs to be included before other headers.
 #include "gbi/rt64_f3d.h"
 
+#include "common/rt64_filesystem_combined.h"
 #include "common/rt64_filesystem_directory.h"
 #include "common/rt64_filesystem_zip.h"
 #include "common/rt64_load_types.h"
@@ -57,9 +58,12 @@ namespace RT64 {
         unusedTextureList.clear();
         resolvedPathMap.clear();
         lowMipCacheTextures.clear();
+        resolvedPathMap.clear();
+        replacementDirectories.clear();
 
         usedTexturePoolSize = 0;
         cachedTexturePoolSize = 0;
+        fileSystemIsDirectory = false;
     }
 
     void ReplacementMap::evict(std::vector<Texture *> &evictedTextures) {
@@ -80,21 +84,9 @@ namespace RT64 {
         }
     }
 
-    bool ReplacementMap::readDatabase(const std::vector<uint8_t> &bytes) {
-        try {
-            db = json::parse(bytes.begin(), bytes.end(), nullptr, true);
-        }
-        catch (const nlohmann::detail::exception &e) {
-            fprintf(stderr, "JSON parsing error: %s\n", e.what());
-            db = ReplacementDatabase();
-        }
-
-        return false;
-    }
-
     bool ReplacementMap::saveDatabase(std::ostream &stream) {
         try {
-            json jroot = db;
+            json jroot = directoryDatabase;
             stream << std::setw(4) << jroot << std::endl;
             return !stream.bad();
         }
@@ -106,7 +98,7 @@ namespace RT64 {
 
     void ReplacementMap::removeUnusedEntriesFromDatabase() {
         std::vector<ReplacementTexture> newTextures;
-        for (const ReplacementTexture &texture : db.textures) {
+        for (const ReplacementTexture &texture : directoryDatabase.textures) {
             uint64_t rt64 = ReplacementDatabase::stringToHash(texture.hashes.rt64);
             auto pathIt = resolvedPathMap.find(rt64);
 
@@ -120,17 +112,12 @@ namespace RT64 {
                     continue;
                 }
             }
-            
-            // Update the database index of the resolved path.
-            if (pathIt != resolvedPathMap.end()) {
-                pathIt->second.databaseIndex = uint32_t(newTextures.size());
-            }
 
             newTextures.emplace_back(texture);
         }
 
-        db.textures = newTextures;
-        db.buildHashMaps();
+        directoryDatabase.textures = newTextures;
+        directoryDatabase.buildHashMaps();
     }
 
     bool ReplacementMap::getResolvedPathFromHash(uint64_t tmemHash, ReplacementResolvedPath &resolvedPath) const {
@@ -811,7 +798,6 @@ namespace RT64 {
     }
 
     bool TextureCache::setLowMipCache(RenderDevice *device, RenderCommandList *commandList, const uint8_t *bytes, size_t byteCount, std::unique_ptr<RenderBuffer> &dstUploadResource, std::unordered_map<std::string, LowMipCacheTexture> &dstTextureMap, uint64_t &totalMemory) {
-        totalMemory = 0;
         dstUploadResource = device->createBuffer(RenderBufferDesc::UploadBuffer(byteCount));
 
         // Upload the entire file to the GPU to copy data from it directly.
@@ -822,17 +808,21 @@ namespace RT64 {
         std::vector<RenderTextureBarrier> beforeCopyBarriers;
         std::vector<RenderTextureCopyLocation> copyDestinations;
         std::vector<RenderTextureCopyLocation> copySources;
+        std::list<std::pair<std::string, Texture *>> texturesLoaded;
         size_t byteCursor = 0;
+        bool readFailed = false;
         while (byteCursor < byteCount) {
             const ReplacementMipmapCacheHeader *cacheHeader = reinterpret_cast<const ReplacementMipmapCacheHeader *>(&bytes[byteCursor]);
             byteCursor += sizeof(ReplacementMipmapCacheHeader);
 
             if (cacheHeader->magic != ReplacementMipmapCacheHeaderMagic) {
-                return false;
+                readFailed = true;
+                break;
             }
 
             if (cacheHeader->version > ReplacementMipmapCacheHeaderVersion) {
-                return false;
+                readFailed = true;
+                break;
             }
 
             const uint32_t *mipmapSizes = reinterpret_cast<const uint32_t *>(&bytes[byteCursor]);
@@ -843,44 +833,71 @@ namespace RT64 {
 
             std::string cachePath(reinterpret_cast<const char *>(&bytes[byteCursor]), cacheHeader->pathLength);
             byteCursor += cacheHeader->pathLength;
-            
-            RenderFormat renderFormat = toRenderFormat(ddspp::DXGIFormat(cacheHeader->dxgiFormat));
-            RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(cacheHeader->width, cacheHeader->height, cacheHeader->mipCount, renderFormat);
-            Texture *newTexture = new Texture();
-            newTexture->texture = device->createTexture(textureDesc);
-            newTexture->format = renderFormat;
-            newTexture->width = cacheHeader->width;
-            newTexture->height = cacheHeader->height;
-            newTexture->mipmaps = cacheHeader->mipCount;
 
-            const uint32_t formatSize = RenderFormatSize(renderFormat);
-            const uint32_t blockWidth = RenderFormatBlockWidth(renderFormat);
-            for (uint32_t i = 0; i < cacheHeader->mipCount; i++) {
+            auto alignToTexturePlacement = [](size_t &byteCursor) {
                 if ((byteCursor % TextureDataPlacementAlignment) != 0) {
                     byteCursor += TextureDataPlacementAlignment - (byteCursor % TextureDataPlacementAlignment);
                 }
+            };
 
-                uint32_t mipmapWidth = std::max(cacheHeader->width >> i, 1U);
-                uint32_t mipmapHeight = std::max(cacheHeader->height >> i, 1U);
-                uint32_t alignedRowWidth = ((mipmapAlignedRowPitches[i] + formatSize - 1) / formatSize) * blockWidth;
-                beforeCopyBarriers.emplace_back(RenderTextureBarrier(newTexture->texture.get(), RenderTextureLayout::COPY_DEST));
-                copyDestinations.emplace_back(RenderTextureCopyLocation::Subresource(newTexture->texture.get(), i));
-                copySources.emplace_back(RenderTextureCopyLocation::PlacedFootprint(dstUploadResource.get(), renderFormat, mipmapWidth, mipmapHeight, 1, alignedRowWidth, byteCursor));
-                byteCursor += mipmapSizes[i];
-                newTexture->memorySize += mipmapSizes[i];
+            std::string cachePathForward = FileSystem::toForwardSlashes(cachePath);
+            const bool skipTexture = (dstTextureMap.find(cachePathForward) != dstTextureMap.end());
+            if (skipTexture) {
+                for (uint32_t i = 0; i < cacheHeader->mipCount; i++) {
+                    alignToTexturePlacement(byteCursor);
+                    byteCursor += mipmapSizes[i];
+                }
             }
+            else {
+                RenderFormat renderFormat = toRenderFormat(ddspp::DXGIFormat(cacheHeader->dxgiFormat));
+                RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(cacheHeader->width, cacheHeader->height, cacheHeader->mipCount, renderFormat);
+                Texture *newTexture = new Texture();
+                newTexture->texture = device->createTexture(textureDesc);
+                newTexture->format = renderFormat;
+                newTexture->width = cacheHeader->width;
+                newTexture->height = cacheHeader->height;
+                newTexture->mipmaps = cacheHeader->mipCount;
 
-            totalMemory += newTexture->memorySize;
+                const uint32_t formatSize = RenderFormatSize(renderFormat);
+                const uint32_t blockWidth = RenderFormatBlockWidth(renderFormat);
+                for (uint32_t i = 0; i < cacheHeader->mipCount; i++) {
+                    alignToTexturePlacement(byteCursor);
+                    uint32_t mipmapWidth = std::max(cacheHeader->width >> i, 1U);
+                    uint32_t mipmapHeight = std::max(cacheHeader->height >> i, 1U);
+                    uint32_t alignedRowWidth = ((mipmapAlignedRowPitches[i] + formatSize - 1) / formatSize) * blockWidth;
+                    beforeCopyBarriers.emplace_back(RenderTextureBarrier(newTexture->texture.get(), RenderTextureLayout::COPY_DEST));
+                    copyDestinations.emplace_back(RenderTextureCopyLocation::Subresource(newTexture->texture.get(), i));
+                    copySources.emplace_back(RenderTextureCopyLocation::PlacedFootprint(dstUploadResource.get(), renderFormat, mipmapWidth, mipmapHeight, 1, alignedRowWidth, byteCursor));
+                    byteCursor += mipmapSizes[i];
+                    newTexture->memorySize += mipmapSizes[i];
+                }
 
-            std::string relativePath = ReplacementDatabase::toForwardSlashes(cachePath);
-            dstTextureMap[relativePath] = { newTexture, false };
+                totalMemory += newTexture->memorySize;
+                texturesLoaded.emplace_back(cachePathForward, newTexture);
+            }
         }
 
-        // Record to the command list.
-        commandList->barriers(RenderBarrierStage::COPY, beforeCopyBarriers);
+        if (readFailed) {
+            // Delete all textures that were loaded.
+            for (auto pair : texturesLoaded) {
+                delete pair.second;
+            }
 
-        for (size_t i = 0; i < copyDestinations.size(); i++) {
-            commandList->copyTextureRegion(copyDestinations[i], copySources[i]);
+            return false;
+        }
+
+        if (!texturesLoaded.empty()) {
+            // Only add textures to the map if reading the entire cache was successful.
+            for (auto pair : texturesLoaded) {
+                dstTextureMap[pair.first] = { pair.second, false };
+            }
+
+            // Record to the command list.
+            commandList->barriers(RenderBarrierStage::COPY, beforeCopyBarriers);
+
+            for (size_t i = 0; i < copyDestinations.size(); i++) {
+                commandList->copyTextureRegion(copyDestinations[i], copySources[i]);
+            }
         }
 
         return true;
@@ -1063,15 +1080,17 @@ namespace RT64 {
                         descSet->setTexture(descSet->RGBA32, dstTexture->texture.get(), RenderTextureLayout::GENERAL);
                         beforeDecodeBarriers.emplace_back(dstTexture->texture.get(), RenderTextureLayout::GENERAL);
 
-                        // If the database uses an older hash version, we hash TMEM again with the version corresponding to the database.
-                        uint32_t databaseVersion = textureMap.replacementMap.db.config.hashVersion;
-                        uint64_t databaseHash = upload.hash;
-                        if (databaseVersion < TMEMHasher::CurrentHashVersion) {
-                            databaseHash = TMEMHasher::hash(upload.bytesTMEM.data(), upload.loadTile, upload.width, upload.height, upload.tlut, databaseVersion);
-                        }
+                        // If the databases that were loaded have different hash versions, we have much to attempt to check for all possible replacements with all possible hashes.
+                        for (uint32_t hashVersion : textureMap.replacementMap.resolvedHashVersions) {
+                            // If the database uses an older hash version, we hash TMEM again with the version corresponding to the database.
+                            uint64_t databaseHash = upload.hash;
+                            if (hashVersion < TMEMHasher::CurrentHashVersion) {
+                                databaseHash = TMEMHasher::hash(upload.bytesTMEM.data(), upload.loadTile, upload.width, upload.height, upload.tlut, hashVersion);
+                            }
 
-                        // Add this hash so it's checked for a replacement.
-                        replacementQueueCopy.emplace_back(ReplacementCheck{ upload.hash, databaseHash });
+                            // Add this hash so it's checked for a replacement.
+                            replacementQueueCopy.emplace_back(ReplacementCheck{ upload.hash, databaseHash });
+                        }
                     }
                 }
 
@@ -1302,8 +1321,8 @@ namespace RT64 {
         replacement.path = ReplacementDatabase::removeKnownExtension(relativePath);
 
         // Add the replacement's index to the resolved path map as well.
-        uint32_t databaseIndex = textureMap.replacementMap.db.addReplacement(replacement);
-        textureMap.replacementMap.resolvedPathMap[hash] = { relativePath, databaseIndex };
+        uint32_t databaseIndex = textureMap.replacementMap.directoryDatabase.addReplacement(replacement);
+        textureMap.replacementMap.resolvedPathMap[hash] = { relativePath, ReplacementOperation::Stream };
 
         // Replace the texture in the cache.
         textureMap.replace(hash, newTexture, true);
@@ -1338,48 +1357,108 @@ namespace RT64 {
         std::unique_lock lock(textureMapMutex);
         textureMap.clearReplacements();
         textureMap.replacementMap.clear(textureMap.evictedTextures);
-        textureMap.replacementMap.fileSystemPath.clear();
+    }
+
+    bool TextureCache::loadReplacementDirectory(const ReplacementDirectory &replacementDirectory) {
+        return loadReplacementDirectories({ replacementDirectory });
     }
     
-    bool TextureCache::loadReplacementDirectory(const std::filesystem::path &dirOrZipPath, const std::string &zipBasePath) {
+    bool TextureCache::loadReplacementDirectories(const std::vector<ReplacementDirectory> &replacementDirectories) {
         clearReplacementDirectories();
 
         std::unique_lock lock(textureMapMutex);
-        textureMap.replacementMap.fileSystemPath = dirOrZipPath;
+        textureMap.replacementMap.replacementDirectories = replacementDirectories;
 
-        if (std::filesystem::is_regular_file(dirOrZipPath)) {
-            textureMap.replacementMap.fileSystem = FileSystemZip::create(dirOrZipPath, zipBasePath);
-            if (textureMap.replacementMap.fileSystem == nullptr) {
-                fprintf(stderr, "Failed to load file system as a pack for replacements.\n");
+        std::vector<std::unique_ptr<FileSystem>> fileSystems;
+        for (const ReplacementDirectory &replacementDirectory : replacementDirectories) {
+            if (std::filesystem::is_regular_file(replacementDirectory.dirOrZipPath)) {
+                std::unique_ptr<FileSystem> fileSystem = FileSystemZip::create(replacementDirectory.dirOrZipPath, replacementDirectory.zipBasePath);
+                if (fileSystem == nullptr) {
+                    fprintf(stderr, "Failed to load file system as a pack for replacements.\n");
+                    return false;
+                }
+
+                fileSystems.emplace_back(std::move(fileSystem));
+            }
+            else if (std::filesystem::is_directory(replacementDirectory.dirOrZipPath)) {
+                std::unique_ptr<FileSystem> fileSystem = FileSystemDirectory::create(replacementDirectory.dirOrZipPath);
+                if (fileSystem == nullptr) {
+                    fprintf(stderr, "Failed to load file system as a directory for replacements.\n");
+                    return false;
+                }
+
+                // Only enable that file system is a directory if it's only one directory.
+                textureMap.replacementMap.fileSystemIsDirectory = (replacementDirectories.size() == 1);
+                fileSystems.emplace_back(std::move(fileSystem));
+            }
+            else {
+                fprintf(stderr, "Failed to identify what type of filesystem the path is.\n");
                 return false;
             }
-
-            textureMap.replacementMap.fileSystemIsDirectory = false;
         }
-        else if (std::filesystem::is_directory(dirOrZipPath)) {
-            textureMap.replacementMap.fileSystem = FileSystemDirectory::create(dirOrZipPath);
-            if (textureMap.replacementMap.fileSystem == nullptr) {
-                fprintf(stderr, "Failed to load file system as a directory for replacements.\n");
-                return false;
+
+         // Load databases and low mipmap caches from the filesystems in reverse order.
+        std::unordered_set<uint64_t> hashesToPreload;
+        {
+            loaderCommandList->begin();
+
+            uint64_t totalMemory = 0;
+            std::vector<uint8_t> databaseBytes;
+            std::vector<uint8_t> mipCacheBytes;
+            std::vector<std::unique_ptr<RenderBuffer>> uploadBuffers;
+            std::vector<bool> knownHashVersions;
+            knownHashVersions.resize(TMEMHasher::CurrentHashVersion + 1, false);
+            for (int32_t i = int32_t(fileSystems.size() - 1); i >= 0; i--) {
+                if (fileSystems[i]->load(ReplacementDatabaseFilename, databaseBytes)) {
+                    try {
+                        ReplacementDatabase db;
+                        db = json::parse(databaseBytes.begin(), databaseBytes.end(), nullptr, true);
+
+                        if (db.config.hashVersion <= TMEMHasher::CurrentHashVersion) {
+                            db.resolvePaths(fileSystems[i].get(), textureMap.replacementMap.resolvedPathMap, false, nullptr, &hashesToPreload);
+
+                            if (!knownHashVersions[db.config.hashVersion]) {
+                                textureMap.replacementMap.resolvedHashVersions.insert(textureMap.replacementMap.resolvedHashVersions.begin(), db.config.hashVersion);
+                                knownHashVersions[db.config.hashVersion] = true;
+                            }
+
+                            if (textureMap.replacementMap.fileSystemIsDirectory) {
+                                textureMap.replacementMap.directoryDatabase = std::move(db);
+                            }
+                        }
+                    }
+                    catch (const nlohmann::detail::exception &e) {
+                        fprintf(stderr, "JSON parsing error: %s\n", e.what());
+                    }
+                }
+
+                if (fileSystems[i]->load(ReplacementLowMipCacheFilename, mipCacheBytes)) {
+                    uploadBuffers.emplace_back();
+                    if (!setLowMipCache(copyWorker->device, loaderCommandList.get(), mipCacheBytes.data(), mipCacheBytes.size(), uploadBuffers.back(), textureMap.replacementMap.lowMipCacheTextures, totalMemory)) {
+                        fprintf(stderr, "Failed to load low mip cache.\n");
+                    }
+                }
             }
 
-            textureMap.replacementMap.fileSystemIsDirectory = true;
-        }
-        else {
-            fprintf(stderr, "Failed to identify what type of filesystem the path is.\n");
-            return false;
+            loaderCommandList->end();
+
+            if (!textureMap.replacementMap.lowMipCacheTextures.empty()) {
+                copyWorker->commandQueue->executeCommandLists(loaderCommandList.get(), loaderCommandFence.get());
+                copyWorker->commandQueue->waitForCommandFence(loaderCommandFence.get());
+
+                // Memory used by low mip cache is considered as permanently in used.
+                textureMap.replacementMap.usedTexturePoolSize += totalMemory;
+                textureMap.replacementMap.cachedTexturePoolSize += totalMemory;
+            }
         }
 
-        std::vector<uint8_t> databaseBytes;
-        if (textureMap.replacementMap.fileSystem->load(ReplacementDatabaseFilename, databaseBytes)) {
-            textureMap.replacementMap.readDatabase(databaseBytes);
+        // Create a combined file system out of the systems that were loaded.
+        if (fileSystems.size() > 1) {
+            textureMap.replacementMap.fileSystem = FileSystemCombined::create(fileSystems);
         }
         else {
-            textureMap.replacementMap.db = ReplacementDatabase();
+            textureMap.replacementMap.fileSystem = std::move(fileSystems.front());
         }
-
-        std::vector<uint64_t> hashesToPreload;
-        textureMap.replacementMap.db.resolvePaths(textureMap.replacementMap.fileSystem.get(), textureMap.replacementMap.resolvedPathMap, false, nullptr, &hashesToPreload);
 
         const bool preloadTexturesWithThreads = !hashesToPreload.empty();
         if (preloadTexturesWithThreads) {
@@ -1398,40 +1477,12 @@ namespace RT64 {
 
             streamDescQueueChanged.notify_all();
         }
-        
-        // Preload the low mip cache if it exists.
-        std::vector<uint8_t> mipCacheBytes;
-        if (textureMap.replacementMap.fileSystem->load(ReplacementLowMipCacheFilename, mipCacheBytes)) {
-            uint64_t totalMemory;
-            std::unique_ptr<RenderBuffer> uploadBuffer;
-            loaderCommandList->begin();
-            bool cacheLoaded = setLowMipCache(copyWorker->device, loaderCommandList.get(), mipCacheBytes.data(), mipCacheBytes.size(), uploadBuffer, textureMap.replacementMap.lowMipCacheTextures, totalMemory);
-            loaderCommandList->end();
-
-            if (cacheLoaded) {
-                copyWorker->commandQueue->executeCommandLists(loaderCommandList.get(), loaderCommandFence.get());
-                copyWorker->commandQueue->waitForCommandFence(loaderCommandFence.get());
-
-                // Memory used by low mip cache is considered as permanently in used.
-                textureMap.replacementMap.usedTexturePoolSize += totalMemory;
-                textureMap.replacementMap.cachedTexturePoolSize += totalMemory;
-            }
-            else {
-                // Delete the textures that were loaded into the low mip cache.
-                for (auto it : textureMap.replacementMap.lowMipCacheTextures) {
-                    delete it.second.texture;
-                }
-
-                textureMap.replacementMap.lowMipCacheTextures.clear();
-                fprintf(stderr, "Failed to load low mip cache.\n");
-            }
-        }
 
         if (preloadTexturesWithThreads) {
             // Wait for all the streaming threads to be finished.
             waitForAllStreamThreads(false);
         }
-
+        
         // Queue all currently loaded hashes to detect replacements with.
         {
             std::unique_lock queueLock(uploadQueueMutex);
@@ -1450,13 +1501,14 @@ namespace RT64 {
 
     bool TextureCache::saveReplacementDatabase() {
         std::unique_lock lock(textureMapMutex);
-        if (textureMap.replacementMap.fileSystemPath.empty() || !textureMap.replacementMap.fileSystemIsDirectory) {
+        if (!textureMap.replacementMap.fileSystemIsDirectory) {
             return false;
         }
 
-        const std::filesystem::path databasePath = textureMap.replacementMap.fileSystemPath / ReplacementDatabaseFilename;
-        const std::filesystem::path databaseNewPath = textureMap.replacementMap.fileSystemPath / (ReplacementDatabaseFilename + ".new");
-        const std::filesystem::path databaseOldPath = textureMap.replacementMap.fileSystemPath / (ReplacementDatabaseFilename + ".old");
+        const std::filesystem::path directoryPath = textureMap.replacementMap.replacementDirectories[0].dirOrZipPath;
+        const std::filesystem::path databasePath = directoryPath / ReplacementDatabaseFilename;
+        const std::filesystem::path databaseNewPath = directoryPath / (ReplacementDatabaseFilename + ".new");
+        const std::filesystem::path databaseOldPath = directoryPath / (ReplacementDatabaseFilename + ".old");
         std::ofstream databaseNewFile(databaseNewPath);
         if (!textureMap.replacementMap.saveDatabase(databaseNewFile)) {
             return false;
@@ -1492,7 +1544,7 @@ namespace RT64 {
 
     void TextureCache::removeUnusedEntriesFromDatabase() {
         std::unique_lock lock(textureMapMutex);
-        if (textureMap.replacementMap.fileSystemPath.empty() || !textureMap.replacementMap.fileSystemIsDirectory) {
+        if (!textureMap.replacementMap.fileSystemIsDirectory) {
             return;
         }
 
