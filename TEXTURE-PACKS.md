@@ -114,7 +114,7 @@ It's not possible to make these type of replacements while using a pack in `.rtz
 
 RT64 uses its own hashing scheme based on `TMEM`, the 4 KB of texture memory used by the N64, which is known to be much more accurate at identifying textures. It also supports the Rice hash format for compatibility with existing texture packs. Note that RT64 cannot produce Rice hashes at runtime due to the limitations and inaccuracies of the Rice algorithm.
 
-### Do I need to generate hashes?
+### Do I Need To Generate Hashes?
 
 If the game you're trying to mod already has a texture pack available for RT64, then the most likely answer is no. You can just grab the database file off a texture pack someone has created already. **It is possible to include a database file without having all the files defined inside it**.
 
