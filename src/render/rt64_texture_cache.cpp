@@ -1282,7 +1282,8 @@ namespace RT64 {
     }
     
     bool TextureCache::addReplacement(uint64_t hash, const std::string &relativePath) {
-        // TODO: The case where a replacement is reloaded needs to be handled correctly. Multiple hashes can point to the same path. All hashes pointing to that path must be reloaded correctly.
+        waitForAllStreamThreads(false);
+        waitForGPUUploads();
 
         std::unique_lock lock(textureMapMutex);
         std::vector<uint8_t> replacementBytes;
@@ -1304,28 +1305,27 @@ namespace RT64 {
             }
         }
 
-        // Queue the texture as if it was the result from a streaming thread.
-        if (newTexture != nullptr) {
-            uploadQueueMutex.lock();
-            streamResultQueue.emplace_back(newTexture, relativePath, false);
-            uploadQueueMutex.unlock();
-            uploadQueueChanged.notify_all();
-        }
-        else {
+        if (newTexture == nullptr) {
             return false;
         }
 
         // Store replacement in the replacement database.
+        std::string relativePathForward = FileSystem::toForwardSlashes(relativePath);
         ReplacementTexture replacement;
         replacement.hashes.rt64 = ReplacementDatabase::hashToString(hash);
-        replacement.path = ReplacementDatabase::removeKnownExtension(relativePath);
+        replacement.path = ReplacementDatabase::removeKnownExtension(relativePathForward);
 
         // Add the replacement's index to the resolved path map as well.
         uint32_t databaseIndex = textureMap.replacementMap.directoryDatabase.addReplacement(replacement);
-        textureMap.replacementMap.resolvedPathMap[hash] = { relativePath, ReplacementOperation::Stream };
+        textureMap.replacementMap.resolvedPathMap[hash] = { relativePathForward, ReplacementOperation::Stream };
 
-        // Replace the texture in the cache.
-        textureMap.replace(hash, newTexture, true);
+        // Queue the texture as if it was the result from a streaming thread.
+        uploadQueueMutex.lock();
+        streamResultQueue.emplace_back(newTexture, relativePathForward, false);
+        streamPendingReplacementChecks.emplace(relativePathForward, ReplacementCheck{ hash, hash });
+        uploadQueueMutex.unlock();
+        uploadQueueChanged.notify_all();
+
         return true;
     }
 
