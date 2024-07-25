@@ -65,7 +65,7 @@ The configuration file (`rt64.json`) follows this format:
 }
 ```
 
-### Configuration Section
+### Configuration
 
 - **autoPath**: Specifies the hash format used for automatically searching texture files inside the pack. Auto paths are only used if a path is not specified for a texture in the database.
   - **rice**: One of the most common formats supported by many N64 emulators. Note that RT64 cannot produce Rice hashes at runtime. Use this if you have a texture pack already made for other emulators.
@@ -83,7 +83,7 @@ Operation filters define how textures should be loaded based on wildcard pattern
   - **preload**: Textures are loaded at the start of the game and will remain in memory, preventing any sort of pop-in at the expense of memory usage and increased initial loading times. Only recommended for textures where no kind of pop-in is tolerable, even when using the low mipmap cache.
   - **stall**: Stops the renderer until the texture is loaded. Can be useful for instances where loading screens are known to appear. **Not recommended**.
 
-### Textures Section
+### Textures
 
 Each texture entry maps hashes to texture paths:
 
@@ -95,7 +95,7 @@ Each texture entry maps hashes to texture paths:
   - The texture file does not need to follow a particular naming format.
   - If empty, the auto path scheme will be used to try to find the file instead.
  
-### In-Game Replacement
+## In-Game Replacement
 
 It is possible to replace textures by using the debugger while running RT64.
 
