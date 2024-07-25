@@ -169,7 +169,7 @@ You can test out the low mipmap cache in RT64 by loading the texture pack direct
 Creating the final `.rtz` file can be done with the following command. 
 - If both DDS and PNG files for a particular texture exist, only the DDS file will be included in the `.rtz`.
 - `zstd` compression is used by default. You can specify `--deflate` or `--store` if you wish to make the file compatible with more third-party archive tools at the expense of compression ratio and performance.
-- `zstd` has been verified to perform faster than uncompressed file reading even in modern M2 SSD drives. There should be no performance benefit to leaving the files uncompressed unless you use PNG files, **which you shouldn't ship to end users**.
+- `zstd` has been verified to perform faster than uncompressed file reading even in modern M2 SSD drives. There should be no performance benefit to leaving the files uncompressed (unless you use PNG files, **which you shouldn't ship to end users**).
 ```powershell
 ./texture_packer <texture_pack_directory> --create-pack
 ```
