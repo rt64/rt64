@@ -120,7 +120,7 @@ If the game you're trying to mod already has a texture pack available for RT64, 
 
 If you wish to shrink the size of a database to its essentials to improve the loading time of the texture pack, you can use the "Remove Unused Entries" button in Developer Mode in the Textures tab. This will remove any entries for textures that could not be found inside the texture pack directory.
 
-If you plan to just reuse a database file created by someone else, you can skip ahead to the ["Create Pack"](create-pack) section.
+If you plan to just reuse a database file created by someone else, you can skip ahead to the ["Create Pack"](#create-pack) section.
 
 ### History and Limitations of Rice Hashes
 
