@@ -1296,9 +1296,11 @@ namespace RT64 {
         }
 
         // Load texture replacement immediately.
-        std::unique_ptr<RenderBuffer> dstUploadBuffer;
-        Texture *newTexture = nullptr;
-        {
+        bool loadedNewTexture = false;
+        std::string relativePathForward = FileSystem::toForwardSlashes(relativePath);
+        Texture *newTexture = textureMap.replacementMap.getFromRelativePath(relativePathForward);
+        if (newTexture == nullptr) {
+            std::unique_ptr<RenderBuffer> dstUploadBuffer;
             loaderCommandList->begin();
             newTexture = TextureCache::loadTextureFromBytes(copyWorker->device, loaderCommandList.get(), replacementBytes, dstUploadBuffer);
             loaderCommandList->end();
@@ -1307,14 +1309,15 @@ namespace RT64 {
                 copyWorker->commandQueue->executeCommandLists(loaderCommandList.get(), loaderCommandFence.get());
                 copyWorker->commandQueue->waitForCommandFence(loaderCommandFence.get());
             }
+
+            loadedNewTexture = true;
         }
 
         if (newTexture == nullptr) {
             return false;
         }
-
+        
         // Store replacement in the replacement database.
-        std::string relativePathForward = FileSystem::toForwardSlashes(relativePath);
         ReplacementTexture replacement;
         replacement.hashes.rt64 = ReplacementDatabase::hashToString(hash);
         replacement.path = ReplacementDatabase::removeKnownExtension(relativePathForward);
@@ -1323,10 +1326,18 @@ namespace RT64 {
         uint32_t databaseIndex = textureMap.replacementMap.directoryDatabase.addReplacement(replacement);
         textureMap.replacementMap.resolvedPathMap[hash] = { relativePathForward, ReplacementOperation::Stream };
 
-        // Queue the texture as if it was the result from a streaming thread.
         uploadQueueMutex.lock();
-        streamResultQueue.emplace_back(newTexture, relativePathForward, false);
-        streamPendingReplacementChecks.emplace(relativePathForward, ReplacementCheck{ hash, hash });
+
+        // Queue the texture as if it was the result from a streaming thread.
+        if (loadedNewTexture) {
+            streamResultQueue.emplace_back(newTexture, relativePathForward, false);
+            streamPendingReplacementChecks.emplace(relativePathForward, ReplacementCheck{ hash, hash });
+        }
+        // Just queue a replacement check for the hash that was just replaced.
+        else {
+            replacementQueue.emplace_back(ReplacementCheck{ hash, hash });
+        }
+
         uploadQueueMutex.unlock();
         uploadQueueChanged.notify_all();
 
