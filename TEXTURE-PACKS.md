@@ -80,7 +80,7 @@ Operation filters are optional filters that define how textures should be loaded
 - **wildcard**: Pattern to match texture paths. Use * to indicate any number of characters (including *zero*) and ? to indicate any *one* character. Some examples include:
   - "Terrain/Grass001.*" will include any file called "Grass001" inside the directory "Terrain".
   - "Text/*" will include any files inside the directory "Text".
-  - "\*/Button\*" will include any files inside any directory called "Button".
+  - "\*/Button\*" will include any files that start with "Button" inside any directory.
   - "UI/Letter?.*" will include any files called Letter with exactly one character that can be anything (LetterA, LetterB, etc.) inside the directory "UI".
 - **operation**: Determines the loading behavior. Possible values are:
   - **stream**: Textures are loaded asynchronously, potentially causing visual pop-in. This is **solved by generating a low mipmap cache** via the `texture_packer` tool. This is the default behavior. 
