@@ -77,7 +77,7 @@ The configuration file (`rt64.json`) follows this format:
 
 Operation filters are optional filters that define how textures should be loaded based on wildcard patterns. Filters are processed in the order they appear. Keep this in mind to resolve any potential conflicts between the filters. Feel free to ignore this feature until you feel the need to control the loading behavior of the textures in more detail.
 
-Filters can cover one or many files by defining the wildcard pattern, which is a string of characters that defines the naming scheme of the textures. This can come in handy as you can organize your files in such a way that it's easier to define the operation you want without having to add an entry for each file individually. Some examples are covered below.
+Filters can cover one or many files by defining the wildcard pattern, which is a string of characters that defines the naming scheme of the textures. This can come in handy as you can organize your files so it's easier to set the operation you want without having to add an entry for each file separately. Some examples are covered below.
 
 - **wildcard**: Pattern to match texture paths. Use * to indicate any number of characters (including *zero*) and ? to indicate any *one* character. Some examples include:
   - "Terrain/Grass001.*" will include any file called "Grass001" inside the directory "Terrain".
