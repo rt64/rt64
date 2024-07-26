@@ -7,7 +7,7 @@ RT64 introduces a texture pack system which gives some extra flexibility for art
 ## Texture Pack Tools
 Download the latest version of the texture tools that will be required for making a texture pack. 
 
-* **Windows**: https://github.com/rt64/rt64/releases/download/texture_pack_tools/texture_pack_tools_windows.zip
+[Texture Pack Tools Release](https://github.com/rt64/rt64/releases/tag/texture_pack_tools).
 
 You can also build these tools yourself by building RT64.
 
