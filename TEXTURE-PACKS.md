@@ -77,7 +77,13 @@ The configuration file (`rt64.json`) follows this format:
 
 Operation filters are optional filters that define how textures should be loaded based on wildcard patterns. Filters are processed in the order they appear. Keep this in mind to resolve any potential conflicts between the filters. Feel free to ignore this feature until you feel the need to control the loading behavior of the textures in more detail.
 
-- **wildcard**: Pattern to match texture paths. Use * to indicate any number of characters (including *zero*) and ? to indicate any *one* character.
+Filters can cover one or many files by defining the wildcard pattern, which is a string of characters that defines the naming scheme of the textures. This can come in handy as you can organize your files in such a way that it's easier to define the operation you want without having to add an entry for each file individually. Some examples are covered below.
+
+- **wildcard**: Pattern to match texture paths. Use * to indicate any number of characters (including *zero*) and ? to indicate any *one* character. Some examples include:
+  - "Terrain/Grass001.*" will include any file called "Grass001" inside the directory "Terrain".
+  - "Text/*" will include any files inside the directory "Text".
+  - "\*/Button\*" will include any files inside any directory called "Button".
+  - "UI/Letter?.*" will include any files called Letter with exactly one character that can be anything (LetterA, LetterB, etc.) inside the directory "UI".
 - **operation**: Determines the loading behavior. Possible values are:
   - **stream**: Textures are loaded asynchronously, potentially causing visual pop-in. This is **solved by generating a low mipmap cache** via the `texture_packer` tool. This is the default behavior. 
   - **preload**: Textures are loaded at the start of the game and will remain in memory, preventing any sort of pop-in at the expense of memory usage and increased initial loading times. Only recommended for textures where no kind of pop-in is tolerable, even when using the low mipmap cache.
