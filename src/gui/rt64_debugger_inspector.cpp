@@ -8,10 +8,11 @@
 #include <cinttypes>
 
 #include "imgui/imgui.h"
-#include "stb/stb_image_write.h"
+#include "xxHash/xxh3.h"
 
 #include "common/rt64_common.h"
 #include "common/rt64_math.h"
+#include "common/rt64_tmem_hasher.h"
 #include "hle/rt64_color_converter.h"
 #include "hle/rt64_vi.h"
 #include "gbi/rt64_f3d.h"
@@ -24,6 +25,10 @@ namespace RT64 {
     static const uint32_t MatrixGroupIgnoredColor = ColorConverter::RGBA32::toRGBA(hlslpp::float4(0.25f, 0.25f, 0.25f, 0.5f));
     static const hlslpp::float4 MatrixGroupAutoColorBase = hlslpp::float4(0.0f, 0.0f, 0.25f, 0.5f);
     static const hlslpp::float4 MatrixGroupAssignedColorBase = hlslpp::float4(0.25f, 0.0f, 0.0f, 0.5f);
+    static const uint32_t NativeSamplerNoneColor = ColorConverter::RGBA32::toRGBA(hlslpp::float4(0.75f, 0.25f, 0.25f, 0.5f));
+    static const uint32_t NativeSamplerAnyColor = ColorConverter::RGBA32::toRGBA(hlslpp::float4(0.25f, 0.25f, 0.75f, 0.5f));
+    static const uint32_t NativeSamplerAllColor = ColorConverter::RGBA32::toRGBA(hlslpp::float4(0.25f, 0.75f, 0.25f, 0.5f));
+    static const uint32_t NativeSamplerIgnoredColor = ColorConverter::RGBA32::toRGBA(hlslpp::float4(0.25f, 0.25f, 0.25f, 0.5f));
     static const uint32_t HoverHighlightColor = ColorConverter::RGBA32::toRGBA(hlslpp::float4(1.0f, 0.0f, 1.0f, 0.5f));
 
     bool operator<(const DebuggerInspector::CallIndices &lhs, const DebuggerInspector::CallIndices &rhs) {
@@ -40,6 +45,7 @@ namespace RT64 {
 
     DebuggerInspector::DebuggerInspector() {
         openCallIndices = { 0, 0, 0 };
+        highightCallIndices = { 0, 0, 0 };
         openLoadIndex = -1;
         openTileIndex = -1;
         openCall = false;
@@ -56,6 +62,7 @@ namespace RT64 {
         camera.farPlane = 1000.0f;
         camera.fov = 0.75f;
         viewTransformGroups = false;
+        viewNativeSamplers = false;
     }
 
     std::string DebuggerInspector::framebufferPairName(const Workload &workload, uint32_t fbPairIndex) {
@@ -103,6 +110,8 @@ namespace RT64 {
     }
     
     bool DebuggerInspector::checkPopup(Workload &workload) {
+        highightCallIndices = { 0, 0, 0 };
+
         if (ImGui::BeginPopup("##popupCallindices")) {
             for (CallIndices call : popupCalls) {
                 if (call.fbPairIndex >= workload.fbPairCount) {
@@ -127,6 +136,7 @@ namespace RT64 {
                 bool selected = ImGui::Selectable(callName.c_str());
                 if (ImGui::IsItemHovered()) {
                     highlightDrawCall(workload, call);
+                    highightCallIndices = call;
                 }
 
                 if (selected) {
@@ -148,7 +158,11 @@ namespace RT64 {
         return openCall;
     }
     
-    void DebuggerInspector::inspect(const VI &vi, Workload &workload, FramebufferManager &fbManager, TextureCache &textureCache, DrawCallKey &outDrawCallKey, bool &outCreateDrawCallKey, RenderWindow window) {
+    void DebuggerInspector::inspect(RenderWorker *directWorker, const VI &vi, Workload &workload, FramebufferManager &fbManager, TextureCache &textureCache, DrawCallKey &outDrawCallKey, bool &outCreateDrawCallKey, RenderWindow window) {
+        const char ReplaceErrorModalId[] = "Replace error";
+        const char ReplaceOutdatedModalId[] = "Replace outdated";
+        const char ReplaceDirectoryOnlyModalId[] = "Replace directory only";
+
         auto textTransformGroup = [](const char *label, const TransformGroup &group) {
             ImGui::Text("%s", label);
             ImGui::Indent();
@@ -253,6 +267,7 @@ namespace RT64 {
         renderer.globalDrawCallIndex = std::min(renderer.globalDrawCallIndex, int32_t(workload.gameCallCount));
         ImGui::SliderFloat("Interpolation Weight", &renderer.interpolationWeight, 0.0f, 1.0f);
         ImGui::Checkbox("View Transform Groups", &viewTransformGroups);
+        ImGui::Checkbox("View Native Samplers", &viewNativeSamplers);
         ImGui::NewLine();
 
         uint32_t totalCallCount = 0;
@@ -276,7 +291,37 @@ namespace RT64 {
                 totalCallCount += proj.gameCallCount;
                 for (uint32_t d = 0; d < proj.gameCallCount; d++) {
                     totalTriCount += proj.gameCalls[d].callDesc.triangleCount;
-                    if (viewTransformGroups && usesTransforms) {
+
+                    // Do not modify the highlight of this draw call if it was highlighted by the popup menu before.
+                    if ((highightCallIndices.fbPairIndex == f) && (highightCallIndices.projectionIndex == p) && (highightCallIndices.drawCallIndex == d)) {
+                        continue;
+                    }
+                    
+                    if (viewNativeSamplers) {
+                        if (proj.gameCalls[d].callDesc.tileCount > 0) {
+                            uint32_t nativeSamplerCount = 0;
+                            for (uint32_t t = 0; t < proj.gameCalls[d].callDesc.tileCount; t++) {
+                                const interop::RDPTile &rdpTile = workload.drawData.rdpTiles[proj.gameCalls[d].callDesc.tileIndex + t];
+                                if (rdpTile.nativeSampler != NATIVE_SAMPLER_NONE) {
+                                    nativeSamplerCount++;
+                                }
+                            }
+
+                            if (nativeSamplerCount == proj.gameCalls[d].callDesc.tileCount) {
+                                proj.gameCalls[d].debuggerDesc.highlightColor = NativeSamplerAllColor;
+                            }
+                            else if (nativeSamplerCount == 0) {
+                                proj.gameCalls[d].debuggerDesc.highlightColor = NativeSamplerNoneColor;
+                            }
+                            else {
+                                proj.gameCalls[d].debuggerDesc.highlightColor = NativeSamplerAnyColor;
+                            }
+                        }
+                        else {
+                            proj.gameCalls[d].debuggerDesc.highlightColor = NativeSamplerIgnoredColor;
+                        }
+                    }
+                    else if (viewTransformGroups && usesTransforms) {
                         uint32_t matrixIndex = proj.gameCalls[d].callDesc.minWorldMatrix;
                         uint32_t groupIndex = workload.drawData.worldTransformGroups[matrixIndex];
                         uint32_t matrixId = workload.drawData.transformGroups[groupIndex].matrixId;
@@ -306,19 +351,12 @@ namespace RT64 {
         ImGui::Text("RDRAM Synchronizations: %u", totalSyncCount);
         ImGui::NewLine();
 
-        /*
-        bool freeCamEnabled = workload.freeCamera.enabled;
-        uint32_t freeCamIndex = workload.freeCamera.sceneIndex;
         bool copyFreeCam = false;
-        if (ImGui::Checkbox("Free Camera Enabled", &freeCamEnabled)) {
-            if (freeCamEnabled) {
-                copyFreeCam = true;
-            }
-            else {
-                workload.freeCamera.enabled = false;
-            }
+        if (ImGui::Checkbox("Free Camera Enabled", &camera.enabled)) {
+            copyFreeCam = camera.enabled;
         }
 
+        /*
         ImGui::BeginDisabled(!freeCamEnabled);
         const std::string freeCamName = "Scene #" + std::to_string(freeCamIndex);
         const size_t sceneCount = workload.perspectiveScenes.size();
@@ -347,11 +385,18 @@ namespace RT64 {
         }
 
         ImGui::EndDisabled();
-
-        if (copyFreeCam && freeCamEnabled && (freeCamIndex < sceneCount)) {
-            workload.enableFreeCamera(freeCamIndex);
-        }
         */
+        if (copyFreeCam) {
+            // TODO: Defaults to first perspective projection for now.
+            for (uint32_t f = 0; f < workload.fbPairCount; f++) {
+                for (uint32_t p = 0; p < workload.fbPairs[f].projectionCount; p++) {
+                    if (workload.fbPairs[f].projections[p].type == Projection::Type::Perspective) {
+                        enableFreeCamera(workload, f, p);
+                        break;
+                    }
+                }
+            }
+        }
 
         if (ImGui::CollapsingHeader("VI")) {
             ImGui::Indent();
@@ -1034,7 +1079,68 @@ namespace RT64 {
                                             }
                                         }
                                         else {
-                                            ImGui::Text("XXH64 0x%016" PRIx64, callTile.tmemHashOrID);
+                                            char hexStr[64];
+                                            snprintf(hexStr, sizeof(hexStr), "%016" PRIx64, callTile.tmemHashOrID);
+                                            ImGui::Text("XXH3 0x%s", hexStr);
+                                            ImGui::SameLine();
+
+                                            if (ImGui::Button("Replace")) {
+                                                if (!textureCache.textureMap.replacementMap.fileSystemIsDirectory) {
+                                                    ImGui::OpenPopup(ReplaceDirectoryOnlyModalId);
+                                                }
+                                                else if (textureCache.textureMap.replacementMap.directoryDatabase.config.hashVersion < TMEMHasher::CurrentHashVersion) {
+                                                    ImGui::OpenPopup(ReplaceOutdatedModalId);
+                                                }
+                                                else {
+                                                    std::filesystem::path textureFilename = FileDialog::getOpenFilename({ FileFilter("Image Files", "dds,png") });
+                                                    if (!textureFilename.empty()) {
+                                                        std::filesystem::path directoryPath = textureCache.textureMap.replacementMap.replacementDirectories.front().dirOrZipPath;
+                                                        std::filesystem::path relativePath = std::filesystem::relative(textureFilename, directoryPath);
+                                                        if (!relativePath.empty()) {
+                                                            textureCache.addReplacement(callTile.tmemHashOrID, relativePath.u8string());
+                                                        }
+                                                        else {
+                                                            ImGui::OpenPopup(ReplaceErrorModalId);
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            ImGui::SameLine();
+
+                                            if (ImGui::Button("Copy XXH3")) {
+                                                ImGui::SetClipboardText(hexStr);
+                                            }
+
+                                            if (ImGui::BeginPopupModal(ReplaceErrorModalId)) {
+                                                ImGui::Text("The texture must be relative to the current texture pack's directory.");
+
+                                                if (ImGui::Button("Close##replaceError")) {
+                                                    ImGui::CloseCurrentPopup();
+                                                }
+
+                                                ImGui::EndPopup();
+                                            }
+
+                                            if (ImGui::BeginPopupModal(ReplaceOutdatedModalId)) {
+                                                ImGui::Text("The texture database must be upgraded before being able to do manual replacements (use the texture hasher tool).");
+
+                                                if (ImGui::Button("Close##replaceOutdated")) {
+                                                    ImGui::CloseCurrentPopup();
+                                                }
+
+                                                ImGui::EndPopup();
+                                            }
+
+                                            if (ImGui::BeginPopupModal(ReplaceDirectoryOnlyModalId)) {
+                                                ImGui::Text("Textures can only be replaced when loading a texture pack as a single directory.");
+
+                                                if (ImGui::Button("Close##replaceDirectoryOnly")) {
+                                                    ImGui::CloseCurrentPopup();
+                                                }
+
+                                                ImGui::EndPopup();
+                                            }
                                         }
 
                                         uint32_t textureIndex = 0;
@@ -1422,38 +1528,66 @@ namespace RT64 {
         openCall = false;
     }
 
-    void DebuggerInspector::rightClick(const Workload &workload, const hlslpp::float2 cursorNDCPos, const float widthScale) {
-        /*
-        // TODO: The cursor itself is in NDC pos for the parent viewport, but the calls themselves are in
-        // absolute screen positions for the framebuffer. We need a way to find out where the VI renderer
-        // would place the viewport to be able to translate the position.
+    void DebuggerInspector::rightClick(const Workload &workload, hlslpp::float2 cursorPos) {
         typedef std::pair<CallIndices, float> Hit;
         std::vector<Hit> hits;
         hlslpp::float3 triCoords[3];
         bool hitTri = false;
         float hitDepth = 0.0f;
-        const float *screenPos = workload.drawData.screenPosFloats.data();
+        const uint32_t *faceIndices = workload.drawData.faceIndices.data();
+        const hlslpp::float3 *posScreen = workload.drawData.posScreen.data();
+        const float *triPosFloats = workload.drawData.triPosFloats.data();
+        uint32_t gameCallIndex = 0;
+        int32_t cursorRectX = std::lround(cursorPos[0] * 4.0f);
+        int32_t cursorRectY = std::lround(cursorPos[1] * 4.0f);
         for (uint32_t f = 0; f < workload.fbPairCount; f++) {
             const auto &fbPair = workload.fbPairs[f];
             for (uint32_t p = 0; p < fbPair.projectionCount; p++) {
                 const auto &proj = fbPair.projections[p];
-                for (uint32_t d = 0; d < proj.gameCallCount; d++) {
-                    const auto &call = proj.gameCalls[d];
-                    const auto &callDesc = call.callDesc;
-                    for (uint32_t t = 0; t < callDesc.triangles.count; t++) {
-                        for (uint32_t i = 0; i < 3; i++) {
-                            const uint32_t vertexIndex = call.meshDesc.baseVertexIndex + i;
-                            triCoords[i] = { screenPos[vertexIndex * 3 + 0], screenPos[vertexIndex * 3 + 1], screenPos[vertexIndex * 3 + 2] };
+                if (proj.type == Projection::Type::Rectangle) {
+                    for (uint32_t d = 0; d < proj.gameCallCount; d++) {
+                        const auto &call = proj.gameCalls[d];
+                        const auto &callDesc = call.callDesc;
+                        if (callDesc.rect.contains(cursorRectX, cursorRectY)) {
+                            // Use a fake depth that corresponds roughly to where the rect is in the draw order.
+                            float fakeDepth = 1.0f - (float(gameCallIndex) / float(workload.gameCallCount));
+                            hits.push_back({ { f, p, d }, fakeDepth });
                         }
 
-                        hlslpp::float2 baryCoords = BarycentricCoordinates(cursorNDCPos, { triCoords[0].x, triCoords[0].y }, { triCoords[1].x, triCoords[1].y }, { triCoords[2].x, triCoords[2].y });
-                        if ((baryCoords.x >= 0.0f) && (baryCoords.y >= 0.0f) && (float(baryCoords.x + baryCoords.y) <= 1.0f)) {
-                            hitDepth = triCoords[0].z + (triCoords[1].z - triCoords[0].z) * baryCoords.x + (triCoords[2].z - triCoords[0].z) * baryCoords.y;
-                            if ((hitDepth >= 0.0f) && (hitDepth <= 1.0f)) {
-                                hits.push_back({ { f, p, d }, hitDepth });
-                                break;
+                        gameCallIndex++;
+                    }
+                }
+                else {
+                    for (uint32_t d = 0; d < proj.gameCallCount; d++) {
+                        const auto &call = proj.gameCalls[d];
+                        const auto &callDesc = call.callDesc;
+                        for (uint32_t t = 0; t < callDesc.triangleCount; t++) {
+                            if (proj.usesViewport()) {
+                                for (uint32_t i = 0; i < 3; i++) {
+                                    const uint32_t vertexIndex = faceIndices[call.meshDesc.faceIndicesStart + t * 3 + i];
+                                    triCoords[i] = posScreen[vertexIndex];
+                                }
+                            }
+                            else {
+                                for (uint32_t i = 0; i < 3; i++) {
+                                    const uint32_t vertexIndex = call.meshDesc.rawVertexStart + t * 3 + i;
+                                    triCoords[i][0] = triPosFloats[vertexIndex * 4 + 0];
+                                    triCoords[i][1] = triPosFloats[vertexIndex * 4 + 1];
+                                    triCoords[i][2] = triPosFloats[vertexIndex * 4 + 2];
+                                }
+                            }
+
+                            hlslpp::float2 baryCoords = barycentricCoordinates(cursorPos, { triCoords[0].x, triCoords[0].y }, { triCoords[1].x, triCoords[1].y }, { triCoords[2].x, triCoords[2].y });
+                            if ((baryCoords.x >= 0.0f) && (baryCoords.y >= 0.0f) && (float(baryCoords.x + baryCoords.y) <= 1.0f)) {
+                                hitDepth = triCoords[0].z + (triCoords[1].z - triCoords[0].z) * baryCoords.x + (triCoords[2].z - triCoords[0].z) * baryCoords.y;
+                                if ((hitDepth >= 0.0f) && (hitDepth <= 1.0f)) {
+                                    hits.push_back({ { f, p, d }, hitDepth });
+                                    break;
+                                }
                             }
                         }
+
+                        gameCallIndex++;
                     }
                 }
             }
@@ -1478,22 +1612,18 @@ namespace RT64 {
 
             ImGui::OpenPopup("##popupCallindices");
         }
-        */
     }
 
-    void DebuggerInspector::enableFreeCamera(const Workload &workload, const GameScene &scene) {
-        /*
-        const auto &firstProj = perspectiveScenes[sceneIndex].projections.front();
-        const auto &gameProj = fbPairs[firstProj.fbPairIndex].projections[firstProj.projectionIndex];
-        const auto &projMatrix = drawData.projTransforms[gameProj.transformsIndex];
-        freeCamera.enabled = true;
-        freeCamera.sceneIndex = sceneIndex;
-        freeCamera.viewMatrix = drawData.viewTransforms[gameProj.transformsIndex];
-        freeCamera.invViewMatrix = hlslpp::inverse(freeCamera.viewMatrix);
-        freeCamera.projMatrix = projMatrix;
-        freeCamera.nearPlane = nearPlaneFromProj(projMatrix);
-        freeCamera.farPlane = farPlaneFromProj(projMatrix);
-        freeCamera.fov = fovFromProj(projMatrix);
-        */
+    void DebuggerInspector::enableFreeCamera(const Workload &workload, uint32_t fbPairIndex, uint32_t projIndex) {
+        const Projection &gameProj = workload.fbPairs[fbPairIndex].projections[projIndex];
+        const interop::float4x4 &projMatrix = workload.drawData.projTransforms[gameProj.transformsIndex];
+        camera.enabled = true;
+        camera.sceneIndex = 0;
+        camera.viewMatrix = workload.drawData.viewTransforms[gameProj.transformsIndex];
+        camera.invViewMatrix = hlslpp::inverse(camera.viewMatrix);
+        camera.projMatrix = projMatrix;
+        camera.nearPlane = nearPlaneFromProj(projMatrix);
+        camera.farPlane = farPlaneFromProj(projMatrix);
+        camera.fov = fovFromProj(projMatrix);
     }
 };

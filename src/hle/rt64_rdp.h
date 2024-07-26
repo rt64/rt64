@@ -98,6 +98,10 @@ namespace RT64 {
             DrawExtendedFlags drawExtendedFlags;
         } extended;
 
+        struct {
+            LoadOperation lastLoadOpByTMEM[RDP_TMEM_WORDS] = {};
+        } rice;
+
         GBI *gbi;
         std::array<uint8_t, 256> commandWordLengths;
         State *state;

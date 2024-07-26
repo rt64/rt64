@@ -33,5 +33,6 @@ namespace RT64 {
         VIRenderer();
         ~VIRenderer();
         void render(const RenderParams &p);
+        static void getViewportAndScissor(const RenderSwapChain *swapChain, const VI &vi, hlslpp::float2 resolutionScale, uint32_t downsamplingScale, RenderViewport &viewport, RenderRect &scissor, hlslpp::float2 &fbHdRegion);
     };
 };

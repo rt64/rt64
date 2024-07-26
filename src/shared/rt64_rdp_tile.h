@@ -25,6 +25,7 @@ namespace interop {
         float lrt;
         int cms;
         int cmt;
+        uint nativeSampler;
     };
 #ifdef HLSL_CPU
 };

@@ -11,19 +11,19 @@
 #include "common/rt64_common.h"
 #include "rhi/rt64_render_interface.h"
 
+#include "rt64_sampler_library.h"
+
 namespace RT64 {
     struct BicubicScalingDescriptorSet : RenderDescriptorSetBase {
         uint32_t gInput;
         uint32_t gOutput;
         uint32_t gSampler;
 
-        BicubicScalingDescriptorSet(const RenderSampler *nearestClampSampler, RenderDevice *device = nullptr) {
-            assert(nearestClampSampler != nullptr);
-
+        BicubicScalingDescriptorSet(const SamplerLibrary &samplerLibrary, RenderDevice *device = nullptr) {
             builder.begin();
             gInput = builder.addTexture(1);
             gOutput = builder.addReadWriteTexture(2);
-            gSampler = builder.addImmutableSampler(3, nearestClampSampler);
+            gSampler = builder.addImmutableSampler(3, samplerLibrary.nearest.clampClamp.get());
             builder.end();
 
             if (device != nullptr) {
@@ -151,6 +151,15 @@ namespace RT64 {
         uint32_t GPUTiles;
         uint32_t instanceRenderIndices;
         uint32_t DynamicRenderParams;
+        uint32_t gWrapWrapSampler;
+        uint32_t gWrapMirrorSampler;
+        uint32_t gWrapClampSampler;
+        uint32_t gMirrorWrapSampler;
+        uint32_t gMirrorMirrorSampler;
+        uint32_t gMirrorClampSampler;
+        uint32_t gClampWrapSampler;
+        uint32_t gClampMirrorSampler;
+        uint32_t gClampClampSampler;
         uint32_t RtParams;
         uint32_t SceneBVH;
         uint32_t posBuffer;
@@ -185,21 +194,17 @@ namespace RT64 {
         uint32_t gFlow;
         uint32_t gReactiveMask;
         uint32_t gLockMask;
-        uint32_t gNormal;
+        uint32_t gNormalRoughness;
         uint32_t gDepth;
-        uint32_t gPrevNormal;
+        uint32_t gPrevNormalRoughness;
         uint32_t gPrevDepth;
         uint32_t gPrevDirectLightAccum;
         uint32_t gPrevIndirectLightAccum;
         uint32_t gFilteredDirectLight;
         uint32_t gFilteredIndirectLight;
-        uint32_t gBackgroundClampSampler;
-        uint32_t gBackgroundMirrorSampler;
         uint32_t gBlueNoise;
 
-        FramebufferRendererDescriptorCommonSet(const RenderSampler *linearClampSampler, const RenderSampler *linearMirrorSampler, bool raytracing, RenderDevice *device = nullptr) {
-            assert(linearClampSampler != nullptr);
-
+        FramebufferRendererDescriptorCommonSet(const SamplerLibrary &samplerLibrary, bool raytracing, RenderDevice *device = nullptr) {
             builder.begin();
             FrParams = builder.addConstantBuffer(1);
             instanceRDPParams = builder.addStructuredBuffer(2);
@@ -207,51 +212,58 @@ namespace RT64 {
             GPUTiles = builder.addStructuredBuffer(4);
             instanceRenderIndices = builder.addStructuredBuffer(5);
             DynamicRenderParams = builder.addStructuredBuffer(6);
-            RtParams = builder.addConstantBuffer(7);
-            SceneBVH = raytracing ? builder.addAccelerationStructure(8) : 0;
-            posBuffer = builder.addByteAddressBuffer(10);
-            normBuffer = builder.addByteAddressBuffer(11);
-            velBuffer = builder.addByteAddressBuffer(12);
-            genTexCoordBuffer = builder.addByteAddressBuffer(13);
-            shadedColBuffer = builder.addByteAddressBuffer(14);
-            srcFogIndices = builder.addByteAddressBuffer(15);
-            srcLightIndices = builder.addByteAddressBuffer(16);
-            srcLightCounts = builder.addByteAddressBuffer(17);
-            indexBuffer = builder.addByteAddressBuffer(18);
-            RSPFogVector = builder.addStructuredBuffer(19);
-            RSPLightVector = builder.addStructuredBuffer(20);
-            instanceExtraParams = builder.addStructuredBuffer(21);
-            SceneLights = builder.addStructuredBuffer(22);
-            interleavedRasters = builder.addStructuredBuffer(23);
-            gHitVelocityDistance = builder.addReadWriteFormattedBuffer(24);
-            gHitColor = builder.addReadWriteFormattedBuffer(25);
-            gHitNormalFog = builder.addReadWriteFormattedBuffer(26);
-            gHitInstanceId = builder.addReadWriteFormattedBuffer(27);
-            gViewDirection = builder.addReadWriteTexture(28);
-            gShadingPosition = builder.addReadWriteTexture(29);
-            gShadingNormal = builder.addReadWriteTexture(30);
-            gShadingSpecular = builder.addReadWriteTexture(31);
-            gDiffuse = builder.addReadWriteTexture(32);
-            gInstanceId = builder.addReadWriteTexture(33);
-            gDirectLightAccum = builder.addReadWriteTexture(34);
-            gIndirectLightAccum = builder.addReadWriteTexture(35);
-            gReflection = builder.addReadWriteTexture(36);
-            gRefraction = builder.addReadWriteTexture(37);
-            gTransparent = builder.addReadWriteTexture(38);
-            gFlow = builder.addReadWriteTexture(39);
-            gReactiveMask = builder.addReadWriteTexture(40);
-            gLockMask = builder.addReadWriteTexture(41);
-            gNormal = builder.addReadWriteTexture(42);
-            gDepth = builder.addReadWriteTexture(43);
-            gPrevNormal = builder.addReadWriteTexture(44);
-            gPrevDepth = builder.addReadWriteTexture(45);
-            gPrevDirectLightAccum = builder.addReadWriteTexture(46);
-            gPrevIndirectLightAccum = builder.addReadWriteTexture(47);
-            gFilteredDirectLight = builder.addReadWriteTexture(48);
-            gFilteredIndirectLight = builder.addReadWriteTexture(49);
-            gBackgroundClampSampler = builder.addImmutableSampler(50, linearClampSampler);
-            gBackgroundMirrorSampler = builder.addImmutableSampler(51, linearMirrorSampler);
-            gBlueNoise = builder.addTexture(52);
+            gWrapWrapSampler = builder.addImmutableSampler(7, samplerLibrary.linear.wrapWrap.get());
+            gWrapMirrorSampler = builder.addImmutableSampler(8, samplerLibrary.linear.wrapMirror.get());
+            gWrapClampSampler = builder.addImmutableSampler(9, samplerLibrary.linear.wrapClamp.get());
+            gMirrorWrapSampler = builder.addImmutableSampler(10, samplerLibrary.linear.mirrorWrap.get());
+            gMirrorMirrorSampler = builder.addImmutableSampler(11, samplerLibrary.linear.mirrorMirror.get());
+            gMirrorClampSampler = builder.addImmutableSampler(12, samplerLibrary.linear.mirrorClamp.get());
+            gClampWrapSampler = builder.addImmutableSampler(13, samplerLibrary.linear.clampWrap.get());
+            gClampMirrorSampler = builder.addImmutableSampler(14, samplerLibrary.linear.clampMirror.get());
+            gClampClampSampler = builder.addImmutableSampler(15, samplerLibrary.linear.clampClamp.get());
+            RtParams = builder.addConstantBuffer(16);
+            SceneBVH = raytracing ? builder.addAccelerationStructure(17) : 0;
+            posBuffer = builder.addByteAddressBuffer(18);
+            normBuffer = builder.addByteAddressBuffer(19);
+            velBuffer = builder.addByteAddressBuffer(20);
+            genTexCoordBuffer = builder.addByteAddressBuffer(21);
+            shadedColBuffer = builder.addByteAddressBuffer(22);
+            srcFogIndices = builder.addByteAddressBuffer(23);
+            srcLightIndices = builder.addByteAddressBuffer(24);
+            srcLightCounts = builder.addByteAddressBuffer(25);
+            indexBuffer = builder.addByteAddressBuffer(26);
+            RSPFogVector = builder.addStructuredBuffer(27);
+            RSPLightVector = builder.addStructuredBuffer(28);
+            instanceExtraParams = builder.addStructuredBuffer(29);
+            SceneLights = builder.addStructuredBuffer(30);
+            interleavedRasters = builder.addStructuredBuffer(31);
+            gHitVelocityDistance = builder.addReadWriteFormattedBuffer(32);
+            gHitColor = builder.addReadWriteFormattedBuffer(33);
+            gHitNormalFog = builder.addReadWriteFormattedBuffer(34);
+            gHitInstanceId = builder.addReadWriteFormattedBuffer(35);
+            gViewDirection = builder.addReadWriteTexture(36);
+            gShadingPosition = builder.addReadWriteTexture(37);
+            gShadingNormal = builder.addReadWriteTexture(38);
+            gShadingSpecular = builder.addReadWriteTexture(39);
+            gDiffuse = builder.addReadWriteTexture(40);
+            gInstanceId = builder.addReadWriteTexture(41);
+            gDirectLightAccum = builder.addReadWriteTexture(42);
+            gIndirectLightAccum = builder.addReadWriteTexture(43);
+            gReflection = builder.addReadWriteTexture(44);
+            gRefraction = builder.addReadWriteTexture(45);
+            gTransparent = builder.addReadWriteTexture(46);
+            gFlow = builder.addReadWriteTexture(47);
+            gReactiveMask = builder.addReadWriteTexture(48);
+            gLockMask = builder.addReadWriteTexture(49);
+            gNormalRoughness = builder.addReadWriteTexture(50);
+            gDepth = builder.addReadWriteTexture(51);
+            gPrevNormalRoughness = builder.addReadWriteTexture(52);
+            gPrevDepth = builder.addReadWriteTexture(53);
+            gPrevDirectLightAccum = builder.addReadWriteTexture(54);
+            gPrevIndirectLightAccum = builder.addReadWriteTexture(55);
+            gFilteredDirectLight = builder.addReadWriteTexture(56);
+            gFilteredIndirectLight = builder.addReadWriteTexture(57);
+            gBlueNoise = builder.addTexture(58);
             builder.end();
 
             if (device != nullptr) {
@@ -304,13 +316,11 @@ namespace RT64 {
         uint32_t gOutput;
         uint32_t gSampler;
 
-        GaussianFilterDescriptorSet(const RenderSampler *nearestClampSampler, RenderDevice *device = nullptr) {
-            assert(nearestClampSampler != nullptr);
-
+        GaussianFilterDescriptorSet(const SamplerLibrary &samplerLibrary, RenderDevice *device = nullptr) {
             builder.begin();
             gInput = builder.addTexture(1);
             gOutput = builder.addReadWriteTexture(2);
-            gSampler = builder.addImmutableSampler(3, nearestClampSampler);
+            gSampler = builder.addImmutableSampler(3, samplerLibrary.nearest.clampClamp.get());
             builder.end();
 
             if (device != nullptr) {
@@ -386,15 +396,13 @@ namespace RT64 {
         uint32_t gLumaAvg;
         uint32_t gSampler;
 
-        PostProcessDescriptorSet(const RenderSampler *linearClampSampler, RenderDevice *device = nullptr) {
-            assert(linearClampSampler != nullptr);
-
+        PostProcessDescriptorSet(const SamplerLibrary &samplerLibrary, RenderDevice *device = nullptr) {
             builder.begin();
             RtParams = builder.addConstantBuffer(0);
             gInput = builder.addTexture(1);
             gFlow = builder.addTexture(2);
             gLumaAvg = builder.addTexture(3);
-            gSampler = builder.addImmutableSampler(4, linearClampSampler);
+            gSampler = builder.addImmutableSampler(4, samplerLibrary.linear.clampClamp.get());
             builder.end();
 
             if (device != nullptr) {
@@ -413,11 +421,9 @@ namespace RT64 {
         uint32_t gRefraction;
         uint32_t gTransparent;
 
-        RaytracingComposeDescriptorSet(const RenderSampler *linearClampSampler, RenderDevice *device = nullptr) {
-            assert(linearClampSampler != nullptr);
-
+        RaytracingComposeDescriptorSet(const SamplerLibrary &samplerLibrary, RenderDevice *device = nullptr) {
             builder.begin();
-            gSampler = builder.addImmutableSampler(0, linearClampSampler);
+            gSampler = builder.addImmutableSampler(0, samplerLibrary.linear.clampClamp.get());
             gFlow = builder.addTexture(1);
             gDiffuse = builder.addTexture(2);
             gDirectLight = builder.addTexture(3);

@@ -93,14 +93,13 @@ namespace RT64 {
 
         IDxcOperationResult *result = nullptr;
         dxcCompiler->Compile(textBlob, L"", entryName.c_str(), profile.c_str(), arguments.data(), (UINT32)(arguments.size()), nullptr, 0, nullptr, &result);
-
         checkResultForError(result);
         result->GetResult(shaderBlob);
         textBlob->Release();
     }
 
     void ShaderCompiler::link(const std::wstring &entryName, const std::wstring &profile, IDxcBlob **libraryBlobs,
-        const wchar_t **libraryBlobNames, uint32_t libraryBlobCount, IDxcBlob **shaderBlob) const
+        const wchar_t **libraryBlobNames, uint32_t libraryBlobCount, IDxcBlob **shaderBlob) const 
     {
         IDxcLinker *dxcLinker = nullptr;
         HRESULT res = DxcCreateInstance(CLSID_DxcLinker, __uuidof(IDxcLinker), (void **)(&dxcLinker));

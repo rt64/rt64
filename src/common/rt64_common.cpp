@@ -75,6 +75,15 @@ namespace RT64 {
         }
     }
 
+    bool FixedRect::contains(int32_t x, int32_t y) const {
+        if (!isNull()) {
+            return (x >= ulx) && (x <= lrx) && (y >= uly) && (y <= lry);
+        }
+        else {
+            return false;
+        }
+    }
+
     bool FixedRect::fullyInside(const FixedRect &rect) const {
         assert(!isNull());
         assert(!rect.isNull());

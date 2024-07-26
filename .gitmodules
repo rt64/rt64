@@ -49,3 +49,6 @@
 [submodule "src/contrib/ddspp"]
 	path = src/contrib/ddspp
 	url = https://github.com/redorav/ddspp.git
+[submodule "src/contrib/zstd"]
+	path = src/contrib/zstd
+	url = https://github.com/facebook/zstd

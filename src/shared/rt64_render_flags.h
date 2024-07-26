@@ -6,6 +6,17 @@
 
 #include "shared/rt64_hlsl.h"
 
+#define NATIVE_SAMPLER_NONE           0
+#define NATIVE_SAMPLER_WRAP_WRAP      1
+#define NATIVE_SAMPLER_WRAP_MIRROR    2
+#define NATIVE_SAMPLER_WRAP_CLAMP     3
+#define NATIVE_SAMPLER_MIRROR_WRAP    4
+#define NATIVE_SAMPLER_MIRROR_MIRROR  5
+#define NATIVE_SAMPLER_MIRROR_CLAMP   6
+#define NATIVE_SAMPLER_CLAMP_WRAP     7
+#define NATIVE_SAMPLER_CLAMP_MIRROR   8
+#define NATIVE_SAMPLER_CLAMP_CLAMP    9
+
 #ifdef HLSL_CPU
 namespace interop {
 #endif
@@ -17,10 +28,6 @@ namespace interop {
             uint culling : 1;
             uint smoothShade : 1;
             uint linearFiltering : 1;
-            uint smoothNormal : 1;
-            uint normalMap : 1;
-            uint shadowAlpha : 1;
-            uint oneCycleHardwareBug : 1;
             uint blenderApproximation : 2;
             uint dynamicTiles : 1;
             uint canDecodeTMEM : 1;
@@ -30,99 +37,101 @@ namespace interop {
             uint cmt1 : 2;
             uint usesTexture0 : 1;
             uint usesTexture1 : 1;
+            uint nativeSampler0 : 4;
+            uint nativeSampler1 : 4;
             uint upscale2D : 1;
             uint upscaleLOD : 1;
             uint usesHDR : 1;
+            uint smoothNormal : 1;
+            uint shadowAlpha : 1;
         };
 
         uint value;
     };
 #else
     // SPIR-V code generation does not seem to like bitfields at the moment, so we work around it by querying the flags manually.
-    typedef uint RenderFlags;
-
-    bool renderFlagRect(RenderFlags flags) {
+    bool renderFlagRect(uint flags) {
         return (flags & 0x1) != 0;
     }
 
-    bool renderFlagNoN(RenderFlags flags) {
+    bool renderFlagNoN(uint flags) {
         return ((flags >> 1) & 0x1) != 0;
     }
 
-    bool renderFlagCulling(RenderFlags flags) {
+    bool renderFlagCulling(uint flags) {
         return ((flags >> 2) & 0x1) != 0;
     }
 
-    bool renderFlagSmoothShade(RenderFlags flags) {
+    bool renderFlagSmoothShade(uint flags) {
         return ((flags >> 3) & 0x1) != 0;
     }
 
-    bool renderFlagLinearFiltering(RenderFlags flags) {
+    bool renderFlagLinearFiltering(uint flags) {
         return ((flags >> 4) & 0x1) != 0;
     }
 
-    bool renderFlagSmoothNormal(RenderFlags flags) {
-        return ((flags >> 5) & 0x1) != 0;
+    uint renderBlenderApproximation(uint flags) {
+        return (flags >> 5) & 0x3;
     }
 
-    bool renderFlagNormalMap(RenderFlags flags) {
-        return ((flags >> 6) & 0x1) != 0;
-    }
-
-    bool renderFlagShadowAlpha(RenderFlags flags) {
+    bool renderFlagDynamicTiles(uint flags) {
         return ((flags >> 7) & 0x1) != 0;
     }
 
-    bool renderFlagOneCycleHardwareBug(RenderFlags flags) {
+    bool renderFlagCanDecodeTMEM(uint flags) {
         return ((flags >> 8) & 0x1) != 0;
     }
 
-    uint renderBlenderApproximation(RenderFlags flags) {
+    uint renderCMS0(uint flags) {
         return (flags >> 9) & 0x3;
     }
 
-    bool renderFlagDynamicTiles(RenderFlags flags) {
-        return ((flags >> 11) & 0x1) != 0;
+    uint renderCMT0(uint flags) {
+        return (flags >> 11) & 0x3;
     }
 
-    bool renderFlagCanDecodeTMEM(RenderFlags flags) {
-        return ((flags >> 12) & 0x1) != 0;
-    }
-
-    uint renderCMS0(RenderFlags flags) {
+    uint renderCMS1(uint flags) {
         return (flags >> 13) & 0x3;
     }
 
-    uint renderCMT0(RenderFlags flags) {
+    uint renderCMT1(uint flags) {
         return (flags >> 15) & 0x3;
     }
 
-    uint renderCMS1(RenderFlags flags) {
-        return (flags >> 17) & 0x3;
+    bool renderFlagUsesTexture0(uint flags) {
+        return ((flags >> 17) & 0x1) != 0;
     }
 
-    uint renderCMT1(RenderFlags flags) {
-        return (flags >> 19) & 0x3;
+    bool renderFlagUsesTexture1(uint flags) {
+        return ((flags >> 18) & 0x1) != 0;
     }
 
-    bool renderFlagUsesTexture0(RenderFlags flags) {
-        return ((flags >> 21) & 0x1) != 0;
+    uint renderFlagNativeSampler0(uint flags) {
+        return (flags >> 19) & 0xF;
     }
 
-    bool renderFlagUsesTexture1(RenderFlags flags) {
-        return ((flags >> 22) & 0x1) != 0;
+    uint renderFlagNativeSampler1(uint flags) {
+        return (flags >> 23) & 0xF;
     }
 
-    bool renderFlagUpscale2D(RenderFlags flags) {
-        return ((flags >> 23) & 0x1) != 0;
+    bool renderFlagUpscale2D(uint flags) {
+        return ((flags >> 27) & 0x1) != 0;
     }
 
-    bool renderFlagUpscaleLOD(RenderFlags flags) {
-        return ((flags >> 24) & 0x1) != 0;
+    bool renderFlagUpscaleLOD(uint flags) {
+        return ((flags >> 28) & 0x1) != 0;
     }
 
-    bool renderFlagUsesHDR(RenderFlags flags) {
-        return ((flags >> 25) & 0x1) != 0;
+    bool renderFlagUsesHDR(uint flags) {
+        return ((flags >> 29) & 0x1) != 0;
+    }
+
+    bool renderFlagSmoothNormal(uint flags) {
+        return ((flags >> 30) & 0x1) != 0;
+    }
+
+    bool renderFlagShadowAlpha(uint flags) {
+        return ((flags >> 31) & 0x1) != 0;
     }
 #endif
 #ifdef HLSL_CPU

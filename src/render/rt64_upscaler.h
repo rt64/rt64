@@ -25,6 +25,9 @@ namespace RT64 {
 
         struct UpscaleParameters {
             RectI inRect;
+            RenderTexture *inDiffuseAlbedo;
+            RenderTexture *inSpecularAlbedo;
+            RenderTexture *inNormalRoughness;
             RenderTexture *inColor;
             RenderTexture *inFlow;
             RenderTexture *inReactiveMask;
@@ -33,7 +36,6 @@ namespace RT64 {
             RenderTexture *outColor;
             float jitterX;
             float jitterY;
-            float sharpness;
             float deltaTime;
             float nearPlane;
             float farPlane;

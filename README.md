@@ -19,14 +19,10 @@ This repository has been made public to provide a working implementation to nati
 * Support for Widescreen with arbitrary aspect ratios, including Ultrawide support (limited game support).
 * Interpolate the game's visuals to 60 FPS or above (HFR) by generating new frames and modifying them in 3D space (limited game support).
 * Extended command set for better integration of widescreen, interpolation and path tracing features (for use with rom patches, rom hacks, and ports).
+* Texture packs with DDS and asynchronous streaming support. Compatible with Rice filenames. [Read about how to make texture packs for RT64 here](TEXTURE-PACKS.md).
 * Supports Windows 10, Windows 11 and Linux.
 
 # Features in development (in priority order)
-* HD texture packs.
-  * Compatibility with texture packs that use the Rice texture format. 
-  * Brand new texture pack configuration format for higher levels of control.
-  * Supports both DDS (with mipmaps) and PNG.
-  * Asynchronous streaming.
 * Game script interpreter.
   * Support a runtime language for configuring the path traced renderer based on the contents of the game's memory.
   * Support patching the game's memory to provide various enhancements automatically integrated with the game script.

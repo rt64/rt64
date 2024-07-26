@@ -21,20 +21,22 @@ namespace RT64 {
         int32_t openLoadIndex;
         int32_t openTileIndex;
         CallIndices openCallIndices;
+        CallIndices highightCallIndices;
         bool openCall;
         std::vector<CallIndices> popupCalls;
         bool paused;
         DebuggerRenderer renderer;
         DebuggerCamera camera;
         bool viewTransformGroups;
+        bool viewNativeSamplers;
 
         DebuggerInspector();
         std::string framebufferPairName(const Workload &workload, uint32_t fbPairIndex);
         std::string projectionName(const Workload &workload, uint32_t fbPairIndex, uint32_t projectionIndex);
         void highlightDrawCall(Workload &workload, CallIndices call);
         bool checkPopup(Workload &workload);
-        void inspect(const VI &vi, Workload &workload, FramebufferManager &fbManager, TextureCache &textureCache, DrawCallKey &outDrawCallKey, bool &outCreateDrawCallKey, RenderWindow window);
-        void rightClick(const Workload &workload, const hlslpp::float2 cursorNDCPos, const float widthScale);
-        void enableFreeCamera(const Workload &workload, const GameScene &scene);
+        void inspect(RenderWorker *directWorker, const VI &vi, Workload &workload, FramebufferManager &fbManager, TextureCache &textureCache, DrawCallKey &outDrawCallKey, bool &outCreateDrawCallKey, RenderWindow window);
+        void rightClick(const Workload &workload, hlslpp::float2 cursorPos);
+        void enableFreeCamera(const Workload &workload, uint32_t fbPairIndex, uint32_t projIndex);
     };
 };
