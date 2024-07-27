@@ -210,6 +210,7 @@ namespace RT64 {
         for (size_t i = 0; i < textureReplacements.size(); i++) {
             if (textureReplacements[i] != nullptr) {
                 textureReplacements[i] = nullptr;
+                textureReplacementReferenceCounted[i] = false;
                 versions[i]++;
             }
         }
@@ -256,6 +257,17 @@ namespace RT64 {
         const auto it = hashMap.find(hash);
         if (it == hashMap.end()) {
             return;
+        }
+
+        // Do nothing if it's the same texture. If the operations were done correctly, it's not possible for either the texture or the
+        // replacement to be any different, so the operation can be considered a no-op.
+        if (texture == textureReplacements[it->second]) {
+            return;
+        }
+
+        // If it's a different texture and a texture was already replaced, decrement its reference.
+        if ((textureReplacements[it->second] != nullptr) && textureReplacementReferenceCounted[it->second]) {
+            replacementMap.decrementReference(textureReplacements[it->second]);
         }
 
         Texture *replacedTexture = textures[it->second];
