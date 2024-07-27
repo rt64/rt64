@@ -6198,12 +6198,13 @@ static mz_bool mz_zip_writer_write_zeros(mz_zip_archive *pZip, mz_uint64 cur_fil
 mz_bool mz_zip_writer_add_mem_ex(mz_zip_archive *pZip, const char *pArchive_name, const void *pBuf, size_t buf_size, const void *pComment, mz_uint16 comment_size, mz_uint level_and_flags,
                                  mz_uint64 uncomp_size, mz_uint32 uncomp_crc32)
 {
-    return mz_zip_writer_add_mem_ex_v2(pZip, pArchive_name, pBuf, buf_size, pComment, comment_size, level_and_flags, uncomp_size, uncomp_crc32, NULL, NULL, 0, NULL, 0);
+    return mz_zip_writer_add_mem_ex_v2(pZip, pArchive_name, pBuf, buf_size, pComment, comment_size, level_and_flags, uncomp_size, uncomp_crc32, NULL, NULL, 0, NULL, 0, MZ_DEFLATED);
 }
 
 mz_bool mz_zip_writer_add_mem_ex_v2(mz_zip_archive *pZip, const char *pArchive_name, const void *pBuf, size_t buf_size, const void *pComment, mz_uint16 comment_size,
                                     mz_uint level_and_flags, mz_uint64 uncomp_size, mz_uint32 uncomp_crc32, MZ_TIME_T *last_modified,
-                                    const char *user_extra_data, mz_uint user_extra_data_len, const char *user_extra_data_central, mz_uint user_extra_data_central_len)
+                                    const char *user_extra_data, mz_uint user_extra_data_len, const char *user_extra_data_central, mz_uint user_extra_data_central_len, 
+                                    mz_uint16 compression_method)
 {
     mz_uint16 method = 0, dos_time = 0, dos_date = 0;
     mz_uint level, ext_attributes = 0, num_alignment_padding_bytes;
@@ -6344,7 +6345,7 @@ mz_bool mz_zip_writer_add_mem_ex_v2(mz_zip_archive *pZip, const char *pArchive_n
 
     if (!store_data_uncompressed || (level_and_flags & MZ_ZIP_FLAG_COMPRESSED_DATA))
     {
-        method = MZ_DEFLATED;
+        method = compression_method;
     }
 
     if (pState->m_zip64)

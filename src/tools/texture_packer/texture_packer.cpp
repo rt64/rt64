@@ -384,6 +384,7 @@ int main(int argc, char *argv[]) {
 
         compressionFailed = false;
 
+        mz_uint16 compressionMethod = MZ_ZSTD;
         if (args.hasOption("deflate", "d")) {
             fprintf(stdout, "Using deflate for compression.\n");
             useZstd = false;
@@ -391,6 +392,7 @@ int main(int argc, char *argv[]) {
         }
         else if (args.hasOption("store", "d")) {
             fprintf(stdout, "Disabling compression.\n");
+            compressionMethod = MZ_DEFLATED;
             useZstd = false;
             useCompression = false;
         }
@@ -436,7 +438,7 @@ int main(int argc, char *argv[]) {
         std::filesystem::path packPath = searchDirectory / packName;
         std::string packPathStr = packPath.u8string();
         mz_zip_archive zipArchive = {};
-        if (!mz_zip_writer_init_file(&zipArchive, packPathStr.c_str(), 0)) {
+        if (!mz_zip_writer_init_file_v2(&zipArchive, packPathStr.c_str(), 0, MZ_ZIP_FLAG_WRITE_ZIP64)) {
             fprintf(stderr, "Failed to open %s for writing.\n", packPathStr.c_str());
             return 1;
         }
@@ -490,7 +492,7 @@ int main(int argc, char *argv[]) {
 
                 if (!output.zipPath.empty()) {
                     mz_uint flags = useCompression ? MZ_ZIP_FLAG_COMPRESSED_DATA : 0;
-                    if (!mz_zip_writer_add_mem_ex(&zipArchive, output.zipPath.c_str(), output.fileData.data(), output.fileData.size(), nullptr, 0, flags, useCompression ? output.uncompressedSize : 0, output.checksum)) {
+                    if (!mz_zip_writer_add_mem_ex_v2(&zipArchive, output.zipPath.c_str(), output.fileData.data(), output.fileData.size(), nullptr, 0, flags, useCompression ? output.uncompressedSize : 0, output.checksum, nullptr, nullptr, 0, nullptr, 0, compressionMethod)) {
                         fprintf(stderr, "Failed to add %s to pack.\n", output.zipPath.c_str());
                         compressionFailed = true;
                     }
@@ -509,81 +511,15 @@ int main(int argc, char *argv[]) {
         }
 
         if (!compressionFailed) {
-            mz_zip_writer_finalize_archive(&zipArchive);
-        }
-        
-        mz_zip_writer_end(&zipArchive);
-
-        // Since miniz doesn't provide a way to write the compression method out, we just read the file and store all the offsets where we need to patch the compression method.
-        if (useCompression && useZstd) {
-            fprintf(stdout, "Reading pack...\n");
-            zipArchive = {};
-            if (mz_zip_reader_init_file(&zipArchive, packPathStr.c_str(), MZ_ZIP_FLAG_DO_NOT_SORT_CENTRAL_DIRECTORY)) {
-                std::vector<size_t> localHeaderOffsets;
-                std::vector<size_t> centralDirOffsets;
-                uint32_t fileCount = mz_zip_reader_get_num_files(&zipArchive);
-                mz_zip_archive_file_stat fileStat = {};
-                for (uint32_t i = 0; i < fileCount; i++) {
-                    if (!mz_zip_reader_file_stat(&zipArchive, i, &fileStat)) {
-                        fprintf(stderr, "Failed to open %s for reading.\n", packPathStr.c_str());
-                        compressionFailed = false;
-                        break;
-                    }
-
-                    localHeaderOffsets.emplace_back(fileStat.m_local_header_ofs);
-                    centralDirOffsets.emplace_back(zipArchive.m_central_directory_file_ofs + fileStat.m_central_dir_ofs);
-                }
-
-                mz_zip_reader_end(&zipArchive);
-
-                if (!compressionFailed) {
-                    fprintf(stdout, "Patching zstd compression method into headers...\n");
-
-                    std::fstream zipStream(packPath, std::ios::binary | std::ios::in | std::ios::out);
-                    if (zipStream.is_open()) {
-                        auto patchMethod = [&](size_t absoluteOffset) {
-                            // Validate that the method is being patched at the offset.
-                            uint16_t readMethod = 0;
-                            zipStream.seekg(absoluteOffset);
-                            zipStream.read(reinterpret_cast<char *>(&readMethod), sizeof(readMethod));
-                            if (readMethod != MZ_DEFLATED) {
-                                fprintf(stderr, "Failed to patch compression method.\n");
-                                compressionFailed = false;
-                                return false;
-                            }
-
-                            // Write the patched method.
-                            const uint16_t writeMethod = MZ_ZSTD;
-                            zipStream.seekg(absoluteOffset);
-                            zipStream.write(reinterpret_cast<const char *>(&writeMethod), sizeof(writeMethod));
-                            return true;
-                        };
-                        
-                        for (uint32_t offset : localHeaderOffsets) {
-                            if (!patchMethod(offset + MZ_ZIP_LDH_METHOD_OFS)) {
-                                break;
-                            }
-                        }
-
-                        for (uint32_t offset : centralDirOffsets) {
-                            if (!patchMethod(offset + MZ_ZIP_CDH_METHOD_OFS)) {
-                                break;
-                            }
-                        }
-
-                        zipStream.seekg(0, std::ios::end);
-                        zipStream.close();
-                    }
-                    else {
-                        fprintf(stderr, "Failed to open %s for reading and writing.\n", packPathStr.c_str());
-                        compressionFailed = false;
-                    }
-                }
-            }
-            else {
-                fprintf(stderr, "Failed to open %s for reading.\n", packPathStr.c_str());
+            if (!mz_zip_writer_finalize_archive(&zipArchive)) {
+                fprintf(stderr, "Failed to finalize archive %s.\n", packPathStr.c_str());
                 compressionFailed = true;
             }
+        }
+
+        if (!mz_zip_writer_end(&zipArchive)) {
+            fprintf(stderr, "Failed to close %s for writing.\n", packPathStr.c_str());
+            compressionFailed = true;
         }
 
         if (compressionFailed) {
