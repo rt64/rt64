@@ -18,7 +18,8 @@ An RT64 texture pack consists of:
   - **DDS** is the first-class format supported and expected by RT64.
     - Offers very efficient and modern compression formats such as BC7 which will drastically reduce the VRAM requirements by **almost four times** compared to PNG.
     - Supports mipmaps, which allow the renderer to offer high quality [anisotropic filtering](https://en.wikipedia.org/wiki/Anisotropic_filtering), greatly improving the final look of the textures in the game and avoiding most of the problems commonly associated with HD texture packs such as shimmering.
-    - You can look into using automatic conversion tools such as [Compressonator](https://gpuopen.com/compressonator/).
+    - You can look into using automatic conversion tools such as [Compressonator](https://gpuopen.com/compressonator/) or [Texconv](https://github.com/Microsoft/DirectXTex/wiki/Texconv).
+      - Note: Compressonator's GPU Encoder mode has a bug at the moment where precision of the colors are lost (e.g. full white values won't result in 1.0 channels), leading to incorrect values in some textures where accuracy is critical like the Lens of Truth.
   - **PNG** is supported for the sake of convenience and being able to work with source files during the development of a texture pack.
     - **Do not ship texture packs using PNG files to end users**. Their experience will be significantly impacted by having to decompress these files at runtime and have much higher memory consumption.
 - A database configuration JSON file (`rt64.json`) that maps texture files to the texture hashes identified by RT64 at runtime.
