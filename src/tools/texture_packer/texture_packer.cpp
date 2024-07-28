@@ -2,11 +2,16 @@
 // RT64
 //
 
+#include <atomic>
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
+#include <list>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <set>
+#include <thread>
 
 #include <ddspp/ddspp.h>
 #include <miniz/miniz.h>
