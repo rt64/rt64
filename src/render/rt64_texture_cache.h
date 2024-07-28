@@ -8,7 +8,7 @@
 #include <condition_variable>
 #include <filesystem>
 #include <mutex>
-#include <queue>
+#include <stack>
 #include <thread>
 #include <unordered_map>
 
@@ -205,10 +205,10 @@ namespace RT64 {
         std::condition_variable uploadQueueFinished;
         std::thread *uploadThread;
         std::atomic<bool> uploadThreadRunning;
-        std::queue<StreamDescription> streamDescQueue;
-        std::mutex streamDescQueueMutex;
-        std::condition_variable streamDescQueueChanged;
-        int32_t streamDescQueueActiveCount = 0;
+        std::stack<StreamDescription> streamDescStack;
+        std::mutex streamDescStackMutex;
+        std::condition_variable streamDescStackChanged;
+        int32_t streamDescStackActiveCount = 0;
         std::list<std::unique_ptr<StreamThread>> streamThreads;
         std::unordered_multimap<std::string, ReplacementCheck> streamPendingReplacementChecks;
         std::mutex streamPerformanceMutex;

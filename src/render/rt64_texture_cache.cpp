@@ -387,7 +387,7 @@ namespace RT64 {
 
     TextureCache::StreamThread::~StreamThread() {
         threadRunning = false;
-        textureCache->streamDescQueueChanged.notify_all();
+        textureCache->streamDescStackChanged.notify_all();
         thread->join();
         thread.reset(nullptr);
     }
@@ -406,17 +406,17 @@ namespace RT64 {
 
             // Check the top of the queue or wait if it's empty.
             {
-                std::unique_lock queueLock(textureCache->streamDescQueueMutex);
-                textureCache->streamDescQueueActiveCount--;
-                textureCache->streamDescQueueChanged.wait(queueLock, [this]() {
-                    return !threadRunning || !textureCache->streamDescQueue.empty();
+                std::unique_lock queueLock(textureCache->streamDescStackMutex);
+                textureCache->streamDescStackActiveCount--;
+                textureCache->streamDescStackChanged.wait(queueLock, [this]() {
+                    return !threadRunning || !textureCache->streamDescStack.empty();
                 });
 
-                textureCache->streamDescQueueActiveCount++;
+                textureCache->streamDescStackActiveCount++;
 
-                if (!textureCache->streamDescQueue.empty()) {
-                    streamDesc = textureCache->streamDescQueue.front();
-                    textureCache->streamDescQueue.pop();
+                if (!textureCache->streamDescStack.empty()) {
+                    streamDesc = textureCache->streamDescStack.top();
+                    textureCache->streamDescStack.pop();
                 }
             }
             
@@ -474,7 +474,7 @@ namespace RT64 {
         uploadThread = new std::thread(&TextureCache::uploadThreadLoop, this);
 
         // Create streaming threads.
-        streamDescQueueActiveCount = threadCount;
+        streamDescStackActiveCount = threadCount;
 
         for (uint32_t i = 0; i < threadCount; i++) {
             streamThreads.push_back(std::make_unique<StreamThread>(this));
@@ -1141,10 +1141,10 @@ namespace RT64 {
                                     textureMap.replacementMap.streamRelativePathSet.insert(resolvedPath.relativePath);
 
                                     // Push to the streaming queue.
-                                    streamDescQueueMutex.lock();
-                                    streamDescQueue.push(StreamDescription(resolvedPath.relativePath, false));
-                                    streamDescQueueMutex.unlock();
-                                    streamDescQueueChanged.notify_all();
+                                    streamDescStackMutex.lock();
+                                    streamDescStack.push(StreamDescription(resolvedPath.relativePath, false));
+                                    streamDescStackMutex.unlock();
+                                    streamDescStackChanged.notify_all();
                                 }
 #                           endif
 
@@ -1491,18 +1491,18 @@ namespace RT64 {
         if (preloadTexturesWithThreads) {
             // Queue all textures that must be preloaded to the stream queues.
             {
-                std::unique_lock queueLock(streamDescQueueMutex);
+                std::unique_lock queueLock(streamDescStackMutex);
                 for (uint64_t hash : hashesToPreload) {
                     auto it = textureMap.replacementMap.resolvedPathMap.find(hash);
                     const std::string &relativePath = it->second.relativePath;
                     if (textureMap.replacementMap.streamRelativePathSet.find(relativePath) == textureMap.replacementMap.streamRelativePathSet.end()) {
-                        streamDescQueue.push(StreamDescription(relativePath, true));
+                        streamDescStack.push(StreamDescription(relativePath, true));
                         textureMap.replacementMap.streamRelativePathSet.insert(relativePath);
                     }
                 }
             }
 
-            streamDescQueueChanged.notify_all();
+            streamDescStackChanged.notify_all();
         }
 
         if (preloadTexturesWithThreads) {
@@ -1609,15 +1609,15 @@ namespace RT64 {
 
     void TextureCache::waitForAllStreamThreads(bool clearQueueImmediately) {
         if (clearQueueImmediately) {
-            std::unique_lock<std::mutex> queueLock(streamDescQueueMutex);
-            streamDescQueue = std::queue<StreamDescription>();
+            std::unique_lock<std::mutex> queueLock(streamDescStackMutex);
+            streamDescStack = std::stack<StreamDescription>();
         }
 
         bool keepWaiting = false;
         do {
-            streamDescQueueMutex.lock();
-            keepWaiting = (streamDescQueueActiveCount > 0);
-            streamDescQueueMutex.unlock();
+            streamDescStackMutex.lock();
+            keepWaiting = (streamDescStackActiveCount > 0);
+            streamDescStackMutex.unlock();
 
             if (keepWaiting) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
