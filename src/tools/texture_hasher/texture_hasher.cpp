@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <list>
 
 #include "../../contrib/xxHash/xxh3.h"
 #include "../../common/rt64_load_types.cpp"
@@ -345,7 +346,7 @@ void addRiceHash(const std::filesystem::path &directory, const std::string &hash
     // Rice expects to hash at least this many bytes, even if it leaks into other parts of RAM.
     uint32_t expectedSize = (height - 1) * bpl + (width << drawTile.siz >> 1);
     if (expectedSize > rdramBytes.size()) {
-        fprintf(stderr, "Unable to hash %s. Expected %d bytes but got %llu bytes (%dX%d).\n", hashNameWithSuffix.c_str(), expectedSize, rdramBytes.size(), width, height);
+        fprintf(stderr, "Unable to hash %s. Expected %d bytes but got %zu bytes (%dX%d).\n", hashNameWithSuffix.c_str(), expectedSize, rdramBytes.size(), width, height);
         return;
     }
 
