@@ -1485,6 +1485,10 @@ namespace RT64 {
         bool operator!=(const RenderRect &v) const {
             return (left != v.left) || (top != v.top) || (right != v.right) || (bottom != v.bottom);
         }
+
+        bool isEmpty() const {
+            return (left >= right) || (top >= bottom);
+        }
     };
 
     struct RenderBox {

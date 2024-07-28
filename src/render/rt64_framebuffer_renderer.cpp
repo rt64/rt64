@@ -544,8 +544,8 @@ namespace RT64 {
                 const auto &triangles = drawCall.triangles;
                 assert(triangles.pipeline != nullptr);
 
-                // Draw calls can sometimes end up with empty viewports and cause validation errors. We just skip them.
-                if (triangles.viewport.isEmpty()) {
+                // Draw calls can sometimes end up with empty viewports or scissors and cause validation errors. We just skip them.
+                if (triangles.viewport.isEmpty() || triangles.scissor.isEmpty()) {
                     continue;
                 }
 
