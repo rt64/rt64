@@ -471,7 +471,7 @@ namespace RT64 {
         uploadResourcePool = directWorker->device->createPool(poolDesc);
 
         // Create upload thread.
-        uploadThread = new std::thread(&TextureCache::uploadThreadLoop, this);
+        uploadThread = std::make_unique<std::thread>(&TextureCache::uploadThreadLoop, this);
 
         // Create streaming threads.
         streamDescStackActiveCount = threadCount;
@@ -482,11 +482,14 @@ namespace RT64 {
     }
 
     TextureCache::~TextureCache() {
+        waitForAllStreamThreads(true);
+        streamThreads.clear();
+
         if (uploadThread != nullptr) {
             uploadThreadRunning = false;
             uploadQueueChanged.notify_all();
             uploadThread->join();
-            delete uploadThread;
+            uploadThread.reset();
         }
         
         descriptorSets.clear();

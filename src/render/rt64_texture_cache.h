@@ -203,7 +203,7 @@ namespace RT64 {
         std::mutex uploadQueueMutex;
         std::condition_variable uploadQueueChanged;
         std::condition_variable uploadQueueFinished;
-        std::thread *uploadThread;
+        std::unique_ptr<std::thread> uploadThread;
         std::atomic<bool> uploadThreadRunning;
         std::stack<StreamDescription> streamDescStack;
         std::mutex streamDescStackMutex;
