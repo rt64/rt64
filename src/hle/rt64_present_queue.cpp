@@ -92,7 +92,7 @@ namespace RT64 {
         presentThread = new std::thread(&PresentQueue::threadLoop, this);
     }
 
-    void PresentQueue::threadPresent(const Present &present, bool &swapChainValid, uint32_t &swapChainIndex) {
+    void PresentQueue::threadPresent(const Present &present, bool &swapChainValid) {
         FramebufferManager &fbManager = ext.sharedResources->framebufferManager;
         RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
         const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
@@ -444,7 +444,6 @@ namespace RT64 {
         uint32_t displayTimingRate = UINT32_MAX;
         const bool displayTiming = ext.device->getCapabilities().displayTiming;
         bool swapChainValid = !ext.swapChain->needsResize();
-        uint32_t swapChainIndex = UINT32_MAX;
         while (presentThreadRunning) {
             {
                 std::unique_lock<std::mutex> cursorLock(cursorMutex);
@@ -503,7 +502,7 @@ namespace RT64 {
                     notifyPresentId(present);
                 }
                 else {
-                    threadPresent(present, swapChainValid, swapChainIndex);
+                    threadPresent(present, swapChainValid);
                 }
 
                 if (!present.fbOperations.empty()) {
@@ -520,6 +519,7 @@ namespace RT64 {
         }
 
         // Transition the active swap chain render target out of the present state to avoid live references to the resource.
+        uint32_t swapChainIndex = 0;
         if (!ext.swapChain->isEmpty() && ext.swapChain->acquireTexture(acquiredSemaphore.get(), &swapChainIndex)) {
             RenderTexture *swapChainTexture = ext.swapChain->getTexture(swapChainIndex);
             ext.presentGraphicsWorker->commandList->begin();

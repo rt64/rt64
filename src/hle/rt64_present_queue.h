@@ -65,7 +65,7 @@ namespace RT64 {
         void waitForIdle();
         void waitForPresentId(uint64_t waitId);
         void setup(const External &ext);
-        void threadPresent(const Present &present, bool &swapChainValid, uint32_t &swapChainIndex);
+        void threadPresent(const Present &present, bool &swapChainValid);
         void skipInterpolation();
         void notifyPresentId(const Present &present);
         void threadAdvanceBarrier();
