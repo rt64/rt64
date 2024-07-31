@@ -1193,7 +1193,7 @@ namespace RT64 {
         }
     }
 
-    bool D3D12SwapChain::present() {
+    bool D3D12SwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
         if (waitableObject != NULL) {
             while (WaitForSingleObjectEx(waitableObject, 0, FALSE));
         }
@@ -1261,17 +1261,18 @@ namespace RT64 {
         }
     }
 
-    uint32_t D3D12SwapChain::getTextureIndex() const {
-        return d3d->GetCurrentBackBufferIndex();
+    RenderTexture *D3D12SwapChain::getTexture(uint32_t textureIndex) {
+        return &textures[textureIndex];
     }
 
     uint32_t D3D12SwapChain::getTextureCount() const {
         return textureCount;
     }
 
-    RenderTexture *D3D12SwapChain::getTexture(uint32_t index) {
-        assert(index < textureCount);
-        return &textures[index];
+    bool D3D12SwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
+        assert(textureIndex != nullptr);
+        *textureIndex = d3d->GetCurrentBackBufferIndex();
+        return true;
     }
 
     RenderWindow D3D12SwapChain::getWindow() const {

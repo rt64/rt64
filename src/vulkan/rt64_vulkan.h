@@ -201,7 +201,6 @@ namespace RT64 {
         VulkanCommandQueue *commandQueue = nullptr;
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         RenderWindow renderWindow = {};
-        uint32_t textureIndex = 0;
         uint32_t textureCount = 0;
         uint64_t presentCount = 0;
         RenderFormat format = RenderFormat::UNKNOWN;
@@ -211,29 +210,22 @@ namespace RT64 {
         VkSurfaceFormatKHR pickedSurfaceFormat = {};
         VkPresentModeKHR pickedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
         VkCompositeAlphaFlagBitsKHR pickedAlphaFlag = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        VkSemaphore acquireNextTextureSemaphore = VK_NULL_HANDLE;
-        VkSemaphore presentTransitionSemaphore = VK_NULL_HANDLE;
-        VkFence acquireNextTextureFence = VK_NULL_HANDLE;
         std::vector<VulkanTexture> textures;
-        bool acquireNextTextureSemaphoreSignaled = false;
-        bool presentTransitionSemaphoreSignaled = false;
 
         VulkanSwapChain(VulkanCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~VulkanSwapChain() override;
-        bool present() override;
+        bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
         bool resize() override;
         bool needsResize() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
-        uint32_t getTextureIndex() const override;
+        RenderTexture *getTexture(uint32_t textureIndex) override;
         uint32_t getTextureCount() const override;
-        RenderTexture *getTexture(uint32_t index) override;
+        bool acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) override;
         RenderWindow getWindow() const override;
         bool isEmpty() const override;
         uint32_t getRefreshRate() const override;
         void getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const;
-        void checkAcquireNextTextureSemaphore();
-        bool acquireNextTexture();
         void releaseSwapChain();
         void releaseImageViews();
     };
@@ -260,10 +252,6 @@ namespace RT64 {
         VkCommandPool commandPool = VK_NULL_HANDLE;
         VulkanDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
-        std::unordered_set<VulkanTexture *> fromPresentTransitionSet;
-        std::unordered_set<VulkanTexture *> toPresentTransitionSet;
-        std::vector<VulkanTexture *> fromPresentTransitions;
-        std::vector<VulkanTexture *> toPresentTransitions;
         const VulkanFramebuffer *targetFramebuffer = nullptr;
         const VulkanPipelineLayout *activeComputePipelineLayout = nullptr;
         const VulkanPipelineLayout *activeGraphicsPipelineLayout = nullptr;
@@ -306,7 +294,6 @@ namespace RT64 {
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void checkActiveRenderPass();
         void endActiveRenderPass();
-        void copyAndClearTransitionSet(std::unordered_set<VulkanTexture *> &set, std::vector<VulkanTexture *> &setVector);
         void setDescriptorSet(VkPipelineBindPoint bindPoint, const VulkanPipelineLayout *pipelineLayout, const RenderDescriptorSet *descriptorSet, uint32_t setIndex);
     };
 

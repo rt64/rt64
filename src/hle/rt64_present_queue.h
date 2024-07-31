@@ -48,6 +48,8 @@ namespace RT64 {
         FramebufferChangePool screenFbChangePool;
         std::atomic<bool> viewRDRAM = false;
         std::vector<std::unique_ptr<RenderFramebuffer>> swapChainFramebuffers;
+        std::unique_ptr<RenderCommandSemaphore> acquiredSemaphore;
+        std::unique_ptr<RenderCommandSemaphore> drawSemaphore;
         std::unique_ptr<VIRenderer> viRenderer;
         std::unique_ptr<Inspector> inspector;
         ProfilingTimer presentProfiler = ProfilingTimer(120);
