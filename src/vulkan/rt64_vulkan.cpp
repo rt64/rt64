@@ -2001,9 +2001,6 @@ namespace RT64 {
 
         // Parent command queue should track this swap chain.
         commandQueue->swapChains.insert(this);
-
-        // Perform a resize since most of the logic is shared with swap chain creation.
-        resize();
     }
 
     VulkanSwapChain::~VulkanSwapChain() {

@@ -443,7 +443,7 @@ namespace RT64 {
         bool skipPresent = false;
         uint32_t displayTimingRate = UINT32_MAX;
         const bool displayTiming = ext.device->getCapabilities().displayTiming;
-        bool swapChainValid = false;
+        bool swapChainValid = !ext.swapChain->needsResize();
         uint32_t swapChainIndex = UINT32_MAX;
         while (presentThreadRunning) {
             {
