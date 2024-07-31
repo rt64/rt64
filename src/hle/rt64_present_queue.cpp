@@ -92,7 +92,7 @@ namespace RT64 {
         presentThread = new std::thread(&PresentQueue::threadLoop, this);
     }
 
-    void PresentQueue::threadPresent(const Present &present, bool &swapChainValid) {
+    void PresentQueue::threadPresent(const Present &present, bool &swapChainValid, uint32_t &swapChainIndex) {
         FramebufferManager &fbManager = ext.sharedResources->framebufferManager;
         RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
         const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
@@ -295,12 +295,16 @@ namespace RT64 {
                 frameCountersNextPresented = frameCounters.count;
             }
 
+            uint32_t swapChainIndex = 0;
             const bool presentFrame = (i < framesToPresent) && swapChainValid;
             if (presentFrame) {
+                swapChainValid = ext.swapChain->acquireTexture(acquiredSemaphore.get(), &swapChainIndex);
+            }
+
+            if (presentFrame && swapChainValid) {
                 // Draw the framebuffer with the VI renderer.
-                const uint32_t textureIndex = ext.swapChain->getTextureIndex();
-                RenderTexture *swapChainTexture = ext.swapChain->getTexture(textureIndex);
-                RenderFramebuffer *swapChainFramebuffer = swapChainFramebuffers[textureIndex].get();
+                RenderTexture *swapChainTexture = ext.swapChain->getTexture(swapChainIndex);
+                RenderFramebuffer *swapChainFramebuffer = swapChainFramebuffers[swapChainIndex].get();
                 RenderCommandList *commandList = ext.presentGraphicsWorker->commandList.get();
                 commandList->begin();
                 commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
@@ -353,7 +357,10 @@ namespace RT64 {
                     
                     commandList->barriers(RenderBarrierStage::NONE, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::PRESENT));
                     commandList->end();
-                    ext.presentGraphicsWorker->execute();
+                    const RenderCommandList *commandList = ext.presentGraphicsWorker->commandList.get();
+                    RenderCommandSemaphore *waitSemaphore = acquiredSemaphore.get();
+                    RenderCommandSemaphore *signalSemaphore = drawSemaphore.get();
+                    ext.presentGraphicsWorker->commandQueue->executeCommandLists(&commandList, 1, &waitSemaphore, 1, &signalSemaphore, 1, ext.presentGraphicsWorker->commandFence.get());
                     ext.presentGraphicsWorker->wait();
                 }
             }
@@ -377,7 +384,7 @@ namespace RT64 {
                 notifyPresentId(present);
             }
 
-            if (presentFrame) {
+            if (presentFrame && swapChainValid) {
                 // Wait until the approximate time the next present should be at the current intended rate.
                 if ((presentTimestamp != Timestamp()) && (targetRate > 0) && (targetRate > viOriginalRate)) {
                     Timestamp currentTimestamp = Timer::current();
@@ -393,7 +400,8 @@ namespace RT64 {
                     }
                 }
 
-                swapChainValid = ext.swapChain->present();
+                RenderCommandSemaphore *waitSemaphore = drawSemaphore.get();
+                swapChainValid = ext.swapChain->present(swapChainIndex, &waitSemaphore, 1);
                 presentProfiler.logAndRestart();
                 presentTimestamp = Timer::current();
             }
@@ -427,17 +435,22 @@ namespace RT64 {
     void PresentQueue::threadLoop() {
         Thread::setCurrentThreadName("RT64 Present");
 
+        // Create the semaphores used by the swap chains.
+        acquiredSemaphore = ext.device->createCommandSemaphore();
+        drawSemaphore = ext.device->createCommandSemaphore();
+
         int processCursor = -1;
         bool skipPresent = false;
         uint32_t displayTimingRate = UINT32_MAX;
         const bool displayTiming = ext.device->getCapabilities().displayTiming;
         bool swapChainValid = false;
+        uint32_t swapChainIndex = UINT32_MAX;
         while (presentThreadRunning) {
             {
                 std::unique_lock<std::mutex> cursorLock(cursorMutex);
                 cursorCondition.wait(cursorLock, [&]() {
                     return (writeCursor != threadCursor) || !presentThreadRunning;
-                    });
+                });
 
                 if (presentThreadRunning) {
                     processCursor = threadCursor;
@@ -490,7 +503,7 @@ namespace RT64 {
                     notifyPresentId(present);
                 }
                 else {
-                    threadPresent(present, swapChainValid);
+                    threadPresent(present, swapChainValid, swapChainIndex);
                 }
 
                 if (!present.fbOperations.empty()) {
@@ -507,11 +520,16 @@ namespace RT64 {
         }
 
         // Transition the active swap chain render target out of the present state to avoid live references to the resource.
-        ext.presentGraphicsWorker->commandList->begin();
-        RenderTexture *swapChainTexture = ext.swapChain->getTexture(ext.swapChain->getTextureIndex());
-        ext.presentGraphicsWorker->commandList->barriers(RenderBarrierStage::NONE, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
-        ext.presentGraphicsWorker->commandList->end();
-        ext.presentGraphicsWorker->execute();
-        ext.presentGraphicsWorker->wait();
+        if (!ext.swapChain->isEmpty() && ext.swapChain->acquireTexture(acquiredSemaphore.get(), &swapChainIndex)) {
+            RenderTexture *swapChainTexture = ext.swapChain->getTexture(swapChainIndex);
+            ext.presentGraphicsWorker->commandList->begin();
+            ext.presentGraphicsWorker->commandList->barriers(RenderBarrierStage::NONE, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
+            ext.presentGraphicsWorker->commandList->end();
+
+            const RenderCommandList *commandList = ext.presentGraphicsWorker->commandList.get();
+            RenderCommandSemaphore *waitSemaphore = acquiredSemaphore.get();
+            ext.presentGraphicsWorker->commandQueue->executeCommandLists(&commandList, 1, &waitSemaphore, 1, nullptr, 0, ext.presentGraphicsWorker->commandFence.get());
+            ext.presentGraphicsWorker->wait();
+        }
     }
 };

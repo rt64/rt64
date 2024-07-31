@@ -48,6 +48,8 @@ namespace RT64 {
         FramebufferChangePool screenFbChangePool;
         std::atomic<bool> viewRDRAM = false;
         std::vector<std::unique_ptr<RenderFramebuffer>> swapChainFramebuffers;
+        std::unique_ptr<RenderCommandSemaphore> acquiredSemaphore;
+        std::unique_ptr<RenderCommandSemaphore> drawSemaphore;
         std::unique_ptr<VIRenderer> viRenderer;
         std::unique_ptr<Inspector> inspector;
         ProfilingTimer presentProfiler = ProfilingTimer(120);
@@ -63,7 +65,7 @@ namespace RT64 {
         void waitForIdle();
         void waitForPresentId(uint64_t waitId);
         void setup(const External &ext);
-        void threadPresent(const Present &present, bool &swapChainValid);
+        void threadPresent(const Present &present, bool &swapChainValid, uint32_t &swapChainIndex);
         void skipInterpolation();
         void notifyPresentId(const Present &present);
         void threadAdvanceBarrier();

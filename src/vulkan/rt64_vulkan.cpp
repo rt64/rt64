@@ -1999,29 +1999,6 @@ namespace RT64 {
             return;
         }
 
-        // Create the semaphore that will be used whenever the next image is acquired.
-        VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-        semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        res = vkCreateSemaphore(commandQueue->device->vk, &semaphoreCreateInfo, nullptr, &acquireNextTextureSemaphore);
-        if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkCreateSemaphore failed with error code 0x%X.\n", res);
-            return;
-        }
-
-        res = vkCreateSemaphore(commandQueue->device->vk, &semaphoreCreateInfo, nullptr, &presentTransitionSemaphore);
-        if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkCreateSemaphore failed with error code 0x%X.\n", res);
-            return;
-        }
-        
-        VkFenceCreateInfo fenceCreateInfo = {};
-        fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        res = vkCreateFence(commandQueue->device->vk, &fenceCreateInfo, nullptr, &acquireNextTextureFence);
-        if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkCreateFence failed with error code 0x%X.\n", res);
-            return;
-        }
-
         // Parent command queue should track this swap chain.
         commandQueue->swapChains.insert(this);
 
@@ -2033,18 +2010,6 @@ namespace RT64 {
         releaseImageViews();
         releaseSwapChain();
 
-        if (acquireNextTextureSemaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(commandQueue->device->vk, acquireNextTextureSemaphore, nullptr);
-        }
-
-        if (acquireNextTextureFence != VK_NULL_HANDLE) {
-            vkDestroyFence(commandQueue->device->vk, acquireNextTextureFence, nullptr);
-        }
-
-        if (presentTransitionSemaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(commandQueue->device->vk, presentTransitionSemaphore, nullptr);
-        }
-
         if (surface != VK_NULL_HANDLE) {
             VulkanInterface *renderInterface = commandQueue->device->renderInterface;
             vkDestroySurfaceKHR(renderInterface->instance, surface, nullptr);
@@ -2054,18 +2019,21 @@ namespace RT64 {
         commandQueue->swapChains.erase(this);
     }
 
-    bool VulkanSwapChain::present() {
+    bool VulkanSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
+        thread_local std::vector<VkSemaphore> waitSemaphoresVector;
+        waitSemaphoresVector.clear();
+        for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+            VulkanCommandSemaphore *interfaceSemaphore = (VulkanCommandSemaphore *)(waitSemaphores[i]);
+            waitSemaphoresVector.emplace_back(interfaceSemaphore->vk);
+        }
+
         VkPresentInfoKHR presentInfo = {};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.pSwapchains = &vk;
         presentInfo.swapchainCount = 1;
         presentInfo.pImageIndices = &textureIndex;
-
-        if (presentTransitionSemaphoreSignaled) {
-            presentInfo.pWaitSemaphores = &presentTransitionSemaphore;
-            presentInfo.waitSemaphoreCount = 1;
-            presentTransitionSemaphoreSignaled = false;
-        }
+        presentInfo.pWaitSemaphores = !waitSemaphoresVector.empty() ? waitSemaphoresVector.data() : nullptr;
+        presentInfo.waitSemaphoreCount = uint32_t(waitSemaphoresVector.size());
         
         VkResult res;
         {
@@ -2075,11 +2043,6 @@ namespace RT64 {
 
         // Handle the error silently.
         if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
-            return false;
-        }
-
-        // Immediately acquire next image.
-        if (!acquireNextTexture()) {
             return false;
         }
 
@@ -2093,9 +2056,6 @@ namespace RT64 {
         if ((width == 0) || (height == 0)) {
             return false;
         }
-        
-        // Make sure to wait on any image acquisition semaphores before destroying the swap chain.
-        checkAcquireNextTextureSemaphore();
 
         // Destroy any image view references to the current swap chain.
         releaseImageViews();
@@ -2167,14 +2127,6 @@ namespace RT64 {
             textures[i].createImageView(pickedSurfaceFormat.format);
         }
 
-        // Instantly attempt to acquire the next image.
-        if (!acquireNextTexture()) {
-            releaseImageViews();
-            releaseSwapChain();
-            fprintf(stderr, "Failed to acquire image after creating the swap chain.\n");
-            return false;
-        }
-
         return true;
     }
 
@@ -2192,16 +2144,12 @@ namespace RT64 {
         return height;
     }
 
-    uint32_t VulkanSwapChain::getTextureIndex() const {
-        return textureIndex;
+    RenderTexture *VulkanSwapChain::getTexture(uint32_t textureIndex) {
+        return &textures[textureIndex];
     }
 
     uint32_t VulkanSwapChain::getTextureCount() const {
         return textureCount;
-    }
-
-    RenderTexture *VulkanSwapChain::getTexture(uint32_t index) {
-        return &textures[index];
     }
 
     RenderWindow VulkanSwapChain::getWindow() const {
@@ -2241,33 +2189,15 @@ namespace RT64 {
 #   endif
     }
 
-    void VulkanSwapChain::checkAcquireNextTextureSemaphore() {
-        // We've ended up in a situation where the semaphore must be unsignaled because nothing used the acquired image in-between, so we force a command queue submission.
-        if (acquireNextTextureSemaphoreSignaled) {
-            const std::scoped_lock queueLock(*commandQueue->queue->mutex);
-            const VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            VkSubmitInfo submitInfo = {};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            submitInfo.pWaitSemaphores = &acquireNextTextureSemaphore;
-            submitInfo.pWaitDstStageMask = &waitStages;
-            submitInfo.waitSemaphoreCount = 1;
-            vkQueueSubmit(commandQueue->queue->vk, 1, &submitInfo, acquireNextTextureFence);
-            vkWaitForFences(commandQueue->device->vk, 1, &acquireNextTextureFence, VK_TRUE, UINT64_MAX);
-            vkResetFences(commandQueue->device->vk, 1, &acquireNextTextureFence);
-            acquireNextTextureSemaphoreSignaled = false;
-        }
-    }
+    bool VulkanSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
+        assert(signalSemaphore != nullptr);
 
-    bool VulkanSwapChain::acquireNextTexture() {
-        checkAcquireNextTextureSemaphore();
-
-        // Handle the error silently.
-        VkResult res = vkAcquireNextImageKHR(commandQueue->device->vk, vk, UINT64_MAX, acquireNextTextureSemaphore, VK_NULL_HANDLE, &textureIndex);
+        VulkanCommandSemaphore *interfaceSemaphore = static_cast<VulkanCommandSemaphore *>(signalSemaphore);
+        VkResult res = vkAcquireNextImageKHR(commandQueue->device->vk, vk, UINT64_MAX, interfaceSemaphore->vk, VK_NULL_HANDLE, textureIndex);
         if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
             return false;
         }
 
-        acquireNextTextureSemaphoreSignaled = true;
         return true;
     }
 
@@ -2493,9 +2423,6 @@ namespace RT64 {
         activeComputePipelineLayout = nullptr;
         activeGraphicsPipelineLayout = nullptr;
         activeRaytracingPipelineLayout = nullptr;
-
-        copyAndClearTransitionSet(fromPresentTransitionSet, fromPresentTransitions);
-        copyAndClearTransitionSet(toPresentTransitionSet, toPresentTransitions);
     }
 
     void VulkanCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
@@ -2536,18 +2463,6 @@ namespace RT64 {
         for (uint32_t i = 0; i < textureBarriersCount; i++) {
             const RenderTextureBarrier &textureBarrier = textureBarriers[i];
             VulkanTexture *interfaceTexture = static_cast<VulkanTexture *>(textureBarrier.texture);
-            if (interfaceTexture->textureLayout != textureBarrier.layout) {
-                // If the resource is being transitioned after being initialized or from the present state, we should store it to check later if we need to wait on its image acquisition semaphore.
-                if ((interfaceTexture->textureLayout == RenderTextureLayout::UNKNOWN) || (interfaceTexture->textureLayout == RenderTextureLayout::PRESENT)) {
-                    fromPresentTransitionSet.insert(interfaceTexture);
-                }
-
-                // If the resource is transitioning to the present state, we should store it to check later if we need to signal the semaphore for when the transition is finished.
-                if (textureBarrier.layout == RenderTextureLayout::PRESENT) {
-                    toPresentTransitionSet.insert(interfaceTexture);
-                }
-            }
-            
             VkImageMemoryBarrier imageMemoryBarrier = {};
             imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             imageMemoryBarrier.image = interfaceTexture->vk;
@@ -3128,15 +3043,6 @@ namespace RT64 {
         }
     }
 
-    void VulkanCommandList::copyAndClearTransitionSet(std::unordered_set<VulkanTexture *> &set, std::vector<VulkanTexture *> &setVector) {
-        setVector.clear();
-        for (VulkanTexture *texture : set) {
-            setVector.emplace_back(texture);
-        }
-
-        set.clear();
-    }
-
     void VulkanCommandList::setDescriptorSet(VkPipelineBindPoint bindPoint, const VulkanPipelineLayout *pipelineLayout, const RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
         assert(pipelineLayout != nullptr);
         assert(descriptorSet != nullptr);
@@ -3238,30 +3144,6 @@ namespace RT64 {
 
             const VulkanCommandList *interfaceCommandList = static_cast<const VulkanCommandList *>(commandLists[i]);
             commandBuffers.emplace_back(interfaceCommandList->vk);
-            
-            // Look for semaphores related to the swap chain the command queue must wait on.
-            for (VulkanTexture *texture : interfaceCommandList->fromPresentTransitions) {
-                for (VulkanSwapChain *swapChain : swapChains) {
-                    if (&swapChain->textures[swapChain->textureIndex] == texture) {
-                        assert(swapChain->acquireNextTextureSemaphoreSignaled);
-                        swapChain->acquireNextTextureSemaphoreSignaled = false;
-                        waitSemaphoreVector.emplace_back(swapChain->acquireNextTextureSemaphore);
-                        break;
-                    }
-                }
-            }
-
-            // Look for semaphores related to the swap chain the command queue must signal.
-            for (VulkanTexture *texture : interfaceCommandList->toPresentTransitions) {
-                for (VulkanSwapChain *swapChain : swapChains) {
-                    if (&swapChain->textures[swapChain->textureIndex] == texture) {
-                        assert(!swapChain->presentTransitionSemaphoreSignaled);
-                        swapChain->presentTransitionSemaphoreSignaled = true;
-                        signalSemaphoreVector.emplace_back(swapChain->presentTransitionSemaphore);
-                        break;
-                    }
-                }
-            }
         }
 
         VkSubmitInfo submitInfo = {};

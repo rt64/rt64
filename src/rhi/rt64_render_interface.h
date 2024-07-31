@@ -59,6 +59,14 @@ namespace RT64 {
         virtual ~RenderPipelineLayout() { }
     };
 
+    struct RenderCommandFence {
+        virtual ~RenderCommandFence() { }
+    };
+
+    struct RenderCommandSemaphore {
+        virtual ~RenderCommandSemaphore() { }
+    };
+
     struct RenderDescriptorSet {
         // Descriptor indices correspond to the index assuming the descriptor set is one contiguous array. They DO NOT correspond to the bindings, which can be sparse.
         // User code should derive these indices on its own by looking at the order the bindings were assigned during set creation along with the descriptor count and
@@ -72,14 +80,14 @@ namespace RT64 {
 
     struct RenderSwapChain {
         virtual ~RenderSwapChain() { }
-        virtual bool present() = 0;
+        virtual bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) = 0;
         virtual bool resize() = 0;
         virtual bool needsResize() const = 0;
         virtual uint32_t getWidth() const = 0;
         virtual uint32_t getHeight() const = 0;
-        virtual uint32_t getTextureIndex() const = 0;
+        virtual RenderTexture *getTexture(uint32_t textureIndex) = 0;
         virtual uint32_t getTextureCount() const = 0;
-        virtual RenderTexture *getTexture(uint32_t index) = 0;
+        virtual bool acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) = 0;
         virtual RenderWindow getWindow() const = 0;
         virtual bool isEmpty() const = 0;
 
@@ -170,14 +178,6 @@ namespace RT64 {
         }
     };
 
-    struct RenderCommandFence {
-        virtual ~RenderCommandFence() { }
-    };
-
-    struct RenderCommandSemaphore {
-        virtual ~RenderCommandSemaphore() { }
-    };
-
     struct RenderCommandQueue {
         virtual ~RenderCommandQueue() { }
         virtual std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) = 0;
@@ -185,8 +185,8 @@ namespace RT64 {
         virtual void waitForCommandFence(RenderCommandFence *fence) = 0;
 
         // Concrete implementation shortcuts.
-        inline void executeCommandLists(const RenderCommandList *commandLists, RenderCommandFence *signalFence = nullptr) {
-            executeCommandLists(&commandLists, 1, nullptr, 0, nullptr, 0, signalFence);
+        inline void executeCommandLists(const RenderCommandList *commandList, RenderCommandFence *signalFence = nullptr) {
+            executeCommandLists(&commandList, 1, nullptr, 0, nullptr, 0, signalFence);
         }
     };
 
