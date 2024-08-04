@@ -55,6 +55,7 @@ namespace RT64 {
 
         RenderDevice *device;
         std::unique_ptr<RasterShaderUber> shaderUber;
+        OptimizerCacheSPIRV optimizerCacheSPIRV;
         std::mutex submissionMutex;
         std::queue<ShaderDescription> descQueue;
         std::mutex descQueueMutex;

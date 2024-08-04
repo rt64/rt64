@@ -209,7 +209,7 @@ namespace RT64 {
                 assert((shaderCache->shaderUber != nullptr) && "Ubershader should've been created by the time a new shader is submitted to the cache.");
                 const RenderPipelineLayout *uberPipelineLayout = shaderCache->shaderUber->pipelineLayout.get();
                 const RenderMultisampling multisampling = shaderCache->multisampling;
-                std::unique_ptr<RasterShader> newShader = std::make_unique<RasterShader>(shaderCache->device, shaderDesc, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), shaderVsBytes, shaderPsBytes, useShaderBytes);
+                std::unique_ptr<RasterShader> newShader = std::make_unique<RasterShader>(shaderCache->device, shaderDesc, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), &shaderCache->optimizerCacheSPIRV, shaderVsBytes, shaderPsBytes, useShaderBytes);
 
                 // Dump the bytes of the shader if requested.
                 if (!useShaderBytes && (shaderVsBytes != nullptr) && (shaderPsBytes != nullptr)) {
@@ -220,7 +220,7 @@ namespace RT64 {
                         // Toggle the use of HDR and compile another shader.
                         ShaderDescription shaderDescAlt = shaderDesc;
                         shaderDescAlt.flags.usesHDR = (shaderDescAlt.flags.usesHDR == 0);
-                        std::unique_ptr<RasterShader> altShader = std::make_unique<RasterShader>(shaderCache->device, shaderDescAlt, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), shaderVsBytes, shaderPsBytes, useShaderBytes);
+                        std::unique_ptr<RasterShader> altShader = std::make_unique<RasterShader>(shaderCache->device, shaderDescAlt, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), &shaderCache->optimizerCacheSPIRV, shaderVsBytes, shaderPsBytes, useShaderBytes);
                         shaderCache->offlineDumper.stepDumping(shaderDescAlt, dumperVsBytes, dumperPsBytes);
                     }
                 }
@@ -266,6 +266,11 @@ namespace RT64 {
 
         shaderUber = std::make_unique<RasterShaderUber>(device, shaderFormat, multisampling, shaderLibrary, threadCount);
         usesHDR = shaderLibrary->usesHDR;
+
+        // Initialize the re-spirv optimizer cache.
+        if (shaderFormat == RenderShaderFormat::SPIRV) {
+            optimizerCacheSPIRV.initialize();
+        }
     }
 
     void RasterShaderCache::submit(const ShaderDescription &desc) {

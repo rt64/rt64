@@ -9,6 +9,8 @@
 #include <mutex>
 #include <thread>
 
+#include "re-spirv/re-spirv.h"
+
 #include "rhi/rt64_render_interface.h"
 #include "shared/rt64_blender.h"
 #include "shared/rt64_color_combiner.h"
@@ -21,6 +23,19 @@
 #define SAMPLE_LOCATIONS_REQUIRED 1
 
 namespace RT64 {
+    struct OptimizerCacheSPIRV {
+        respv::Shader rasterVS;
+        respv::Shader rasterVSFlat;
+        respv::Shader rasterPS;
+        respv::Shader rasterPSDepth;
+        respv::Shader rasterPSDepthMS;
+        respv::Shader rasterPSFlatDepth;
+        respv::Shader rasterPSFlatDepthMS;
+        respv::Shader rasterPSFlat;
+
+        void initialize();
+    };
+
     struct PipelineCreation {
         RenderDevice *device;
         const RenderPipelineLayout *pipelineLayout;
@@ -49,7 +64,7 @@ namespace RT64 {
         std::unique_ptr<RenderPipeline> pipeline;
 
         RasterShader(RenderDevice *device, const ShaderDescription &desc, const RenderPipelineLayout *pipelineLayout, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, 
-            const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes = nullptr, std::vector<uint8_t> *psBytes = nullptr, bool useBytes = false);
+            const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV, std::vector<uint8_t> *vsBytes = nullptr, std::vector<uint8_t> *psBytes = nullptr, bool useBytes = false);
 
         ~RasterShader();
         static RasterShaderText generateShaderText(const ShaderDescription &desc, bool multisampling);

@@ -52,10 +52,23 @@ namespace RT64 {
         RenderInputElement("COLOR", 0, 2, RasterColorFormat, 2, 0)
     };
 
+    // OptimizerCacheSPIRV
+
+    void OptimizerCacheSPIRV::initialize() {
+        assert(rasterVS.parse(RasterVSSpecConstantBlobSPIRV, std::size(RasterVSSpecConstantBlobSPIRV)));
+        assert(rasterVSFlat.parse(RasterVSSpecConstantFlatBlobSPIRV, std::size(RasterVSSpecConstantFlatBlobSPIRV)));
+        assert(rasterPS.parse(RasterPSSpecConstantBlobSPIRV, std::size(RasterPSSpecConstantBlobSPIRV)));
+        assert(rasterPSDepth.parse(RasterPSSpecConstantDepthBlobSPIRV, std::size(RasterPSSpecConstantDepthBlobSPIRV)));
+        assert(rasterPSDepthMS.parse(RasterPSSpecConstantDepthMSBlobSPIRV, std::size(RasterPSSpecConstantDepthMSBlobSPIRV)));
+        assert(rasterPSFlatDepth.parse(RasterPSSpecConstantFlatDepthBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthBlobSPIRV)));
+        assert(rasterPSFlatDepthMS.parse(RasterPSSpecConstantFlatDepthMSBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthMSBlobSPIRV)));
+        assert(rasterPSFlat.parse(RasterPSSpecConstantFlatBlobSPIRV, std::size(RasterPSSpecConstantFlatBlobSPIRV)));
+    }
+
     // RasterShader
 
     RasterShader::RasterShader(RenderDevice *device, const ShaderDescription &desc, const RenderPipelineLayout *pipelineLayout, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, 
-        const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
+        const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
     {
         assert(device != nullptr);
 
@@ -65,54 +78,53 @@ namespace RT64 {
         const bool useMSAA = (multisampling.sampleCount > 1);
         std::unique_ptr<RenderShader> vertexShader;
         std::unique_ptr<RenderShader> pixelShader;
-        std::vector<RenderSpecConstant> specConstants;
         if (shaderFormat == RenderShaderFormat::SPIRV) {
             // Choose the pre-compiled shader permutations.
-            const void *VSBlob = nullptr;
-            const void *PSBlob = nullptr;
-            uint32_t VSBlobSize = 0;
-            uint32_t PSBlobSize = 0;
+            const respv::Shader *VS = nullptr;
+            const respv::Shader *PS = nullptr;
             const bool outputDepth = desc.outputDepth(useMSAA);
-            if (desc.flags.smoothShade) {
-                VSBlob = RasterVSSpecConstantBlobSPIRV;
-                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantBlobSPIRV));
-            }
-            else {
-                VSBlob = RasterVSSpecConstantFlatBlobSPIRV;
-                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantFlatBlobSPIRV));
-            }
-            
+            VS = desc.flags.smoothShade ? &optimizerCacheSPIRV->rasterVS : &optimizerCacheSPIRV->rasterVSFlat;
+
             // Pick the correct SPIR-V based on the configuration.
             if (desc.flags.smoothShade) {
                 if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantDepthMSBlobSPIRV : RasterPSSpecConstantDepthBlobSPIRV;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantDepthMSBlobSPIRV) : std::size(RasterPSSpecConstantDepthBlobSPIRV));
+                    PS = useMSAA ? &optimizerCacheSPIRV->rasterPSDepthMS : &optimizerCacheSPIRV->rasterPSDepth;
                 }
                 else {
-                    PSBlob = RasterPSSpecConstantBlobSPIRV;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantBlobSPIRV));
+                    PS = &optimizerCacheSPIRV->rasterPS;
                 }
             }
             else {
                 if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantFlatDepthMSBlobSPIRV : RasterPSSpecConstantFlatDepthBlobSPIRV;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatDepthMSBlobSPIRV) : std::size(RasterPSSpecConstantFlatDepthBlobSPIRV));
+                    PS = useMSAA ? &optimizerCacheSPIRV->rasterPSFlatDepthMS : &optimizerCacheSPIRV->rasterPSFlatDepth;
                 }
                 else {
-                    PSBlob = RasterPSSpecConstantFlatBlobSPIRV;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantFlatBlobSPIRV));
+                    PS = &optimizerCacheSPIRV->rasterPSFlat;
                 }
             }
+
+            thread_local std::vector<respv::SpecConstant> specConstants;
+            thread_local bool specConstantsSetup = false;
+            thread_local std::vector<uint8_t> optimizedVS;
+            thread_local std::vector<uint8_t> optimizedPS;
+            if (!specConstantsSetup) {
+                for (uint32_t i = 0; i < 5; i++) {
+                    specConstants.push_back(respv::SpecConstant(i, { 0 }));
+                }
+
+                specConstantsSetup = true;
+            }
             
-            vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
-            pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
-            
-            // Spec constants should replace the constants embedded in the shader directly.
-            specConstants.emplace_back(0, desc.otherMode.L);
-            specConstants.emplace_back(1, desc.otherMode.H);
-            specConstants.emplace_back(2, desc.colorCombiner.L);
-            specConstants.emplace_back(3, desc.colorCombiner.H);
-            specConstants.emplace_back(4, desc.flags.value);
+            specConstants[0].values[0] = desc.otherMode.L;
+            specConstants[1].values[0] = desc.otherMode.H;
+            specConstants[2].values[0] = desc.colorCombiner.L;
+            specConstants[3].values[0] = desc.colorCombiner.H;
+            specConstants[4].values[0] = desc.flags.value;
+
+            assert(respv::Optimizer::run(*VS, specConstants.data(), uint32_t(specConstants.size()), optimizedVS));
+            assert(respv::Optimizer::run(*PS, specConstants.data(), uint32_t(specConstants.size()), optimizedPS));
+            vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
+            pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
         }
         else {
 #       if defined(_WIN32)
@@ -186,7 +198,6 @@ namespace RT64 {
         creation.cvgAdd = (desc.otherMode.cvgDst() == CVG_DST_WRAP) || (desc.otherMode.cvgDst() == CVG_DST_SAVE);
         creation.NoN = desc.flags.NoN;
         creation.usesHDR = desc.flags.usesHDR;
-        creation.specConstants = specConstants;
         creation.multisampling = multisampling;
         pipeline = createPipeline(creation);
     }
