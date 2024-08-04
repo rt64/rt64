@@ -55,14 +55,22 @@ namespace RT64 {
     // OptimizerCacheSPIRV
 
     void OptimizerCacheSPIRV::initialize() {
-        assert(rasterVS.parse(RasterVSSpecConstantBlobSPIRV, std::size(RasterVSSpecConstantBlobSPIRV)));
-        assert(rasterVSFlat.parse(RasterVSSpecConstantFlatBlobSPIRV, std::size(RasterVSSpecConstantFlatBlobSPIRV)));
-        assert(rasterPS.parse(RasterPSSpecConstantBlobSPIRV, std::size(RasterPSSpecConstantBlobSPIRV)));
-        assert(rasterPSDepth.parse(RasterPSSpecConstantDepthBlobSPIRV, std::size(RasterPSSpecConstantDepthBlobSPIRV)));
-        assert(rasterPSDepthMS.parse(RasterPSSpecConstantDepthMSBlobSPIRV, std::size(RasterPSSpecConstantDepthMSBlobSPIRV)));
-        assert(rasterPSFlatDepth.parse(RasterPSSpecConstantFlatDepthBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthBlobSPIRV)));
-        assert(rasterPSFlatDepthMS.parse(RasterPSSpecConstantFlatDepthMSBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthMSBlobSPIRV)));
-        assert(rasterPSFlat.parse(RasterPSSpecConstantFlatBlobSPIRV, std::size(RasterPSSpecConstantFlatBlobSPIRV)));
+        rasterVS.parse(RasterVSSpecConstantBlobSPIRV, std::size(RasterVSSpecConstantBlobSPIRV));
+        rasterVSFlat.parse(RasterVSSpecConstantFlatBlobSPIRV, std::size(RasterVSSpecConstantFlatBlobSPIRV));
+        rasterPS.parse(RasterPSSpecConstantBlobSPIRV, std::size(RasterPSSpecConstantBlobSPIRV));
+        rasterPSDepth.parse(RasterPSSpecConstantDepthBlobSPIRV, std::size(RasterPSSpecConstantDepthBlobSPIRV));
+        rasterPSDepthMS.parse(RasterPSSpecConstantDepthMSBlobSPIRV, std::size(RasterPSSpecConstantDepthMSBlobSPIRV));
+        rasterPSFlatDepth.parse(RasterPSSpecConstantFlatDepthBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthBlobSPIRV));
+        rasterPSFlatDepthMS.parse(RasterPSSpecConstantFlatDepthMSBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthMSBlobSPIRV));
+        rasterPSFlat.parse(RasterPSSpecConstantFlatBlobSPIRV, std::size(RasterPSSpecConstantFlatBlobSPIRV));
+        assert(!rasterVS.empty());
+        assert(!rasterVSFlat.empty());
+        assert(!rasterPS.empty());
+        assert(!rasterPSDepth.empty());
+        assert(!rasterPSDepthMS.empty());
+        assert(!rasterPSFlatDepth.empty());
+        assert(!rasterPSFlatDepthMS.empty());
+        assert(!rasterPSFlat.empty());
     }
 
     // RasterShader
@@ -120,9 +128,10 @@ namespace RT64 {
             specConstants[2].values[0] = desc.colorCombiner.L;
             specConstants[3].values[0] = desc.colorCombiner.H;
             specConstants[4].values[0] = desc.flags.value;
-
-            assert(respv::Optimizer::run(*VS, specConstants.data(), uint32_t(specConstants.size()), optimizedVS));
-            assert(respv::Optimizer::run(*PS, specConstants.data(), uint32_t(specConstants.size()), optimizedPS));
+            
+            bool vsRun = respv::Optimizer::run(*VS, specConstants.data(), uint32_t(specConstants.size()), optimizedVS);
+            bool psRun = respv::Optimizer::run(*PS, specConstants.data(), uint32_t(specConstants.size()), optimizedPS);
+            assert(vsRun && psRun && "Shader optimization must always succeed as the inputs are always the same.");
             vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
             pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
         }
