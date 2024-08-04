@@ -50,6 +50,7 @@ namespace RT64 {
     const GBIInstance   F3D_FIFO_SDK_E            = { "2.0D, 04-01-96 (F3D.fifo SDK 2.0E)",        GBIUCode::F3D,         { false,  false,  false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3D_FIFO_SDK_F            = { "2.0D, 04-01-96 (F3D.fifo SDK 2.0F)",        GBIUCode::F3D,         { false,  false,  false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3D_NON_SDK_E             = { "2.0D, 04-01-96 (F3D.NoN SDK 2.0E)",         GBIUCode::F3D,         { false,  true,   false,  false,  false } }; // Needs confirmation.
+    const GBIInstance   F3D_NON_SDK_UNKNOWN_D     = { "2.0D, 04-01-96 (F3D.NoN SDK Unknown)",      GBIUCode::Unknown,     { false,  true,   false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3D_NON_SDK_UNKNOWN_G     = { "2.0G, 09-30-96 (F3D.NoN SDK Unknown)",      GBIUCode::F3D,         { false,  true,   false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3D_NON_FIFO_SDK_E        = { "2.0D, 04-01-96 (F3D.NoN.fifo SDK 2.0E)",    GBIUCode::F3D,         { false,  true,   false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3D_BC                    = { "2.0D, 04-01-96 (F3D Blast Corps)",          GBIUCode::F3D,         { false,  false,  false,  false,  false } }; // Needs confirmation.
@@ -81,6 +82,7 @@ namespace RT64 {
     const GBIInstance   F3DTEXA_1_23              = { "F3DTEX/A 1.23",                             GBIUCode::Unknown,     { false,  false,  false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3DEX_NON_0_96            = { "F3DEX.NoN 0.96",                            GBIUCode::F3DEX,       { false,  true,   false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3DEX_NON_1_00            = { "F3DEX.NoN 1.00",                            GBIUCode::F3DEX,       { false,  true,   false,  false,  false } }; // Needs confirmation.
+    const GBIInstance   F3DLX_NON_1_00            = { "F3DLX.NoN 1.00",                            GBIUCode::F3DEX,       { true,   true,   false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3DEX_NON_1_21            = { "F3DEX.NoN 1.21",                            GBIUCode::F3DEX,       { false,  true,   false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3DEX_NON_1_21_A          = { "F3DEX.NoN 1.21 (Variant)",                  GBIUCode::F3DEX,       { false,  true,   false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3DLX_NON_1_21            = { "F3DLX.NoN 1.21",                            GBIUCode::F3DEX,       { true,   true,   false,  false,  false } }; // Needs confirmation.
@@ -158,11 +160,12 @@ namespace RT64 {
     // 
     //                  Length      Hash                    Known instances               
     //     
-    static std::array<GBISegment, 92> textSegments = {
+    static std::array<GBISegment, 94> textSegments = {
             GBISegment{ 0x1408,     0x9C0926F5E466BE70ULL,  { &F3D_SDK_E } }, // Needs confirmation.
             GBISegment{ 0x1400,     0x34EAA6E921BCF1B2ULL,  { &F3D_SDK_F, &F3D_SDK_UNKNOWN_G, &F3D_SDK_UNKNOWN_H } }, // Needs confirmation.
             GBISegment{ 0x1408,     0x3E05E9BBE814C700ULL,  { &F3D_FIFO_SDK_E } }, // Needs confirmation.
             GBISegment{ 0x1428,     0x3343EA81180A60EAULL,  { &F3D_NON_SDK_E } }, // Needs confirmation.
+            GBISegment{ 0x13F8,     0xDF4FFEDA859B3E81ULL,  { &F3D_NON_SDK_UNKNOWN_D } }, // Needs confirmation.
             GBISegment{ 0x1418,     0x8E49F8C85F8D80CBULL,  { &F3D_NON_SDK_UNKNOWN_G } }, // Needs confirmation.
             GBISegment{ 0x1428,     0x048153ADD9701E33ULL,  { &F3D_NON_FIFO_SDK_E } }, // Needs confirmation.
             GBISegment{ 0x1418,     0x4039FC02BC24A2F3ULL,  { &F3D_BC } }, // Needs confirmation.
@@ -189,6 +192,7 @@ namespace RT64 {
             GBISegment{ 0x13C8,     0x9CA29A9ADD6CFC0BULL,  { &F3DLP_1_23_REJ } }, // Needs confirmation.
             GBISegment{ 0x1430,     0xEE7CC90B5F7AB1D9ULL,  { &F3DTEXA_1_23 } }, // Needs confirmation.
             GBISegment{ 0x13C0,     0x600945CCAE7BFEC8ULL,  { &F3DEX_NON_0_96, &F3DEX_NON_1_00 } }, // Needs confirmation.
+            GBISegment{ 0x13E8,     0x5FB61B550CB0D50AULL,  { &F3DLX_NON_1_00 } }, // Needs confirmation.
             GBISegment{ 0x1430,     0x454B7C0482C64F7FULL,  { &F3DEX_NON_1_21, &F3DEX_NON_1_22, &F3DEX_NON_1_23_A } }, // Needs confirmation.
             GBISegment{ 0x1430,     0xB9D3CD38EEE33417ULL,  { &F3DEX_NON_1_21_A } }, // Needs confirmation.
             GBISegment{ 0x1430,     0xB5535AFA4144CE0BULL,  { &F3DLX_NON_1_21, &F3DLX_NON_1_23_A } }, // Needs confirmation.
@@ -253,11 +257,12 @@ namespace RT64 {
             GBISegment{ 0x10B0,     0xE8028E4BC6529E6EULL,  { &ZSORTP_0_33 } }, // Needs confirmation.
     };
 
-    static std::array<GBISegment, 103> dataSegments = {
+    static std::array<GBISegment, 105> dataSegments = {
             GBISegment{ 0x800,      0xEEB10D73400213B3ULL,  { &F3D_SDK_E } }, // Needs confirmation.
             GBISegment{ 0x800,      0x49651E384B48F694ULL,  { &F3D_SDK_F } }, // Needs confirmation.
             GBISegment{ 0x800,      0x1A736198F90E81C5ULL,  { &F3D_SDK_UNKNOWN_G } }, // Needs confirmation.
             GBISegment{ 0x800,      0x1798191D01F4D743ULL,  { &F3D_NON_SDK_E } }, // Needs confirmation.
+            GBISegment{ 0x800,      0x40C193AB87AD57AFULL,  { &F3D_NON_SDK_UNKNOWN_D } }, // Needs confirmation.
             GBISegment{ 0x800,      0xECD447C4539036A6ULL,  { &F3D_NON_SDK_UNKNOWN_G } }, // Needs confirmation.
             GBISegment{ 0x800,      0xE6332A7A1278B05DULL,  { &F3D_NON_FIFO_SDK_E } }, // Needs confirmation.
             GBISegment{ 0x800,      0x6D784F182608475DULL,  { &F3D_SDK_UNKNOWN_H } }, // Needs confirmation.
@@ -291,6 +296,7 @@ namespace RT64 {
             GBISegment{ 0x800,      0x6BF03BD84C267741ULL,  { &F3DTEXA_1_23 } }, // Needs confirmation.
             GBISegment{ 0x800,      0xC3131EA8EB614FE3ULL,  { &F3DEX_NON_0_96 } }, // Needs confirmation.
             GBISegment{ 0x800,      0xD19BE2945518BDA8ULL,  { &F3DEX_NON_1_00 } }, // Needs confirmation.
+            GBISegment{ 0x800,      0x43B301361EBFD848ULL,  { &F3DLX_NON_1_00 } }, // Needs confirmation.
             GBISegment{ 0x800,      0xEACD63EAECAF00B5ULL,  { &F3DEX_NON_1_21, &F3DEX_NON_1_21_A } }, // Needs confirmation.
             GBISegment{ 0x800,      0xA5E20037AB033BE2ULL,  { &F3DLX_NON_1_21 } }, // Needs confirmation.
             GBISegment{ 0x800,      0x2A0468F401EEBDFAULL,  { &F3DEX_NON_1_22 } },
