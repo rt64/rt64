@@ -228,9 +228,12 @@ namespace RT64 {
         shaderLibrary->setupCommonShaders(renderInterface.get(), device.get());
         shaderLibrary->setupMultisamplingShaders(renderInterface.get(), device.get(), multisampling);
         
-        // Create the shader caches. Estimate the amount of shader compiler threads by trying to use about half of the system's available threads.
+        // Create the shader caches.
+        // Estimate the amount of shader compiler threads by trying to use about half of the system's available threads.
+        // We need the ubershader pipelines done as soon as possible, so we use a different thread count that demands more of the system.
         const uint32_t rasterShaderThreads = std::max(threadsAvailable / 2U, 1U);
-        rasterShaderCache = std::make_unique<RasterShaderCache>(rasterShaderThreads);
+        const uint32_t ubershaderThreads = uint32_t(std::max(int(threadsAvailable) - 2, 1));
+        rasterShaderCache = std::make_unique<RasterShaderCache>(rasterShaderThreads, ubershaderThreads);
         rasterShaderCache->setup(device.get(), renderInterface->getCapabilities().shaderFormat, shaderLibrary.get(), multisampling);
 
 #   if RT_ENABLED

@@ -29,12 +29,19 @@ float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
 #endif
 
 LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
-    uint sampleIndex, out float4 resultColor, out float4 resultAlpha, out float resultDepth) 
+    bool isFrontFace, uint sampleIndex, out float4 resultColor, out float4 resultAlpha, out float resultDepth) 
 {
+    const OtherMode otherMode = { rp.omL, rp.omH };
+#if defined(DYNAMIC_RENDER_PARAMS)
+    if ((otherMode.cycleType() != G_CYC_COPY) && renderFlagCulling(rp.flags) && isFrontFace) {
+        resultDepth = vertexPosition.z;
+        return false;
+    }
+#endif
+    
     const uint instanceIndex = instanceRenderIndices[gConstants.renderIndex].instanceIndex;
     const float4 vertexColor = renderFlagSmoothShade(rp.flags) ? vertexSmoothColor : float4(vertexFlatColor.rgb, vertexSmoothColor.a);
     const ColorCombiner colorCombiner = { rp.ccL, rp.ccH };
-    const OtherMode otherMode = { rp.omL, rp.omH };
     const bool depthClampNear = renderFlagNoN(rp.flags);
     const bool depthDecal = (otherMode.zMode() == ZMODE_DEC);
     const bool zSourcePrim = (otherMode.zSource() == G_ZS_PRIM);
@@ -269,6 +276,9 @@ void PSMain(
 #if defined(DYNAMIC_RENDER_PARAMS) || defined(VERTEX_FLAT_COLOR)
     , nointerpolation in float4 vertexFlatColor : COLOR1
 #endif
+#if defined(DYNAMIC_RENDER_PARAMS)
+    , bool isFrontFace : SV_IsFrontFace
+#endif
 #if defined(MULTISAMPLING)
     , in uint sampleIndex : SV_SampleIndex
 #endif
@@ -283,6 +293,7 @@ void PSMain(
 #if !defined(VERTEX_FLAT_COLOR)
     float4 vertexFlatColor = 0.0f;
 #endif
+    bool isFrontFace = false;
 #endif
 #if !defined(MULTISAMPLING)
     uint sampleIndex = 0;
@@ -295,7 +306,7 @@ void PSMain(
     float4 resultColor;
     float4 resultAlpha;
     float resultDepth;
-    if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, sampleIndex, resultColor, resultAlpha, resultDepth)) {
+    if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, isFrontFace, sampleIndex, resultColor, resultAlpha, resultDepth)) {
         discard;
     }
 

@@ -55,6 +55,7 @@ namespace RT64 {
 
         RenderDevice *device;
         std::unique_ptr<RasterShaderUber> shaderUber;
+        OptimizerCacheSPIRV optimizerCacheSPIRV;
         std::mutex submissionMutex;
         std::queue<ShaderDescription> descQueue;
         std::mutex descQueueMutex;
@@ -65,6 +66,7 @@ namespace RT64 {
         std::mutex GPUShadersMutex;
         std::list<std::unique_ptr<CompilationThread>> compilationThreads;
         uint32_t threadCount;
+        uint32_t ubershaderThreadCount;
         RenderShaderFormat shaderFormat;
         std::unique_ptr<ShaderCompiler> shaderCompiler;
         RenderMultisampling multisampling;
@@ -73,7 +75,7 @@ namespace RT64 {
         std::mutex offlineDumperMutex;
         bool usesHDR = false;
         
-        RasterShaderCache(uint32_t threadCount);
+        RasterShaderCache(uint32_t threadCount, uint32_t ubershaderThreadCount);
         ~RasterShaderCache();
         void setup(RenderDevice *device, RenderShaderFormat shaderFormat, const ShaderLibrary *shaderLibrary, const RenderMultisampling &multisampling);
         void submit(const ShaderDescription &desc);
