@@ -4,6 +4,10 @@
 
 #include "rt64_user_configuration.h"
 
+#if RT64_BUILD_PLUGIN
+#   include "api/rt64_api_common.h"
+#endif
+
 #include <iomanip>
 
 namespace RT64 {
@@ -64,7 +68,16 @@ namespace RT64 {
     const int UserConfiguration::ResolutionMultiplierLimit = 32;
 
     UserConfiguration::UserConfiguration() {
+#   ifdef RT64_BUILD_PLUGIN
+        const bool isPJ64 = (RT64::API.apiType == RT64::APIType::Project64);
+        if (isPJ64) {
+            graphicsAPI = DefaultGraphicsAPI;
+        } else {
+            graphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+        }
+#   else
         graphicsAPI = DefaultGraphicsAPI;
+#   endif
         resolution = Resolution::WindowIntegerScale;
         antialiasing = Antialiasing::None;
         resolutionMultiplier = 2.0f;

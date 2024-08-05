@@ -16,6 +16,11 @@
 #   include "res/bluenoise/LDR_64_64_64_RGB1.h"
 #endif
 
+#if RT64_BUILD_PLUGIN
+#   include "api/rt64_api_common.h"
+#endif
+
+//#define TEST_RENDER_INTERFACE
 //#define LOG_DISPLAY_LISTS
 
 namespace RT64 {
@@ -49,7 +54,7 @@ namespace RT64 {
 
     Application::Application(const Core &core, const ApplicationConfiguration &appConfig) {
         Timer::initialize();
-        FileDialog::initialize();
+//        FileDialog::initialize();
 
         this->core = core;
         this->appConfig = appConfig;
@@ -82,7 +87,7 @@ namespace RT64 {
     }
     
     Application::SetupResult Application::setup(uint32_t threadId) {
-#   ifdef _WIN64
+#   if defined(_WIN64) && !defined(RT64_BUILD_PLUGIN)
         if (!DynamicLibraries::load()) {
             fprintf(stderr, "Failed to load dynamic libraries. Make sure the dependencies are next to the Plugin's DLL.\n");
             return SetupResult::Success;
@@ -110,24 +115,11 @@ namespace RT64 {
             }
         }
 #   endif
-
-        // Create the application window.
-        const char *windowTitle = "RT64";
-        appWindow = std::make_unique<ApplicationWindow>();
-        if (core.window != RenderWindow{}) {
-            appWindow->setup(core.window, this, threadId);
-        }
-        else {
-            appWindow->setup(windowTitle, this);
-        }
-
-        // Detect refresh rate from the display the window is located at.
-        appWindow->detectRefreshRate();
         
         // Create a render interface with the preferred backend.
         switch (userConfig.graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12:
-#       ifdef _WIN64
+#       if defined(_WIN64) && !defined(RT64_BUILD_PLUGIN)
             renderInterface = CreateD3D12Interface();
             break;
 #       else
@@ -149,7 +141,34 @@ namespace RT64 {
 
         createdGraphicsAPI = userConfig.graphicsAPI;
 
-        // Create the render device
+#   ifdef TEST_RENDER_INTERFACE
+        // Execute a blocking test that creates a window and draws some geometry to test the render interface.
+        RenderInterfaceTest(renderInterface.get());
+#   endif
+
+#   ifdef RT64_BUILD_PLUGIN
+        const bool isPJ64 = (RT64::API.apiType == RT64::APIType::Project64);
+        if (!isPJ64) {
+            appWindow = std::make_unique<ApplicationWindow>();
+        }
+        else {
+#   endif
+        // Create the application window.
+        const char *windowTitle = "RT64";
+        appWindow = std::make_unique<ApplicationWindow>();
+        if (core.window != RenderWindow{}) {
+            appWindow->setup(core.window, this, threadId);
+        }
+        else {
+            appWindow->setup(windowTitle, this);
+        }
+#   ifdef RT64_BUILD_PLUGIN
+        }
+#   endif
+        // Detect refresh rate from the display the window is located at.
+        appWindow->detectRefreshRate();
+
+        // Create the render device for the window
         device = renderInterface->createDevice();
         if (device == nullptr) {
             fprintf(stderr, "Unable to find compatible graphics device.\n");
@@ -269,7 +288,7 @@ namespace RT64 {
         sharedQueueResources->setEmulatorConfig(emulatorConfig);
         sharedQueueResources->setEnhancementConfig(enhancementConfig);
         sharedQueueResources->setSwapChainSize(swapChain->getWidth(), swapChain->getHeight());
-        sharedQueueResources->setSwapChainRate(appWindow->getRefreshRate());
+        sharedQueueResources->setSwapChainRate(60); // TODO...
         sharedQueueResources->renderTargetManager.setMultisampling(multisampling);
         sharedQueueResources->renderTargetManager.setUsesHDR(usesHDR);
 
