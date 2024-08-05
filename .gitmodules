@@ -55,3 +55,9 @@
 [submodule "src/contrib/re-spirv"]
 	path = src/contrib/re-spirv
 	url = https://github.com/rt64/re-spirv
+[submodule "src/contrib/SPIRV-Tools"]
+	path = src/contrib/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools
+[submodule "src/contrib/SPIRV-Headers"]
+	path = src/contrib/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers
