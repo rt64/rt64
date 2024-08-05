@@ -424,7 +424,7 @@ namespace RT64 {
         scaledWidth = uint32_t(expandedColorWidthClamped);
         scaledHeight = uint32_t(colorHeightClamped);
 
-        const long expandedPixels = std::labs(scaledWidth - nativeColorWidthClamped) / 2;
+        const long expandedPixels = std::labs(long(scaledWidth) - nativeColorWidthClamped) / 2;
         const long nativeAlignment = std::max(lround(resolutionScale.y), 1L);
         misalignmentX = (nativeAlignment - (expandedPixels % nativeAlignment)) % nativeAlignment;
     }
