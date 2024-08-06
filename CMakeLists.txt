@@ -343,7 +343,6 @@ include_directories(
     "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui"
     "${PROJECT_SOURCE_DIR}/src/contrib/hlslpp/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/SPIRV-Tools/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/Vulkan-Headers/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/VulkanMemoryAllocator/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-core/src/api"
