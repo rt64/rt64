@@ -4,7 +4,6 @@
 
 #include "rt64_raster_shader.h"
 
-#include "spirv-tools/optimizer.hpp"
 #include "xxHash/xxh3.h"
 
 #include "shaders/RenderParams.hlsli.rw.h"
@@ -134,28 +133,8 @@ namespace RT64 {
             bool psRun = respv::Optimizer::run(*PS, specConstants.data(), uint32_t(specConstants.size()), optimizedPS);
             assert(vsRun && psRun && "Shader optimization must always succeed as the inputs are always the same.");
 
-            thread_local std::vector<uint32_t> reOptimizedVS;
-            {
-                spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_2);
-                optimizer.RegisterPass(spvtools::CreateCCPPass());
-                optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
-                optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
-                bool vsOpt = optimizer.Run(reinterpret_cast<const uint32_t *>(optimizedVS.data()), optimizedVS.size() / sizeof(uint32_t), &reOptimizedVS, spvtools::ValidatorOptions(), true);
-                assert(vsOpt && "Shader optimization must always succeed as the inputs are always the same.");
-            }
-
-            thread_local std::vector<uint32_t> reOptimizedPS;
-            {
-                spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_2);
-                optimizer.RegisterPass(spvtools::CreateCCPPass());
-                optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
-                optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
-                bool psOpt = optimizer.Run(reinterpret_cast<const uint32_t *>(optimizedPS.data()), optimizedPS.size() / sizeof(uint32_t), &reOptimizedPS, spvtools::ValidatorOptions(), true);
-                assert(psOpt && "Shader optimization must always succeed as the inputs are always the same.");
-            }
-
-            vertexShader = device->createShader(reOptimizedVS.data(), reOptimizedVS.size() * sizeof(uint32_t), "VSMain", shaderFormat);
-            pixelShader = device->createShader(reOptimizedPS.data(), reOptimizedPS.size() * sizeof(uint32_t), "PSMain", shaderFormat);
+            vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
+            pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
         }
         else {
 #       if defined(_WIN32)
