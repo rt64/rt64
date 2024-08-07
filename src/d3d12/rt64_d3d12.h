@@ -27,7 +27,7 @@ namespace RT64 {
     struct D3D12Texture;
 
     struct D3D12DescriptorHeapAllocator {
-        enum {
+        enum : uint32_t {
             INVALID_OFFSET = 0xFFFFFFFFU
         };
 
@@ -105,14 +105,14 @@ namespace RT64 {
 
         D3D12SwapChain(D3D12CommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~D3D12SwapChain() override;
-        bool present() override;
+        bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
         bool resize() override;
         bool needsResize() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
-        uint32_t getTextureIndex() const override;
+        RenderTexture *getTexture(uint32_t textureIndex) override;
         uint32_t getTextureCount() const override;
-        RenderTexture *getTexture(uint32_t index) override;
+        bool acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) override;
         RenderWindow getWindow() const override;
         bool isEmpty() const override;
         uint32_t getRefreshRate() const override;
@@ -203,6 +203,15 @@ namespace RT64 {
         ~D3D12CommandFence() override;
     };
 
+    struct D3D12CommandSemaphore : RenderCommandSemaphore {
+        ID3D12Fence *d3d = nullptr;
+        D3D12Device *device = nullptr;
+        UINT64 semaphoreValue = 0;
+
+        D3D12CommandSemaphore(D3D12Device *device);
+        ~D3D12CommandSemaphore() override;
+    };
+
     struct D3D12CommandQueue : RenderCommandQueue {
         ID3D12CommandQueue *d3d = nullptr;
         D3D12Device *device = nullptr;
@@ -212,7 +221,7 @@ namespace RT64 {
         ~D3D12CommandQueue() override;
         std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) override;
-        void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) override;
+        void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) override;
         void waitForCommandFence(RenderCommandFence *fence) override;
     };
 
@@ -230,6 +239,7 @@ namespace RT64 {
         void *map(uint32_t subresource, const RenderRange *readRange) override;
         void unmap(uint32_t subresource, const RenderRange *writtenRange) override;
         std::unique_ptr<RenderBufferFormattedView> createBufferFormattedView(RenderFormat format) override;
+        void setName(const std::string &name) override;
     };
 
     struct D3D12BufferFormattedView : RenderBufferFormattedView {
@@ -376,7 +386,6 @@ namespace RT64 {
         IDXGIAdapter1 *adapter = nullptr;
         D3D12MA::Allocator *allocator = nullptr;
         D3D_SHADER_MODEL shaderModel = D3D_SHADER_MODEL(0);
-        SIZE_T dedicatedVideoMemory = 0;
         std::unique_ptr<RenderPipelineLayout> rtDummyGlobalPipelineLayout;
         std::unique_ptr<RenderPipelineLayout> rtDummyLocalPipelineLayout;
         std::unique_ptr<D3D12DescriptorHeapAllocator> descriptorHeapAllocator;
@@ -400,6 +409,7 @@ namespace RT64 {
         std::unique_ptr<RenderPool> createPool(const RenderPoolDesc &desc) override;
         std::unique_ptr<RenderPipelineLayout> createPipelineLayout(const RenderPipelineLayoutDesc &desc) override;
         std::unique_ptr<RenderCommandFence> createCommandFence() override;
+        std::unique_ptr<RenderCommandSemaphore> createCommandSemaphore() override;
         std::unique_ptr<RenderFramebuffer> createFramebuffer(const RenderFramebufferDesc &desc) override;
         void setBottomLevelASBuildInfo(RenderBottomLevelASBuildInfo &buildInfo, const RenderBottomLevelASMesh *meshes, uint32_t meshCount, bool preferFastBuild, bool preferFastTrace) override;
         void setTopLevelASBuildInfo(RenderTopLevelASBuildInfo &buildInfo, const RenderTopLevelASInstance *instances, uint32_t instanceCount, bool preferFastBuild, bool preferFastTrace) override;

@@ -124,6 +124,8 @@ namespace RT64 {
         std::unique_ptr<RenderDevice> device;
         std::unique_ptr<RenderCommandQueue> commandQueue;
         std::unique_ptr<RenderCommandList> commandList;
+        std::unique_ptr<RenderCommandSemaphore> acquireSemaphore;
+        std::unique_ptr<RenderCommandSemaphore> drawSemaphore;
         std::unique_ptr<RenderCommandFence> commandFence;
         std::unique_ptr<RenderSwapChain> swapChain;
         std::unique_ptr<RenderFramebuffer> framebuffer;
@@ -180,6 +182,8 @@ namespace RT64 {
         Test.device = renderInterface->createDevice();
         Test.commandQueue = Test.device->createCommandQueue(RenderCommandListType::DIRECT);
         Test.commandList = Test.commandQueue->createCommandList(RenderCommandListType::DIRECT);
+        Test.acquireSemaphore = Test.device->createCommandSemaphore();
+        Test.drawSemaphore = Test.device->createCommandSemaphore();
         Test.commandFence = Test.device->createCommandFence();
 
 #   if ENABLE_SWAP_CHAIN
@@ -625,7 +629,8 @@ namespace RT64 {
         Test.commandList->traceRays(width, height, 1, Test.rtShaderBindingTableBuffer.get(), Test.rtShaderBindingTableInfo.groups);
 #   endif
 #   if ENABLE_SWAP_CHAIN
-        const uint32_t swapChainTextureIndex = Test.swapChain->getTextureIndex();
+        uint32_t swapChainTextureIndex = 0;
+        Test.swapChain->acquireTexture(Test.acquireSemaphore.get(), &swapChainTextureIndex);
         RenderTexture *swapChainTexture = Test.swapChain->getTexture(swapChainTextureIndex);
         RenderFramebuffer *swapFramebuffer = Test.swapFramebuffers[swapChainTextureIndex].get();
         Test.commandList->setViewports(viewport);
@@ -647,9 +652,12 @@ namespace RT64 {
 #   endif
         // End.
         Test.commandList->end();
-        Test.commandQueue->executeCommandLists(Test.commandList.get(), Test.commandFence.get());
+        const RenderCommandList *commandList = Test.commandList.get();
+        RenderCommandSemaphore *waitSemaphore = Test.acquireSemaphore.get();
+        RenderCommandSemaphore *signalSemaphore = Test.drawSemaphore.get();
+        Test.commandQueue->executeCommandLists(&commandList, 1, &waitSemaphore, 1, &signalSemaphore, 1, Test.commandFence.get());
 #   if ENABLE_SWAP_CHAIN
-        Test.swapChain->present();
+        Test.swapChain->present(swapChainTextureIndex, &signalSemaphore, 1);
 #   endif
         Test.commandQueue->waitForCommandFence(Test.commandFence.get());
     }
@@ -686,6 +694,8 @@ namespace RT64 {
         Test.framebuffer.reset(nullptr);
         Test.swapFramebuffers.clear();
         Test.commandList.reset(nullptr);
+        Test.drawSemaphore.reset(nullptr);
+        Test.acquireSemaphore.reset(nullptr);
         Test.commandFence.reset(nullptr);
         Test.swapChain.reset(nullptr);
         Test.commandQueue.reset(nullptr);

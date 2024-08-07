@@ -107,7 +107,7 @@ namespace RT64 {
             currentScript = std::move(scriptLibrary.loadGameScript(scriptAPI.get()));
             if ((currentScript != nullptr) && !currentScript->initialize()) {
                 fprintf(stderr, "Failed to initialize game script.\n");
-                return false;
+                currentScript.reset();
             }
         }
 #   endif
@@ -203,10 +203,12 @@ namespace RT64 {
         drawDataUploader = std::make_unique<BufferUploader>(device.get());
         transformsUploader = std::make_unique<BufferUploader>(device.get());
         tilesUploader = std::make_unique<BufferUploader>(device.get());
+        workloadExtrasUploader = std::make_unique<BufferUploader>(device.get());
         workloadVelocityUploader = std::make_unique<BufferUploader>(device.get());
         workloadTilesUploader = std::make_unique<BufferUploader>(device.get());
         framebufferGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Framebuffer Graphics", RenderCommandListType::DIRECT);
-        textureComputeWorker = std::make_unique<RenderWorker>(device.get(), "Texture Compute", RenderCommandListType::COMPUTE);
+        textureDirectWorker = std::make_unique<RenderWorker>(device.get(), "Texture Direct", RenderCommandListType::DIRECT);
+        textureCopyWorker = std::make_unique<RenderWorker>(device.get(), "Texture Copy", RenderCommandListType::COPY);
         workloadGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Workload Graphics", RenderCommandListType::DIRECT);
         presentGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Present Graphics", RenderCommandListType::DIRECT);
         swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, 2, RenderFormat::B8G8R8A8_UNORM);
@@ -252,16 +254,22 @@ namespace RT64 {
 #   endif
 
         // Create the texture cache.
-        textureCache = std::make_unique<TextureCache>(textureComputeWorker.get(), shaderLibrary.get(), userConfig.developerMode);
+        const uint32_t textureCacheThreads = std::max(threadsAvailable / 4U, 1U);
+        textureCache = std::make_unique<TextureCache>(textureDirectWorker.get(), textureCopyWorker.get(), textureCacheThreads, shaderLibrary.get(), userConfig.developerMode);
+
+        // Compute the approximate pool for texture replacements from the dedicated video memory.
+        const uint64_t MinimumTexturePoolSize = 512 * 1024 * 1024;
+        uint64_t texturePoolSize = std::max((device->getDescription().dedicatedVideoMemory * 2) / 3, MinimumTexturePoolSize);
+        textureCache->setReplacementPoolMaxSize(texturePoolSize);
 
 #   if RT_ENABLED
         // Create the blue noise texture, upload it and wait for it to finish.
         std::unique_ptr<RenderBuffer> blueNoiseUploadBuffer;
-        workloadGraphicsWorker->commandList->begin();
-        TextureCache::setRGBA32(&blueNoiseTexture, workloadGraphicsWorker.get(), LDR_64_64_64_RGB1_BGRA8, int(sizeof(LDR_64_64_64_RGB1_BGRA8)), 512, 512, 512 * 4, blueNoiseUploadBuffer, textureCache->uploadResourcePool.get());
-        workloadGraphicsWorker->commandList->end();
-        workloadGraphicsWorker->execute();
-        workloadGraphicsWorker->wait();
+        {
+            RenderWorkerExecution execution(workloadGraphicsWorker.get());
+            TextureCache::setRGBA32(&blueNoiseTexture, workloadGraphicsWorker->device, workloadGraphicsWorker->commandList.get(), LDR_64_64_64_RGB1_BGRA8, int(sizeof(LDR_64_64_64_RGB1_BGRA8)), 512, 512, 512 * 4, blueNoiseUploadBuffer);
+        }
+
         blueNoiseUploadBuffer.reset();
 #   endif
         
@@ -282,6 +290,7 @@ namespace RT64 {
         WorkloadQueue::External workloadExt;
         workloadExt.device = device.get();
         workloadExt.workloadGraphicsWorker = workloadGraphicsWorker.get();
+        workloadExt.workloadExtrasUploader = workloadExtrasUploader.get();
         workloadExt.workloadVelocityUploader = workloadVelocityUploader.get();
         workloadExt.workloadTilesUploader = workloadTilesUploader.get();
         workloadExt.presentQueue = presentQueue.get();
@@ -331,9 +340,6 @@ namespace RT64 {
         stateExt.createdGraphicsAPI = createdGraphicsAPI;
 #   if RT_ENABLED
         stateExt.rtConfig = &rtConfig;
-#   endif
-#   if SCRIPT_ENABLED
-        stateExt.currentScript = currentScript.get();
 #   endif
         state->setup(stateExt);
 
@@ -452,7 +458,8 @@ namespace RT64 {
 
         switch (message) {
         case WM_KEYDOWN: {
-            if (wParam == VK_F1) {
+            switch (wParam) {
+            case VK_F1: {
                 if (userConfig.developerMode) {
                     const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
                     if (presentQueue->inspector == nullptr) {
@@ -475,20 +482,21 @@ namespace RT64 {
 
                 return true;
             }
-            else if (wParam == VK_F2) {
-#           if RT_ENABLED
-                // Only load the RT pipeline if the device supports it.
-                if (device->getCapabilities().raytracing && !rtShaderCache->isSetup()) {
-                    rtShaderCache->setup();
-                }
-#           endif
-                
+            case VK_F2: {
                 workloadQueue->rtEnabled = !workloadQueue->rtEnabled;
                 return true;
             }
-            else if (wParam == VK_F3) {
+            case VK_F3: {
                 presentQueue->viewRDRAM = !presentQueue->viewRDRAM;
                 return true;
+            }
+            case VK_F4: {
+                textureCache->textureMap.replacementMapEnabled = !textureCache->textureMap.replacementMapEnabled;
+                return true;
+            }
+            default:
+                // Ignore key.
+                break;
             }
         }
         };
@@ -521,6 +529,7 @@ namespace RT64 {
         drawDataUploader.reset();
         transformsUploader.reset();
         tilesUploader.reset();
+        workloadExtrasUploader.reset();
         workloadVelocityUploader.reset();
         workloadTilesUploader.reset();
         sharedQueueResources.reset();
@@ -531,7 +540,8 @@ namespace RT64 {
 #   endif
         textureCache.reset();
         framebufferGraphicsWorker.reset();
-        textureComputeWorker.reset();
+        textureDirectWorker.reset();
+        textureCopyWorker.reset();
         swapChain.reset();
         workloadGraphicsWorker.reset();
         presentGraphicsWorker.reset();

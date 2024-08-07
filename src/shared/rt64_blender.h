@@ -7,6 +7,7 @@
 #include "shared/rt64_hlsl.h"
 
 #include "shared/rt64_other_mode.h"
+#include "shared/rt64_render_flags.h"
 #include "shared/rt64_render_params.h"
 
 #ifdef HLSL_CPU

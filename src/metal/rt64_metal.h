@@ -58,14 +58,14 @@ namespace RT64 {
 
         MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~MetalSwapChain() override;
-        bool present() override;
+        bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
         bool resize() override;
         bool needsResize() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
-        uint32_t getTextureIndex() const override;
+        RenderTexture *getTexture(uint32_t textureIndex) override;
         uint32_t getTextureCount() const override;
-        RenderTexture *getTexture(uint32_t index) override;
+        bool acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) override;
         RenderWindow getWindow() const override;
         bool isEmpty() const override;
         uint32_t getRefreshRate() const override;
@@ -155,6 +155,11 @@ namespace RT64 {
         ~MetalCommandFence() override;
     };
 
+    struct MetalCommandSemaphore : RenderCommandSemaphore {
+        MetalCommandSemaphore(MetalDevice *device);
+        ~MetalCommandSemaphore() override;
+    };
+
     struct MetalCommandQueue : RenderCommandQueue {
 #ifdef __OBJC__
         id<MTLCommandBuffer> buffer = nil;
@@ -166,7 +171,7 @@ namespace RT64 {
         ~MetalCommandQueue() override;
         std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) override;
-        void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) override;
+        void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) override;
         void waitForCommandFence(RenderCommandFence *fence) override;
     };
 
@@ -184,6 +189,7 @@ namespace RT64 {
         void *map(uint32_t subresource, const RenderRange *readRange) override;
         void unmap(uint32_t subresource, const RenderRange *writtenRange) override;
         std::unique_ptr<RenderBufferFormattedView> createBufferFormattedView(RenderFormat format) override;
+        void setName(const std::string &name) override;
     };
 
     struct MetalBufferFormattedView : RenderBufferFormattedView {
@@ -344,6 +350,7 @@ namespace RT64 {
         std::unique_ptr<RenderPool> createPool(const RenderPoolDesc &desc) override;
         std::unique_ptr<RenderPipelineLayout> createPipelineLayout(const RenderPipelineLayoutDesc &desc) override;
         std::unique_ptr<RenderCommandFence> createCommandFence() override;
+        std::unique_ptr<RenderCommandSemaphore> createCommandSemaphore() override;
         std::unique_ptr<RenderFramebuffer> createFramebuffer(const RenderFramebufferDesc &desc) override;
         void setBottomLevelASBuildInfo(RenderBottomLevelASBuildInfo &buildInfo, const RenderBottomLevelASMesh *meshes, uint32_t meshCount, bool preferFastBuild, bool preferFastTrace) override;
         void setTopLevelASBuildInfo(RenderTopLevelASBuildInfo &buildInfo, const RenderTopLevelASInstance *instances, uint32_t instanceCount, bool preferFastBuild, bool preferFastTrace) override;

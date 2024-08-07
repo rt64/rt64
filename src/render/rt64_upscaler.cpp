@@ -2,8 +2,6 @@
 // RT64
 //
 
-#pragma once
-
 #include <cassert>
 
 #include "rt64_upscaler.h"

@@ -6,7 +6,18 @@
 
 #include <unordered_set>
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-undefined-compare"
+#pragma clang diagnostic ignored "-Wswitch"
+#endif
+
 #include "D3D12MemAlloc.cpp"
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+
 #include "utf8conv/utf8conv.h"
 
 #ifndef NDEBUG
@@ -143,6 +154,48 @@ namespace RT64 {
             return DXGI_FORMAT_R8_SNORM;
         case RenderFormat::R8_SINT:
             return DXGI_FORMAT_R8_SINT;
+        case RenderFormat::BC1_TYPELESS:
+            return DXGI_FORMAT_BC1_TYPELESS;
+        case RenderFormat::BC1_UNORM:
+            return DXGI_FORMAT_BC1_UNORM;
+        case RenderFormat::BC1_UNORM_SRGB:
+            return DXGI_FORMAT_BC1_UNORM_SRGB;
+        case RenderFormat::BC2_TYPELESS:
+            return DXGI_FORMAT_BC2_TYPELESS;
+        case RenderFormat::BC2_UNORM:
+            return DXGI_FORMAT_BC2_UNORM;
+        case RenderFormat::BC2_UNORM_SRGB:
+            return DXGI_FORMAT_BC2_UNORM_SRGB;
+        case RenderFormat::BC3_TYPELESS:
+            return DXGI_FORMAT_BC3_TYPELESS;
+        case RenderFormat::BC3_UNORM:
+            return DXGI_FORMAT_BC3_UNORM;
+        case RenderFormat::BC3_UNORM_SRGB:
+            return DXGI_FORMAT_BC3_UNORM_SRGB;
+        case RenderFormat::BC4_TYPELESS:
+            return DXGI_FORMAT_BC4_TYPELESS;
+        case RenderFormat::BC4_UNORM:
+            return DXGI_FORMAT_BC4_UNORM;
+        case RenderFormat::BC4_SNORM:
+            return DXGI_FORMAT_BC4_SNORM;
+        case RenderFormat::BC5_TYPELESS:
+            return DXGI_FORMAT_BC5_TYPELESS;
+        case RenderFormat::BC5_UNORM:
+            return DXGI_FORMAT_BC5_UNORM;
+        case RenderFormat::BC5_SNORM:
+            return DXGI_FORMAT_BC5_SNORM;
+        case RenderFormat::BC6H_TYPELESS:
+            return DXGI_FORMAT_BC6H_TYPELESS;
+        case RenderFormat::BC6H_UF16:
+            return DXGI_FORMAT_BC6H_UF16;
+        case RenderFormat::BC6H_SF16:
+            return DXGI_FORMAT_BC6H_SF16;
+        case RenderFormat::BC7_TYPELESS:
+            return DXGI_FORMAT_BC7_TYPELESS;
+        case RenderFormat::BC7_UNORM:
+            return DXGI_FORMAT_BC7_UNORM;
+        case RenderFormat::BC7_UNORM_SRGB:
+            return DXGI_FORMAT_BC7_UNORM_SRGB;
         default:
             assert(false && "Unknown format.");
             return DXGI_FORMAT_FORCE_UINT;
@@ -257,19 +310,23 @@ namespace RT64 {
             return D3D12_LOGIC_OP_CLEAR;
         }
     }
-
+    
     static D3D12_FILTER toFilter(RenderFilter minFilter, RenderFilter magFilter, RenderMipmapMode mipmapMode, bool anisotropyEnabled, bool comparisonEnabled) {
         assert(minFilter != RenderFilter::UNKNOWN);
         assert(magFilter != RenderFilter::UNKNOWN);
         assert(mipmapMode != RenderMipmapMode::UNKNOWN);
-        
-        uint32_t filterInt = 0;
-        filterInt |= (mipmapMode == RenderMipmapMode::LINEAR) ? 0x1 : 0x0;
-        filterInt |= (magFilter == RenderFilter::LINEAR) ? 0x4 : 0x0;
-        filterInt |= (minFilter == RenderFilter::LINEAR) ? 0x10 : 0x0;
-        filterInt |= anisotropyEnabled ? 0x40 : 0x0;
-        filterInt |= comparisonEnabled ? 0x80 : 0x0;
-        return D3D12_FILTER(filterInt);
+
+        if (anisotropyEnabled) {
+            return comparisonEnabled ? D3D12_FILTER_COMPARISON_ANISOTROPIC : D3D12_FILTER_ANISOTROPIC;
+        }
+        else {
+            uint32_t filterInt = 0;
+            filterInt |= (mipmapMode == RenderMipmapMode::LINEAR) ? 0x1 : 0x0;
+            filterInt |= (magFilter == RenderFilter::LINEAR) ? 0x4 : 0x0;
+            filterInt |= (minFilter == RenderFilter::LINEAR) ? 0x10 : 0x0;
+            filterInt |= comparisonEnabled ? 0x80 : 0x0;
+            return D3D12_FILTER(filterInt);
+        }
     }
 
     static D3D12_TEXTURE_ADDRESS_MODE toD3D12(RenderTextureAddressMode addressMode) {
@@ -543,14 +600,21 @@ namespace RT64 {
         }
         case RenderTextureCopyType::PLACED_FOOTPRINT: {
             const D3D12Buffer *interfaceBuffer = static_cast<const D3D12Buffer *>(location.buffer);
+            const uint32_t blockWidth = RenderFormatBlockWidth(location.placedFootprint.format);
+            const uint32_t blockCount = (location.placedFootprint.rowWidth + blockWidth - 1) / blockWidth;
             loc.pResource = (interfaceBuffer != nullptr) ? interfaceBuffer->d3d : nullptr;
             loc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
             loc.PlacedFootprint.Offset = location.placedFootprint.offset;
             loc.PlacedFootprint.Footprint.Format = toDXGI(location.placedFootprint.format);
-            loc.PlacedFootprint.Footprint.Width = location.placedFootprint.width;
-            loc.PlacedFootprint.Footprint.Height = location.placedFootprint.height;
+            loc.PlacedFootprint.Footprint.Width = ((location.placedFootprint.width + blockWidth - 1) / blockWidth) * blockWidth;
+            loc.PlacedFootprint.Footprint.Height = ((location.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
             loc.PlacedFootprint.Footprint.Depth = location.placedFootprint.depth;
-            loc.PlacedFootprint.Footprint.RowPitch = location.placedFootprint.rowWidth * RenderFormatSize(location.placedFootprint.format);
+            loc.PlacedFootprint.Footprint.RowPitch = blockCount * RenderFormatSize(location.placedFootprint.format);
+
+            // Test for conditions that might not be reported if the hardware doesn't complain about them.
+            assert(((loc.PlacedFootprint.Offset % D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT) == 0) && "Resulting offset must be aligned to 512 bytes in D3D12.");
+            assert(((loc.PlacedFootprint.Footprint.RowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) == 0) && "Resulting row pitch must be aligned to 256 bytes in D3D12.");
+
             break;
         }
         default: {
@@ -590,7 +654,7 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&hostHeap));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -601,7 +665,7 @@ namespace RT64 {
             heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
             res = device->d3d->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&shaderHeap));
             if (FAILED(res)) {
-                fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%X.\n", res);
+                fprintf(stderr, "CreateDescriptorHeap failed with error code 0x%lX.\n", res);
                 return;
             }
 
@@ -1086,13 +1150,13 @@ namespace RT64 {
         IDXGIFactory4 *dxgiFactory = commandQueue->device->renderInterface->dxgiFactory;
         HRESULT res = dxgiFactory->CreateSwapChainForHwnd(commandQueue->d3d, renderWindow, &swapChainDesc, nullptr, nullptr, &swapChain1);
         if (FAILED(res)) {
-            fprintf(stderr, "CreateSwapChainForHwnd failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateSwapChainForHwnd failed with error code 0x%lX.\n", res);
             return;
         }
 
         res = dxgiFactory->MakeWindowAssociation(renderWindow, DXGI_MWA_NO_ALT_ENTER);
         if (FAILED(res)) {
-            fprintf(stderr, "MakeWindowAssociation failed with error code 0x%X.\n", res);
+            fprintf(stderr, "MakeWindowAssociation failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -1129,7 +1193,7 @@ namespace RT64 {
         }
     }
 
-    bool D3D12SwapChain::present() {
+    bool D3D12SwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
         if (waitableObject != NULL) {
             while (WaitForSingleObjectEx(waitableObject, 0, FALSE));
         }
@@ -1154,7 +1218,7 @@ namespace RT64 {
 
         HRESULT res = d3d->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
         if (FAILED(res)) {
-            fprintf(stderr, "ResizeBuffers failed with error code 0x%X.\n", res);
+            fprintf(stderr, "ResizeBuffers failed with error code 0x%lX.\n", res);
             return false;
         }
 
@@ -1197,17 +1261,18 @@ namespace RT64 {
         }
     }
 
-    uint32_t D3D12SwapChain::getTextureIndex() const {
-        return d3d->GetCurrentBackBufferIndex();
+    RenderTexture *D3D12SwapChain::getTexture(uint32_t textureIndex) {
+        return &textures[textureIndex];
     }
 
     uint32_t D3D12SwapChain::getTextureCount() const {
         return textureCount;
     }
 
-    RenderTexture *D3D12SwapChain::getTexture(uint32_t index) {
-        assert(index < textureCount);
-        return &textures[index];
+    bool D3D12SwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
+        assert(textureIndex != nullptr);
+        *textureIndex = d3d->GetCurrentBackBufferIndex();
+        return true;
     }
 
     RenderWindow D3D12SwapChain::getWindow() const {
@@ -1299,13 +1364,13 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateCommandAllocator(commandListType, IID_PPV_ARGS(&commandAllocator));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateCommandAllocator failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateCommandAllocator failed with error code 0x%lX.\n", res);
             return;
         }
 
         res = device->d3d->CreateCommandList(0, commandListType, commandAllocator, nullptr, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateCommandList failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateCommandList failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -1332,7 +1397,10 @@ namespace RT64 {
 
     void D3D12CommandList::end() {
         assert(open);
-        
+
+        // It's required to reset the sample positions before the command list ends.
+        resetSamplePositions();
+
         d3d->Close();
         open = false;
         targetFramebuffer = nullptr;
@@ -1341,7 +1409,6 @@ namespace RT64 {
         activeGraphicsPipelineLayout = nullptr;
         activeGraphicsPipeline = nullptr;
         activeTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
-        activeSamplePositions = false;
         descriptorHeapsSet = false;
     }
     
@@ -1398,16 +1465,15 @@ namespace RT64 {
             }
             
             // MSAA Depth targets with multisampling require separate barriers.
-            const bool msaaDepthTarget = (interfaceTexture->desc.flags && RenderTextureFlag::DEPTH_TARGET) && (interfaceTexture->desc.multisampling.sampleCount > 1);
+            const bool msaaDepthTarget = (interfaceTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) && (interfaceTexture->desc.multisampling.sampleCount > 1);
             if (msaaDepthTarget && interfaceTexture->desc.multisampling.sampleLocationsEnabled) {
                 setSamplePositions(interfaceTexture);
                 d3d->ResourceBarrier(1, &resourceBarrier);
+                resetSamplePositionsRequired = true;
             }
             else {
                 barrierVector.emplace_back(resourceBarrier);
             }
-
-            resetSamplePositionsRequired = resetSamplePositionsRequired || msaaDepthTarget;
         }
 
         if (resetSamplePositionsRequired) {
@@ -1912,7 +1978,7 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateFence failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateFence failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -1927,6 +1993,26 @@ namespace RT64 {
 
         if (fenceEvent != 0) {
             CloseHandle(fenceEvent);
+        }
+    }
+
+    // D3D12CommandSemaphore
+
+    D3D12CommandSemaphore::D3D12CommandSemaphore(D3D12Device *device) {
+        assert(device != nullptr);
+
+        this->device = device;
+
+        HRESULT res = device->d3d->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d));
+        if (FAILED(res)) {
+            fprintf(stderr, "CreateFence failed with error code 0x%lX.\n", res);
+            return;
+        }
+    }
+
+    D3D12CommandSemaphore::~D3D12CommandSemaphore() {
+        if (d3d != nullptr) {
+            d3d->Release();
         }
     }
 
@@ -1960,7 +2046,7 @@ namespace RT64 {
 
         HRESULT res = device->d3d->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateCommandQueue failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateCommandQueue failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -1979,7 +2065,12 @@ namespace RT64 {
         return std::make_unique<D3D12SwapChain>(this, renderWindow, bufferCount, format);
     }
 
-    void D3D12CommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
+    void D3D12CommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
+        for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+            D3D12CommandSemaphore *interfaceSemaphore = static_cast<D3D12CommandSemaphore *>(waitSemaphores[i]);
+            d3d->Wait(interfaceSemaphore->d3d, interfaceSemaphore->semaphoreValue);
+        }
+
         thread_local std::vector<ID3D12CommandList *> executionVector;
         executionVector.clear();
         for (uint32_t i = 0; i < commandListCount; i++) {
@@ -1989,6 +2080,12 @@ namespace RT64 {
 
         if (!executionVector.empty()) {
             d3d->ExecuteCommandLists(UINT(executionVector.size()), executionVector.data());
+        }
+
+        for (uint32_t i = 0; i < signalSemaphoreCount; i++) {
+            D3D12CommandSemaphore *interfaceSemaphore = static_cast<D3D12CommandSemaphore *>(signalSemaphores[i]);
+            interfaceSemaphore->semaphoreValue++;
+            d3d->Signal(interfaceSemaphore->d3d, interfaceSemaphore->semaphoreValue);
         }
         
         if (signalFence != nullptr) {
@@ -2050,7 +2147,7 @@ namespace RT64 {
 
         HRESULT res = device->allocator->CreateResource(&allocationDesc, &resourceDesc, resourceStates, nullptr, &allocation, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateResource failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateResource failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -2086,6 +2183,10 @@ namespace RT64 {
 
     std::unique_ptr<RenderBufferFormattedView> D3D12Buffer::createBufferFormattedView(RenderFormat format) {
         return std::make_unique<D3D12BufferFormattedView>(this, format);
+    }
+
+    void D3D12Buffer::setName(const std::string &name) {
+        setObjectName(d3d, name);
     }
 
     // D3D12BufferFormattedView
@@ -2156,7 +2257,7 @@ namespace RT64 {
 
         HRESULT res = device->allocator->CreateResource(&allocationDesc, &resourceDesc, resourceStates, (desc.optimizedClearValue != nullptr) ? &optimizedClearValue : nullptr, &allocation, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateResource failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateResource failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -2297,7 +2398,7 @@ namespace RT64 {
         this->size = desc.size;
         this->type = desc.type;
 
-        assert((buffer->desc.flags && RenderBufferFlag::ACCELERATION_STRUCTURE) && "Buffer must be enabled for acceleration structures.");
+        assert((buffer->desc.flags & RenderBufferFlag::ACCELERATION_STRUCTURE) && "Buffer must be enabled for acceleration structures.");
     }
 
     D3D12AccelerationStructure::~D3D12AccelerationStructure() { }
@@ -2319,7 +2420,7 @@ namespace RT64 {
 
         HRESULT res = device->allocator->CreatePool(&poolDesc, &d3d);
         if (FAILED(res)) {
-            fprintf(stderr, "CreatePool failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreatePool failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -2371,7 +2472,7 @@ namespace RT64 {
         samplerDesc.AddressV = toD3D12(desc.addressV);
         samplerDesc.AddressW = toD3D12(desc.addressW);
         samplerDesc.MipLODBias = desc.mipLODBias;
-        samplerDesc.MaxAnisotropy = desc.maxAnisotropy;
+        samplerDesc.MaxAnisotropy = desc.anisotropyEnabled ? desc.maxAnisotropy : 1;
         samplerDesc.ComparisonFunc = toD3D12(desc.comparisonFunc);
         samplerDesc.MinLOD = desc.minLOD;
         samplerDesc.MaxLOD = desc.maxLOD;
@@ -2730,21 +2831,21 @@ namespace RT64 {
             const D3D12RaytracingPipeline *previousRaytracingPipeline = static_cast<const D3D12RaytracingPipeline *>(previousPipeline);
             HRESULT res = device->d3d->AddToStateObject(&pipelineDesc, previousRaytracingPipeline->stateObject, IID_PPV_ARGS(&stateObject));
             if (FAILED(res)) {
-                fprintf(stderr, "AddToStateObject failed with error code 0x%X.\n", res);
+                fprintf(stderr, "AddToStateObject failed with error code 0x%lX.\n", res);
                 return;
             }
         }
         else {
             HRESULT res = device->d3d->CreateStateObject(&pipelineDesc, IID_PPV_ARGS(&stateObject));
             if (FAILED(res)) {
-                fprintf(stderr, "CreateStateObject failed with error code 0x%X.\n", res);
+                fprintf(stderr, "CreateStateObject failed with error code 0x%lX.\n", res);
                 return;
             }
         }
 
         HRESULT res = stateObject->QueryInterface(IID_PPV_ARGS(&stateObjectProperties));
         if (FAILED(res)) {
-            fprintf(stderr, "QueryInterface failed with error code 0x%X.\n", res);
+            fprintf(stderr, "QueryInterface failed with error code 0x%lX.\n", res);
             return;
         }
 
@@ -2890,7 +2991,7 @@ namespace RT64 {
 
         res = device->d3d->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateRootSignature failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateRootSignature failed with error code 0x%lX.\n", res);
             return;
         }
     }
@@ -2917,7 +3018,7 @@ namespace RT64 {
             adapterOption->GetDesc1(&adapterDesc);
 
             // Ignore remote or software adapters.
-            if (adapterDesc.Flags & (DXGI_ADAPTER_FLAG_REMOTE || DXGI_ADAPTER_FLAG_SOFTWARE)) {
+            if (adapterDesc.Flags & (DXGI_ADAPTER_FLAG_REMOTE | DXGI_ADAPTER_FLAG_SOFTWARE)) {
                 adapterOption->Release();
                 continue;
             }
@@ -2970,7 +3071,7 @@ namespace RT64 {
 
             // Pick this adapter and device if it has better feature support than the current one.
             bool preferOverNothing = (adapter == nullptr) || (d3d == nullptr);
-            bool preferVideoMemory = adapterDesc.DedicatedVideoMemory > dedicatedVideoMemory;
+            bool preferVideoMemory = adapterDesc.DedicatedVideoMemory > description.dedicatedVideoMemory;
             bool preferUserChoice = false;//wcsstr(adapterDesc.Description, L"AMD") != nullptr;
             bool preferOption = preferOverNothing || preferVideoMemory || preferUserChoice;
             if (preferOption) {
@@ -2989,7 +3090,7 @@ namespace RT64 {
                 capabilities.raytracingStateUpdate = rtStateUpdateSupportOption;
                 capabilities.sampleLocations = samplePositionsOption;
                 description.name = win32::Utf16ToUtf8(adapterDesc.Description);
-                dedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
+                description.dedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
 
                 if (preferUserChoice) {
                     break;
@@ -3013,7 +3114,7 @@ namespace RT64 {
 
         res = D3D12MA::CreateAllocator(&allocatorDesc, &allocator);
         if (FAILED(res)) {
-            fprintf(stderr, "D3D12MA::CreateAllocator failed with error code 0x%X.\n", res);
+            fprintf(stderr, "D3D12MA::CreateAllocator failed with error code 0x%lX.\n", res);
             release();
             return;
         }
@@ -3044,6 +3145,7 @@ namespace RT64 {
                 D3D12_MESSAGE_ID_CREATEGRAPHICSPIPELINESTATE_RENDERTARGETVIEW_NOT_SET,
 #           ifdef D3D12_DEBUG_LAYER_SUPRESS_SAMPLE_POSITIONS_ERROR
                 D3D12_MESSAGE_ID_SAMPLEPOSITIONS_MISMATCH_RECORDTIME_ASSUMEDFROMCLEAR,
+                D3D12_MESSAGE_ID_SAMPLEPOSITIONS_MISMATCH_DEFERRED,
 #           endif
             };
             
@@ -3065,7 +3167,7 @@ namespace RT64 {
         capabilities.scalarBlockLayout = true;
         capabilities.presentWait = true;
         capabilities.maxTextureSize = 16384;
-        capabilities.preferHDR = dedicatedVideoMemory > (512 * 1024 * 1024);
+        capabilities.preferHDR = description.dedicatedVideoMemory > (512 * 1024 * 1024);
 
         // Create descriptor heaps allocator.
         descriptorHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, ShaderDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -3130,6 +3232,10 @@ namespace RT64 {
 
     std::unique_ptr<RenderCommandFence> D3D12Device::createCommandFence() {
         return std::make_unique<D3D12CommandFence>(this);
+    }
+
+    std::unique_ptr<RenderCommandSemaphore> D3D12Device::createCommandSemaphore() {
+        return std::make_unique<D3D12CommandSemaphore>(this);
     }
 
     std::unique_ptr<RenderFramebuffer> D3D12Device::createFramebuffer(const RenderFramebufferDesc &desc) {
@@ -3349,7 +3455,7 @@ namespace RT64 {
 
         HRESULT res = CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&dxgiFactory));
         if (FAILED(res)) {
-            fprintf(stderr, "CreateDXGIFactory2 failed with error code 0x%X.\n", res);
+            fprintf(stderr, "CreateDXGIFactory2 failed with error code 0x%lX.\n", res);
             return;
         }
 

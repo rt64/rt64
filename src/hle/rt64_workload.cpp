@@ -24,7 +24,7 @@ namespace RT64 {
         extended.ditherNoiseStrength = 1.0f;
 
         commandWarnings.clear();
-        scriptLights.clear();
+        pointLights.clear();
         fbChangePool.reset();
         fbStorage.reset();
         physicalAddressTransformMap.clear();
@@ -199,7 +199,6 @@ namespace RT64 {
             { drawData.faceIndices.data(), drawRanges.faceIndices, sizeof(uint32_t), RenderBufferFlag::INDEX | RenderBufferFlag::STORAGE | rtInputFlag, { }, &drawBuffers.faceIndicesBuffer },
             { drawData.modifyPosUints.data(), drawRanges.modifyPosUints, sizeof(uint32_t), RenderBufferFlag::FORMATTED, { RenderFormat::R32_UINT }, &drawBuffers.modifyPosUintsBuffer },
             { drawData.rdpParams.data(), drawRanges.rdpParams, sizeof(interop::RDPParams), RenderBufferFlag::STORAGE, { }, &drawBuffers.rdpParamsBuffer },
-            { drawData.extraParams.data(), drawRanges.extraParams, sizeof(interop::ExtraParams), RenderBufferFlag::STORAGE, { }, &drawBuffers.extraParamsBuffer },
             { drawData.renderParams.data(), drawRanges.renderParams, sizeof(interop::RenderParams), RenderBufferFlag::STORAGE, { }, &drawBuffers.renderParamsBuffer },
             { drawData.rdpTiles.data(), drawRanges.rdpTiles, sizeof(interop::RDPTile), RenderBufferFlag::STORAGE, {}, &drawBuffers.rdpTilesBuffer },
             { drawData.rspViewports.data(), drawRanges.rspViewports, sizeof(interop::RSPViewport), RenderBufferFlag::STORAGE, { }, &drawBuffers.rspViewportsBuffer },

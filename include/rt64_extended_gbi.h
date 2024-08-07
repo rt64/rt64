@@ -72,7 +72,8 @@
 #define G_EX_PUSHGEOMETRYMODE_V1        0x000029
 #define G_EX_POPGEOMETRYMODE_V1         0x00002A
 #define G_EX_SETDITHERNOISESTRENGTH_V1  0x00002B
-#define G_EX_MAX                        0x00002C
+#define G_EX_SETRDRAMEXTENDED_V1        0x00002C
+#define G_EX_MAX                        0x00002D
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -506,6 +507,12 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETDITHERNOISESTRENGTH_V1, 24, 0), \
         PARAM((value) * 1024, 16, 0) \
+    )
+
+#define gEXSetRDRAMExtended(cmd, isExtended) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETRDRAMEXTENDED_V1, 24, 0), \
+        PARAM(isExtended, 1, 0) \
     )
 
 #endif // RT64_EXTENDED_GBI

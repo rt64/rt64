@@ -55,6 +55,7 @@ int main(int argc, const char** argv) {
     // Write the C file with the array
     {
         std::ofstream output_c_file{output_c_path};
+        output_c_file << "extern const char " << array_name << "[" << contents.size() << "];\n";
         output_c_file << "const char " << array_name << "[" << contents.size() << "] = {";
 
         for (char x : contents) {

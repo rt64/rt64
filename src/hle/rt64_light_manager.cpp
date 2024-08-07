@@ -8,7 +8,7 @@
 
 #include "rt64_state.h"
 
-//#define ENABLE_AUTOMATIC_POINT_LIGHTS
+#define ENABLE_AUTOMATIC_POINT_LIGHTS 0
 
 namespace RT64 {
     void LightManager::reset() {
@@ -19,7 +19,7 @@ namespace RT64 {
     }
 
     void LightManager::processPointLight(State *state, const uint8_t lightIndex) {
-#ifdef ENABLE_AUTOMATIC_POINT_LIGHTS
+#if ENABLE_AUTOMATIC_POINT_LIGHTS
         assert(false && "Check point lighting.");
         const uint8_t *data = state->rsp->lights[lightIndex].data;
         uint8_t colr = data[swappedOffset(0)];
@@ -109,7 +109,7 @@ namespace RT64 {
         hlslpp::float3 sunCol = { 0.8f, 0.7f, 0.6f };
         float biggestIntensity = 0;
         int biggestDirLight = -1;
-        for (int i = 0; i < directionalLights.size(); i++) {
+        for (size_t i = 0; i < directionalLights.size(); i++) {
             if (directionalLights[i].intensityTotal > biggestIntensity) {
                 biggestDirLight = i;
                 biggestIntensity = directionalLights[i].intensityTotal;

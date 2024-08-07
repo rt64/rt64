@@ -58,8 +58,8 @@ namespace RT64 {
     };
 
     struct RasterShaderUber {
-        static const uint64_t RasterVSTextHash;
-        static const uint64_t RasterPSTextHash;
+        static const uint64_t RasterVSLibraryHash;
+        static const uint64_t RasterPSLibraryHash;
 
         std::unique_ptr<RenderPipeline> pipelines[64];
         std::unique_ptr<RenderPipeline> postBlendDitherNoiseAddPipeline;

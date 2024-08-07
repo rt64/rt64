@@ -20,6 +20,7 @@ namespace RT64 {
         virtual void *map(uint32_t subresource = 0, const RenderRange *readRange = nullptr) = 0;
         virtual void unmap(uint32_t subresource = 0, const RenderRange *writtenRange = nullptr) = 0;
         virtual std::unique_ptr<RenderBufferFormattedView> createBufferFormattedView(RenderFormat format) = 0;
+        virtual void setName(const std::string &name) = 0;
 
         // Concrete implementation shortcuts.
         inline RenderBufferReference at(uint64_t offset) const {
@@ -58,6 +59,14 @@ namespace RT64 {
         virtual ~RenderPipelineLayout() { }
     };
 
+    struct RenderCommandFence {
+        virtual ~RenderCommandFence() { }
+    };
+
+    struct RenderCommandSemaphore {
+        virtual ~RenderCommandSemaphore() { }
+    };
+
     struct RenderDescriptorSet {
         // Descriptor indices correspond to the index assuming the descriptor set is one contiguous array. They DO NOT correspond to the bindings, which can be sparse.
         // User code should derive these indices on its own by looking at the order the bindings were assigned during set creation along with the descriptor count and
@@ -71,14 +80,14 @@ namespace RT64 {
 
     struct RenderSwapChain {
         virtual ~RenderSwapChain() { }
-        virtual bool present() = 0;
+        virtual bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) = 0;
         virtual bool resize() = 0;
         virtual bool needsResize() const = 0;
         virtual uint32_t getWidth() const = 0;
         virtual uint32_t getHeight() const = 0;
-        virtual uint32_t getTextureIndex() const = 0;
+        virtual RenderTexture *getTexture(uint32_t textureIndex) = 0;
         virtual uint32_t getTextureCount() const = 0;
-        virtual RenderTexture *getTexture(uint32_t index) = 0;
+        virtual bool acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) = 0;
         virtual RenderWindow getWindow() const = 0;
         virtual bool isEmpty() const = 0;
 
@@ -156,6 +165,10 @@ namespace RT64 {
             barriers(stages, nullptr, 0, textureBarriers.data(), uint32_t(textureBarriers.size()));
         }
 
+        inline void barriers(RenderBarrierStages stages, const std::vector<RenderBufferBarrier> &bufferBarriers, const std::vector<RenderTextureBarrier> &textureBarriers) {
+            barriers(stages, bufferBarriers.data(), uint32_t(bufferBarriers.size()), textureBarriers.data(), uint32_t(textureBarriers.size()));
+        }
+
         inline void setViewports(const RenderViewport &viewport) {
             setViewports(&viewport, 1);
         }
@@ -165,20 +178,16 @@ namespace RT64 {
         }
     };
 
-    struct RenderCommandFence {
-        virtual ~RenderCommandFence() { }
-    };
-
     struct RenderCommandQueue {
         virtual ~RenderCommandQueue() { }
         virtual std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) = 0;
         virtual std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) = 0;
-        virtual void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence = nullptr) = 0;
+        virtual void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores = nullptr, uint32_t waitSemaphoreCount = 0, RenderCommandSemaphore **signalSemaphores = nullptr, uint32_t signalSemaphoreCount = 0, RenderCommandFence *signalFence = nullptr) = 0;
         virtual void waitForCommandFence(RenderCommandFence *fence) = 0;
 
         // Concrete implementation shortcuts.
-        inline void executeCommandLists(const RenderCommandList *commandLists, RenderCommandFence *signalFence = nullptr) {
-            executeCommandLists(&commandLists, 1, signalFence);
+        inline void executeCommandLists(const RenderCommandList *commandList, RenderCommandFence *signalFence = nullptr) {
+            executeCommandLists(&commandList, 1, nullptr, 0, nullptr, 0, signalFence);
         }
     };
 
@@ -203,6 +212,7 @@ namespace RT64 {
         virtual std::unique_ptr<RenderPool> createPool(const RenderPoolDesc &desc) = 0;
         virtual std::unique_ptr<RenderPipelineLayout> createPipelineLayout(const RenderPipelineLayoutDesc &desc) = 0;
         virtual std::unique_ptr<RenderCommandFence> createCommandFence() = 0;
+        virtual std::unique_ptr<RenderCommandSemaphore> createCommandSemaphore() = 0;
         virtual std::unique_ptr<RenderFramebuffer> createFramebuffer(const RenderFramebufferDesc &desc) = 0;
         virtual void setBottomLevelASBuildInfo(RenderBottomLevelASBuildInfo &buildInfo, const RenderBottomLevelASMesh *meshes, uint32_t meshCount, bool preferFastBuild = true, bool preferFastTrace = false) = 0;
         virtual void setTopLevelASBuildInfo(RenderTopLevelASBuildInfo &buildInfo, const RenderTopLevelASInstance *instances, uint32_t instanceCount, bool preferFastBuild = true, bool preferFastTrace = false) = 0;

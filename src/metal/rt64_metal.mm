@@ -349,6 +349,10 @@ namespace RT64 {
         return std::make_unique<MetalBufferFormattedView>(this, format);
     }
 
+    void MetalBuffer::setName(const std::string &name) {
+
+    }
+
     // MetalBufferFormattedView
 
     MetalBufferFormattedView::MetalBufferFormattedView(RT64::MetalBuffer *buffer, RT64::RenderFormat format) {
@@ -653,7 +657,7 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
-    bool MetalSwapChain::present() {
+    bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
         // TODO: Unimplemented.
         return false;
     }
@@ -676,19 +680,19 @@ namespace RT64 {
         return layer.frame.size.height;
     }
 
-    uint32_t MetalSwapChain::getTextureIndex() const {
+    RenderTexture *MetalSwapChain::getTexture(uint32_t textureIndex) {
         // TODO: Unimplemented.
-        return 0;
+        return nullptr;
+    }
+
+    bool MetalSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
+        // TODO: Unimplemented.
+        return false;
     }
 
     uint32_t MetalSwapChain::getTextureCount() const {
         // TODO: Unimplemented.
         return 0;
-    }
-
-    RenderTexture *MetalSwapChain::getTexture(uint32_t index) {
-        // TODO: Unimplemented.
-        return nullptr;
     }
 
     RenderWindow MetalSwapChain::getWindow() const {
@@ -1110,6 +1114,16 @@ namespace RT64 {
         // TODO: Should be handled by ARC
     }
 
+    // MetalCommandSemaphore
+
+    MetalCommandSemaphore::MetalCommandSemaphore(MetalDevice *device) {
+        // TODO: Unimplemented.
+    }
+
+    MetalCommandSemaphore::~MetalCommandSemaphore() {
+        // TODO: Unimplemented.
+    }
+
     // MetalCommandQueue
 
     MetalCommandQueue::MetalCommandQueue(MetalDevice *device, RenderCommandListType commandListType) {
@@ -1132,7 +1146,7 @@ namespace RT64 {
         return std::make_unique<MetalSwapChain>(this, renderWindow, bufferCount, format);
     }
 
-    void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
+    void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
 
@@ -1222,6 +1236,10 @@ namespace RT64 {
 
     std::unique_ptr<RenderCommandFence> MetalDevice::createCommandFence() {
         return std::make_unique<MetalCommandFence>(this);
+    }
+
+    std::unique_ptr<RenderCommandSemaphore> MetalDevice::createCommandSemaphore() {
+        return std::make_unique<MetalCommandSemaphore>(this);
     }
 
     std::unique_ptr<RenderFramebuffer> MetalDevice::createFramebuffer(const RenderFramebufferDesc &desc) {

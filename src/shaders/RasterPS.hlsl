@@ -8,6 +8,7 @@
 
 #include "Depth.hlsli"
 #include "FbRendererCommon.hlsli"
+#include "Library.hlsli"
 #include "Random.hlsli"
 #include "TextureSampler.hlsli"
 
@@ -19,7 +20,7 @@ Texture2DMS<float> gBackgroundDepth : register(t2, space3);
 float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
     return gBackgroundDepth.Load(pixelPos, sampleIndex);
 }
-#elif defined(DYNAMIC_RENDER_PARAMS) || defined(SPEC_CONSTANT_RENDER_PARAMS)
+#elif defined(DYNAMIC_RENDER_PARAMS) || defined(SPEC_CONSTANT_RENDER_PARAMS) || defined(LIBRARY)
 Texture2D<float> gBackgroundDepth : register(t2, space3);
 
 float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
@@ -27,8 +28,8 @@ float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
 }
 #endif
 
-void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
-    uint sampleIndex, inout float4 resultColor, inout float4 resultAlpha, out float resultDepth) 
+LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
+    uint sampleIndex, out float4 resultColor, out float4 resultAlpha, out float resultDepth) 
 {
     const uint instanceIndex = instanceRenderIndices[gConstants.renderIndex].instanceIndex;
     const float4 vertexColor = renderFlagSmoothShade(rp.flags) ? vertexSmoothColor : float4(vertexFlatColor.rgb, vertexSmoothColor.a);
@@ -54,14 +55,14 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
         if (depthClampNear || depthDecal) {
             // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
             if (resultDepth > 1.0f) {
-                discard;
+                return false;
             }
         }
 #ifdef DYNAMIC_RENDER_PARAMS
         // We emulate depth clip on the dynamic version of the shader.
         else if (!renderFlagNoN(rp.flags)) {
             if ((resultDepth < 0.0f) || (resultDepth > 1.0f)) {
-                discard;
+                return false;
             }
         }
 #endif
@@ -82,7 +83,7 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
                 resultDepth = surfaceDepth;
             }
             else {
-                discard;
+                return false;
             }
         }
     }
@@ -109,7 +110,6 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
     
     computeLOD(otherMode, instanceRenderIndices[gConstants.renderIndex].rdpTileCount, instanceRDPParams[instanceIndex].primLOD, lodScale, ddxuvx, ddyuvy, tileIndex0, tileIndex1, lodFraction);
 
-    const bool oneCycleHardwareBug = (otherMode.cycleType() == G_CYC_1CYCLE);
     float4 texVal0 = float4(0.0f, 0.0f, 0.0f, 1.0f);
     float4 texVal1 = float4(0.0f, 0.0f, 0.0f, 1.0f);
     if (renderFlagUsesTexture0(rp.flags)) {
@@ -118,27 +118,30 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
         if (!renderFlagDynamicTiles(rp.flags)) {
             rdpTile.cms = renderCMS0(rp.flags);
             rdpTile.cmt = renderCMT0(rp.flags);
+            rdpTile.nativeSampler = renderFlagNativeSampler0(rp.flags);
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
         const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
-        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, diffuseTexIndex, rdpTile, gpuTile, false);
+        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, false);
     }
     
     if (renderFlagUsesTexture1(rp.flags)) {
-        const bool oneCycleBug = renderFlagOneCycleHardwareBug(rp.flags);
-        const uint globalTileIndex = instanceRenderIndices[gConstants.renderIndex].rdpTileIndex + (oneCycleBug ? tileIndex0 : tileIndex1);
+        const bool oneCycleHardwareBug = (otherMode.cycleType() == G_CYC_1CYCLE);
+        const uint globalTileIndex = instanceRenderIndices[gConstants.renderIndex].rdpTileIndex + (oneCycleHardwareBug ? tileIndex0 : tileIndex1);
         RDPTile rdpTile = RDPTiles[globalTileIndex];
         if (!renderFlagDynamicTiles(rp.flags)) {
-            rdpTile.cms = oneCycleBug ? renderCMS0(rp.flags) : renderCMS1(rp.flags);
-            rdpTile.cmt = oneCycleBug ? renderCMT0(rp.flags) : renderCMT1(rp.flags);
+            rdpTile.cms = oneCycleHardwareBug ? renderCMS0(rp.flags) : renderCMS1(rp.flags);
+            rdpTile.cmt = oneCycleHardwareBug ? renderCMT0(rp.flags) : renderCMT1(rp.flags);
+            rdpTile.nativeSampler = oneCycleHardwareBug ? renderFlagNativeSampler0(rp.flags) : renderFlagNativeSampler1(rp.flags);
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
         const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
-        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, diffuseTexIndex, rdpTile, gpuTile, oneCycleBug);
+        const uint nativeSampler = renderFlagNativeSampler1(rp.flags);
+        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, oneCycleHardwareBug);
     }
     
     // Color combiner.
@@ -182,12 +185,12 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
     // Alpha compare.
     if (otherMode.alphaCompare() == G_AC_DITHER) {
         if (alphaCompareValue < nextRand(randomSeed)) {
-            discard;
+            return false;
         }
     }
     else if (otherMode.alphaCompare() == G_AC_THRESHOLD) {
         if (alphaCompareValue < instanceRDPParams[instanceIndex].blendColor.a) {
-            discard;
+            return false;
         }
     }
     
@@ -199,7 +202,7 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
     // Discard all pixels without coverage.
     const float CoverageThreshold = 1.0f / cvgRange;
     if (resultCvg < CoverageThreshold) {
-        discard;
+        return false;
     }
     
     // Add the blender if it can be replicated with simple emulation.
@@ -239,12 +242,14 @@ void RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, fl
         float4 highlightColor = RGBA32ToFloat4(highlightColorUint);
         resultColor = lerp(resultColor, highlightColor, highlightColor.a);
     }
-
+    
 #ifdef DYNAMIC_RENDER_PARAMS
     if (FrParams.viewUbershaders) {
         resultColor.rgb = lerp(resultColor.rgb, float3(1.0f, 0.0f, 0.0f), 0.5f);
     }
 #endif
+    
+    return true;
 }
 
 #if defined(DYNAMIC_RENDER_PARAMS)
@@ -267,19 +272,16 @@ void PSMain(
 #if defined(MULTISAMPLING)
     , in uint sampleIndex : SV_SampleIndex
 #endif
-    , [[vk::location(0)]] [[vk::index(0)]] out float4 resultColor : SV_TARGET0
-    , [[vk::location(0)]] [[vk::index(1)]] out float4 resultAlpha : SV_TARGET1
+    , [[vk::location(0)]] [[vk::index(0)]] out float4 pixelColor : SV_TARGET0
+    , [[vk::location(0)]] [[vk::index(1)]] out float4 pixelAlpha : SV_TARGET1
 #if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
-    , out float resultDepth : SV_DEPTH
+    , out float pixelDepth : SV_DEPTH
 #endif
 )
 {
 #if !defined(DYNAMIC_RENDER_PARAMS)
 #if !defined(VERTEX_FLAT_COLOR)
-    float4 vertexFlatColor;
-#endif
-#if !defined(OUTPUT_DEPTH)
-    float resultDepth;
+    float4 vertexFlatColor = 0.0f;
 #endif
 #endif
 #if !defined(MULTISAMPLING)
@@ -290,6 +292,17 @@ void PSMain(
 #else
     const bool outputDepth = false;
 #endif
-    RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, sampleIndex, resultColor, resultAlpha, resultDepth);
+    float4 resultColor;
+    float4 resultAlpha;
+    float resultDepth;
+    if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, sampleIndex, resultColor, resultAlpha, resultDepth)) {
+        discard;
+    }
+
+    pixelColor = resultColor;
+    pixelAlpha = resultAlpha;
+#if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
+    pixelDepth = resultDepth;
+#endif
 }
 #endif

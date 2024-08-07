@@ -221,7 +221,10 @@ namespace RT64 {
         void reset();
         Projection::Type getCurrentProjectionType() const;
         void addCurrentProjection(Projection::Type type);
+        template<uint32_t mask> uint32_t maskPhysicalAddress(uint32_t address);
         uint32_t fromSegmented(uint32_t segAddress);
+        uint32_t fromSegmentedMasked(uint32_t segAddress);
+        uint32_t fromSegmentedMaskedPD(uint32_t segAddress);
         void setSegment(uint32_t seg, uint32_t address);
         void matrix(uint32_t address, uint8_t params);
         void popMatrix(uint32_t count);
@@ -232,9 +235,9 @@ namespace RT64 {
         void computeModelViewProj();
         void specialComputeModelViewProj();
         void setModelViewProjChanged(bool changed);
-        void setVertex(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
-        void setVertexPD(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
-        void setVertexEXV1(uint32_t address, uint8_t vtxCount, uint8_t dstIndex);
+        void setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
+        void setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
+        void setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
         void setVertexColorPD(uint32_t address);
         template<bool addEmptyVelocity>
         void setVertexCommon(uint8_t dstIndex, uint8_t dstMax);
@@ -276,6 +279,7 @@ namespace RT64 {
         void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup);
         void popMatrixId(uint8_t count, bool proj);
         void forceBranch(bool force);
+        void extendRDRAM(bool isExtended);
         void clearExtended();
         void setGBI(GBI *gbi);
     };

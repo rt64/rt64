@@ -6,6 +6,7 @@
 
 #include "xxHash/xxh3.h"
 
+#include "shaders/RenderParams.hlsli.rw.h"
 #ifndef __APPLE__
 #   include "shaders/RasterPSDynamic.hlsl.spirv.h"
 #   include "shaders/RasterPSDynamicMS.hlsl.spirv.h"
@@ -22,6 +23,9 @@
 #   include "shaders/PostBlendDitherNoiseSubPS.hlsl.spirv.h"
 #endif
 #ifdef _WIN32
+#   include "shaders/RasterPSLibrary.hlsl.dxil.h"
+#   include "shaders/RasterPSLibraryMS.hlsl.dxil.h"
+#   include "shaders/RasterVSLibrary.hlsl.dxil.h"
 #   include "shaders/RasterPSDynamic.hlsl.dxil.h"
 #   include "shaders/RasterPSDynamicMS.hlsl.dxil.h"
 #   include "shaders/RasterVSDynamic.hlsl.dxil.h"
@@ -42,17 +46,12 @@
 #   include "shaders/PostBlendDitherNoiseAddPS.hlsl.metallib.h"
 #   include "shaders/PostBlendDitherNoiseSubPS.hlsl.metallib.h"
 #endif
-#include "shaders/RasterPS.hlsl.rw.h"
-#include "shaders/RasterVS.hlsl.rw.h"
 #include "shared/rt64_raster_params.h"
 
 #include "rt64_descriptor_sets.h"
 #include "rt64_render_target.h"
 
 namespace RT64 {
-    static const std::string RasterPSString(reinterpret_cast<const char *>(RasterPSText), sizeof(RasterPSText));
-    static const std::string RasterVSString(reinterpret_cast<const char *>(RasterVSText), sizeof(RasterVSText));
-     
     static const RenderFormat RasterPositionFormat = RenderFormat::R32G32B32A32_FLOAT;
     static const RenderFormat RasterTexcoordFormat = RenderFormat::R32G32_FLOAT;
     static const RenderFormat RasterColorFormat = RenderFormat::R32G32B32A32_FLOAT;
@@ -197,12 +196,27 @@ namespace RT64 {
                 RasterShaderText shaderText = generateShaderText(desc, useMSAA);
 
                 // Compile both shaders from text with the constants hard-coded in.
-                IDxcBlob *blobVS, *blobPS;
-                const std::wstring VertexShaderName = L"VSMain";
-                shaderCompiler->compile(shaderText.vertexShader, VertexShaderName, L"vs_6_3", shaderFormat, &blobVS);
+                static const wchar_t *blobVSLibraryNames[] = { L"RasterVSEntry", L"RasterVSLibrary" };
+                static const wchar_t *blobPSLibraryNames[] = { L"RasterPSEntry", L"RasterPSLibrary" };
+                IDxcBlob *blobVSLibraries[] = { nullptr, nullptr };
+                IDxcBlob *blobPSLibraries[] = { nullptr, nullptr };
+                shaderCompiler->dxcUtils->CreateBlobFromPinned(RasterVSLibraryBlobDXIL, sizeof(RasterVSLibraryBlobDXIL), DXC_CP_ACP, (IDxcBlobEncoding **)(&blobVSLibraries[1]));
 
+                const void *PSLibraryBlob = useMSAA ? RasterPSLibraryMSBlobDXIL : RasterPSLibraryBlobDXIL;
+                uint32_t PSLibraryBlobSize = useMSAA ? sizeof(RasterPSLibraryMSBlobDXIL) : sizeof(RasterPSLibraryBlobDXIL);
+                shaderCompiler->dxcUtils->CreateBlobFromPinned(PSLibraryBlob, PSLibraryBlobSize, DXC_CP_ACP, (IDxcBlobEncoding **)(&blobPSLibraries[1]));
+                
+                // Compile both the vertex and pixel shader functions as libraries.
+                const std::wstring VertexShaderName = L"VSMain";
                 const std::wstring PixelShaderName = L"PSMain";
-                shaderCompiler->compile(shaderText.pixelShader, PixelShaderName, L"ps_6_3", shaderFormat, &blobPS);
+                shaderCompiler->compile(shaderText.vertexShader, VertexShaderName, L"lib_6_3", shaderFormat, &blobVSLibraries[0]);
+                shaderCompiler->compile(shaderText.pixelShader, PixelShaderName, L"lib_6_3", shaderFormat, &blobPSLibraries[0]);
+
+                // Link the vertex and pixel shaders with the libraries that define their main functions.
+                IDxcBlob *blobVS = nullptr;
+                IDxcBlob *blobPS = nullptr;
+                shaderCompiler->link(VertexShaderName, L"vs_6_3", blobVSLibraries, blobVSLibraryNames, std::size(blobVSLibraries), &blobVS);
+                shaderCompiler->link(PixelShaderName, L"ps_6_3", blobPSLibraries, blobPSLibraryNames, std::size(blobPSLibraries), &blobPS);
 
                 vertexShader = device->createShader(blobVS->GetBufferPointer(), blobVS->GetBufferSize(), "VSMain", shaderFormat);
                 pixelShader = device->createShader(blobPS->GetBufferPointer(), blobPS->GetBufferSize(), "PSMain", shaderFormat);
@@ -217,6 +231,10 @@ namespace RT64 {
                 }
 
                 // Blobs can be discarded once the shaders are created.
+                blobVSLibraries[0]->Release();
+                blobVSLibraries[1]->Release();
+                blobPSLibraries[0]->Release();
+                blobPSLibraries[1]->Release();
                 blobPS->Release();
                 blobVS->Release();
             }
@@ -252,9 +270,11 @@ namespace RT64 {
 
         // Generate vertex shader.
         std::stringstream vss;
-        vss << RasterVSString;
+        vss << std::string_view(RenderParamsText, sizeof(RenderParamsText));
         vss << "RenderParams getRenderParams() {" + renderParamsCode + "; return rp; }";
         vss <<
+            "void RasterVS(const RenderParams, in float4, in float2, in float4, out float4, out float2, out float4, out float4);"
+            "[shader(\"vertex\")]"
             "void VSMain("
             "   in float4 iPosition : POSITION,"
             "   in float2 iUV : TEXCOORD,"
@@ -276,20 +296,11 @@ namespace RT64 {
 
         // Generate pixel shader.
         std::stringstream pss;
-        if (multisampling) {
-            pss << 
-                "Texture2DMS<float> gBackgroundDepth : register(t2, space3);"
-                "float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) { return gBackgroundDepth.Load(pixelPos, sampleIndex); }";
-        }
-        else {
-            pss <<
-                "Texture2D<float> gBackgroundDepth : register(t2, space3);"
-                "float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) { return gBackgroundDepth.Load(int3(pixelPos, 0)); }";
-        }
-
-        pss << RasterPSString;
+        pss << std::string_view(RenderParamsText, sizeof(RenderParamsText));
         pss << "RenderParams getRenderParams() {" + renderParamsCode + "; return rp; }";
         pss <<
+            "bool RasterPS(const RenderParams, bool, float4, float2, float4, float4, uint, out float4, out float4, out float);"
+            "[shader(\"pixel\")]"
             "void PSMain("
             "  in float4 vertexPosition : SV_POSITION"
             ", in float2 vertexUV : TEXCOORD"
@@ -304,18 +315,15 @@ namespace RT64 {
         }
 
         pss <<
-            ", [[vk::location(0)]] [[vk::index(0)]] out float4 resultColor : SV_TARGET0"
-            ", [[vk::location(0)]] [[vk::index(1)]] out float4 resultAlpha : SV_TARGET1";
+            ", out float4 pixelColor : SV_TARGET0"
+            ", out float4 pixelAlpha : SV_TARGET1";
 
         if (desc.outputDepth(multisampling)) {
-            pss << ", out float resultDepth : SV_DEPTH";
-        }
-
-        if (desc.outputDepth(multisampling)) {
-            pss << ") { bool outputDepth = true;";
+            pss <<
+                ", out float pixelDepth : SV_DEPTH) { bool outputDepth = true;";
         }
         else {
-            pss << ") { float resultDepth; bool outputDepth = false;";
+            pss << ") { bool outputDepth = false;";
         }
         
         if (desc.flags.smoothShade) {
@@ -325,10 +333,20 @@ namespace RT64 {
         if (!multisampling) {
             pss << "uint sampleIndex = 0;";
         }
-
+        
         pss <<
-            "   RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, sampleIndex, resultColor, resultAlpha, resultDepth);"
-            "}";
+            "   float4 resultColor;"
+            "   float4 resultAlpha;"
+            "   float resultDepth;"
+            "   if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, sampleIndex, resultColor, resultAlpha, resultDepth)) discard;"
+            "   pixelColor = resultColor;"
+            "   pixelAlpha = resultAlpha;";
+
+        if (desc.outputDepth(multisampling)) {
+            pss << "pixelDepth = resultDepth;";
+        }
+
+        pss << "}";
 
         return { vss.str(), pss.str() };
     }
@@ -437,8 +455,14 @@ namespace RT64 {
 
     // RasterShaderUber
 
-    const uint64_t RasterShaderUber::RasterVSTextHash = XXH3_64bits(RasterVSText, sizeof(RasterVSText));
-    const uint64_t RasterShaderUber::RasterPSTextHash = XXH3_64bits(RasterPSText, sizeof(RasterPSText));
+#if defined(_WIN32)
+    const uint64_t RasterShaderUber::RasterVSLibraryHash = XXH3_64bits(RasterVSLibraryBlobDXIL, sizeof(RasterVSLibraryBlobDXIL));
+    const uint64_t RasterShaderUber::RasterPSLibraryHash = XXH3_64bits(RasterPSLibraryBlobDXIL, sizeof(RasterPSLibraryBlobDXIL));
+#else
+    // Shader hashes are not required in other platforms as they don't use a shader cache.
+    const uint64_t RasterShaderUber::RasterVSLibraryHash = 0;
+    const uint64_t RasterShaderUber::RasterPSLibraryHash = 0;
+#endif
 
     RasterShaderUber::RasterShaderUber(RenderDevice *device, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, const ShaderLibrary *shaderLibrary, uint32_t threadCount) {
         assert(device != nullptr);
@@ -481,8 +505,7 @@ namespace RT64 {
         vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
         pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
 
-        // Create the pipeline layout.
-        FramebufferRendererDescriptorCommonSet descriptorCommonSet(shaderLibrary->linearClampSampler.get(), shaderLibrary->linearMirrorSampler.get(), device->getCapabilities().raytracing);
+        FramebufferRendererDescriptorCommonSet descriptorCommonSet(shaderLibrary->samplerLibrary, device->getCapabilities().raytracing);
         FramebufferRendererDescriptorTextureSet descriptorTextureSet;
         FramebufferRendererDescriptorFramebufferSet descriptorFramebufferSet;
         RenderPipelineLayoutBuilder layoutBuilder;

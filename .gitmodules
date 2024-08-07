@@ -49,3 +49,9 @@
 [submodule "src/contrib/spirv-cross"]
 	path = src/contrib/spirv-cross
 	url = https://github.com/rt64/spriv-cross-bin.git
+[submodule "src/contrib/ddspp"]
+	path = src/contrib/ddspp
+	url = https://github.com/redorav/ddspp.git
+[submodule "src/contrib/zstd"]
+	path = src/contrib/zstd
+	url = https://github.com/facebook/zstd

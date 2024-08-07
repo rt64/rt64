@@ -189,6 +189,48 @@ namespace RT64 {
             return VK_FORMAT_R8_SNORM;
         case RenderFormat::R8_SINT:
             return VK_FORMAT_R8_SINT;
+        case RenderFormat::BC1_TYPELESS:
+            return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+        case RenderFormat::BC1_UNORM:
+            return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+        case RenderFormat::BC1_UNORM_SRGB:
+            return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+        case RenderFormat::BC2_TYPELESS:
+            return VK_FORMAT_BC2_UNORM_BLOCK;
+        case RenderFormat::BC2_UNORM:
+            return VK_FORMAT_BC2_UNORM_BLOCK;
+        case RenderFormat::BC2_UNORM_SRGB:
+            return VK_FORMAT_BC2_SRGB_BLOCK;
+        case RenderFormat::BC3_TYPELESS:
+            return VK_FORMAT_BC3_UNORM_BLOCK;
+        case RenderFormat::BC3_UNORM:
+            return VK_FORMAT_BC3_UNORM_BLOCK;
+        case RenderFormat::BC3_UNORM_SRGB:
+            return VK_FORMAT_BC3_SRGB_BLOCK;
+        case RenderFormat::BC4_TYPELESS:
+            return VK_FORMAT_BC4_UNORM_BLOCK;
+        case RenderFormat::BC4_UNORM:
+            return VK_FORMAT_BC4_UNORM_BLOCK;
+        case RenderFormat::BC4_SNORM:
+            return VK_FORMAT_BC4_SNORM_BLOCK;
+        case RenderFormat::BC5_TYPELESS:
+            return VK_FORMAT_BC5_UNORM_BLOCK;
+        case RenderFormat::BC5_UNORM:
+            return VK_FORMAT_BC5_UNORM_BLOCK;
+        case RenderFormat::BC5_SNORM:
+            return VK_FORMAT_BC5_SNORM_BLOCK;
+        case RenderFormat::BC6H_TYPELESS:
+            return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+        case RenderFormat::BC6H_UF16:
+            return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+        case RenderFormat::BC6H_SF16:
+            return VK_FORMAT_BC6H_SFLOAT_BLOCK;
+        case RenderFormat::BC7_TYPELESS:
+            return VK_FORMAT_BC7_UNORM_BLOCK;
+        case RenderFormat::BC7_UNORM:
+            return VK_FORMAT_BC7_UNORM_BLOCK;
+        case RenderFormat::BC7_UNORM_SRGB:
+            return VK_FORMAT_BC7_SRGB_BLOCK;
         default:
             assert(false && "Unknown format.");
             return VK_FORMAT_UNDEFINED;
@@ -756,6 +798,10 @@ namespace RT64 {
         return std::make_unique<VulkanBufferFormattedView>(this, format);
     }
 
+    void VulkanBuffer::setName(const std::string &name) {
+        setObjectName(device->vk, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, uint64_t(vk), name);
+    }
+
     // VulkanBufferFormattedView
 
     VulkanBufferFormattedView::VulkanBufferFormattedView(VulkanBuffer *buffer, RenderFormat format) {
@@ -805,7 +851,7 @@ namespace RT64 {
         imageInfo.arrayLayers = 1;
         imageInfo.samples = VkSampleCountFlagBits(desc.multisampling.sampleCount);
         imageInfo.tiling = toVk(desc.textureArrangement);
-        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         imageInfo.usage |= (desc.flags & RenderTextureFlag::RENDER_TARGET) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0;
@@ -1953,51 +1999,13 @@ namespace RT64 {
             return;
         }
 
-        // Create the semaphore that will be used whenever the next image is acquired.
-        VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-        semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        res = vkCreateSemaphore(commandQueue->device->vk, &semaphoreCreateInfo, nullptr, &acquireNextTextureSemaphore);
-        if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkCreateSemaphore failed with error code 0x%X.\n", res);
-            return;
-        }
-
-        res = vkCreateSemaphore(commandQueue->device->vk, &semaphoreCreateInfo, nullptr, &presentTransitionSemaphore);
-        if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkCreateSemaphore failed with error code 0x%X.\n", res);
-            return;
-        }
-        
-        VkFenceCreateInfo fenceCreateInfo = {};
-        fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        res = vkCreateFence(commandQueue->device->vk, &fenceCreateInfo, nullptr, &acquireNextTextureFence);
-        if (res != VK_SUCCESS) {
-            fprintf(stderr, "vkCreateFence failed with error code 0x%X.\n", res);
-            return;
-        }
-
         // Parent command queue should track this swap chain.
         commandQueue->swapChains.insert(this);
-
-        // Perform a resize since most of the logic is shared with swap chain creation.
-        resize();
     }
 
     VulkanSwapChain::~VulkanSwapChain() {
         releaseImageViews();
         releaseSwapChain();
-
-        if (acquireNextTextureSemaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(commandQueue->device->vk, acquireNextTextureSemaphore, nullptr);
-        }
-
-        if (acquireNextTextureFence != VK_NULL_HANDLE) {
-            vkDestroyFence(commandQueue->device->vk, acquireNextTextureFence, nullptr);
-        }
-
-        if (presentTransitionSemaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(commandQueue->device->vk, presentTransitionSemaphore, nullptr);
-        }
 
         if (surface != VK_NULL_HANDLE) {
             VulkanInterface *renderInterface = commandQueue->device->renderInterface;
@@ -2008,18 +2016,21 @@ namespace RT64 {
         commandQueue->swapChains.erase(this);
     }
 
-    bool VulkanSwapChain::present() {
+    bool VulkanSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
+        thread_local std::vector<VkSemaphore> waitSemaphoresVector;
+        waitSemaphoresVector.clear();
+        for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+            VulkanCommandSemaphore *interfaceSemaphore = (VulkanCommandSemaphore *)(waitSemaphores[i]);
+            waitSemaphoresVector.emplace_back(interfaceSemaphore->vk);
+        }
+
         VkPresentInfoKHR presentInfo = {};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.pSwapchains = &vk;
         presentInfo.swapchainCount = 1;
         presentInfo.pImageIndices = &textureIndex;
-
-        if (presentTransitionSemaphoreSignaled) {
-            presentInfo.pWaitSemaphores = &presentTransitionSemaphore;
-            presentInfo.waitSemaphoreCount = 1;
-            presentTransitionSemaphoreSignaled = false;
-        }
+        presentInfo.pWaitSemaphores = !waitSemaphoresVector.empty() ? waitSemaphoresVector.data() : nullptr;
+        presentInfo.waitSemaphoreCount = uint32_t(waitSemaphoresVector.size());
         
         VkResult res;
         {
@@ -2029,11 +2040,6 @@ namespace RT64 {
 
         // Handle the error silently.
         if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
-            return false;
-        }
-
-        // Immediately acquire next image.
-        if (!acquireNextTexture()) {
             return false;
         }
 
@@ -2047,9 +2053,6 @@ namespace RT64 {
         if ((width == 0) || (height == 0)) {
             return false;
         }
-        
-        // Make sure to wait on any image acquisition semaphores before destroying the swap chain.
-        checkAcquireNextTextureSemaphore();
 
         // Destroy any image view references to the current swap chain.
         releaseImageViews();
@@ -2121,14 +2124,6 @@ namespace RT64 {
             textures[i].createImageView(pickedSurfaceFormat.format);
         }
 
-        // Instantly attempt to acquire the next image.
-        if (!acquireNextTexture()) {
-            releaseImageViews();
-            releaseSwapChain();
-            fprintf(stderr, "Failed to acquire image after creating the swap chain.\n");
-            return false;
-        }
-
         return true;
     }
 
@@ -2146,16 +2141,12 @@ namespace RT64 {
         return height;
     }
 
-    uint32_t VulkanSwapChain::getTextureIndex() const {
-        return textureIndex;
+    RenderTexture *VulkanSwapChain::getTexture(uint32_t textureIndex) {
+        return &textures[textureIndex];
     }
 
     uint32_t VulkanSwapChain::getTextureCount() const {
         return textureCount;
-    }
-
-    RenderTexture *VulkanSwapChain::getTexture(uint32_t index) {
-        return &textures[index];
     }
 
     RenderWindow VulkanSwapChain::getWindow() const {
@@ -2195,33 +2186,15 @@ namespace RT64 {
 #   endif
     }
 
-    void VulkanSwapChain::checkAcquireNextTextureSemaphore() {
-        // We've ended up in a situation where the semaphore must be unsignaled because nothing used the acquired image in-between, so we force a command queue submission.
-        if (acquireNextTextureSemaphoreSignaled) {
-            const std::scoped_lock queueLock(*commandQueue->queue->mutex);
-            const VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            VkSubmitInfo submitInfo = {};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            submitInfo.pWaitSemaphores = &acquireNextTextureSemaphore;
-            submitInfo.pWaitDstStageMask = &waitStages;
-            submitInfo.waitSemaphoreCount = 1;
-            vkQueueSubmit(commandQueue->queue->vk, 1, &submitInfo, acquireNextTextureFence);
-            vkWaitForFences(commandQueue->device->vk, 1, &acquireNextTextureFence, VK_TRUE, UINT64_MAX);
-            vkResetFences(commandQueue->device->vk, 1, &acquireNextTextureFence);
-            acquireNextTextureSemaphoreSignaled = false;
-        }
-    }
+    bool VulkanSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
+        assert(signalSemaphore != nullptr);
 
-    bool VulkanSwapChain::acquireNextTexture() {
-        checkAcquireNextTextureSemaphore();
-
-        // Handle the error silently.
-        VkResult res = vkAcquireNextImageKHR(commandQueue->device->vk, vk, UINT64_MAX, acquireNextTextureSemaphore, VK_NULL_HANDLE, &textureIndex);
+        VulkanCommandSemaphore *interfaceSemaphore = static_cast<VulkanCommandSemaphore *>(signalSemaphore);
+        VkResult res = vkAcquireNextImageKHR(commandQueue->device->vk, vk, UINT64_MAX, interfaceSemaphore->vk, VK_NULL_HANDLE, textureIndex);
         if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
             return false;
         }
 
-        acquireNextTextureSemaphoreSignaled = true;
         return true;
     }
 
@@ -2447,9 +2420,6 @@ namespace RT64 {
         activeComputePipelineLayout = nullptr;
         activeGraphicsPipelineLayout = nullptr;
         activeRaytracingPipelineLayout = nullptr;
-
-        copyAndClearTransitionSet(fromPresentTransitionSet, fromPresentTransitions);
-        copyAndClearTransitionSet(toPresentTransitionSet, toPresentTransitions);
     }
 
     void VulkanCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
@@ -2490,18 +2460,6 @@ namespace RT64 {
         for (uint32_t i = 0; i < textureBarriersCount; i++) {
             const RenderTextureBarrier &textureBarrier = textureBarriers[i];
             VulkanTexture *interfaceTexture = static_cast<VulkanTexture *>(textureBarrier.texture);
-            if (interfaceTexture->textureLayout != textureBarrier.layout) {
-                // If the resource is being transitioned after being initialized or from the present state, we should store it to check later if we need to wait on its image acquisition semaphore.
-                if ((interfaceTexture->textureLayout == RenderTextureLayout::UNKNOWN) || (interfaceTexture->textureLayout == RenderTextureLayout::PRESENT)) {
-                    fromPresentTransitionSet.insert(interfaceTexture);
-                }
-
-                // If the resource is transitioning to the present state, we should store it to check later if we need to signal the semaphore for when the transition is finished.
-                if (textureBarrier.layout == RenderTextureLayout::PRESENT) {
-                    toPresentTransitionSet.insert(interfaceTexture);
-                }
-            }
-            
             VkImageMemoryBarrier imageMemoryBarrier = {};
             imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             imageMemoryBarrier.image = interfaceTexture->vk;
@@ -2829,14 +2787,15 @@ namespace RT64 {
             assert(dstTexture != nullptr);
             assert(srcBuffer != nullptr);
 
+            const uint32_t blockWidth = RenderFormatBlockWidth(dstTexture->desc.format);
             VkBufferImageCopy imageCopy = {};
             imageCopy.bufferOffset = srcLocation.placedFootprint.offset;
-            imageCopy.bufferRowLength = srcLocation.placedFootprint.rowWidth;
-            imageCopy.bufferImageHeight = srcLocation.placedFootprint.height;
+            imageCopy.bufferRowLength = ((srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth) * blockWidth;
+            imageCopy.bufferImageHeight = ((srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
             imageCopy.imageSubresource.aspectMask = (dstTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             imageCopy.imageSubresource.baseArrayLayer = 0;
             imageCopy.imageSubresource.layerCount = 1;
-            imageCopy.imageSubresource.mipLevel = 0;
+            imageCopy.imageSubresource.mipLevel = dstLocation.subresource.index;
             imageCopy.imageOffset.x = dstX;
             imageCopy.imageOffset.y = dstY;
             imageCopy.imageOffset.z = dstZ;
@@ -2850,11 +2809,11 @@ namespace RT64 {
             imageCopy.srcSubresource.aspectMask = (srcTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             imageCopy.srcSubresource.baseArrayLayer = 0;
             imageCopy.srcSubresource.layerCount = 1;
-            imageCopy.srcSubresource.mipLevel = 0;
+            imageCopy.srcSubresource.mipLevel = srcLocation.subresource.index;
             imageCopy.dstSubresource.aspectMask = (dstTexture->desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             imageCopy.dstSubresource.baseArrayLayer = 0;
             imageCopy.dstSubresource.layerCount = 1;
-            imageCopy.dstSubresource.mipLevel = 0;
+            imageCopy.dstSubresource.mipLevel = dstLocation.subresource.index;
             imageCopy.dstOffset.x = dstX;
             imageCopy.dstOffset.y = dstY;
             imageCopy.dstOffset.z = dstZ;
@@ -3081,15 +3040,6 @@ namespace RT64 {
         }
     }
 
-    void VulkanCommandList::copyAndClearTransitionSet(std::unordered_set<VulkanTexture *> &set, std::vector<VulkanTexture *> &setVector) {
-        setVector.clear();
-        for (VulkanTexture *texture : set) {
-            setVector.emplace_back(texture);
-        }
-
-        set.clear();
-    }
-
     void VulkanCommandList::setDescriptorSet(VkPipelineBindPoint bindPoint, const VulkanPipelineLayout *pipelineLayout, const RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
         assert(pipelineLayout != nullptr);
         assert(descriptorSet != nullptr);
@@ -3122,6 +3072,29 @@ namespace RT64 {
         }
     }
 
+    // VulkanCommandSemaphore
+
+    VulkanCommandSemaphore::VulkanCommandSemaphore(VulkanDevice *device) {
+        assert(device != nullptr);
+
+        this->device = device;
+
+        VkSemaphoreCreateInfo semaphoreInfo = {};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+        VkResult res = vkCreateSemaphore(device->vk, &semaphoreInfo, nullptr, &vk);
+        if (res != VK_SUCCESS) {
+            fprintf(stderr, "vkCreateSemaphore failed with error code 0x%X.\n", res);
+            return;
+        }
+    }
+
+    VulkanCommandSemaphore::~VulkanCommandSemaphore() {
+        if (vk != VK_NULL_HANDLE) {
+            vkDestroySemaphore(device->vk, vk, nullptr);
+        }
+    }
+
     // VulkanCommandQueue
 
     VulkanCommandQueue::VulkanCommandQueue(VulkanDevice *device, RenderCommandListType commandListType) {
@@ -3146,45 +3119,32 @@ namespace RT64 {
         return std::make_unique<VulkanSwapChain>(this, renderWindow, bufferCount, format);
     }
 
-    void VulkanCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandFence *signalFence) {
+    void VulkanCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
 
-        thread_local std::vector<VkSemaphore> swapChainWaitSemaphores;
-        thread_local std::vector<VkSemaphore> presentWaitSemaphores;
+        thread_local std::vector<VkSemaphore> waitSemaphoreVector;
+        thread_local std::vector<VkSemaphore> signalSemaphoreVector;
         thread_local std::vector<VkCommandBuffer> commandBuffers;
-        swapChainWaitSemaphores.clear();
-        presentWaitSemaphores.clear();
+        waitSemaphoreVector.clear();
+        signalSemaphoreVector.clear();
         commandBuffers.clear();
+
+        for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+            VulkanCommandSemaphore *interfaceSemaphore = static_cast<VulkanCommandSemaphore *>(waitSemaphores[i]);
+            waitSemaphoreVector.emplace_back(interfaceSemaphore->vk);
+        }
+
+        for (uint32_t i = 0; i < signalSemaphoreCount; i++) {
+            VulkanCommandSemaphore *interfaceSemaphore = static_cast<VulkanCommandSemaphore *>(signalSemaphores[i]);
+            signalSemaphoreVector.emplace_back(interfaceSemaphore->vk);
+        }
+
         for (uint32_t i = 0; i < commandListCount; i++) {
             assert(commandLists[i] != nullptr);
 
             const VulkanCommandList *interfaceCommandList = static_cast<const VulkanCommandList *>(commandLists[i]);
             commandBuffers.emplace_back(interfaceCommandList->vk);
-            
-            // Look for semaphores related to the swap chain the command queue must wait on.
-            for (VulkanTexture *texture : interfaceCommandList->fromPresentTransitions) {
-                for (VulkanSwapChain *swapChain : swapChains) {
-                    if (&swapChain->textures[swapChain->textureIndex] == texture) {
-                        assert(swapChain->acquireNextTextureSemaphoreSignaled);
-                        swapChain->acquireNextTextureSemaphoreSignaled = false;
-                        swapChainWaitSemaphores.emplace_back(swapChain->acquireNextTextureSemaphore);
-                        break;
-                    }
-                }
-            }
-
-            // Look for semaphores related to the swap chain the command queue must signal.
-            for (VulkanTexture *texture : interfaceCommandList->toPresentTransitions) {
-                for (VulkanSwapChain *swapChain : swapChains) {
-                    if (&swapChain->textures[swapChain->textureIndex] == texture) {
-                        assert(!swapChain->presentTransitionSemaphoreSignaled);
-                        swapChain->presentTransitionSemaphoreSignaled = true;
-                        presentWaitSemaphores.emplace_back(swapChain->presentTransitionSemaphore);
-                        break;
-                    }
-                }
-            }
         }
 
         VkSubmitInfo submitInfo = {};
@@ -3193,15 +3153,15 @@ namespace RT64 {
         submitInfo.commandBufferCount = uint32_t(commandBuffers.size());
 
         const VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        if (!swapChainWaitSemaphores.empty()) {
-            submitInfo.pWaitSemaphores = swapChainWaitSemaphores.data();
-            submitInfo.waitSemaphoreCount = uint32_t(swapChainWaitSemaphores.size());
+        if (!waitSemaphoreVector.empty()) {
+            submitInfo.pWaitSemaphores = waitSemaphoreVector.data();
+            submitInfo.waitSemaphoreCount = uint32_t(waitSemaphoreVector.size());
             submitInfo.pWaitDstStageMask = &waitStages;
         }
 
-        if (!presentWaitSemaphores.empty()) {
-            submitInfo.pSignalSemaphores = presentWaitSemaphores.data();
-            submitInfo.signalSemaphoreCount = uint32_t(presentWaitSemaphores.size());
+        if (!signalSemaphoreVector.empty()) {
+            submitInfo.pSignalSemaphores = signalSemaphoreVector.data();
+            submitInfo.signalSemaphoreCount = uint32_t(signalSemaphoreVector.size());
         }
 
         VkFence submitFence = VK_NULL_HANDLE;
@@ -3634,6 +3594,9 @@ namespace RT64 {
             }
         }
 
+        // Fill description.
+        description.dedicatedVideoMemory = memoryHeapSize;
+
         // Fill capabilities.
         capabilities.raytracing = rtSupported;
         capabilities.raytracingStateUpdate = false;
@@ -3703,6 +3666,10 @@ namespace RT64 {
 
     std::unique_ptr<RenderCommandFence> VulkanDevice::createCommandFence() {
         return std::make_unique<VulkanCommandFence>(this);
+    }
+
+    std::unique_ptr<RenderCommandSemaphore> VulkanDevice::createCommandSemaphore() {
+        return std::make_unique<VulkanCommandSemaphore>(this);
     }
 
     std::unique_ptr<RenderFramebuffer> VulkanDevice::createFramebuffer(const RenderFramebufferDesc &desc) {

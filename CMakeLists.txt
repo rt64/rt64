@@ -57,13 +57,23 @@ else()
     endif()
 endif()
 
-# Build the file_to_c utility for converting binary files into a .c and .h file pair
-add_executable(file_to_c src/tools/file_to_c.cpp)
+set(ZSTD_LEGACY_SUPPORT OFF)
+set(ZSTD_BUILD_STATIC ON)
+set(ZSTD_BUILD_SHARED OFF)
 
+add_subdirectory(src/tools/file_to_c)
 add_subdirectory(src/contrib/nativefiledialog-extended)
+add_subdirectory(src/contrib/zstd/build/cmake)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-Wno-nullability-completeness)
+    # Use /W4 for clang-cl, as -Wall maps to MSVC's /Wall which in turn maps to clang's -Weverything
+    if (CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+        add_compile_options(/W4)
+    else()
+        add_compile_options(-Wall -Wextra)
+    endif()
+    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers)
+    add_compile_options(-Werror)
 endif()
 
 set(ANDROID_PLATFORM android-24)
@@ -73,10 +83,11 @@ set(ANDROID_ABI arm64-v8a)
 set (DXC_COMMON_OPTS "-I${PROJECT_SOURCE_DIR}/src")
 set (DXC_DXIL_OPTS "-Wno-ignored-attributes")
 set (DXC_SPV_OPTS "-spirv" "-fspv-target-env=vulkan1.0" "-fvk-use-dx-layout")
-set (DXC_PS_OPTS "${DXC_COMMON_OPTS}" "-E" "PSMain" "-T ps_6_0")
-set (DXC_VS_OPTS "${DXC_COMMON_OPTS}" "-E" "VSMain" "-T vs_6_0" "-fvk-invert-y")
-set (DXC_CS_OPTS "${DXC_COMMON_OPTS}" "-E" "CSMain" "-T cs_6_0")
-set (DXC_GS_OPTS "${DXC_COMMON_OPTS}" "-E" "GSMain" "-T gs_6_0")
+set (DXC_LB_OPTS "${DXC_COMMON_OPTS}" "-D" "LIBRARY" "-T" "lib_6_3")
+set (DXC_PS_OPTS "${DXC_COMMON_OPTS}" "-E" "PSMain" "-T ps_6_3")
+set (DXC_VS_OPTS "${DXC_COMMON_OPTS}" "-E" "VSMain" "-T vs_6_3" "-fvk-invert-y")
+set (DXC_CS_OPTS "${DXC_COMMON_OPTS}" "-E" "CSMain" "-T cs_6_3")
+set (DXC_GS_OPTS "${DXC_COMMON_OPTS}" "-E" "GSMain" "-T gs_6_3")
 set (DXC_RT_OPTS "${DXC_COMMON_OPTS}" "-D" "RT_SHADER" "-T" "lib_6_3" "-fspv-target-env=vulkan1.1spirv1.4" "-fspv-extension=SPV_KHR_ray_tracing" "-fspv-extension=SPV_EXT_descriptor_indexing")
 
 function(build_shader_spirv_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
@@ -149,6 +160,25 @@ function(build_shader TARGETOBJ SHADERNAME OPTIONS)
     endif()
 endfunction()
 
+function(build_shader_dxil TARGETOBJ SHADERNAME OPTIONS)
+    set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
+    if (${ARGC} GREATER 3)
+        set(OUTNAME "${CMAKE_BINARY_DIR}/${ARGV3}")
+    else()
+        set(OUTNAME "${CMAKE_BINARY_DIR}/${SHADERNAME}")
+    endif()
+    # Get any optional compiler args passed to this function
+    if (${ARGC} GREATER 4)
+        set(EXTRA_ARGS "${ARGN}")
+        list(REMOVE_AT EXTRA_ARGS 0)
+    endif()
+    cmake_path(GET OUTNAME STEM TARGET_NAME)
+    cmake_path(GET OUTNAME PARENT_PATH OUTPUT_DIR)
+    file(MAKE_DIRECTORY ${OUTPUT_DIR})
+    # Compile DXIL shader binaries if building on Windows
+    build_shader_dxil_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+endfunction()
+
 function(build_shader_spirv TARGETOBJ SHADERNAME OPTIONS)
     set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
     if (${ARGC} GREATER 3)
@@ -197,6 +227,10 @@ function(preprocess_shader TARGETOBJ SHADERNAME)
         BYPRODUCTS ${OUTNAME}.rw.h)
     file(MAKE_DIRECTORY ${OUTPUT_DIR})
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.rw.c)
+endfunction()
+
+function(build_library_shader TARGETOBJ SHADERNAME)
+    build_shader_dxil(${TARGETOBJ} ${SHADERNAME} "${DXC_LB_OPTS}" ${ARGN})
 endfunction()
 
 function(build_pixel_shader TARGETOBJ SHADERNAME)
@@ -254,8 +288,12 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/common/rt64_elapsed_timer.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_emulator_configuration.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_enhancement_configuration.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_filesystem_zip.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_load_types.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_mapped_file.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_math.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_profiling_timer.cpp"
+    "${PROJECT_SOURCE_DIR}/src/common/rt64_replacement_database.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_thread.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_timer.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_user_configuration.cpp"
@@ -347,6 +385,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_demo.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_items.cpp"
+    "${PROJECT_SOURCE_DIR}/src/contrib/miniz/miniz.c"
 )
 
 include_directories(
@@ -380,6 +419,11 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 
 # Add common libraries.
 target_link_libraries(rt64 nfd)
+target_link_libraries(rt64 libzstd_static)
+
+# Add tools.
+add_subdirectory(src/tools/texture_hasher)
+add_subdirectory(src/tools/texture_packer)
 
 # Add any Apple-specific source files and libraries
 if (APPLE)
@@ -404,6 +448,8 @@ if (WIN32)
         DXGI
         Shcore.lib
         ${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64/dxcompiler.lib)
+
+    target_include_directories(rt64 PRIVATE ${zstd_SOURCE_DIR}/lib)
 endif()
 
 target_link_directories(rt64 PRIVATE ${PROJECT_SOURCE_DIR}/src/contrib/dxc)
@@ -418,8 +464,13 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     target_link_libraries(rt64 ${X11_LIBRARIES} ${X11_Xrandr_LIB})
 endif()
 
-preprocess_shader(rt64 "src/shaders/RasterPS.hlsl")
-preprocess_shader(rt64 "src/shaders/RasterVS.hlsl")
+preprocess_shader(rt64 "src/shaders/RenderParams.hlsli")
+
+if (${WIN32})
+    build_library_shader(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSLibrary.hlsl")
+    build_library_shader(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSLibraryMS.hlsl" "-D MULTISAMPLING")
+    build_library_shader(rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSLibrary.hlsl")
+endif()
 
 build_pixel_shader(  rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSDynamic.hlsl" "-D DYNAMIC_RENDER_PARAMS")
 build_pixel_shader(  rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSDynamicMS.hlsl" "-D DYNAMIC_RENDER_PARAMS" "-D MULTISAMPLING")

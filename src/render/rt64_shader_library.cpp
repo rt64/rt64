@@ -175,47 +175,65 @@ namespace RT64 {
 
         // Create shaders shared across all pipelines.
         std::unique_ptr<RenderShader> fullScreenVertexShader = device->createShader(CREATE_SHADER_INPUTS(FullScreenVSBlobDXIL, FullScreenVSBlobSPIRV, FullScreenVSBlobMSL, "VSMain", shaderFormat));
-
-        // Create samplers shared across all pipelines.
-        {
+        
+        auto fillSamplerSet = [&](SamplerSet &set, RenderFilter filter) {
             RenderSamplerDesc samplerDesc;
-            samplerDesc.minFilter = RenderFilter::NEAREST;
-            samplerDesc.magFilter = RenderFilter::NEAREST;
-            samplerDesc.addressU = RenderTextureAddressMode::CLAMP;
-            samplerDesc.addressV = RenderTextureAddressMode::CLAMP;
+            samplerDesc.anisotropyEnabled = true;
+            samplerDesc.minFilter = filter;
+            samplerDesc.magFilter = filter;
             samplerDesc.addressW = RenderTextureAddressMode::CLAMP;
-            nearestClampSampler = device->createSampler(samplerDesc);
 
-            samplerDesc.minFilter = RenderFilter::LINEAR;
-            samplerDesc.magFilter = RenderFilter::LINEAR;
-            linearClampSampler = device->createSampler(samplerDesc);
+            // WRAP.
+            samplerDesc.addressU = RenderTextureAddressMode::WRAP;
+            samplerDesc.addressV = RenderTextureAddressMode::WRAP;
+            set.wrapWrap = device->createSampler(samplerDesc);
 
-            samplerDesc.minFilter = RenderFilter::NEAREST;
-            samplerDesc.magFilter = RenderFilter::NEAREST;
-            samplerDesc.addressU = RenderTextureAddressMode::BORDER;
-            samplerDesc.addressV = RenderTextureAddressMode::BORDER;
-            samplerDesc.addressW = RenderTextureAddressMode::BORDER;
-            nearestBorderSampler = device->createSampler(samplerDesc);
+            samplerDesc.addressU = RenderTextureAddressMode::WRAP;
+            samplerDesc.addressV = RenderTextureAddressMode::MIRROR;
+            set.wrapMirror = device->createSampler(samplerDesc);
 
-            samplerDesc.minFilter = RenderFilter::LINEAR;
-            samplerDesc.magFilter = RenderFilter::LINEAR;
-            linearBorderSampler = device->createSampler(samplerDesc);
+            samplerDesc.addressU = RenderTextureAddressMode::WRAP;
+            samplerDesc.addressV = RenderTextureAddressMode::CLAMP;
+            set.wrapClamp = device->createSampler(samplerDesc);
 
-            samplerDesc.minFilter = RenderFilter::NEAREST;
-            samplerDesc.magFilter = RenderFilter::NEAREST;
+            // MIRROR.
+            samplerDesc.addressU = RenderTextureAddressMode::MIRROR;
+            samplerDesc.addressV = RenderTextureAddressMode::WRAP;
+            set.mirrorWrap = device->createSampler(samplerDesc);
+
             samplerDesc.addressU = RenderTextureAddressMode::MIRROR;
             samplerDesc.addressV = RenderTextureAddressMode::MIRROR;
-            samplerDesc.addressW = RenderTextureAddressMode::MIRROR;
-            nearestMirrorSampler = device->createSampler(samplerDesc);
+            set.mirrorMirror = device->createSampler(samplerDesc);
 
-            samplerDesc.minFilter = RenderFilter::LINEAR;
-            samplerDesc.magFilter = RenderFilter::LINEAR;
-            linearMirrorSampler = device->createSampler(samplerDesc);
-        }
+            samplerDesc.addressU = RenderTextureAddressMode::MIRROR;
+            samplerDesc.addressV = RenderTextureAddressMode::CLAMP;
+            set.mirrorClamp = device->createSampler(samplerDesc);
+
+            // CLAMP.
+            samplerDesc.addressU = RenderTextureAddressMode::CLAMP;
+            samplerDesc.addressV = RenderTextureAddressMode::WRAP;
+            set.clampWrap = device->createSampler(samplerDesc);
+
+            samplerDesc.addressU = RenderTextureAddressMode::CLAMP;
+            samplerDesc.addressV = RenderTextureAddressMode::MIRROR;
+            set.clampMirror = device->createSampler(samplerDesc);
+
+            samplerDesc.addressU = RenderTextureAddressMode::CLAMP;
+            samplerDesc.addressV = RenderTextureAddressMode::CLAMP;
+            set.clampClamp = device->createSampler(samplerDesc);
+
+            // BORDER.
+            samplerDesc.addressU = RenderTextureAddressMode::BORDER;
+            samplerDesc.addressV = RenderTextureAddressMode::BORDER;
+            set.borderBorder = device->createSampler(samplerDesc);
+        };
+
+        fillSamplerSet(samplerLibrary.nearest, RenderFilter::NEAREST);
+        fillSamplerSet(samplerLibrary.linear, RenderFilter::LINEAR);
 
         // Bicubic scaling.
         {
-            BicubicScalingDescriptorSet descriptorSet(nearestClampSampler.get());
+            BicubicScalingDescriptorSet descriptorSet(samplerLibrary);
             layoutBuilder.begin();
             layoutBuilder.addPushConstant(0, 0, sizeof(uint32_t) * 4, RenderShaderStageFlag::COMPUTE);
             layoutBuilder.addDescriptorSet(descriptorSet);
@@ -243,7 +261,7 @@ namespace RT64 {
 
         // Raytracing compose.
         {
-            RaytracingComposeDescriptorSet descriptorSet(linearClampSampler.get());
+            RaytracingComposeDescriptorSet descriptorSet(samplerLibrary);
             layoutBuilder.begin();
             layoutBuilder.addDescriptorSet(descriptorSet);
             layoutBuilder.end();
@@ -385,7 +403,7 @@ namespace RT64 {
 
         // Gaussian filter.
         {
-            GaussianFilterDescriptorSet descriptorSet(nearestClampSampler.get());
+            GaussianFilterDescriptorSet descriptorSet(samplerLibrary);
             layoutBuilder.begin();
             layoutBuilder.addPushConstant(0, 0, sizeof(uint32_t) * 4, RenderShaderStageFlag::COMPUTE);
             layoutBuilder.addDescriptorSet(descriptorSet);
@@ -547,8 +565,8 @@ namespace RT64 {
             std::unique_ptr<RenderShader> regularShader = device->createShader(CREATE_SHADER_INPUTS(VideoInterfacePSRegularBlobDXIL, VideoInterfacePSRegularBlobSPIRV, VideoInterfacePSRegularBlobMSL, "PSMain", shaderFormat));
             std::unique_ptr<RenderShader> pixelShader = device->createShader(CREATE_SHADER_INPUTS(VideoInterfacePSPixelBlobDXIL, VideoInterfacePSPixelBlobSPIRV, VideoInterfacePSPixelBlobMSL, "PSMain", shaderFormat));
 
-            VideoInterfaceDescriptorSet nearestDescriptorSet(nearestBorderSampler.get());
-            VideoInterfaceDescriptorSet linearDescriptorSet(linearBorderSampler.get());
+            VideoInterfaceDescriptorSet nearestDescriptorSet(samplerLibrary.nearest.borderBorder.get());
+            VideoInterfaceDescriptorSet linearDescriptorSet(samplerLibrary.linear.borderBorder.get());
             layoutBuilder.begin();
             layoutBuilder.addPushConstant(0, 0, sizeof(interop::VideoInterfaceCB), RenderShaderStageFlag::PIXEL);
             layoutBuilder.addDescriptorSet(nearestDescriptorSet);
@@ -669,7 +687,7 @@ namespace RT64 {
 
         // Post process.
         {
-            PostProcessDescriptorSet descriptorSet(linearClampSampler.get());
+            PostProcessDescriptorSet descriptorSet(samplerLibrary);
             layoutBuilder.begin();
             layoutBuilder.addDescriptorSet(descriptorSet);
             layoutBuilder.end();
@@ -689,7 +707,7 @@ namespace RT64 {
         
         // Raytracing debug.
         {
-            FramebufferRendererDescriptorCommonSet descriptorCommonSet(linearClampSampler.get(), linearMirrorSampler.get(), deviceCapabilities.raytracing);
+            FramebufferRendererDescriptorCommonSet descriptorCommonSet(samplerLibrary, deviceCapabilities.raytracing);
             FramebufferRendererDescriptorTextureSet descriptorTextureSet;
             FramebufferRendererDescriptorFramebufferSet descriptorFramebufferSet;
             layoutBuilder.begin();

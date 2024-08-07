@@ -8,6 +8,7 @@
 
 #include "common/rt64_emulator_configuration.h"
 #include "common/rt64_enhancement_configuration.h"
+#include "gui/rt64_camera_controller.h"
 #include "gui/rt64_debugger_inspector.h"
 #include "preset/rt64_preset_draw_call.h"
 #include "preset/rt64_preset_material.h"
@@ -63,9 +64,6 @@ namespace RT64 {
 #       if RT_ENABLED
             RaytracingConfiguration *rtConfig;
 #       endif
-#       if SCRIPT_ENABLED
-            ScriptBase *currentScript;
-#       endif
         };
 
         uint8_t *RDRAM;
@@ -109,11 +107,13 @@ namespace RT64 {
         PresetLightsLibraryInspector lightsLibraryInspector;
         PresetMaterialLibraryInspector materialLibraryInspector;
         PresetSceneLibraryInspector sceneLibraryInspector;
+        CameraController cameraController;
         DebuggerInspector debuggerInspector;
         std::stringstream scriptLog;
         ProfilingTimer dlCpuProfiler = ProfilingTimer(120);
         ProfilingTimer screenCpuProfiler = ProfilingTimer(120);
         ProfilingTimer viChangedProfiler = ProfilingTimer(120);
+        std::filesystem::path dumpingTexturesDirectory;
         bool configurationSaveQueued = false;
         uint64_t workloadId = 0;
         uint64_t presentId = 0;
@@ -125,6 +125,7 @@ namespace RT64 {
             uint8_t renderToRAM = UINT8_MAX;
             bool vertexTestZActive = false;
             float ditherNoiseStrength = 1.0f;
+            bool extendRDRAM = false;
         };
 
         Extended extended;
@@ -157,6 +158,7 @@ namespace RT64 {
         void setRefreshRate(uint16_t refreshRate);
         void setRenderToRAM(uint8_t renderToRAM);
         void setDitherNoiseStrength(float noiseStrength);
+        void setExtendedRDRAM(bool isExtended);
         uint8_t *fromRDRAM(uint32_t rdramAddress) const;
         void dumpRDRAM(const std::string &path);
         void enableExtendedGBI(uint8_t opCode);
