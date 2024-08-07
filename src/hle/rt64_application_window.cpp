@@ -2,10 +2,13 @@
 // RT64
 //
 
+#include "rt64_application.h"
 #include "rt64_application_window.h"
+#include "metal/rt64_metal.h"
 
 #include <cassert>
 #include <stdio.h>
+#include <SDL.h>
 
 #if defined(_WIN32)
 #   include <Windows.h>
@@ -63,7 +66,7 @@ namespace RT64 {
 #   endif
     }
 
-    void ApplicationWindow::setup(const char *windowTitle, Listener *listener) {
+    void ApplicationWindow::setup(const char *windowTitle, RenderInterface *renderInterface, Listener *listener) {
         assert(windowTitle != nullptr);
 
         // Find the right window dimension and placement.
@@ -111,7 +114,15 @@ namespace RT64 {
         
         // Create window.
 #ifdef RT64_SDL_WINDOW
+#   ifdef __APPLE__
+        SDL_Window *sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_METAL);
+
+        SDL_MetalView view = SDL_Metal_CreateView(sdlWindow);
+        auto *metalInterface = dynamic_cast<RT64::MetalInterface *>(renderInterface);
+        metalInterface->assignDeviceToLayer(view);
+#   else
         SDL_Window *sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE);
+#   endif
         SDL_SysWMinfo wmInfo;
         assert(sdlWindow && "Failed to open window with SDL");
         SDL_VERSION(&wmInfo.version);

@@ -327,7 +327,8 @@ namespace RT64 {
     enum class RenderShaderFormat {
         UNKNOWN,
         DXIL,
-        SPIRV
+        SPIRV,
+        METAL,
     };
 
     enum class RenderRaytracingPipelineLibrarySymbolType {
@@ -1681,6 +1682,9 @@ namespace RT64 {
         // Present.
         bool presentWait = false;
         bool displayTiming = false;
+
+        // Framebuffers.
+        uint64_t maxTextureSize = 0;
 
         // HDR.
         bool preferHDR = false;

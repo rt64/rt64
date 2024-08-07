@@ -35,7 +35,7 @@ namespace RT64 {
 
     // Controls the maximum amount of native queues the backend will create per queue family.
     // Command queues are created as virtual queues on top of the native queues provided by Vulkan,
-    // so they're not under the limit set by the the device or the backend.
+    // so they're not under the limit set by the device or the backend.
     static const uint32_t MaxQueuesPerFamilyCount = 4;
 
     // Required extensions.
@@ -2353,11 +2353,11 @@ namespace RT64 {
 
     // VulkanCommandList
 
-    VulkanCommandList::VulkanCommandList(VulkanDevice *device, RenderCommandListType type) {
-        assert(device != nullptr);
+    VulkanCommandList::VulkanCommandList(VulkanCommandQueue *queue, RenderCommandListType type) {
+        assert(queue->device != nullptr);
         assert(type != RenderCommandListType::UNKNOWN);
 
-        this->device = device;
+        this->device = queue->device;
         this->type = type;
 
         VkCommandPoolCreateInfo poolInfo = {};
@@ -3111,6 +3111,10 @@ namespace RT64 {
         device->queueFamilies[familyIndex].remove(this);
     }
 
+    std::unique_ptr<RenderCommandList> VulkanCommandQueue::createCommandList(RenderCommandListType type) {
+        return std::make_unique<VulkanCommandList>(this, type);
+    }
+
     std::unique_ptr<RenderSwapChain> VulkanCommandQueue::createSwapChain(RenderWindow renderWindow, uint32_t bufferCount, RenderFormat format) {
         return std::make_unique<VulkanSwapChain>(this, renderWindow, bufferCount, format);
     }
@@ -3601,6 +3605,7 @@ namespace RT64 {
         capabilities.scalarBlockLayout = scalarBlockLayout;
         capabilities.presentWait = presentWait;
         capabilities.displayTiming = supportedOptionalExtensions.find(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME) != supportedOptionalExtensions.end();
+        capabilities.maxTextureSize = physicalDeviceProperties.limits.maxImageDimension2D;
         capabilities.preferHDR = memoryHeapSize > (512 * 1024 * 1024);
 
         // Fill Vulkan-only capabilities.
@@ -3609,10 +3614,6 @@ namespace RT64 {
 
     VulkanDevice::~VulkanDevice() {
         release();
-    }
-
-    std::unique_ptr<RenderCommandList> VulkanDevice::createCommandList(RenderCommandListType type) {
-        return std::make_unique<VulkanCommandList>(this, type);
     }
 
     std::unique_ptr<RenderDescriptorSet> VulkanDevice::createDescriptorSet(const RenderDescriptorSetDesc &desc) {

@@ -7,7 +7,8 @@
 #include <cassert>
 #include <cstring>
 #include <chrono>
-#include <thread>
+#include <SDL.h>
+#include <SDL_syswm.h>
 
 #ifdef _WIN64
 #include "shaders/RenderInterfaceTestPS.hlsl.dxil.h"
@@ -17,12 +18,23 @@
 #include "shaders/RenderInterfaceTestPostPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.dxil.h"
 #endif
+#ifndef __APPLE__
 #include "shaders/RenderInterfaceTestPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestRT.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestVS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestCS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
+#else
+#include "metal/rt64_metal.h"
+#include "shaders/RenderInterfaceTestPS.hlsl.metallib.h"
+// TODO: Enable when RT is added to Metal.
+//#include "shaders/RenderInterfaceTestRT.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestVS.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestCS.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestPostPS.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestPostVS.hlsl.metallib.h"
+#endif
 
 #define ENABLE_SWAP_CHAIN 1
 #define ENABLE_CLEAR 1
@@ -169,7 +181,7 @@ namespace RT64 {
         Test.renderInterface = renderInterface;
         Test.device = renderInterface->createDevice();
         Test.commandQueue = Test.device->createCommandQueue(RenderCommandListType::DIRECT);
-        Test.commandList = Test.device->createCommandList(RenderCommandListType::DIRECT);
+        Test.commandList = Test.commandQueue->createCommandList(RenderCommandListType::DIRECT);
         Test.acquireSemaphore = Test.device->createCommandSemaphore();
         Test.drawSemaphore = Test.device->createCommandSemaphore();
         Test.commandFence = Test.device->createCommandFence();
@@ -222,6 +234,7 @@ namespace RT64 {
             PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobDXIL);
             break;
 #endif
+#ifndef __APPLE__
         case RenderShaderFormat::SPIRV:
             PSBlob = RenderInterfaceTestPSBlobSPIRV;
             PSBlobSize = sizeof(RenderInterfaceTestPSBlobSPIRV);
@@ -236,6 +249,23 @@ namespace RT64 {
             PostVSBlob = RenderInterfaceTestPostVSBlobSPIRV;
             PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobSPIRV);
             break;
+#else
+        case RenderShaderFormat::METAL:
+            PSBlob = RenderInterfaceTestPSBlobMSL;
+            PSBlobSize = sizeof(RenderInterfaceTestPSBlobMSL);
+            VSBlob = RenderInterfaceTestVSBlobMSL;
+            VSBlobSize = sizeof(RenderInterfaceTestVSBlobMSL);
+            CSBlob = RenderInterfaceTestCSBlobMSL;
+            CSBlobSize = sizeof(RenderInterfaceTestCSBlobMSL);
+            // TODO: Enable when RT is added to Metal.
+//            RTBlob = RenderInterfaceTestRTBlobMSL;
+//            RTBlobSize = sizeof(RenderInterfaceTestRTBlobMSL);
+            PostPSBlob = RenderInterfaceTestPostPSBlobMSL;
+            PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobMSL);
+            PostVSBlob = RenderInterfaceTestPostVSBlobMSL;
+            PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobMSL);
+            break;
+#endif
         default:
             assert(false && "Unknown shader format.");
             break;
@@ -800,7 +830,56 @@ namespace RT64 {
     }
 #elif defined(__APPLE__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
-        assert(false);
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+            fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
+            return;
+        }
+
+        SDL_Window *window = SDL_CreateWindow("Render Interface Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_METAL);
+        if (window == nullptr) {
+            fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
+            SDL_Quit();
+            return;
+        }
+
+        // Setup Metal view.
+        SDL_MetalView view = SDL_Metal_CreateView(window);
+        auto *metalInterface = dynamic_cast<RT64::MetalInterface *>(renderInterface);
+        metalInterface->assignDeviceToLayer(view);
+
+        // SDL_Window's handle can be used directly if needed
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        SDL_GetWindowWMInfo(window, &wmInfo);
+
+        TestInitialize(renderInterface, { wmInfo.info.cocoa.window });
+        TestResize();
+
+        bool running = true;
+        while (running) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                switch (event.type) {
+                    case SDL_QUIT:
+                        running = false;
+                        break;
+
+                    case SDL_WINDOWEVENT:
+                        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                            TestResize();
+                        }
+                        break;
+                }
+            }
+
+            TestDraw();
+            SDL_Delay(16); // Approximate 60 FPS
+        }
+
+        TestShutdown();
+        SDL_Metal_DestroyView(view);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
     }
 #endif
 };
