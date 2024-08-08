@@ -6,6 +6,7 @@
 
 #include "rt64_shader_common.h"
 
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 
@@ -78,7 +79,8 @@ namespace RT64 {
         std::unique_ptr<RenderPipeline> pipelines[8];
         std::unique_ptr<RenderPipeline> postBlendDitherNoiseAddPipeline;
         std::unique_ptr<RenderPipeline> postBlendDitherNoiseSubPipeline;
-        std::mutex pipelinesMutex;
+        std::mutex firstPipelineMutex;
+        std::condition_variable firstPipelineCondition;
         bool pipelinesCreated = false;
         std::unique_ptr<RenderPipelineLayout> pipelineLayout;
         std::vector<std::vector<PipelineCreation>> pipelineThreadCreations;
@@ -88,6 +90,7 @@ namespace RT64 {
 
         RasterShaderUber(RenderDevice *device, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, const ShaderLibrary *shaderLibrary, uint32_t threadCount);
         ~RasterShaderUber();
+        void threadCreatePipeline(const PipelineCreation &creation);
         void threadCreatePipelines(uint32_t threadIndex);
         void waitForPipelineCreation();
         uint32_t pipelineStateIndex(bool zCmp, bool zUpd, bool cvgAdd) const;

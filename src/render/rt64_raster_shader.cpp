@@ -531,9 +531,28 @@ namespace RT64 {
     }
 
     void RasterShaderUber::threadCreatePipelines(uint32_t threadIndex) {
+        // Delay the creation of all other pipelines until the first pipeline is created. This can help the
+        // driver reuse its shader cache between pipelines and achieve a much lower creation time than if
+        // all threads started at the same time.
+        if (threadIndex > 0) {
+            std::unique_lock<std::mutex> lock(firstPipelineMutex);
+            firstPipelineCondition.wait(lock, [this]() {
+                return (pipelines[0] != nullptr);
+            });
+        }
+
         for (const PipelineCreation &creation : pipelineThreadCreations[threadIndex]) {
             uint32_t pipelineIndex = pipelineStateIndex(creation.zCmp, creation.zUpd, creation.cvgAdd);
-            pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+
+            if (pipelineIndex == 0) {
+                firstPipelineMutex.lock();
+                pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+                firstPipelineMutex.unlock();
+                firstPipelineCondition.notify_all();
+            }
+            else {
+                pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+            }
         }
     }
 
