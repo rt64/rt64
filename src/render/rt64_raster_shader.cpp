@@ -544,7 +544,7 @@ namespace RT64 {
         for (const PipelineCreation &creation : pipelineThreadCreations[threadIndex]) {
             uint32_t pipelineIndex = pipelineStateIndex(creation.zCmp, creation.zUpd, creation.cvgAdd);
 
-            if (threadIndex == 0) {
+            if (pipelineIndex == 0) {
                 firstPipelineMutex.lock();
                 pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
                 firstPipelineMutex.unlock();
