@@ -399,7 +399,6 @@ namespace RT64 {
 
     RasterShaderUber::RasterShaderUber(RenderDevice *device, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, const ShaderLibrary *shaderLibrary, uint32_t threadCount) {
         assert(device != nullptr);
-        assert(threadCount > 0);
 
         // Create the shaders.
         const void *VSBlob = nullptr;
@@ -446,7 +445,7 @@ namespace RT64 {
         // Generate all possible combinations of pipeline creations and assign them to each thread. Skip the ones that are invalid.
         uint32_t pipelineCount = uint32_t(std::size(pipelines));
         pipelineThreadCreations.clear();
-        pipelineThreadCreations.resize(std::min(threadCount, pipelineCount - 1));
+        pipelineThreadCreations.resize(std::min(threadCount, pipelineCount));
 
         PipelineCreation creation;
         creation.device = device;
@@ -464,16 +463,9 @@ namespace RT64 {
             creation.zCmp = i & (1 << 0);
             creation.zUpd = i & (1 << 1);
             creation.cvgAdd = i & (1 << 2);
-            
-            // Create at least one pipeline on the thread and wait for it to finish. This should help when the driver
-            // caches the result of the shader translation and reuses it between pipeline creations.
-            if (i == 0) {
-                threadCreatePipeline(creation);
-            }
-            else {
-                pipelineThreadCreations[threadIndex].emplace_back(creation);
-                threadIndex = (threadIndex + 1) % threadCount;
-            }
+
+            pipelineThreadCreations[threadIndex].emplace_back(creation);
+            threadIndex = (threadIndex + 1) % threadCount;
         }
 
         // Spawn the threads that will compile all the pipelines.
@@ -538,14 +530,29 @@ namespace RT64 {
         waitForPipelineCreation();
     }
 
-    void RasterShaderUber::threadCreatePipeline(const PipelineCreation &creation) {
-        uint32_t pipelineIndex = pipelineStateIndex(creation.zCmp, creation.zUpd, creation.cvgAdd);
-        pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
-    }
-
     void RasterShaderUber::threadCreatePipelines(uint32_t threadIndex) {
+        // Delay the creation of all other pipelines until the first pipeline is created. This can help the
+        // driver reuse its shader cache between pipelines and achieve a much lower creation time than if
+        // all threads started at the same time.
+        if (threadIndex > 0) {
+            std::unique_lock<std::mutex> lock(firstPipelineMutex);
+            firstPipelineCondition.wait(lock, [this]() {
+                return (pipelines[0] != nullptr);
+            });
+        }
+
         for (const PipelineCreation &creation : pipelineThreadCreations[threadIndex]) {
-            threadCreatePipeline(creation);
+            uint32_t pipelineIndex = pipelineStateIndex(creation.zCmp, creation.zUpd, creation.cvgAdd);
+
+            if (threadIndex == 0) {
+                firstPipelineMutex.lock();
+                pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+                firstPipelineMutex.unlock();
+                firstPipelineCondition.notify_all();
+            }
+            else {
+                pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+            }
         }
     }
 
