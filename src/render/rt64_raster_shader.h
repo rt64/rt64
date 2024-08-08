@@ -9,6 +9,8 @@
 #include <mutex>
 #include <thread>
 
+#include "re-spirv/re-spirv.h"
+
 #include "rhi/rt64_render_interface.h"
 #include "shared/rt64_blender.h"
 #include "shared/rt64_color_combiner.h"
@@ -21,6 +23,19 @@
 #define SAMPLE_LOCATIONS_REQUIRED 1
 
 namespace RT64 {
+    struct OptimizerCacheSPIRV {
+        respv::Shader rasterVS;
+        respv::Shader rasterVSFlat;
+        respv::Shader rasterPS;
+        respv::Shader rasterPSDepth;
+        respv::Shader rasterPSDepthMS;
+        respv::Shader rasterPSFlatDepth;
+        respv::Shader rasterPSFlatDepthMS;
+        respv::Shader rasterPSFlat;
+
+        void initialize();
+    };
+
     struct PipelineCreation {
         RenderDevice *device;
         const RenderPipelineLayout *pipelineLayout;
@@ -31,7 +46,6 @@ namespace RT64 {
         bool NoN;
         bool zCmp;
         bool zUpd;
-        bool zDecal;
         bool cvgAdd;
         bool usesHDR;
         std::vector<RenderSpecConstant> specConstants;
@@ -49,7 +63,7 @@ namespace RT64 {
         std::unique_ptr<RenderPipeline> pipeline;
 
         RasterShader(RenderDevice *device, const ShaderDescription &desc, const RenderPipelineLayout *pipelineLayout, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, 
-            const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes = nullptr, std::vector<uint8_t> *psBytes = nullptr, bool useBytes = false);
+            const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV, std::vector<uint8_t> *vsBytes = nullptr, std::vector<uint8_t> *psBytes = nullptr, bool useBytes = false);
 
         ~RasterShader();
         static RasterShaderText generateShaderText(const ShaderDescription &desc, bool multisampling);
@@ -61,7 +75,7 @@ namespace RT64 {
         static const uint64_t RasterVSLibraryHash;
         static const uint64_t RasterPSLibraryHash;
 
-        std::unique_ptr<RenderPipeline> pipelines[64];
+        std::unique_ptr<RenderPipeline> pipelines[8];
         std::unique_ptr<RenderPipeline> postBlendDitherNoiseAddPipeline;
         std::unique_ptr<RenderPipeline> postBlendDitherNoiseSubPipeline;
         std::mutex pipelinesMutex;
@@ -76,7 +90,7 @@ namespace RT64 {
         ~RasterShaderUber();
         void threadCreatePipelines(uint32_t threadIndex);
         void waitForPipelineCreation();
-        uint32_t pipelineStateIndex(bool alphaBlend, bool culling, bool zCmp, bool zUpd, bool zDecal, bool cvgAdd) const;
-        const RenderPipeline *getPipeline(bool alphaBlend, bool culling, bool zCmp, bool zUpd, bool zDecal, bool cvgAdd) const;
+        uint32_t pipelineStateIndex(bool zCmp, bool zUpd, bool cvgAdd) const;
+        const RenderPipeline *getPipeline(bool zCmp, bool zUpd, bool cvgAdd) const;
     };
 };

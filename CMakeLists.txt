@@ -3,9 +3,15 @@ project(rt64)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
+option(RT64_STATIC "Build RT64 as a static library" OFF)
+
 option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
 if (${RT64_BUILD_EXAMPLES})
     set(RT64_STATIC ON)
+endif()
+
+if (NOT ${RT64_STATIC})
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 
 function(preprocess INFILE OUTFILE OPTIONS)
@@ -56,6 +62,7 @@ set(ZSTD_BUILD_STATIC ON)
 set(ZSTD_BUILD_SHARED OFF)
 
 add_subdirectory(src/tools/file_to_c)
+add_subdirectory(src/contrib/re-spirv)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 add_subdirectory(src/contrib/zstd/build/cmake)
 
@@ -353,7 +360,6 @@ if (WIN32)
     include_directories("${PROJECT_SOURCE_DIR}/src/contrib/dxc/inc")
 endif()
 
-option(RT64_STATIC "Build RT64 as a static library" OFF)
 if (${RT64_STATIC})
     add_library(rt64 STATIC ${SOURCES})
 else()
@@ -364,6 +370,7 @@ set_target_properties(rt64 PROPERTIES OUTPUT_NAME "rt64")
 set_target_properties(rt64 PROPERTIES PREFIX "")
 
 # Add common libraries.
+target_link_libraries(rt64 re-spirv)
 target_link_libraries(rt64 nfd)
 target_link_libraries(rt64 libzstd_static)
 

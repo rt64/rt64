@@ -1544,11 +1544,8 @@ namespace RT64 {
                         else {
                             const bool copyMode = (call.shaderDesc.otherMode.cycleType() == G_CYC_COPY);
                             triangles.pipeline = rasterShaderUber->getPipeline(
-                                !copyMode && interop::Blender::usesAlphaBlend(call.shaderDesc.otherMode),
-                                !copyMode && call.shaderDesc.flags.culling,
-                                !copyMode && call.shaderDesc.otherMode.zCmp(),
+                                !copyMode && call.shaderDesc.otherMode.zCmp() && (call.shaderDesc.otherMode.zMode() != ZMODE_DEC),
                                 !copyMode && call.shaderDesc.otherMode.zUpd(),
-                                !copyMode && (call.shaderDesc.otherMode.zMode() == ZMODE_DEC),
                                 (call.shaderDesc.otherMode.cvgDst() == CVG_DST_WRAP) || (call.shaderDesc.otherMode.cvgDst() == CVG_DST_SAVE));
                         }
                         
