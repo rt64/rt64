@@ -90,7 +90,6 @@ namespace RT64 {
 
         RasterShaderUber(RenderDevice *device, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, const ShaderLibrary *shaderLibrary, uint32_t threadCount);
         ~RasterShaderUber();
-        void threadCreatePipeline(const PipelineCreation &creation);
         void threadCreatePipelines(uint32_t threadIndex);
         void waitForPipelineCreation();
         uint32_t pipelineStateIndex(bool zCmp, bool zUpd, bool cvgAdd) const;
