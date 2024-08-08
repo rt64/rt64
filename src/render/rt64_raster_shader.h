@@ -6,6 +6,7 @@
 
 #include "rt64_shader_common.h"
 
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 
