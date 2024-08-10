@@ -120,6 +120,32 @@ namespace RT64 {
         }
     }
 
+    static MTLVertexFormat toVertexFormat(MTLPixelFormat format) {
+        switch (format) {
+            case MTLPixelFormatRGBA32Float:
+                return MTLVertexFormatFloat4;
+            case MTLPixelFormatRGBA16Float:
+                return MTLVertexFormatFloat4;
+            case MTLPixelFormatRG32Float:
+                return MTLVertexFormatFloat2;
+            case MTLPixelFormatRGBA8Unorm:
+                return MTLVertexFormatUChar4Normalized;
+            case MTLPixelFormatRG16Float:
+                return MTLVertexFormatFloat2;
+            case MTLPixelFormatR32Float:
+                return MTLVertexFormatFloat;
+            case MTLPixelFormatRG8Unorm:
+                return MTLVertexFormatUChar2Normalized;
+            case MTLPixelFormatR16Float:
+                return MTLVertexFormatFloat;
+            case MTLPixelFormatR8Unorm:
+                return MTLVertexFormatUCharNormalized;
+            default:
+                assert(false && "Unknown vertex format.");
+                return MTLVertexFormatFloat4;
+        }
+    }
+
     static MTLTextureType toTextureType(RenderTextureDimension dimension) {
         switch (dimension) {
             case RenderTextureDimension::TEXTURE_1D:
@@ -148,17 +174,29 @@ namespace RT64 {
         }
     }
 
-    static MTLPrimitiveType toMTL(RenderPrimitiveTopology topology) {
+    static MTLPrimitiveTopologyClass toMTL(RenderPrimitiveTopology topology) {
         switch (topology) {
             case RenderPrimitiveTopology::POINT_LIST:
-                return MTLPrimitiveTypePoint;
+                return MTLPrimitiveTopologyClassPoint;
             case RenderPrimitiveTopology::LINE_LIST:
-                return MTLPrimitiveTypeLine;
+                return MTLPrimitiveTopologyClassLine;
             case RenderPrimitiveTopology::TRIANGLE_LIST:
-                return MTLPrimitiveTypeTriangle;
+                return MTLPrimitiveTopologyClassTriangle;
             default:
                 assert(false && "Unknown primitive topology type.");
-                return MTLPrimitiveTypePoint;
+                return MTLPrimitiveTopologyClassPoint;
+        }
+    }
+
+    static MTLVertexStepFunction toMTL(RenderInputSlotClassification classification) {
+        switch (classification) {
+            case RenderInputSlotClassification::PER_VERTEX_DATA:
+                return MTLVertexStepFunctionPerVertex;
+            case RenderInputSlotClassification::PER_INSTANCE_DATA:
+                return MTLVertexStepFunctionPerInstance;
+            default:
+                assert(false && "Unknown input classification.");
+                return MTLVertexStepFunctionPerVertex;
         }
     }
 
@@ -578,11 +616,35 @@ namespace RT64 {
         assert(desc.pipelineLayout != nullptr);
 
         MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
+        descriptor.inputPrimitiveTopology = toMTL(desc.primitiveTopology);
+        descriptor.rasterSampleCount = desc.multisampling.sampleCount;
 
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
         const auto *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
 
         descriptor.vertexFunction = metalShader->function;
+
+        MTLVertexDescriptor *vertexDescriptor = [MTLVertexDescriptor new];
+
+        for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
+            const RenderInputSlot &inputSlot = desc.inputSlots[i];
+            MTLVertexBufferLayoutDescriptor *layoutDescriptor = [MTLVertexBufferLayoutDescriptor new];
+            layoutDescriptor.stride = inputSlot.stride;
+            layoutDescriptor.stepFunction = toMTL(inputSlot.classification);
+            layoutDescriptor.stepRate = (layoutDescriptor.stepFunction == MTLVertexStepFunctionPerInstance) ? inputSlot.stride : 1;
+            [vertexDescriptor.layouts setObject: layoutDescriptor atIndexedSubscript: i];
+        }
+
+        for (uint32_t i = 0; i < desc.inputElementsCount; i++) {
+            const RenderInputElement &inputElement = desc.inputElements[i];
+            MTLVertexAttributeDescriptor *attributeDescriptor = [MTLVertexAttributeDescriptor new];
+            attributeDescriptor.offset = inputElement.alignedByteOffset;
+            attributeDescriptor.bufferIndex = inputElement.slotIndex;
+            attributeDescriptor.format = toVertexFormat(toMTL(inputElement.format));
+            [vertexDescriptor.attributes setObject: attributeDescriptor atIndexedSubscript: i];
+        }
+
+        descriptor.vertexDescriptor = vertexDescriptor;
 
         assert(desc.geometryShader == nullptr && "Metal does not support geometry shaders!");
 
@@ -591,9 +653,31 @@ namespace RT64 {
             descriptor.fragmentFunction = pixelShader->function;
         }
 
-        for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
-            MTLPipelineBufferDescriptor *bufferDescriptor = [MTLPipelineBufferDescriptor new];
+        for (uint32_t i = 0; i < desc.renderTargetCount; i++) {
+            MTLRenderPipelineColorAttachmentDescriptor *colorAttachmentDescriptor = [MTLRenderPipelineColorAttachmentDescriptor new];
+            const RenderBlendDesc &blendDesc = desc.renderTargetBlend[i];
+            colorAttachmentDescriptor.blendingEnabled = blendDesc.blendEnabled;
+            colorAttachmentDescriptor.sourceRGBBlendFactor = toMTL(blendDesc.srcBlend);
+            colorAttachmentDescriptor.destinationRGBBlendFactor = toMTL(blendDesc.dstBlend);
+            colorAttachmentDescriptor.rgbBlendOperation = toMTL(blendDesc.blendOp);
+            colorAttachmentDescriptor.sourceAlphaBlendFactor = toMTL(blendDesc.srcBlendAlpha);
+            colorAttachmentDescriptor.destinationAlphaBlendFactor = toMTL(blendDesc.dstBlendAlpha);
+            colorAttachmentDescriptor.alphaBlendOperation = toMTL(blendDesc.blendOpAlpha);
+            colorAttachmentDescriptor.writeMask = blendDesc.renderTargetWriteMask;
+            colorAttachmentDescriptor.pixelFormat = toMTL(desc.renderTargetFormat[i]);
+            [descriptor.colorAttachments setObject: colorAttachmentDescriptor atIndexedSubscript: i];
         }
+
+        // State variables, initialized here to be reused in encoder re-binding
+        renderState = new MetalRenderState();
+
+        MTLDepthStencilDescriptor *depthStencilDescriptor = [MTLDepthStencilDescriptor new];
+        depthStencilDescriptor.depthWriteEnabled = desc.depthWriteEnabled;
+        depthStencilDescriptor.depthCompareFunction = toMTL(desc.depthFunction);
+        renderState->depthStencilState = [device->device newDepthStencilStateWithDescriptor: depthStencilDescriptor];
+        renderState->cullMode = toMTL(desc.cullMode);
+        renderState->depthClipMode = (desc.depthClipEnabled) ? MTLDepthClipModeClip : MTLDepthClipModeClamp;
+        renderState->winding = MTLWindingClockwise;
 
         NSError *error = nullptr;
         this->state = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
@@ -809,6 +893,14 @@ namespace RT64 {
         }
     }
 
+    void MetalCommandList::rebindRenderState(MetalRenderState *renderState) const {
+        [renderEncoder setRenderPipelineState: renderState->renderPipelineState];
+        [renderEncoder setDepthStencilState: renderState->depthStencilState];
+        [renderEncoder setDepthClipMode: renderState->depthClipMode];
+        [renderEncoder setCullMode: renderState->cullMode];
+        [renderEncoder setFrontFacingWinding: renderState->winding];
+    }
+
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
         // TODO: Ignore for now, Metal should handle most of this itself.
     }
@@ -866,7 +958,7 @@ namespace RT64 {
                 guaranteeRenderEncoder();
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
                 assert(renderEncoder != nil && "Cannot set pipeline state on nil MTLRenderCommandEncoder!");
-                [renderEncoder setRenderPipelineState: graphicsPipeline->state];
+                rebindRenderState(graphicsPipeline->state);
                 break;
             }
             default:

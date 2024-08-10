@@ -34,6 +34,16 @@ namespace RT64 {
     struct MetalPipelineLayout;
     struct MetalTexture;
 
+    struct MetalRenderState {
+#ifdef __OBJC__
+        id<MTLRenderPipelineState> renderPipelineState = nil;
+        id<MTLDepthStencilState> depthStencilState = nil;
+        MTLCullMode cullMode = MTLCullModeNone;
+        MTLDepthClipMode depthClipMode = MTLDepthClipModeClip;
+        MTLWinding winding = MTLWindingClockwise;
+#endif
+    }
+
     struct MetalDescriptorSet : RenderDescriptorSet {
         MetalDevice *device = nullptr;
 
@@ -117,6 +127,7 @@ namespace RT64 {
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
+        void rebindRenderState(MetalRenderState *renderState) const;
         void barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) override;
         void dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) override;
         void traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) override;
@@ -298,10 +309,7 @@ namespace RT64 {
     };
 
     struct MetalGraphicsPipeline : MetalPipeline {
-#ifdef __OBJC__
-        id<MTLRenderPipelineState> state = nil;
-#endif
-
+        MetalRenderState *renderState;
         MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
