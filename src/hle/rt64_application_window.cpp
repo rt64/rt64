@@ -23,16 +23,7 @@ namespace RT64 {
     ApplicationWindow *ApplicationWindow::HookedApplicationWindow = nullptr;
     
     ApplicationWindow::ApplicationWindow() {
-        windowHandle = {};
-        sdlEventFilterUserdata = nullptr;
-        sdlEventFilterStored = false;
-        fullScreen = false;
-        lastMaximizedState = false;
-#   ifdef _WIN32
-        windowHook = nullptr;
-        windowMenu = nullptr;
-#   endif
-        usingSdl = false;
+        // Empty.
     }
 
     ApplicationWindow::~ApplicationWindow() {

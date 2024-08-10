@@ -494,6 +494,9 @@ namespace RT64 {
             case SDL_SCANCODE_F4:
                 processDeveloperShortcut(DeveloperShortcut::Replacements);
                 return true;
+            default:
+                // Don't filter the key event.
+                break;
             }
         }
 

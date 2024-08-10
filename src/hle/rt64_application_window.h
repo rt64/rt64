@@ -31,12 +31,12 @@ namespace RT64 {
 #       endif
         };
 
-        RenderWindow windowHandle;
+        RenderWindow windowHandle = {};
         Listener *listener;
         uint32_t refreshRate = 0;
-        bool fullScreen;
-        bool lastMaximizedState;
-        bool usingSdl;
+        bool fullScreen = false;
+        bool lastMaximizedState = false;
+        bool usingSdl = false;
         int32_t windowLeft = INT32_MAX;
         int32_t windowTop = INT32_MAX;
         SDL_EventFilter sdlEventFilterStored = nullptr;
@@ -44,9 +44,9 @@ namespace RT64 {
         bool sdlEventFilterInstalled = false;
 
 #   ifdef _WIN32
-        HHOOK windowHook;
-        HMENU windowMenu;
-        RECT lastWindowRect;
+        HHOOK windowHook = nullptr;
+        HMENU windowMenu = nullptr;
+        RECT lastWindowRect = {};
 #   endif
 
         ApplicationWindow();
