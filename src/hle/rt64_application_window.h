@@ -36,9 +36,9 @@ namespace RT64 {
         uint32_t refreshRate = 0;
         bool fullScreen = false;
         bool lastMaximizedState = false;
-        bool usingSdl = false;
         int32_t windowLeft = INT32_MAX;
         int32_t windowTop = INT32_MAX;
+        SDL_Window *sdlWindow = nullptr;
         SDL_EventFilter sdlEventFilterStored = nullptr;
         void *sdlEventFilterUserdata = nullptr;
         bool sdlEventFilterInstalled = false;

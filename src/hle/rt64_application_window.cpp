@@ -44,21 +44,24 @@ namespace RT64 {
         this->listener = listener;
 
         windowHandle = window;
-        usingSdl = SDL_WasInit(SDL_INIT_VIDEO);
         
         if (listener->usesWindowMessageFilter()) {
-            if (usingSdl) {
+            if ((sdlWindow == nullptr) && SDL_WasInit(SDL_INIT_VIDEO)) {
                 // We'd normally install the event filter here, but Mupen does not set its own event filter
                 // until much later. Instead, we delegate this to the first time a screen update is sent.
+                // FIXME: We attempt to get the first window created by SDL2. This can be improved later
+                // by actually passing the SDL_Window handle through as a parameter.
+                sdlWindow = SDL_GetWindowFromID(1);
             }
-#       ifdef _WIN32
-            else {
+
+            if (sdlWindow == nullptr) {
+#           ifdef _WIN32
                 assert(HookedApplicationWindow == nullptr);
                 assert(threadId != 0);
                 windowHook = SetWindowsHookEx(WH_GETMESSAGE, &windowHookCallback, NULL, threadId);
                 HookedApplicationWindow = this;
+#           endif
             }
-#       endif
         }
     }
 
@@ -109,9 +112,11 @@ namespace RT64 {
 #   endif
 
         // Create window.
-        SDL_Window *sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE);
+        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE);
+        assert((sdlWindow != nullptr) && "Failed to open window with SDL");
+
+        // Get native window handles from the window.
         SDL_SysWMinfo wmInfo;
-        assert(sdlWindow && "Failed to open window with SDL");
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(sdlWindow, &wmInfo);
 #   if defined(_WIN32)
@@ -323,7 +328,7 @@ namespace RT64 {
 #endif
 
     void ApplicationWindow::sdlCheckFilterInstallation() {
-        if (!sdlEventFilterInstalled && usingSdl) {
+        if (!sdlEventFilterInstalled && (sdlWindow != nullptr)) {
             if (!SDL_GetEventFilter(&sdlEventFilterStored, &sdlEventFilterUserdata)) {
                 sdlEventFilterStored = nullptr;
                 sdlEventFilterUserdata = nullptr;

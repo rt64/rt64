@@ -513,7 +513,7 @@ namespace RT64 {
             if (userConfig.developerMode) {
                 const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
                 if (presentQueue->inspector == nullptr) {
-                    presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI);
+                    presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI, appWindow->sdlWindow);
                     if (!userPaths.isEmpty()) {
                         presentQueue->inspector->setIniPath(userPaths.imguiPath);
                     }

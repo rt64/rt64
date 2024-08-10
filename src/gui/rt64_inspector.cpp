@@ -61,13 +61,14 @@ namespace RT64 {
 
     // Inspector
 
-    Inspector::Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI) {
+    Inspector::Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI, SDL_Window *sdlWindow) {
         assert(device != nullptr);
         assert(swapChain != nullptr);
 
         this->device = device;
         this->swapChain = swapChain;
         this->graphicsAPI = graphicsAPI;
+        this->sdlWindow = sdlWindow;
 
         IMGUI_CHECKVERSION();
 
@@ -75,10 +76,15 @@ namespace RT64 {
         ImPlot::CreateContext();
         ImGui::StyleColorsDark();
 
-#   ifdef _WIN32
-        RenderWindow renderWindow = swapChain->getWindow();
-        ImGui_ImplWin32_Init(renderWindow);
-#   endif
+        if (sdlWindow != nullptr) {
+            ImGui_ImplSDL2_InitForOther(sdlWindow);
+        }
+        else {
+#       ifdef _WIN32
+            RenderWindow renderWindow = swapChain->getWindow();
+            ImGui_ImplWin32_Init(renderWindow);
+#       endif
+        }
 
         switch (graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12: {
@@ -155,11 +161,14 @@ namespace RT64 {
             break;
         }
 
-#   ifdef _WIN32
-        ImGui_ImplWin32_Shutdown();
-#   else
-        assert(false && "Unimplemented.");
-#   endif
+        if (sdlWindow != nullptr) {
+            ImGui_ImplSDL2_Shutdown();
+        }
+        else {
+#       ifdef _WIN32
+            ImGui_ImplWin32_Shutdown();
+#       endif
+        }
 
         ImPlot::DestroyContext();
         ImGui::DestroyContext();
@@ -175,12 +184,15 @@ namespace RT64 {
         assert(worker != nullptr);
 
         frameMutex.lock();
-
-#   ifdef _WIN32
-        ImGui_ImplWin32_NewFrame();
-#   else
-        assert(false && "Unimplemented.");
-#   endif
+        
+        if (sdlWindow != nullptr) {
+            ImGui_ImplSDL2_NewFrame();
+        }
+        else {
+#       ifdef _WIN32
+            ImGui_ImplWin32_NewFrame();
+#       endif
+        }
 
         switch (graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12: {
@@ -244,6 +256,8 @@ namespace RT64 {
 #endif
 
     bool Inspector::handleSdlEvent(SDL_Event *event) {
+        assert((sdlWindow != nullptr) && "SDL Events shouldn't be handled if SDL was not used.");
+
         bool processed = ImGui_ImplSDL2_ProcessEvent(event);
         if (processed) {
             if ((event->type == SDL_KEYDOWN) || (event->type == SDL_KEYUP)) {

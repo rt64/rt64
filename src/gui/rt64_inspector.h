@@ -23,12 +23,13 @@ namespace RT64 {
     struct Inspector {
         RenderDevice *device = nullptr;
         const RenderSwapChain *swapChain = nullptr;
+        UserConfiguration::GraphicsAPI graphicsAPI;
+        SDL_Window *sdlWindow = nullptr;
         std::unique_ptr<RenderDescriptorSet> descriptorSet;
         std::unique_ptr<VulkanContext> vulkanContext;
-        UserConfiguration::GraphicsAPI graphicsAPI;
         std::mutex frameMutex;
 
-        Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI);
+        Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI, SDL_Window *sdlWindow);
         ~Inspector();
         void setIniPath(const std::filesystem::path &path);
         void newFrame(RenderWorker *worker);
