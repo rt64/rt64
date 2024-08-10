@@ -4,6 +4,7 @@
 
 #include "rt64_raster_shader_cache.h"
 
+#include "common/rt64_elapsed_timer.h"
 #include "common/rt64_thread.h"
 
 #define ENABLE_OPTIMIZED_SHADER_GENERATION
@@ -209,7 +210,10 @@ namespace RT64 {
                 assert((shaderCache->shaderUber != nullptr) && "Ubershader should've been created by the time a new shader is submitted to the cache.");
                 const RenderPipelineLayout *uberPipelineLayout = shaderCache->shaderUber->pipelineLayout.get();
                 const RenderMultisampling multisampling = shaderCache->multisampling;
+                const bool useMSAA = (multisampling.sampleCount > 1);
+                ElapsedTimer elapsedTimer;
                 std::unique_ptr<RasterShader> newShader = std::make_unique<RasterShader>(shaderCache->device, shaderDesc, uberPipelineLayout, shaderCache->shaderFormat, multisampling, shaderCache->shaderCompiler.get(), &shaderCache->optimizerCacheSPIRV, shaderVsBytes, shaderPsBytes, useShaderBytes);
+                fprintf(stdout, "%f, %d, %d, %d, %u, %u, %u, %u, %u\n", elapsedTimer.elapsedMilliseconds(), shaderDesc.outputDepth(useMSAA), shaderDesc.flags.smoothShade, useMSAA, shaderDesc.otherMode.L, shaderDesc.otherMode.H, shaderDesc.colorCombiner.L, shaderDesc.colorCombiner.H, shaderDesc.flags.value);
 
                 // Dump the bytes of the shader if requested.
                 if (!useShaderBytes && (shaderVsBytes != nullptr) && (shaderPsBytes != nullptr)) {

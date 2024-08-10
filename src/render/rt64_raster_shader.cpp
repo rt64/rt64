@@ -35,6 +35,8 @@
 #include "rt64_descriptor_sets.h"
 #include "rt64_render_target.h"
 
+#define RESPIRV_ENABLED 0
+
 namespace RT64 {
     static const RenderFormat RasterPositionFormat = RenderFormat::R32G32B32A32_FLOAT;
     static const RenderFormat RasterTexcoordFormat = RenderFormat::R32G32_FLOAT;
@@ -86,6 +88,7 @@ namespace RT64 {
         const bool useMSAA = (multisampling.sampleCount > 1);
         std::unique_ptr<RenderShader> vertexShader;
         std::unique_ptr<RenderShader> pixelShader;
+        std::vector<RenderSpecConstant> specConstants;
         if (shaderFormat == RenderShaderFormat::SPIRV) {
             // Choose the pre-compiled shader permutations.
             const respv::Shader *VS = nullptr;
@@ -111,6 +114,7 @@ namespace RT64 {
                 }
             }
 
+#       if RESPIRV_ENABLED
             thread_local std::vector<respv::SpecConstant> specConstants;
             thread_local bool specConstantsSetup = false;
             thread_local std::vector<uint8_t> optimizedVS;
@@ -135,6 +139,15 @@ namespace RT64 {
 
             vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
             pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
+#       else
+            specConstants.emplace_back(0, desc.otherMode.L);
+            specConstants.emplace_back(1, desc.otherMode.H);
+            specConstants.emplace_back(2, desc.colorCombiner.L);
+            specConstants.emplace_back(3, desc.colorCombiner.H);
+            specConstants.emplace_back(4, desc.flags.value);
+            vertexShader = device->createShader(VS->spirvWords, VS->spirvWordCount * sizeof(uint32_t), "VSMain", shaderFormat);
+            pixelShader = device->createShader(PS->spirvWords, PS->spirvWordCount * sizeof(uint32_t), "PSMain", shaderFormat);
+#       endif
         }
         else {
 #       if defined(_WIN32)
@@ -207,6 +220,7 @@ namespace RT64 {
         creation.cvgAdd = (desc.otherMode.cvgDst() == CVG_DST_WRAP) || (desc.otherMode.cvgDst() == CVG_DST_SAVE);
         creation.NoN = desc.flags.NoN;
         creation.usesHDR = desc.flags.usesHDR;
+        creation.specConstants = specConstants;
         creation.multisampling = multisampling;
         pipeline = createPipeline(creation);
     }
