@@ -390,6 +390,7 @@ namespace RT64 {
     }
     
     void Application::updateScreen() {
+        appWindow->sdlCheckFilterInstallation();
         screenApiProfiler.logAndRestart();
         state->updateScreen(core.decodeVI(), false);
     }
@@ -448,43 +449,20 @@ namespace RT64 {
         switch (message) {
         case WM_KEYDOWN: {
             switch (wParam) {
-            case VK_F1: {
-                if (userConfig.developerMode) {
-                    const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
-                    if (presentQueue->inspector == nullptr) {
-                        presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI);
-                        if (!userPaths.isEmpty()) {
-                            presentQueue->inspector->setIniPath(userPaths.imguiPath);
-                        }
-
-                        freeCamClearQueued = true;
-                        appWindow->blockSdlKeyboard();
-                    }
-                    else if (presentQueue->inspector != nullptr) {
-                        presentQueue->inspector.reset(nullptr);
-                        appWindow->unblockSdlKeyboard();
-                    }
-                }
-                else {
-                    fprintf(stdout, "Inspector is not available: developer mode is not enabled in the configuration.\n");
-                }
-
+            case VK_F1:
+                processDeveloperShortcut(DeveloperShortcut::Inspector);
                 return true;
-            }
-            case VK_F2: {
-                workloadQueue->rtEnabled = !workloadQueue->rtEnabled;
+            case VK_F2:
+                processDeveloperShortcut(DeveloperShortcut::RayTracing);
                 return true;
-            }
-            case VK_F3: {
-                presentQueue->viewRDRAM = !presentQueue->viewRDRAM;
+            case VK_F3:
+                processDeveloperShortcut(DeveloperShortcut::ViewRDRAM);
                 return true;
-            }
-            case VK_F4: {
-                textureCache->textureMap.replacementMapEnabled = !textureCache->textureMap.replacementMapEnabled;
+            case VK_F4:
+                processDeveloperShortcut(DeveloperShortcut::Replacements);
                 return true;
-            }
             default:
-                // Ignore key.
+                // Unknown shortcut.
                 break;
             }
         }
@@ -492,11 +470,82 @@ namespace RT64 {
         
         return false;
     }
+#endif
+
+    bool Application::sdlEventFilter(SDL_Event *event) {
+        if (userConfig.developerMode && (presentQueue != nullptr) && (state != nullptr) && !FileDialog::isOpen) {
+            const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
+            if ((presentQueue->inspector != nullptr) && presentQueue->inspector->handleSdlEvent(event)) {
+                return true;
+            }
+        }
+
+        if (event->type == SDL_KEYDOWN) {
+            switch (event->key.keysym.scancode) {
+            case SDL_SCANCODE_F1:
+                processDeveloperShortcut(DeveloperShortcut::Inspector);
+                return true;
+            case SDL_SCANCODE_F2:
+                processDeveloperShortcut(DeveloperShortcut::RayTracing);
+                return true;
+            case SDL_SCANCODE_F3:
+                processDeveloperShortcut(DeveloperShortcut::ViewRDRAM);
+                return true;
+            case SDL_SCANCODE_F4:
+                processDeveloperShortcut(DeveloperShortcut::Replacements);
+                return true;
+            default:
+                // Don't filter the key event.
+                break;
+            }
+        }
+
+        return false;
+    }
 
     bool Application::usesWindowMessageFilter() {
         return userConfig.developerMode;
     }
-#endif
+
+    void Application::processDeveloperShortcut(DeveloperShortcut developerShortcut) {
+        switch (developerShortcut) {
+        case DeveloperShortcut::Inspector: {
+            if (userConfig.developerMode) {
+                const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
+                if (presentQueue->inspector == nullptr) {
+                    presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI, appWindow->sdlWindow);
+                    if (!userPaths.isEmpty()) {
+                        presentQueue->inspector->setIniPath(userPaths.imguiPath);
+                    }
+
+                    freeCamClearQueued = true;
+                }
+                else if (presentQueue->inspector != nullptr) {
+                    presentQueue->inspector.reset(nullptr);
+                }
+            }
+            else {
+                fprintf(stdout, "Inspector is not available: developer mode is not enabled in the configuration.\n");
+            }
+
+            break;
+        }
+        case DeveloperShortcut::RayTracing: {
+            workloadQueue->rtEnabled = !workloadQueue->rtEnabled;
+            break;
+        }
+        case DeveloperShortcut::ViewRDRAM: {
+            presentQueue->viewRDRAM = !presentQueue->viewRDRAM;
+            break;
+        }
+        case DeveloperShortcut::Replacements: {
+            textureCache->textureMap.replacementMapEnabled = !textureCache->textureMap.replacementMapEnabled;
+            break;
+        }
+        default:
+            break;
+        };
+    }
 
     void Application::end() {
 #   if SCRIPT_ENABLED

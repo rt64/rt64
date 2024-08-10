@@ -333,6 +333,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_draw.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_tables.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_widgets.cpp"
+    "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_sdl2.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_vulkan.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/im3d/im3d.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot.cpp"
