@@ -14,6 +14,7 @@
 #include "common/rt64_common.h"
 #include "common/rt64_user_configuration.h"
 #include "render/rt64_render_worker.h"
+#include "hle/rt64_application_window.h"
 #include "rhi/rt64_render_interface.h"
 
 namespace RT64 {
@@ -36,5 +37,6 @@ namespace RT64 {
 #   ifdef _WIN32
         bool handleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
 #   endif
+        bool handleSdlEvent(SDL_Event *event);
     };
 };

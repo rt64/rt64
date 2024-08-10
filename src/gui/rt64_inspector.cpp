@@ -12,6 +12,12 @@
 #include "imgui/imgui.h"
 #include "implot/implot.h"
 
+// Volk must be included before the ImGui Vulkan backend.
+#include "vulkan/rt64_vulkan.h"
+
+#include "imgui/backends/imgui_impl_sdl2.h"
+#include "imgui/backends/imgui_impl_vulkan.h"
+
 #if defined(_WIN32)
 #   include "imgui/backends/imgui_impl_dx12.h"
 #   include "imgui/backends/imgui_impl_win32.h"
@@ -21,10 +27,6 @@
 #if defined(_WIN32)
 #   include "d3d12/rt64_d3d12.h"
 #endif
-
-// Volk must be included before the ImGui Vulkan backend.
-#include "vulkan/rt64_vulkan.h"
-#include "imgui/backends/imgui_impl_vulkan.h"
 
 static std::string IniFilenameUTF8;
 
@@ -240,4 +242,18 @@ namespace RT64 {
         return ImGui_ImplWin32_WndProcHandler(swapChain->getWindow(), msg, wParam, lParam);
     }
 #endif
+
+    bool Inspector::handleSdlEvent(SDL_Event *event) {
+        bool processed = ImGui_ImplSDL2_ProcessEvent(event);
+        if (processed) {
+            if ((event->type == SDL_KEYDOWN) || (event->type == SDL_KEYUP)) {
+                return ImGui::GetIO().WantCaptureKeyboard;
+            }
+            else if ((event->type == SDL_MOUSEMOTION) || (event->type == SDL_MOUSEBUTTONDOWN) || (event->type == SDL_MOUSEBUTTONUP) || (event->type == SDL_MOUSEWHEEL)) {
+                return ImGui::GetIO().WantCaptureMouse;
+            }
+        }
+        
+        return false;
+    }
 };

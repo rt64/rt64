@@ -51,16 +51,24 @@ namespace RT64 {
         assert(listener != nullptr);
 
         this->listener = listener;
-        windowHandle = window;
 
-#   ifdef _WIN32
+        windowHandle = window;
+        usingSdl = SDL_WasInit(SDL_INIT_VIDEO);
+        
         if (listener->usesWindowMessageFilter()) {
-            assert(HookedApplicationWindow == nullptr);
-            assert(threadId != 0);
-            windowHook = SetWindowsHookEx(WH_GETMESSAGE, &windowHookCallback, NULL, threadId);
-            HookedApplicationWindow = this;
+            if (usingSdl) {
+                // We'd normally install the event filter here, but Mupen does not set its own event filter
+                // until much later. Instead, we delegate this to the first time a screen update is sent.
+            }
+#       ifdef _WIN32
+            else {
+                assert(HookedApplicationWindow == nullptr);
+                assert(threadId != 0);
+                windowHook = SetWindowsHookEx(WH_GETMESSAGE, &windowHookCallback, NULL, threadId);
+                HookedApplicationWindow = this;
+            }
+#       endif
         }
-#   endif
     }
 
     void ApplicationWindow::setup(const char *windowTitle, Listener *listener) {
@@ -71,7 +79,7 @@ namespace RT64 {
         const int Height = 720;
         struct {
             uint32_t left, top, width, height;
-        } bounds {};
+        } bounds{};
 
 #   if defined(_WIN32)
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
@@ -108,9 +116,8 @@ namespace RT64 {
 #   else
         static_assert(false && "Unimplemented");
 #   endif
-        
+
         // Create window.
-#ifdef RT64_SDL_WINDOW
         SDL_Window *sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE);
         SDL_SysWMinfo wmInfo;
         assert(sdlWindow && "Failed to open window with SDL");
@@ -128,10 +135,6 @@ namespace RT64 {
 #   else
         static_assert(false && "Unimplemented");
 #   endif
-        usingSdl = true;
-#else
-        static_assert(false && "Unimplemented");
-#endif
 
 #   ifdef _WIN32
         setup(windowHandle, listener, GetCurrentThreadId());
@@ -305,7 +308,7 @@ namespace RT64 {
         }
     }
 
-#   ifdef _WIN32
+#ifdef _WIN32
     void ApplicationWindow::windowMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         if (listener->windowMessageFilter(message, wParam, lParam)) {
             return;
@@ -326,47 +329,34 @@ namespace RT64 {
 
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
-#   endif
-
-#ifdef RT64_SDL_WINDOW
-    void ApplicationWindow::blockSdlKeyboard() {
-        if (!usingSdl) {
-            return;
-        }
-
-        sdlEventFilterStored = SDL_GetEventFilter(&sdlEventFilter, &sdlEventFilterUserdata);
-        if (sdlEventFilterStored) {
-            SDL_SetEventFilter(&ApplicationWindow::sdlEventKeyboardFilter, this);
-        }
-    }
-
-    void ApplicationWindow::unblockSdlKeyboard() {
-        if (!usingSdl) {
-            return;
-        }
-
-        if (sdlEventFilterStored) {
-            SDL_SetEventFilter(sdlEventFilter, sdlEventFilterUserdata);
-            sdlEventFilterStored = false;
-        }
-    }
-
-    int ApplicationWindow::sdlEventKeyboardFilter(void *userdata, SDL_Event *event) {
-        ApplicationWindow *appWindow = reinterpret_cast<ApplicationWindow *>(userdata);
-
-        switch (event->type) {
-            // Ignore all keyboard events.
-        case SDL_KEYDOWN:
-        case SDL_KEYUP:
-            return 0;
-            // Pass through to the original event filter.
-        default:
-            return appWindow->sdlEventFilter(userdata, event);
-        }
-    }
-
-
-#else
-    static_assert(false && "Unimplemented");
 #endif
+
+    void ApplicationWindow::sdlCheckFilterInstallation() {
+        if (!sdlEventFilterInstalled && usingSdl) {
+            if (!SDL_GetEventFilter(&sdlEventFilterStored, &sdlEventFilterUserdata)) {
+                sdlEventFilterStored = nullptr;
+                sdlEventFilterUserdata = nullptr;
+            }
+
+            SDL_SetEventFilter(&ApplicationWindow::sdlEventFilter, this);
+            sdlEventFilterInstalled = true;
+        }
+    }
+    
+    int ApplicationWindow::sdlEventFilter(void *userdata, SDL_Event *event) {
+        // Run it through the listener's event filter. If it's processed by the listener, the event should be filtered.
+        ApplicationWindow *appWindow = reinterpret_cast<ApplicationWindow *>(userdata);
+        if (appWindow->listener->sdlEventFilter(event)) {
+            return 0;
+        }
+
+        // Pass to the event filter that was stored if it exists. Let the original filter determine the result.
+        if (appWindow->sdlEventFilterStored != nullptr) {
+            return appWindow->sdlEventFilterStored(appWindow->sdlEventFilterUserdata, event);
+        }
+        // The event should not be filtered.
+        else {
+            return 1;
+        }
+    }
 };

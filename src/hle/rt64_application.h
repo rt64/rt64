@@ -51,6 +51,13 @@ namespace RT64 {
             GraphicsDeviceNotFound
         };
 
+        enum class DeveloperShortcut {
+            Inspector,
+            RayTracing,
+            ViewRDRAM,
+            Replacements
+        };
+
         struct Core {
             RenderWindow window;
             uint8_t *HEADER;
@@ -159,8 +166,10 @@ namespace RT64 {
         bool checkDirectoryCreated(const std::filesystem::path &path);
 #   ifdef _WIN32
         bool windowMessageFilter(unsigned int message, WPARAM wParam, LPARAM lParam) override;
-        bool usesWindowMessageFilter() override;
 #   endif
+        bool sdlEventFilter(SDL_Event *event) override;
+        bool usesWindowMessageFilter() override;
+        void processDeveloperShortcut(DeveloperShortcut developerShortcut);
         void updateUserConfig(bool discardFBs);
         void updateEmulatorConfig();
         void updateEnhancementConfig();
