@@ -42,7 +42,7 @@ namespace RT64 {
         MTLDepthClipMode depthClipMode = MTLDepthClipModeClip;
         MTLWinding winding = MTLWindingClockwise;
 #endif
-    }
+    };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
         MetalDevice *device = nullptr;
@@ -106,6 +106,11 @@ namespace RT64 {
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
         id<MTLBuffer> indexBuffer = nil;
+
+        uint32_t viewCount = 0;
+        std::vector<id<MTLBuffer>> vertexBuffers;
+        std::vector<uint32_t> vertexBufferOffsets;
+        std::vector<uint32_t> vertexBufferIndices;
 
         std::vector<MTLViewport> viewportVector;
         std::vector<MTLScissorRect> scissorVector;
@@ -309,6 +314,10 @@ namespace RT64 {
     };
 
     struct MetalGraphicsPipeline : MetalPipeline {
+#ifdef __OBJC__
+        id<MTLRenderPipelineState> state = nil;
+#endif
+
         MetalRenderState *renderState;
         MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;

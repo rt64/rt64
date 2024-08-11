@@ -681,6 +681,7 @@ namespace RT64 {
 
         NSError *error = nullptr;
         this->state = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
+        renderState->renderPipelineState = state;
 
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newRenderPipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
@@ -872,6 +873,12 @@ namespace RT64 {
 
             [renderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
             [renderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
+
+            for (uint32_t i = 0; i < viewCount; i++) {
+                [renderEncoder setVertexBuffer: vertexBuffers[i]
+                                        offset: vertexBufferOffsets[i]
+                                       atIndex: vertexBufferIndices[i]];
+            }
         }
     }
 
@@ -958,7 +965,7 @@ namespace RT64 {
                 guaranteeRenderEncoder();
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
                 assert(renderEncoder != nil && "Cannot set pipeline state on nil MTLRenderCommandEncoder!");
-                rebindRenderState(graphicsPipeline->state);
+                rebindRenderState(graphicsPipeline->renderState);
                 break;
             }
             default:
@@ -1012,17 +1019,32 @@ namespace RT64 {
     }
 
     void MetalCommandList::setIndexBuffer(const RenderIndexBufferView *view) {
-        // TODO: Argument Buffer Creation & Binding
         if (view != nullptr) {
             const auto *interfaceBuffer = static_cast<const MetalBuffer *>(view->buffer.ref);
-
+            indexBuffer = interfaceBuffer->buffer;
         }
     }
 
     void MetalCommandList::setVertexBuffers(uint32_t startSlot, const RenderVertexBufferView *views, uint32_t viewCount, const RenderInputSlot *inputSlots) {
-        // TODO: Argument Buffer Creation & Binding
         if ((views != nullptr) && (viewCount > 0)) {
+            guaranteeRenderEncoder();
             assert(inputSlots != nullptr);
+
+            this->viewCount = viewCount;
+            vertexBuffers.clear();
+            vertexBufferOffsets.clear();
+            vertexBufferIndices.clear();
+
+            for (uint32_t i = 0; i < viewCount; i++) {
+                const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer *>(views[i].buffer.ref);
+                vertexBuffers.emplace_back(interfaceBuffer->buffer);
+                vertexBufferOffsets.emplace_back(views[i].buffer.offset);
+                vertexBufferIndices.emplace_back(startSlot + i);
+
+                [renderEncoder setVertexBuffer: interfaceBuffer->buffer
+                                        offset: views[i].buffer.offset
+                                       atIndex: startSlot + i];
+            }
         }
     }
 
