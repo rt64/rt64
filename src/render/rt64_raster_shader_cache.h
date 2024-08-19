@@ -17,32 +17,6 @@
 
 namespace RT64 {
     struct RasterShaderCache {
-        struct OfflineList {
-            struct Entry {
-                ShaderDescription shaderDesc;
-                std::vector<uint8_t> vsDxilBytes;
-                std::vector<uint8_t> psDxilBytes;
-            };
-
-            std::list<Entry> entries;
-            std::list<Entry>::iterator entryIterator;
-
-            OfflineList();
-            bool load(std::istream &stream);
-            void reset();
-            void step(Entry &entry);
-            bool atEnd() const;
-        };
-
-        struct OfflineDumper {
-            std::ofstream dumpStream;
-
-            bool startDumping(const std::filesystem::path &path);
-            bool stepDumping(const ShaderDescription &shaderDesc, const std::vector<uint8_t> &vsDxilBytes, const std::vector<uint8_t> &psDxilBytes);
-            bool stopDumping();
-            bool isDumping() const;
-        };
-
         struct CompilationThread {
             RasterShaderCache *shaderCache;
             std::unique_ptr<std::thread> thread;
@@ -70,9 +44,6 @@ namespace RT64 {
         RenderShaderFormat shaderFormat;
         std::unique_ptr<ShaderCompiler> shaderCompiler;
         RenderMultisampling multisampling;
-        OfflineList offlineList;
-        OfflineDumper offlineDumper;
-        std::mutex offlineDumperMutex;
         bool usesHDR = false;
         
         RasterShaderCache(uint32_t threadCount, uint32_t ubershaderThreadCount);
@@ -83,11 +54,6 @@ namespace RT64 {
         void destroyAll();
         RasterShader *getGPUShader(const ShaderDescription &desc);
         RasterShaderUber *getGPUShaderUber() const;
-        bool isOfflineDumperActive();
-        bool startOfflineDumper(const std::filesystem::path &path);
-        bool stopOfflineDumper();
-        bool loadOfflineList(std::istream &stream);
-        void resetOfflineList();
         uint32_t shaderCount();
     };
 };

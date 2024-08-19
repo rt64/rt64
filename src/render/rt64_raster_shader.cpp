@@ -76,7 +76,7 @@ namespace RT64 {
     // RasterShader
 
     RasterShader::RasterShader(RenderDevice *device, const ShaderDescription &desc, const RenderPipelineLayout *pipelineLayout, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, 
-        const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
+        const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV)
     {
         assert(device != nullptr);
 
@@ -138,56 +138,41 @@ namespace RT64 {
         }
         else {
 #       if defined(_WIN32)
-            if (useBytes) {
-                vertexShader = device->createShader(vsBytes->data(), vsBytes->size(), "VSMain", shaderFormat);
-                pixelShader = device->createShader(psBytes->data(), psBytes->size(), "PSMain", shaderFormat);
-            }
-            else {
-                RasterShaderText shaderText = generateShaderText(desc, useMSAA);
+            RasterShaderText shaderText = generateShaderText(desc, useMSAA);
 
-                // Compile both shaders from text with the constants hard-coded in.
-                static const wchar_t *blobVSLibraryNames[] = { L"RasterVSEntry", L"RasterVSLibrary" };
-                static const wchar_t *blobPSLibraryNames[] = { L"RasterPSEntry", L"RasterPSLibrary" };
-                IDxcBlob *blobVSLibraries[] = { nullptr, nullptr };
-                IDxcBlob *blobPSLibraries[] = { nullptr, nullptr };
-                shaderCompiler->dxcUtils->CreateBlobFromPinned(RasterVSLibraryBlobDXIL, sizeof(RasterVSLibraryBlobDXIL), DXC_CP_ACP, (IDxcBlobEncoding **)(&blobVSLibraries[1]));
+            // Compile both shaders from text with the constants hard-coded in.
+            static const wchar_t *blobVSLibraryNames[] = { L"RasterVSEntry", L"RasterVSLibrary" };
+            static const wchar_t *blobPSLibraryNames[] = { L"RasterPSEntry", L"RasterPSLibrary" };
+            IDxcBlob *blobVSLibraries[] = { nullptr, nullptr };
+            IDxcBlob *blobPSLibraries[] = { nullptr, nullptr };
+            shaderCompiler->dxcUtils->CreateBlobFromPinned(RasterVSLibraryBlobDXIL, sizeof(RasterVSLibraryBlobDXIL), DXC_CP_ACP, (IDxcBlobEncoding **)(&blobVSLibraries[1]));
 
-                const void *PSLibraryBlob = useMSAA ? RasterPSLibraryMSBlobDXIL : RasterPSLibraryBlobDXIL;
-                uint32_t PSLibraryBlobSize = useMSAA ? sizeof(RasterPSLibraryMSBlobDXIL) : sizeof(RasterPSLibraryBlobDXIL);
-                shaderCompiler->dxcUtils->CreateBlobFromPinned(PSLibraryBlob, PSLibraryBlobSize, DXC_CP_ACP, (IDxcBlobEncoding **)(&blobPSLibraries[1]));
+            const void *PSLibraryBlob = useMSAA ? RasterPSLibraryMSBlobDXIL : RasterPSLibraryBlobDXIL;
+            uint32_t PSLibraryBlobSize = useMSAA ? sizeof(RasterPSLibraryMSBlobDXIL) : sizeof(RasterPSLibraryBlobDXIL);
+            shaderCompiler->dxcUtils->CreateBlobFromPinned(PSLibraryBlob, PSLibraryBlobSize, DXC_CP_ACP, (IDxcBlobEncoding **)(&blobPSLibraries[1]));
                 
-                // Compile both the vertex and pixel shader functions as libraries.
-                const std::wstring VertexShaderName = L"VSMain";
-                const std::wstring PixelShaderName = L"PSMain";
-                shaderCompiler->compile(shaderText.vertexShader, VertexShaderName, L"lib_6_3", shaderFormat, &blobVSLibraries[0]);
-                shaderCompiler->compile(shaderText.pixelShader, PixelShaderName, L"lib_6_3", shaderFormat, &blobPSLibraries[0]);
+            // Compile both the vertex and pixel shader functions as libraries.
+            const std::wstring VertexShaderName = L"VSMain";
+            const std::wstring PixelShaderName = L"PSMain";
+            shaderCompiler->compile(shaderText.vertexShader, VertexShaderName, L"lib_6_3", shaderFormat, &blobVSLibraries[0]);
+            shaderCompiler->compile(shaderText.pixelShader, PixelShaderName, L"lib_6_3", shaderFormat, &blobPSLibraries[0]);
 
-                // Link the vertex and pixel shaders with the libraries that define their main functions.
-                IDxcBlob *blobVS = nullptr;
-                IDxcBlob *blobPS = nullptr;
-                shaderCompiler->link(VertexShaderName, L"vs_6_3", blobVSLibraries, blobVSLibraryNames, std::size(blobVSLibraries), &blobVS);
-                shaderCompiler->link(PixelShaderName, L"ps_6_3", blobPSLibraries, blobPSLibraryNames, std::size(blobPSLibraries), &blobPS);
+            // Link the vertex and pixel shaders with the libraries that define their main functions.
+            IDxcBlob *blobVS = nullptr;
+            IDxcBlob *blobPS = nullptr;
+            shaderCompiler->link(VertexShaderName, L"vs_6_3", blobVSLibraries, blobVSLibraryNames, std::size(blobVSLibraries), &blobVS);
+            shaderCompiler->link(PixelShaderName, L"ps_6_3", blobPSLibraries, blobPSLibraryNames, std::size(blobPSLibraries), &blobPS);
 
-                vertexShader = device->createShader(blobVS->GetBufferPointer(), blobVS->GetBufferSize(), "VSMain", shaderFormat);
-                pixelShader = device->createShader(blobPS->GetBufferPointer(), blobPS->GetBufferSize(), "PSMain", shaderFormat);
+            vertexShader = device->createShader(blobVS->GetBufferPointer(), blobVS->GetBufferSize(), "VSMain", shaderFormat);
+            pixelShader = device->createShader(blobPS->GetBufferPointer(), blobPS->GetBufferSize(), "PSMain", shaderFormat);
 
-                // Store the bytes in the auxiliary buffers if specified.
-                if (vsBytes != nullptr) {
-                    *vsBytes = std::vector<uint8_t>((const uint8_t *)(blobVS->GetBufferPointer()), (const uint8_t *)(blobVS->GetBufferPointer()) + blobVS->GetBufferSize());
-                }
-
-                if (psBytes != nullptr) {
-                    *psBytes = std::vector<uint8_t>((const uint8_t *)(blobPS->GetBufferPointer()), (const uint8_t *)(blobPS->GetBufferPointer()) + blobPS->GetBufferSize());
-                }
-
-                // Blobs can be discarded once the shaders are created.
-                blobVSLibraries[0]->Release();
-                blobVSLibraries[1]->Release();
-                blobPSLibraries[0]->Release();
-                blobPSLibraries[1]->Release();
-                blobPS->Release();
-                blobVS->Release();
-            }
+            // Blobs can be discarded once the shaders are created.
+            blobVSLibraries[0]->Release();
+            blobVSLibraries[1]->Release();
+            blobPSLibraries[0]->Release();
+            blobPSLibraries[1]->Release();
+            blobPS->Release();
+            blobVS->Release();
 #       else
             assert(false && "This platform does not support runtime shader compilation.");
 #       endif

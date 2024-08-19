@@ -157,7 +157,6 @@ namespace RT64 {
         SetupResult setup(uint32_t threadId);
         void processDisplayLists(uint8_t *memory, uint32_t dlStartAddress, uint32_t dlEndAddress, bool isHLE);
         void updateScreen();
-        bool loadOfflineShaderCache(std::istream &stream);
         void destroyShaderCache();
         void updateMultisampling();
         void end();

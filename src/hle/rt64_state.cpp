@@ -2127,32 +2127,7 @@ namespace RT64 {
                     ImGui::Indent();
                     enhanceConfigChanged = ImGui::Checkbox("Scale LOD", &enhancementConfig.textureLOD.scale) || enhanceConfigChanged;
                     ImGui::Unindent();
-                    ImGui::Text("Shader cache");
-                    ImGui::Indent();
-                    bool dumpingDisabled = (userConfig.graphicsAPI != UserConfiguration::GraphicsAPI::D3D12);
-                    ImGui::BeginDisabled(dumpingDisabled);
-                    bool offlineDumperActive = ext.rasterShaderCache->isOfflineDumperActive();
-                    bool offlineDumperToggled = ImGui::Button(offlineDumperActive ? "Stop dumping##shaderCache" : "Start dumping##shaderCache");
-                    if (offlineDumperToggled) {
-                        if (offlineDumperActive) {
-                            ext.rasterShaderCache->stopOfflineDumper();
-                        }
-                        else {
-                            std::filesystem::path savePath = FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") });
-                            if (!savePath.empty()) {
-                                ext.rasterShaderCache->startOfflineDumper(savePath);
-                                shaderCacheChanged = true;
-                            }
-                        }
-                    }
 
-                    ImGui::EndDisabled();
-
-                    if (dumpingDisabled) {
-                        ImGui::Text("Shader cache dumping is only available in D3D12.");
-                    }
-
-                    ImGui::Unindent();
                     ImGui::EndTabItem();
                 }
 
@@ -2434,10 +2409,7 @@ namespace RT64 {
                     }
 #               endif
                     ImGui::NewLine();
-
-                    ImGui::Text("Offline Shaders: %zu", ext.rasterShaderCache->offlineList.entries.size());
                     ImGui::Text("Specialized Shaders: %u", ext.rasterShaderCache->shaderCount());
-
                     ImGui::NewLine();
 
                     bool ubershadersOnly = ext.workloadQueue->ubershadersOnly;

@@ -395,10 +395,6 @@ namespace RT64 {
         state->updateScreen(core.decodeVI(), false);
     }
 
-    bool Application::loadOfflineShaderCache(std::istream &stream) {
-        return rasterShaderCache->loadOfflineList(stream);
-    }
-
     void Application::destroyShaderCache() {
         workloadQueue->waitForWorkloadId(state->workloadId);
         presentQueue->waitForPresentId(state->presentId);
@@ -434,7 +430,6 @@ namespace RT64 {
 
         // Wait for all pipelines of the ubershader to be ready again.
         rasterShaderCache->shaderUber->waitForPipelineCreation();
-        rasterShaderCache->resetOfflineList();
     }
 
 #ifdef _WIN32

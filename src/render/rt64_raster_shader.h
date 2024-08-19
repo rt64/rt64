@@ -64,7 +64,7 @@ namespace RT64 {
         std::unique_ptr<RenderPipeline> pipeline;
 
         RasterShader(RenderDevice *device, const ShaderDescription &desc, const RenderPipelineLayout *pipelineLayout, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, 
-            const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV, std::vector<uint8_t> *vsBytes = nullptr, std::vector<uint8_t> *psBytes = nullptr, bool useBytes = false);
+            const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV);
 
         ~RasterShader();
         static RasterShaderText generateShaderText(const ShaderDescription &desc, bool multisampling);
