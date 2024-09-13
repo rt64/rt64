@@ -41,11 +41,23 @@ namespace RT64 {
         MTLCullMode cullMode = MTLCullModeNone;
         MTLDepthClipMode depthClipMode = MTLDepthClipModeClip;
         MTLWinding winding = MTLWindingClockwise;
+        std::vector<MTLRenderPassColorAttachmentDescriptor *> colorAttachments;
+        MTLRenderPassDepthAttachmentDescriptor *depthAttachment = nil;
+        MTLRenderPassStencilAttachmentDescriptor *stencilAttachment = nil;
 #endif
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
+#ifdef __OBJC__
+        id<MTLHeap> descriptorHeap;
+        id<MTLBuffer> descriptorBuffer;
+#endif
+
         MetalDevice *device = nullptr;
+        uint32_t bufferOffset = 0;
+        uint32_t entryCount = 0;
+        uint32_t descriptorTypeMaxIndex = 0;
+        std::vector<RenderDescriptorRangeType> descriptorTypes;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
@@ -123,6 +135,18 @@ namespace RT64 {
         const MetalPipelineLayout *activeComputePipelineLayout = nullptr;
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
+
+        // Draw instanced state.
+        uint32_t startVertexLocation = 0;
+        uint32_t vertexCountPerInstance = 0;
+        uint32_t instanceCount = 0;
+        uint32_t startInstanceLocation = 0;
+
+        // Draw indexed instanced state.
+        uint32_t indexCountPerInstance = 0;
+        uint32_t startIndexLocation = 0;
+        uint32_t baseVertexLocation = 0;
+
 
         MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;

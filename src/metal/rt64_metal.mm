@@ -431,7 +431,11 @@ namespace RT64 {
         // TODO: Usage flags
         descriptor.usage = MTLTextureUsageUnknown;
 
-        this->mtlTexture = [device->device newTextureWithDescriptor: descriptor];
+        if (pool != nullptr) {
+            this->mtlTexture = [pool->heap newTextureWithDescriptor: descriptor];
+        } else {
+            this->mtlTexture = [device->device newTextureWithDescriptor: descriptor];
+        }
     }
 
     MetalTexture::~MetalTexture() {
@@ -506,6 +510,9 @@ namespace RT64 {
         assert(device != nullptr);
 
         this->device = device;
+        this->setCount = desc.descriptorSetDescsCount;
+
+        pushConstantRanges = std::vector<RenderPushConstantRange>(desc.pushConstantRanges, desc.pushConstantRanges + desc.pushConstantRangesCount);
     }
 
     MetalPipelineLayout::~MetalPipelineLayout() {
@@ -683,6 +690,24 @@ namespace RT64 {
         this->state = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
         renderState->renderPipelineState = state;
 
+        // For creating the render pass descriptor
+        for (uint32_t i = 0; i < desc.renderTargetCount; i++) {
+            MTLRenderPassColorAttachmentDescriptor *colorAttachmentDescriptor = [MTLRenderPassColorAttachmentDescriptor new];
+
+            // Create a new texture for each render target
+            MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor new];
+            textureDescriptor.pixelFormat = toMTL(desc.renderTargetFormat[i]);
+            id<MTLTexture> texture = [device->device newTextureWithDescriptor: textureDescriptor];
+
+            colorAttachmentDescriptor.texture = texture;
+            colorAttachmentDescriptor.loadAction = MTLLoadActionLoad;
+            colorAttachmentDescriptor.storeAction = MTLStoreActionStore;
+
+            renderState->colorAttachments.emplace_back(colorAttachmentDescriptor);
+        }
+
+        MTLRenderPassDepthAttachmentDescriptor *depthAttachmentDescriptor = [MTLRenderPassDepthAttachmentDescriptor new];
+
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newRenderPipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
             return;
@@ -704,14 +729,48 @@ namespace RT64 {
         assert(device != nullptr);
         this->device = device;
 
-        // TODO: Unimplemented.
+        entryCount = 0;
+
+        // Figure out the total amount of entries that will be required.
+        uint32_t rangeCount = desc.descriptorRangesCount;
+        if (desc.lastRangeIsBoundless) {
+            assert((desc.descriptorRangesCount > 0) && "There must be at least one descriptor set to define the last range as boundless.");
+            rangeCount--;
+        }
+
+        for (uint32_t i = 0; i < rangeCount; i++) {
+            const RenderDescriptorRange &range = desc.descriptorRanges[i];
+            for (uint32_t j = 0; j < range.count; j++) {
+                descriptorTypes.emplace_back(range.type);
+                entryCount++;
+            }
+        }
+
+        if (desc.lastRangeIsBoundless) {
+            const RenderDescriptorRange &lastDescriptorRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
+            descriptorTypes.emplace_back(lastDescriptorRange.type);
+
+            // Ensure at least one entry is created for boundless ranges.
+            entryCount += std::max(desc.boundlessRangeSize, 1U);
+        }
+
+        if (!descriptorTypes.empty()) {
+            descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
+        }
+
+        MTLHeapDescriptor *descriptor = [MTLHeapDescriptor new];
+        descriptorHeap = [device->device newHeapWithDescriptor: descriptor];
     }
 
     MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, uint32_t entryCount) {
         assert(device != nullptr);
-        this->device = device;
+        assert(entryCount > 0);
 
-        // TODO: Unimplemented.
+        this->device = device;
+        this->entryCount = entryCount;
+
+        MTLHeapDescriptor *descriptor = [MTLHeapDescriptor new];
+        descriptorHeap = [device->device newHeapWithDescriptor: descriptor];
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
@@ -723,7 +782,33 @@ namespace RT64 {
     }
 
     void MetalDescriptorSet::setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) {
-        // TODO: Unimplemented.
+        const MetalTexture *interfaceTexture = static_cast<const MetalTexture *>(texture);
+        const auto nativeResource = (interfaceTexture != nullptr) ? interfaceTexture->mtlTexture : nil;
+        uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+        RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
+        switch (descriptorType) {
+            case RenderDescriptorRangeType::TEXTURE: {
+                if ((nativeResource != nil) && (textureView != nullptr)) {
+                    const auto *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
+
+                }
+            }
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+            case RenderDescriptorRangeType::CONSTANT_BUFFER:
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::SAMPLER:
+            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
+                assert(false && "Incompatible descriptor type.");
+                break;
+            default:
+                assert(false && "Unknown descriptor type.");
+                break;
+        }
     }
 
     void MetalDescriptorSet::setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
@@ -807,9 +892,30 @@ namespace RT64 {
 
     MetalFramebuffer::MetalFramebuffer(MetalDevice *device, const RenderFramebufferDesc &desc) {
         assert(device != nullptr);
-        this->device = device;
 
-        // TODO: Unimplemented.
+        this->device = device;
+        depthAttachmentReadOnly = desc.depthAttachmentReadOnly;
+
+        for (uint32_t i = 0; i < desc.colorAttachmentsCount; i++) {
+            const auto *colorAttachment = static_cast<const MetalTexture *>(desc.colorAttachments[i]);
+            assert((colorAttachment->desc.flags & RenderTextureFlag::RENDER_TARGET) && "Color attachment must be a render target.");
+            colorAttachments.emplace_back(colorAttachment);
+
+            if (i == 0) {
+                width = uint32_t(colorAttachment->desc.width);
+                height = colorAttachment->desc.height;
+            }
+        }
+
+        if (desc.depthAttachment != nullptr) {
+            depthAttachment = static_cast<const MetalTexture *>(desc.depthAttachment);
+            assert((depthAttachment->desc.flags & RenderTextureFlag::DEPTH_TARGET) && "Depth attachment must be a depth target.");
+
+            if (desc.colorAttachmentsCount == 0) {
+                width = uint32_t(depthAttachment->desc.width);
+                height = depthAttachment->desc.height;
+            }
+        }
     }
 
     MetalFramebuffer::~MetalFramebuffer() {
@@ -867,8 +973,24 @@ namespace RT64 {
     void MetalCommandList::guaranteeRenderEncoder() {
         if (renderEncoder == nil) {
             endEncoder();
+            assert(targetFramebuffer != nullptr && "Cannot encode render commands without a target framebuffer");
 
-            auto renderDescriptor = [MTLRenderPassDescriptor new];
+            auto renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+
+            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+                auto colorAttachment = renderDescriptor.colorAttachments[i];
+                colorAttachment.texture = targetFramebuffer->colorAttachments[i]->mtlTexture;
+                colorAttachment.loadAction = MTLLoadActionLoad;
+                colorAttachment.storeAction = MTLStoreActionStore;
+            }
+
+            if (targetFramebuffer->depthAttachment != nullptr) {
+                auto depthAttachment = renderDescriptor.depthAttachment;
+                depthAttachment.texture = targetFramebuffer->depthAttachment->mtlTexture;
+                depthAttachment.loadAction = MTLLoadActionLoad;
+                depthAttachment.storeAction = MTLStoreActionStore;
+            }
+
             renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
 
             [renderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
@@ -878,6 +1000,23 @@ namespace RT64 {
                 [renderEncoder setVertexBuffer: vertexBuffers[i]
                                         offset: vertexBufferOffsets[i]
                                        atIndex: vertexBufferIndices[i]];
+            }
+
+            [renderEncoder drawPrimitives: currentPrimitiveType
+                              vertexStart: startVertexLocation
+                              vertexCount: vertexCountPerInstance
+                            instanceCount: instanceCount
+                             baseInstance: startInstanceLocation];
+
+            if (indexBuffer != nil) {
+                [renderEncoder drawIndexedPrimitives: currentPrimitiveType
+                                          indexCount: indexCountPerInstance
+                                           indexType: currentIndexType
+                                         indexBuffer: indexBuffer
+                                   indexBufferOffset: startIndexLocation
+                                       instanceCount: instanceCount
+                                          baseVertex: baseVertexLocation
+                                        baseInstance: startInstanceLocation];
             }
         }
     }
@@ -925,28 +1064,20 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
-        guaranteeRenderEncoder();
-        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
-
-        [renderEncoder drawPrimitives: currentPrimitiveType
-                          vertexStart: startVertexLocation
-                          vertexCount: vertexCountPerInstance
-                        instanceCount: instanceCount
-                         baseInstance: startInstanceLocation];
+        // Set the state variables for the next draw call
+        this->startVertexLocation = startVertexLocation;
+        this->vertexCountPerInstance = vertexCountPerInstance;
+        this->instanceCount = instanceCount;
+        this->startInstanceLocation = startInstanceLocation;
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
-        guaranteeRenderEncoder();
-        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
-
-        [renderEncoder drawIndexedPrimitives: currentPrimitiveType
-                                  indexCount: indexCountPerInstance
-                                   indexType: currentIndexType
-                                 indexBuffer: indexBuffer
-                           indexBufferOffset: startIndexLocation
-                               instanceCount: instanceCount
-                                  baseVertex: baseVertexLocation
-                                baseInstance: startInstanceLocation];
+        // Set the state variables for the next draw call
+        this->indexCountPerInstance = indexCountPerInstance;
+        this->startIndexLocation = startIndexLocation;
+        this->instanceCount = instanceCount;
+        this->baseVertexLocation = baseVertexLocation;
+        this->startInstanceLocation = startInstanceLocation;
     }
 
     void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {
@@ -1027,7 +1158,6 @@ namespace RT64 {
 
     void MetalCommandList::setVertexBuffers(uint32_t startSlot, const RenderVertexBufferView *views, uint32_t viewCount, const RenderInputSlot *inputSlots) {
         if ((views != nullptr) && (viewCount > 0)) {
-            guaranteeRenderEncoder();
             assert(inputSlots != nullptr);
 
             this->viewCount = viewCount;
@@ -1040,18 +1170,11 @@ namespace RT64 {
                 vertexBuffers.emplace_back(interfaceBuffer->buffer);
                 vertexBufferOffsets.emplace_back(views[i].buffer.offset);
                 vertexBufferIndices.emplace_back(startSlot + i);
-
-                [renderEncoder setVertexBuffer: interfaceBuffer->buffer
-                                        offset: views[i].buffer.offset
-                                       atIndex: startSlot + i];
             }
         }
     }
 
     void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
-        guaranteeRenderEncoder();
-        assert(renderEncoder != nil && "Cannot set viewports on nil MTLRenderCommandEncoder!");
-
         viewportVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
@@ -1064,14 +1187,9 @@ namespace RT64 {
                     viewports[i].maxDepth
             });
         }
-
-        [renderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
-        guaranteeRenderEncoder();
-        assert(renderEncoder != nil && "Cannot set scissors on nil MTLRenderCommandEncoder!");
-
         scissorVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
@@ -1082,12 +1200,16 @@ namespace RT64 {
                     uint32_t(scissorRects[i].bottom - scissorRects[i].top)
             });
         }
-
-        [renderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
+        endEncoder();
 
+        if (framebuffer != nullptr) {
+            targetFramebuffer = static_cast<const MetalFramebuffer *>(framebuffer);
+        } else {
+            targetFramebuffer = nullptr;
+        }
     }
 
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
