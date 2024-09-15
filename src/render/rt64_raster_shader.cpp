@@ -20,6 +20,7 @@
 #include "shaders/RasterVSSpecConstantFlat.hlsl.spirv.h"
 #include "shaders/PostBlendDitherNoiseAddPS.hlsl.spirv.h"
 #include "shaders/PostBlendDitherNoiseSubPS.hlsl.spirv.h"
+#include "shaders/PostBlendDitherNoiseSubNegativePS.hlsl.spirv.h"
 #ifdef _WIN32
 #   include "shaders/RasterPSLibrary.hlsl.dxil.h"
 #   include "shaders/RasterPSLibraryMS.hlsl.dxil.h"
@@ -29,6 +30,7 @@
 #   include "shaders/RasterVSDynamic.hlsl.dxil.h"
 #   include "shaders/PostBlendDitherNoiseAddPS.hlsl.dxil.h"
 #   include "shaders/PostBlendDitherNoiseSubPS.hlsl.dxil.h"
+#   include "shaders/PostBlendDitherNoiseSubNegativePS.hlsl.dxil.h"
 #endif
 #include "shared/rt64_raster_params.h"
 
@@ -463,16 +465,19 @@ namespace RT64 {
         // Create the pipelines for post blend operations.
         std::unique_ptr<RenderShader> postBlendAddPixelShader;
         std::unique_ptr<RenderShader> postBlendSubPixelShader;
+        std::unique_ptr<RenderShader> postBlendSubNegativePixelShader;
         switch (shaderFormat) {
 #   ifdef _WIN32
         case RenderShaderFormat::DXIL:
             postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobDXIL, std::size(PostBlendDitherNoiseAddPSBlobDXIL), "PSMain", shaderFormat);
             postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobDXIL, std::size(PostBlendDitherNoiseSubPSBlobDXIL), "PSMain", shaderFormat);
+            postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobDXIL, std::size(PostBlendDitherNoiseSubNegativePSBlobDXIL), "PSMain", shaderFormat);
             break;
 #   endif
         case RenderShaderFormat::SPIRV:
             postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobSPIRV, std::size(PostBlendDitherNoiseAddPSBlobSPIRV), "PSMain", shaderFormat);
             postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobSPIRV, std::size(PostBlendDitherNoiseSubPSBlobSPIRV), "PSMain", shaderFormat);
+            postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobSPIRV, std::size(PostBlendDitherNoiseSubNegativePSBlobSPIRV), "PSMain", shaderFormat);
             break;
         default:
             assert(false && "Unknown shader format.");
@@ -509,6 +514,9 @@ namespace RT64 {
         postBlendDesc.pixelShader = postBlendSubPixelShader.get();
         targetBlend.blendOp = RenderBlendOperation::REV_SUBTRACT;
         postBlendDitherNoiseSubPipeline = device->createGraphicsPipeline(postBlendDesc);
+
+        postBlendDesc.pixelShader = postBlendSubNegativePixelShader.get();
+        postBlendDitherNoiseSubNegativePipeline = device->createGraphicsPipeline(postBlendDesc);
     }
 
     RasterShaderUber::~RasterShaderUber() {

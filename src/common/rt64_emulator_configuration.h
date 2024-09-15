@@ -10,6 +10,7 @@ namespace RT64 {
     struct EmulatorConfiguration {
         struct Dither {
             bool postBlendNoise;
+            bool postBlendNoiseNegative;
         };
 
         struct Framebuffer {

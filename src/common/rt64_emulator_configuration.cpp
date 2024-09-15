@@ -9,6 +9,7 @@ namespace RT64 {
 
     EmulatorConfiguration::EmulatorConfiguration() {
         dither.postBlendNoise = true;
+        dither.postBlendNoiseNegative = false;
         framebuffer.renderToRAM = true;
         framebuffer.copyWithGPU = true;
     }

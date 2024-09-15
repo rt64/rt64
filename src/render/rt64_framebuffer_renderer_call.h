@@ -37,8 +37,9 @@ namespace RT64 {
                 RenderViewport viewport;
                 uint32_t indexStart;
                 uint32_t faceCount;
-                bool vertexTestZ;
-                bool postBlendDitherNoise;
+                bool vertexTestZ : 1;
+                bool postBlendDitherNoise : 1;
+                bool postBlendDitherNoiseNegative : 1;
             } triangles;
 
             struct {

@@ -248,6 +248,7 @@ namespace RT64 {
         
         workloadConfig.fixRectLR = ext.sharedResources->enhancementConfig.rect.fixRectLR;
         workloadConfig.postBlendNoise = ext.sharedResources->emulatorConfig.dither.postBlendNoise;
+        workloadConfig.postBlendNoiseNegative = ext.sharedResources->emulatorConfig.dither.postBlendNoiseNegative;
         
         if (ext.sharedResources->fbConfigChanged || sizeChanged) {
             {
@@ -588,6 +589,7 @@ namespace RT64 {
                     drawParams.ubershadersOnly = ubershadersOnly;
                     drawParams.fixRectLR = workloadConfig.fixRectLR;
                     drawParams.postBlendNoise = workloadConfig.postBlendNoise;
+                    drawParams.postBlendNoiseNegative = workloadConfig.postBlendNoiseNegative;
                     drawParams.maxGameCall = std::min(gameCallCountMax - gameCallCursor, fbPair.gameCallCount);
                     framebufferRenderer->addFramebuffer(drawParams);
                 }
