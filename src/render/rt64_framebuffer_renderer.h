@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include "common/rt64_emulator_configuration.h"
 #include "common/rt64_user_configuration.h"
 #include "hle/rt64_framebuffer_manager.h"
 #include "hle/rt64_workload.h"
@@ -85,6 +86,7 @@ namespace RT64 {
         RenderPipelineLayout *rendererPipelineLayout = nullptr;
         RenderPipeline *postBlendDitherNoiseAddPipeline = nullptr;
         RenderPipeline *postBlendDitherNoiseSubPipeline = nullptr;
+        RenderPipeline *postBlendDitherNoiseSubNegativePipeline = nullptr;
         std::unique_ptr<FramebufferRendererDescriptorCommonSet> descCommonSet;
         std::unique_ptr<FramebufferRendererDescriptorTextureSet> descTextureSet;
         std::unique_ptr<RenderTexture> dummyDepthTarget;
@@ -140,6 +142,7 @@ namespace RT64 {
             bool ubershadersOnly;
             bool fixRectLR;
             bool postBlendNoise;
+            bool postBlendNoiseNegative;
             uint32_t maxGameCall;
         };
 

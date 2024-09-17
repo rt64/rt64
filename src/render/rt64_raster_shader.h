@@ -79,6 +79,7 @@ namespace RT64 {
         std::unique_ptr<RenderPipeline> pipelines[8];
         std::unique_ptr<RenderPipeline> postBlendDitherNoiseAddPipeline;
         std::unique_ptr<RenderPipeline> postBlendDitherNoiseSubPipeline;
+        std::unique_ptr<RenderPipeline> postBlendDitherNoiseSubNegativePipeline;
         std::mutex firstPipelineMutex;
         std::condition_variable firstPipelineCondition;
         bool pipelinesCreated = false;

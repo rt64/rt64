@@ -1217,6 +1217,7 @@ namespace RT64 {
                         drawParams.ubershadersOnly = false;
                         drawParams.fixRectLR = false;
                         drawParams.postBlendNoise = ext.emulatorConfig->dither.postBlendNoise;
+                        drawParams.postBlendNoiseNegative = ext.emulatorConfig->dither.postBlendNoiseNegative;
                         drawParams.maxGameCall = UINT_MAX;
                         framebufferRenderer->addFramebuffer(drawParams);
                     }
@@ -2090,6 +2091,7 @@ namespace RT64 {
                     ImGui::Text("Dither");
                     ImGui::Indent();
                     emulatorConfigChanged = ImGui::Checkbox("Post Blend Noise", &emulatorConfig.dither.postBlendNoise) || emulatorConfigChanged;
+                    emulatorConfigChanged = ImGui::Checkbox("Post Blend Noise Negative", &emulatorConfig.dither.postBlendNoiseNegative) || emulatorConfigChanged;
                     ImGui::Unindent();
                     ImGui::Text("Framebuffer");
                     ImGui::Indent();
