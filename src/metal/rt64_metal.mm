@@ -160,6 +160,29 @@ namespace RT64 {
         }
     }
 
+    static MTLDataType toMTL(RenderDescriptorRangeType type) {
+        switch (type) {
+            case RenderDescriptorRangeType::TEXTURE:
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+                return MTLDataTypeTexture;
+            case RenderDescriptorRangeType::CONSTANT_BUFFER:
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
+                return MTLDataTypeArray;
+            case RenderDescriptorRangeType::SAMPLER:
+                return MTLDataTypeSampler;
+            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
+                return MTLDataTypePrimitiveAccelerationStructure;
+            default:
+                assert(false && "Unknown descriptor range type.");
+                return MTLDataTypeTexture;
+        }
+    }
+
     static MTLCullMode toMTL(RenderCullMode cullMode) {
         switch (cullMode) {
             case RenderCullMode::NONE:
@@ -738,12 +761,16 @@ namespace RT64 {
             rangeCount--;
         }
 
+        uint32_t offset = 0;
+
         for (uint32_t i = 0; i < rangeCount; i++) {
             const RenderDescriptorRange &range = desc.descriptorRanges[i];
             for (uint32_t j = 0; j < range.count; j++) {
                 descriptorTypes.emplace_back(range.type);
+                descriptorOffsets.emplace_back(offset);
                 entryCount++;
             }
+            offset += range.count * sizeof(MTLResourceID);
         }
 
         if (desc.lastRangeIsBoundless) {
@@ -758,8 +785,7 @@ namespace RT64 {
             descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
         }
 
-        MTLHeapDescriptor *descriptor = [MTLHeapDescriptor new];
-        descriptorHeap = [device->device newHeapWithDescriptor: descriptor];
+        descriptorBuffer = [device->device newBufferWithLength: entryCount * sizeof(MTLResourceID) options: MTLResourceStorageModeShared];
     }
 
     MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, uint32_t entryCount) {
@@ -769,8 +795,8 @@ namespace RT64 {
         this->device = device;
         this->entryCount = entryCount;
 
-        MTLHeapDescriptor *descriptor = [MTLHeapDescriptor new];
-        descriptorHeap = [device->device newHeapWithDescriptor: descriptor];
+        descriptorBuffer = [device->device newBufferWithLength: entryCount * sizeof(MTLResourceID) options: MTLResourceStorageModeShared];
+        descriptorOffsets = std::vector<uint32_t>(entryCount, 0);
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
@@ -786,14 +812,17 @@ namespace RT64 {
         const auto nativeResource = (interfaceTexture != nullptr) ? interfaceTexture->mtlTexture : nil;
         uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
         RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
+        uint32_t descriptorOffset = descriptorOffsets[descriptorIndexClamped];
         switch (descriptorType) {
-            case RenderDescriptorRangeType::TEXTURE: {
+            case RenderDescriptorRangeType::TEXTURE:
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE: {
                 if ((nativeResource != nil) && (textureView != nullptr)) {
                     const auto *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
-
+                    auto *descriptorBufferContents = (MTLResourceID *)[descriptorBuffer contents];
+                    descriptorBufferContents[descriptorOffset + descriptorIndexClamped * sizeof(MTLResourceID)] = [interfaceTextureView->mtlTexture gpuResourceID];
+                    residentTextures.emplace_back(interfaceTexture->mtlTexture);
                 }
             }
-            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
             case RenderDescriptorRangeType::FORMATTED_BUFFER:
             case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
@@ -1002,13 +1031,17 @@ namespace RT64 {
                                        atIndex: vertexBufferIndices[i]];
             }
 
-            [renderEncoder drawPrimitives: currentPrimitiveType
-                              vertexStart: startVertexLocation
-                              vertexCount: vertexCountPerInstance
-                            instanceCount: instanceCount
-                             baseInstance: startInstanceLocation];
+            if (toDrawInstanced) {
+                [renderEncoder drawPrimitives:currentPrimitiveType
+                                  vertexStart:startVertexLocation
+                                  vertexCount:vertexCountPerInstance
+                                instanceCount:instanceCount
+                                 baseInstance:startInstanceLocation];
 
-            if (indexBuffer != nil) {
+                toDrawInstanced = false;
+            }
+
+            if (toDrawIndexedInstanced && indexBuffer != nil) {
                 [renderEncoder drawIndexedPrimitives: currentPrimitiveType
                                           indexCount: indexCountPerInstance
                                            indexType: currentIndexType
@@ -1017,6 +1050,29 @@ namespace RT64 {
                                        instanceCount: instanceCount
                                           baseVertex: baseVertexLocation
                                         baseInstance: startInstanceLocation];
+
+                toDrawIndexedInstanced = false;
+            }
+
+            if (!renderDescriptorSetsToBind.empty()) {
+                for (uint32_t i = 0; i < renderDescriptorSetsToBind.size(); i++) {
+                    auto *descriptorSet = renderDescriptorSetsToBind[i];
+
+                    // Mark resources in the argument buffer as resident
+                    for (auto *texture : descriptorSet->residentTextures) {
+                        [renderEncoder useResource:texture usage:MTLResourceUsageRead];
+                    }
+
+                    for (auto *buffer: descriptorSet->residentBuffers) {
+                        [renderEncoder useResource:buffer usage:MTLResourceUsageRead];
+                    }
+
+                    [renderEncoder setFragmentBuffer: descriptorSet->descriptorBuffer
+                                              offset: 0
+                                             atIndex: renderDescriptorSetsIndices[i]];
+                }
+                renderDescriptorSetsToBind.clear();
+                renderDescriptorSetsIndices.clear();
             }
         }
     }
@@ -1065,6 +1121,7 @@ namespace RT64 {
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
         // Set the state variables for the next draw call
+        this->toDrawInstanced = true;
         this->startVertexLocation = startVertexLocation;
         this->vertexCountPerInstance = vertexCountPerInstance;
         this->instanceCount = instanceCount;
@@ -1073,6 +1130,7 @@ namespace RT64 {
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
         // Set the state variables for the next draw call
+        this->toDrawIndexedInstanced = true;
         this->indexCountPerInstance = indexCountPerInstance;
         this->startIndexLocation = startIndexLocation;
         this->instanceCount = instanceCount;
@@ -1117,8 +1175,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
-        // setDescriptorSet()
-        // TODO: Descriptor Sets
+        setDescriptorSet(descriptorSet, setIndex, true);
     }
 
     void MetalCommandList::setGraphicsPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
@@ -1132,8 +1189,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
-        // setDescriptorSet()
-        // TODO: Descriptor Sets
+        setDescriptorSet(descriptorSet, setIndex, false);
     }
 
     void MetalCommandList::setRaytracingPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
@@ -1336,8 +1392,15 @@ namespace RT64 {
         // TODO: Unimplemented.
     }
 
-    void MetalCommandList::setDescriptorSet(const RT64::MetalPipelineLayout *activePipelineLayout, RT64::RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
-        // TODO: Unimplemented.
+    void MetalCommandList::setDescriptorSet(RT64::RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
+        auto *interfaceDescriptorSet = static_cast<MetalDescriptorSet *>(descriptorSet);
+        if (setCompute) {
+            computeDescriptorSetsToBind.emplace_back(interfaceDescriptorSet);
+            computeDescriptorSetsIndices.emplace_back(setIndex);
+        } else {
+            renderDescriptorSetsToBind.emplace_back(interfaceDescriptorSet);
+            renderDescriptorSetsIndices.emplace_back(setIndex);
+        }
     }
 
     // MetalCommandFence

@@ -49,8 +49,9 @@ namespace RT64 {
 
     struct MetalDescriptorSet : RenderDescriptorSet {
 #ifdef __OBJC__
-        id<MTLHeap> descriptorHeap;
         id<MTLBuffer> descriptorBuffer;
+        std::vector<id<MTLTexture>> residentTextures;
+        std::vector<id<MTLBuffer>> residentBuffers;
 #endif
 
         MetalDevice *device = nullptr;
@@ -58,6 +59,7 @@ namespace RT64 {
         uint32_t entryCount = 0;
         uint32_t descriptorTypeMaxIndex = 0;
         std::vector<RenderDescriptorRangeType> descriptorTypes;
+        std::vector<uint32_t> descriptorOffsets;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
@@ -136,13 +138,21 @@ namespace RT64 {
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
 
+        std::vector<MetalDescriptorSet *> renderDescriptorSetsToBind;
+        std::vector<uint32_t> renderDescriptorSetsIndices;
+
+        std::vector<MetalDescriptorSet *> computeDescriptorSetsToBind;
+        std::vector<uint32_t> computeDescriptorSetsIndices;
+
         // Draw instanced state.
+        bool toDrawInstanced = false;
         uint32_t startVertexLocation = 0;
         uint32_t vertexCountPerInstance = 0;
         uint32_t instanceCount = 0;
         uint32_t startInstanceLocation = 0;
 
         // Draw indexed instanced state.
+        bool toDrawIndexedInstanced = false;
         uint32_t indexCountPerInstance = 0;
         uint32_t startIndexLocation = 0;
         uint32_t baseVertexLocation = 0;
@@ -187,7 +197,7 @@ namespace RT64 {
         void resolveTextureRegion(const RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RenderTexture *srcTexture, const RenderRect *srcRect) override;
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
-        void setDescriptorSet(const MetalPipelineLayout *activePipelineLayout, RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
+        void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
     };
 
     struct MetalCommandFence : RenderCommandFence {
