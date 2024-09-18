@@ -34,8 +34,32 @@ namespace RT64 {
     struct MetalPipelineLayout;
     struct MetalTexture;
 
+    struct MetalRenderState {
+#ifdef __OBJC__
+        id<MTLRenderPipelineState> renderPipelineState = nil;
+        id<MTLDepthStencilState> depthStencilState = nil;
+        MTLCullMode cullMode = MTLCullModeNone;
+        MTLDepthClipMode depthClipMode = MTLDepthClipModeClip;
+        MTLWinding winding = MTLWindingClockwise;
+        std::vector<MTLRenderPassColorAttachmentDescriptor *> colorAttachments;
+        MTLRenderPassDepthAttachmentDescriptor *depthAttachment = nil;
+        MTLRenderPassStencilAttachmentDescriptor *stencilAttachment = nil;
+#endif
+    };
+
     struct MetalDescriptorSet : RenderDescriptorSet {
+#ifdef __OBJC__
+        id<MTLBuffer> descriptorBuffer;
+        std::vector<id<MTLTexture>> residentTextures;
+        std::vector<id<MTLBuffer>> residentBuffers;
+#endif
+
         MetalDevice *device = nullptr;
+        uint32_t bufferOffset = 0;
+        uint32_t entryCount = 0;
+        uint32_t descriptorTypeMaxIndex = 0;
+        std::vector<RenderDescriptorRangeType> descriptorTypes;
+        std::vector<uint32_t> descriptorOffsets;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
@@ -97,6 +121,11 @@ namespace RT64 {
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
         id<MTLBuffer> indexBuffer = nil;
 
+        uint32_t viewCount = 0;
+        std::vector<id<MTLBuffer>> vertexBuffers;
+        std::vector<uint32_t> vertexBufferOffsets;
+        std::vector<uint32_t> vertexBufferIndices;
+
         std::vector<MTLViewport> viewportVector;
         std::vector<MTLScissorRect> scissorVector;
 #endif
@@ -109,6 +138,26 @@ namespace RT64 {
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
 
+        std::vector<MetalDescriptorSet *> renderDescriptorSetsToBind;
+        std::vector<uint32_t> renderDescriptorSetsIndices;
+
+        std::vector<MetalDescriptorSet *> computeDescriptorSetsToBind;
+        std::vector<uint32_t> computeDescriptorSetsIndices;
+
+        // Draw instanced state.
+        bool toDrawInstanced = false;
+        uint32_t startVertexLocation = 0;
+        uint32_t vertexCountPerInstance = 0;
+        uint32_t instanceCount = 0;
+        uint32_t startInstanceLocation = 0;
+
+        // Draw indexed instanced state.
+        bool toDrawIndexedInstanced = false;
+        uint32_t indexCountPerInstance = 0;
+        uint32_t startIndexLocation = 0;
+        uint32_t baseVertexLocation = 0;
+
+
         MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
         void begin() override;
@@ -117,6 +166,7 @@ namespace RT64 {
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
+        void rebindRenderState(MetalRenderState *renderState) const;
         void barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) override;
         void dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) override;
         void traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) override;
@@ -147,7 +197,7 @@ namespace RT64 {
         void resolveTextureRegion(const RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RenderTexture *srcTexture, const RenderRect *srcRect) override;
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
-        void setDescriptorSet(const MetalPipelineLayout *activePipelineLayout, RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
+        void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
     };
 
     struct MetalCommandFence : RenderCommandFence {
@@ -302,6 +352,7 @@ namespace RT64 {
         id<MTLRenderPipelineState> state = nil;
 #endif
 
+        MetalRenderState *renderState;
         MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
