@@ -160,29 +160,6 @@ namespace RT64 {
         }
     }
 
-    static MTLDataType toMTL(RenderDescriptorRangeType type) {
-        switch (type) {
-            case RenderDescriptorRangeType::TEXTURE:
-            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
-                return MTLDataTypeTexture;
-            case RenderDescriptorRangeType::CONSTANT_BUFFER:
-            case RenderDescriptorRangeType::FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
-                return MTLDataTypeArray;
-            case RenderDescriptorRangeType::SAMPLER:
-                return MTLDataTypeSampler;
-            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
-                return MTLDataTypePrimitiveAccelerationStructure;
-            default:
-                assert(false && "Unknown descriptor range type.");
-                return MTLDataTypeTexture;
-        }
-    }
-
     static MTLCullMode toMTL(RenderCullMode cullMode) {
         switch (cullMode) {
             case RenderCullMode::NONE:
@@ -820,7 +797,7 @@ namespace RT64 {
                     const auto *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
                     auto *descriptorBufferContents = (MTLResourceID *)[descriptorBuffer contents];
                     descriptorBufferContents[descriptorOffset + descriptorIndexClamped * sizeof(MTLResourceID)] = [interfaceTextureView->mtlTexture gpuResourceID];
-                    residentTextures.emplace_back(interfaceTexture->mtlTexture);
+                    residentTextures.emplace_back(interfaceTextureView->mtlTexture);
                 }
             }
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
@@ -850,6 +827,9 @@ namespace RT64 {
         this->layer = commandQueue->device->renderInterface->layer;
 
         layer.pixelFormat = toMTL(format);
+        this->textureCount = textureCount;
+        this->currentTextureIndex = 0;
+        this->renderWindow = renderWindow;
     }
 
     MetalSwapChain::~MetalSwapChain() {
@@ -872,11 +852,11 @@ namespace RT64 {
     }
 
     uint32_t MetalSwapChain::getWidth() const {
-        return layer.frame.size.width;
+        return width;
     }
 
     uint32_t MetalSwapChain::getHeight() const {
-        return layer.frame.size.height;
+        return height;
     }
 
     RenderTexture *MetalSwapChain::getTexture(uint32_t textureIndex) {
@@ -885,23 +865,27 @@ namespace RT64 {
     }
 
     bool MetalSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
-        // TODO: Unimplemented.
+        assert(signalSemaphore != nullptr);
+
+        drawable = [layer nextDrawable];
+        if (drawable != nil) {
+            *textureIndex = currentTextureIndex;
+            currentTextureIndex = (currentTextureIndex + 1) % textureCount;
+            return true;
+        }
         return false;
     }
 
     uint32_t MetalSwapChain::getTextureCount() const {
-        // TODO: Unimplemented.
-        return 0;
+        return textureCount;
     }
 
     RenderWindow MetalSwapChain::getWindow() const {
-        // TODO: Unimplemented.
-        return RenderWindow();
+        return renderWindow;
     }
 
     bool MetalSwapChain::isEmpty() const {
-        // TODO: Unimplemented.
-        return false;
+        return (layer == nullptr) || (width == 0) || (height == 0);
     }
 
     uint32_t MetalSwapChain::getRefreshRate() const {
@@ -910,7 +894,8 @@ namespace RT64 {
     }
 
     void MetalSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
-        // TODO: Unimplemented.
+        auto window = renderWindow.window;
+        SDL_GetWindowSize(window, (int *)&dstWidth, (int *)&dstHeight);
     }
 
     void MetalSwapChain::setTextures() {
@@ -1416,7 +1401,7 @@ namespace RT64 {
     // MetalCommandSemaphore
 
     MetalCommandSemaphore::MetalCommandSemaphore(MetalDevice *device) {
-        // TODO: Unimplemented.
+        // TODO: Unimplemented
     }
 
     MetalCommandSemaphore::~MetalCommandSemaphore() {

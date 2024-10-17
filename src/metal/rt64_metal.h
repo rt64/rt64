@@ -70,11 +70,15 @@ namespace RT64 {
     };
 
     struct MetalSwapChain : RenderSwapChain {
+#ifdef __OBJC__
+        id<CAMetalDrawable> drawable = nil;
+#endif
         CAMetalLayer *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
         std::vector<MetalTexture> textures;
         uint32_t textureCount = 0;
+        uint32_t currentTextureIndex = 0;
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;
