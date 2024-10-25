@@ -783,6 +783,8 @@ namespace RT64 {
                     descriptorBufferContents[descriptorOffset + descriptorIndexClamped * sizeof(MTLResourceID)] = [interfaceTextureView->mtlTexture gpuResourceID];
                     residentTextures.emplace_back(interfaceTextureView->mtlTexture);
                 }
+
+                break;
             }
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
             case RenderDescriptorRangeType::FORMATTED_BUFFER:
@@ -809,6 +811,7 @@ namespace RT64 {
 
     MetalSwapChain::MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) {
         this->layer = commandQueue->device->renderInterface->layer;
+        this->commandQueue = commandQueue;
 
         layer.pixelFormat = toMTL(format);
         // We use only 1 proxy texture for the swap chain, and fetch
@@ -827,13 +830,22 @@ namespace RT64 {
     }
 
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
-        // TODO: Unimplemented.
-        return false;
+        assert(layer != nil && "Cannot present without a valid layer.");
+        assert(drawable != nil && "Cannot present without a valid drawable.");
+
+        [commandQueue->buffer presentDrawable: drawable];
+        return true;
     }
 
     bool MetalSwapChain::resize() {
-        // TODO: Unimplemented.
-        return false;
+        getWindowSize(width, height);
+
+        if ((width == 0) || (height == 0)) {
+            return false;
+        }
+
+        drawable = nil;
+        return true;
     }
 
     bool MetalSwapChain::needsResize() const {
@@ -1012,29 +1024,6 @@ namespace RT64 {
                                        atIndex: vertexBufferIndices[i]];
             }
 
-            if (toDrawInstanced) {
-                [renderEncoder drawPrimitives:currentPrimitiveType
-                                  vertexStart:startVertexLocation
-                                  vertexCount:vertexCountPerInstance
-                                instanceCount:instanceCount
-                                 baseInstance:startInstanceLocation];
-
-                toDrawInstanced = false;
-            }
-
-            if (toDrawIndexedInstanced && indexBuffer != nil) {
-                [renderEncoder drawIndexedPrimitives: currentPrimitiveType
-                                          indexCount: indexCountPerInstance
-                                           indexType: currentIndexType
-                                         indexBuffer: indexBuffer
-                                   indexBufferOffset: startIndexLocation
-                                       instanceCount: instanceCount
-                                          baseVertex: baseVertexLocation
-                                        baseInstance: startInstanceLocation];
-
-                toDrawIndexedInstanced = false;
-            }
-
             if (!renderDescriptorSetsToBind.empty()) {
                 for (uint32_t i = 0; i < renderDescriptorSetsToBind.size(); i++) {
                     auto *descriptorSet = renderDescriptorSetsToBind[i];
@@ -1076,12 +1065,35 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::rebindRenderState(MetalRenderState *renderState) const {
+    void MetalCommandList::rebindRenderState(MetalRenderState *renderState) {
         [renderEncoder setRenderPipelineState: renderState->renderPipelineState];
         [renderEncoder setDepthStencilState: renderState->depthStencilState];
         [renderEncoder setDepthClipMode: renderState->depthClipMode];
         [renderEncoder setCullMode: renderState->cullMode];
         [renderEncoder setFrontFacingWinding: renderState->winding];
+
+        if (toDrawInstanced) {
+            [renderEncoder drawPrimitives:currentPrimitiveType
+                              vertexStart:startVertexLocation
+                              vertexCount:vertexCountPerInstance
+                            instanceCount:instanceCount
+                             baseInstance:startInstanceLocation];
+
+            toDrawInstanced = false;
+        }
+
+        if (toDrawIndexedInstanced && indexBuffer != nil) {
+            [renderEncoder drawIndexedPrimitives: currentPrimitiveType
+                                      indexCount: indexCountPerInstance
+                                       indexType: currentIndexType
+                                     indexBuffer: indexBuffer
+                               indexBufferOffset: startIndexLocation
+                                   instanceCount: instanceCount
+                                      baseVertex: baseVertexLocation
+                                    baseInstance: startInstanceLocation];
+
+            toDrawIndexedInstanced = false;
+        }
     }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
