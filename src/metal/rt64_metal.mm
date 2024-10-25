@@ -429,7 +429,9 @@ namespace RT64 {
         descriptor.arrayLength = 1;
         descriptor.sampleCount = desc.multisampling.sampleCount;
         // TODO: Usage flags
-        descriptor.usage = MTLTextureUsageUnknown;
+        if (desc.flags & RenderTextureFlag::RENDER_TARGET) {
+            descriptor.usage |= MTLTextureUsageRenderTarget;
+        }
 
         if (pool != nullptr) {
             this->mtlTexture = [pool->heap newTextureWithDescriptor: descriptor];
@@ -690,24 +692,6 @@ namespace RT64 {
         this->state = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
         renderState->renderPipelineState = state;
 
-        // For creating the render pass descriptor
-        for (uint32_t i = 0; i < desc.renderTargetCount; i++) {
-            MTLRenderPassColorAttachmentDescriptor *colorAttachmentDescriptor = [MTLRenderPassColorAttachmentDescriptor new];
-
-            // Create a new texture for each render target
-            MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor new];
-            textureDescriptor.pixelFormat = toMTL(desc.renderTargetFormat[i]);
-            id<MTLTexture> texture = [device->device newTextureWithDescriptor: textureDescriptor];
-
-            colorAttachmentDescriptor.texture = texture;
-            colorAttachmentDescriptor.loadAction = MTLLoadActionLoad;
-            colorAttachmentDescriptor.storeAction = MTLStoreActionStore;
-
-            renderState->colorAttachments.emplace_back(colorAttachmentDescriptor);
-        }
-
-        MTLRenderPassDepthAttachmentDescriptor *depthAttachmentDescriptor = [MTLRenderPassDepthAttachmentDescriptor new];
-
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newRenderPipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
             return;
@@ -827,9 +811,15 @@ namespace RT64 {
         this->layer = commandQueue->device->renderInterface->layer;
 
         layer.pixelFormat = toMTL(format);
-        this->textureCount = textureCount;
-        this->currentTextureIndex = 0;
+        // We use only 1 proxy texture for the swap chain, and fetch
+        // the next drawable from the layer's pool when needed.
+        this->textureCount = 1;
+        this->proxyTexture = new MetalTexture();
+        this->proxyTexture->parentSwapChain = this;
+        this->proxyTexture->desc.flags = RenderTextureFlag::RENDER_TARGET;
+
         this->renderWindow = renderWindow;
+        getWindowSize(width, height);
     }
 
     MetalSwapChain::~MetalSwapChain() {
@@ -847,8 +837,9 @@ namespace RT64 {
     }
 
     bool MetalSwapChain::needsResize() const {
-        // TODO: Unimplemented.
-        return false;
+        uint32_t windowWidth, windowHeight;
+        getWindowSize(windowWidth, windowHeight);
+        return (layer == nullptr) || (width != windowWidth) || (height != windowHeight);
     }
 
     uint32_t MetalSwapChain::getWidth() const {
@@ -860,17 +851,18 @@ namespace RT64 {
     }
 
     RenderTexture *MetalSwapChain::getTexture(uint32_t textureIndex) {
-        // TODO: Unimplemented.
-        return nullptr;
+        return proxyTexture;
     }
 
     bool MetalSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
         assert(signalSemaphore != nullptr);
 
-        drawable = [layer nextDrawable];
-        if (drawable != nil) {
-            *textureIndex = currentTextureIndex;
-            currentTextureIndex = (currentTextureIndex + 1) % textureCount;
+        // Ignore textureIndex for Metal in both acquireTexture and getTexture.
+        // Metal will always return the next available texture from the layer's pool.
+        *textureIndex = 0;
+        auto nextDrawable = [layer nextDrawable];
+        if (nextDrawable != nil) {
+            drawable = nextDrawable;
             return true;
         }
         return false;
@@ -898,10 +890,6 @@ namespace RT64 {
         SDL_GetWindowSize(window, (int *)&dstWidth, (int *)&dstHeight);
     }
 
-    void MetalSwapChain::setTextures() {
-        // TODO: Unimplemented.
-    }
-
     // MetalFramebuffer
 
     MetalFramebuffer::MetalFramebuffer(MetalDevice *device, const RenderFramebufferDesc &desc) {
@@ -916,7 +904,7 @@ namespace RT64 {
             colorAttachments.emplace_back(colorAttachment);
 
             if (i == 0) {
-                width = uint32_t(colorAttachment->desc.width);
+                width = colorAttachment->desc.width;
                 height = colorAttachment->desc.height;
             }
         }
@@ -926,7 +914,7 @@ namespace RT64 {
             assert((depthAttachment->desc.flags & RenderTextureFlag::DEPTH_TARGET) && "Depth attachment must be a depth target.");
 
             if (desc.colorAttachmentsCount == 0) {
-                width = uint32_t(depthAttachment->desc.width);
+                width = depthAttachment->desc.width;
                 height = depthAttachment->desc.height;
             }
         }
@@ -937,13 +925,11 @@ namespace RT64 {
     }
 
     uint32_t MetalFramebuffer::getWidth() const {
-        // TODO: Unimplemented.
-        return 0;
+        return width;
     }
 
     uint32_t MetalFramebuffer::getHeight() const {
-        // TODO: Unimplemented.
-        return 0;
+        return height;
     }
 
     // MetalCommandList
@@ -992,6 +978,16 @@ namespace RT64 {
             auto renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
 
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+                // If framebuffer was created using a swap chain, use the drawable's texture
+                if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
+                    auto *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
+                    auto *drawable = swapChain->drawable;
+                    renderDescriptor.colorAttachments[i].texture = drawable.texture;
+                    renderDescriptor.colorAttachments[i].loadAction = MTLLoadActionClear;
+                    renderDescriptor.colorAttachments[i].storeAction = MTLStoreActionStore;
+                    break;
+                }
+
                 auto colorAttachment = renderDescriptor.colorAttachments[i];
                 colorAttachment.texture = targetFramebuffer->colorAttachments[i]->mtlTexture;
                 colorAttachment.loadAction = MTLLoadActionLoad;

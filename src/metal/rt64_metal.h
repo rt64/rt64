@@ -41,9 +41,6 @@ namespace RT64 {
         MTLCullMode cullMode = MTLCullModeNone;
         MTLDepthClipMode depthClipMode = MTLDepthClipModeClip;
         MTLWinding winding = MTLWindingClockwise;
-        std::vector<MTLRenderPassColorAttachmentDescriptor *> colorAttachments;
-        MTLRenderPassDepthAttachmentDescriptor *depthAttachment = nil;
-        MTLRenderPassStencilAttachmentDescriptor *stencilAttachment = nil;
 #endif
     };
 
@@ -76,9 +73,8 @@ namespace RT64 {
         CAMetalLayer *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
-        std::vector<MetalTexture> textures;
         uint32_t textureCount = 0;
-        uint32_t currentTextureIndex = 0;
+        MetalTexture *proxyTexture;
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;
@@ -98,7 +94,6 @@ namespace RT64 {
         bool isEmpty() const override;
         uint32_t getRefreshRate() const override;
         void getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const;
-        void setTextures();
     };
 
     struct MetalFramebuffer : RenderFramebuffer {
@@ -261,6 +256,7 @@ namespace RT64 {
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
         RenderTextureDesc desc;
+        MetalSwapChain *parentSwapChain = nullptr;
 
         MetalTexture() = default;
         MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
