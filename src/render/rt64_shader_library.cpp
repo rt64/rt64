@@ -718,6 +718,7 @@ namespace RT64 {
         {
             const void *PSBlob = nullptr;
             uint32_t PSBlobSize = 0;
+#       ifdef _WIN32
             if (shaderFormat == RenderShaderFormat::DXIL) {
                 switch (multisampling.sampleCount) {
                 case RenderSampleCount::COUNT_2:
@@ -734,7 +735,9 @@ namespace RT64 {
                     break;
                 }
             }
-            else if (shaderFormat == RenderShaderFormat::SPIRV) {
+            else 
+#       endif
+            if (shaderFormat == RenderShaderFormat::SPIRV) {
                 switch (multisampling.sampleCount) {
                 case RenderSampleCount::COUNT_2:
                     PSBlob = TextureResolveSamples2XPSBlobSPIRV;
