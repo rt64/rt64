@@ -744,7 +744,7 @@ namespace RT64 {
         worker->commandList->setFramebuffer(nullptr);
 
         // Resolve the color target if necessary before using it as the RT scene background.
-        colorTarget->resolveTarget(worker);
+        colorTarget->resolveTarget(worker, shaderLibrary);
         worker->commandList->barriers(RenderBarrierStage::COMPUTE, RenderTextureBarrier(colorTarget->getResolvedTexture(), RenderTextureLayout::SHADER_READ));
 
         if (rtResources->transitionOutputBuffers) {
@@ -1254,7 +1254,7 @@ namespace RT64 {
 
                     // Resolve the interleaved scene.
                     // TODO: Depth textures need to be thrown into a separate view vector for multisampled textures.
-                    fbStorage->colorTarget->resolveTarget(worker);
+                    fbStorage->colorTarget->resolveTarget(worker, shaderLibrary);
 
                     interleavedBarriers.emplace_back(RenderTextureBarrier(colorRenderTarget->texture.get(), RenderTextureLayout::SHADER_READ));
                     interleavedBarriers.emplace_back(RenderTextureBarrier(depthRenderTarget->texture.get(), RenderTextureLayout::DEPTH_READ));

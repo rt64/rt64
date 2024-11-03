@@ -227,7 +227,7 @@ namespace RT64 {
 
         // Create the shader library.
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(userConfig.msaaSampleCount(), device->getCapabilities().sampleLocations);
-        shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR);
+        shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR, userConfig.hardwareResolve);
         shaderLibrary->setupCommonShaders(renderInterface.get(), device.get());
         shaderLibrary->setupMultisamplingShaders(renderInterface.get(), device.get(), multisampling);
         

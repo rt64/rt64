@@ -18,6 +18,7 @@ namespace RT64 {
         j["resolution"] = cfg.resolution;
         j["displayBuffering"] = cfg.displayBuffering;
         j["antialiasing"] = cfg.antialiasing;
+        j["hardwareResolve"] = cfg.hardwareResolve;
         j["resolutionMultiplier"] = cfg.resolutionMultiplier;
         j["downsampleMultiplier"] = cfg.downsampleMultiplier;
         j["filtering"] = cfg.filtering;
@@ -40,6 +41,7 @@ namespace RT64 {
         cfg.resolution = j.value("resolution", defaultCfg.resolution);
         cfg.displayBuffering = j.value("displayBuffering", defaultCfg.displayBuffering);
         cfg.antialiasing = j.value("antialiasing", defaultCfg.antialiasing);
+        cfg.hardwareResolve = j.value("hardwareResolve", defaultCfg.hardwareResolve);
         cfg.resolutionMultiplier = j.value("resolutionMultiplier", defaultCfg.resolutionMultiplier);
         cfg.downsampleMultiplier = j.value("downsampleMultiplier", defaultCfg.downsampleMultiplier);
         cfg.filtering = j.value("filtering", defaultCfg.filtering);
@@ -70,6 +72,7 @@ namespace RT64 {
         resolution = Resolution::WindowIntegerScale;
         displayBuffering = DisplayBuffering::Double;
         antialiasing = Antialiasing::None;
+        hardwareResolve = true;
         resolutionMultiplier = 2.0f;
         downsampleMultiplier = 1;
         filtering = Filtering::AntiAliasedPixelScaling;

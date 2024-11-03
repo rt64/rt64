@@ -9,6 +9,7 @@
 #include "gbi/rt64_f3d.h"
 #include "shared/rt64_fb_common.h"
 #include "shared/rt64_render_target_copy.h"
+#include "shared/rt64_texture_copy.h"
 
 #include "rt64_raster_shader.h"
 
@@ -44,8 +45,10 @@ namespace RT64 {
         downsampledTexture.reset();
         dummyTexture.reset();
         textureFramebuffer.reset();
+        resolveFramebuffer.reset();
         targetCopyDescSet.reset();
         textureCopyDescSet.reset();
+        textureResolveDescSet.reset();
         filterDescSet.reset();
         fbWriteDescSet.reset();
     }
@@ -131,6 +134,16 @@ namespace RT64 {
         }
     }
 
+    void RenderTarget::setupResolveFramebuffer(RenderWorker *worker) {
+        assert(worker != nullptr);
+        assert(resolvedTexture != nullptr);
+
+        if (resolveFramebuffer == nullptr) {
+            const RenderTexture *colorTexture = resolvedTexture.get();
+            resolveFramebuffer = worker->device->createFramebuffer(RenderFramebufferDesc(&colorTexture, 1));
+        }
+    }
+
     void RenderTarget::setupDepthFramebuffer(RenderWorker *worker) {
         assert(worker != nullptr);
 
@@ -201,17 +214,29 @@ namespace RT64 {
         markForResolve();
     }
 
-    void RenderTarget::resolveFromTarget(RenderWorker *worker, RenderTarget *src) {
+    void RenderTarget::resolveFromTarget(RenderWorker *worker, RenderTarget *src, const ShaderLibrary *shaderLibrary) {
         assert(!usesResolve() && "The target must not be an MSAA target to allow resolving from other targets.");
 
+        const bool hwResolve = shaderLibrary->usesHardwareResolve;
         RenderTextureBarrier resolveBarriers[] = {
-            RenderTextureBarrier(src->texture.get(), RenderTextureLayout::RESOLVE_SOURCE),
-            RenderTextureBarrier(texture.get(), RenderTextureLayout::RESOLVE_DEST)
+            RenderTextureBarrier(src->texture.get(), hwResolve ? RenderTextureLayout::RESOLVE_SOURCE : RenderTextureLayout::SHADER_READ),
+            RenderTextureBarrier(texture.get(), hwResolve ? RenderTextureLayout::RESOLVE_DEST : RenderTextureLayout::COLOR_WRITE)
         };
         
         const RenderRect srcRect(0, 0, std::min(width, src->width), std::min(height, src->height));
-        worker->commandList->barriers(RenderBarrierStage::COPY, resolveBarriers, uint32_t(std::size(resolveBarriers)));
-        worker->commandList->resolveTextureRegion(texture.get(), 0, 0, src->texture.get(), &srcRect);
+        worker->commandList->barriers(hwResolve ? RenderBarrierStage::COPY : RenderBarrierStage::GRAPHICS, resolveBarriers, uint32_t(std::size(resolveBarriers)));
+
+        if (hwResolve) {
+            worker->commandList->resolveTextureRegion(texture.get(), 0, 0, src->texture.get(), &srcRect);
+        }
+        else {
+            if (src->textureResolveDescSet == nullptr) {
+                src->textureResolveDescSet = std::make_unique<TextureCopyDescriptorSet>(worker->device);
+                src->textureResolveDescSet->setTexture(src->textureResolveDescSet->gInput, src->texture.get(), RenderTextureLayout::SHADER_READ, src->textureView.get());
+            }
+
+            recordRasterResolve(worker, src->textureResolveDescSet.get(), srcRect.left, srcRect.top, srcRect.right - srcRect.left, srcRect.bottom - srcRect.top, shaderLibrary);
+        }
 
         // Copy scaling attributes from source.
         resolutionScale = src->resolutionScale;
@@ -329,7 +354,7 @@ namespace RT64 {
     void RenderTarget::downsampleTarget(RenderWorker *worker, const ShaderLibrary *shaderLibrary) {
         assert(worker != nullptr);
 
-        resolveTarget(worker);
+        resolveTarget(worker, shaderLibrary);
 
         struct BoxFilterCB {
             interop::int2 Resolution;
@@ -382,19 +407,61 @@ namespace RT64 {
         worker->commandList->dispatch(dispatchX, dispatchY, 1);
     }
 
-    void RenderTarget::resolveTarget(RenderWorker *worker) {
+    void RenderTarget::resolveTarget(RenderWorker *worker, const ShaderLibrary *shaderLibrary) {
         if (!resolvedTextureDirty || !usesResolve()) {
             return;
         }
-        
+
+        const bool hwResolve = shaderLibrary->usesHardwareResolve;
         RenderTextureBarrier resolveBarriers[] = {
-            RenderTextureBarrier(texture.get(), RenderTextureLayout::RESOLVE_SOURCE),
-            RenderTextureBarrier(resolvedTexture.get(), RenderTextureLayout::RESOLVE_DEST)
+            RenderTextureBarrier(texture.get(), hwResolve ? RenderTextureLayout::RESOLVE_SOURCE : RenderTextureLayout::SHADER_READ),
+            RenderTextureBarrier(resolvedTexture.get(), hwResolve ? RenderTextureLayout::RESOLVE_DEST : RenderTextureLayout::COLOR_WRITE)
         };
 
-        worker->commandList->barriers(RenderBarrierStage::COPY, resolveBarriers, uint32_t(std::size(resolveBarriers)));
-        worker->commandList->resolveTexture(resolvedTexture.get(), texture.get());
+        worker->commandList->barriers(hwResolve ? RenderBarrierStage::COPY : RenderBarrierStage::GRAPHICS, resolveBarriers, uint32_t(std::size(resolveBarriers)));
+        
+        if (hwResolve) {
+            worker->commandList->resolveTexture(resolvedTexture.get(), texture.get());
+        }
+        else {
+            if (textureResolveDescSet == nullptr) {
+                textureResolveDescSet = std::make_unique<TextureCopyDescriptorSet>(worker->device);
+                textureResolveDescSet->setTexture(textureResolveDescSet->gInput, texture.get(), RenderTextureLayout::SHADER_READ, textureView.get());
+            }
+
+            recordRasterResolve(worker, textureResolveDescSet.get(), 0, 0, width, height, shaderLibrary);
+        }
+
         resolvedTextureDirty = false;
+    }
+
+    void RenderTarget::recordRasterResolve(RenderWorker *worker, const TextureCopyDescriptorSet *srcDescriptorSet, uint32_t x, uint32_t y, uint32_t width, uint32_t height, const ShaderLibrary *shaderLibrary) {
+        assert(format != depthBufferFormat() && "Rasterization path should not be used for depth targets.");
+
+        if (resolvedTexture != nullptr) {
+            setupResolveFramebuffer(worker);
+            worker->commandList->setFramebuffer(resolveFramebuffer.get());
+        }
+        else {
+            setupColorFramebuffer(worker);
+            worker->commandList->setFramebuffer(textureFramebuffer.get());
+        }
+
+        interop::TextureCopyCB textureCopyCB;
+        textureCopyCB.uvScroll.x = float(x);
+        textureCopyCB.uvScroll.y = float(y);
+        textureCopyCB.uvScale.x = float(width);
+        textureCopyCB.uvScale.y = float(height);
+
+        const ShaderRecord &textureResolve = shaderLibrary->textureResolve;
+        worker->commandList->setPipeline(textureResolve.pipeline.get());
+        worker->commandList->setGraphicsPipelineLayout(textureResolve.pipelineLayout.get());
+        worker->commandList->setVertexBuffers(0, nullptr, 0, nullptr);
+        worker->commandList->setViewports(RenderViewport(float(x), float(y), float(width), float(height)));
+        worker->commandList->setScissors(RenderRect(x, y, x + width, y + height));
+        worker->commandList->setGraphicsDescriptorSet(srcDescriptorSet->get(), 0);
+        worker->commandList->setGraphicsPushConstants(0, &textureCopyCB);
+        worker->commandList->drawInstanced(3, 1, 0, 0);
     }
 
     void RenderTarget::markForResolve() {

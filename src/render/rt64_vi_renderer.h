@@ -16,18 +16,18 @@ namespace RT64 {
         const RenderSampler *descriptorSetSampler = nullptr;
 
         struct RenderParams {
-            RenderDevice *device;
-            RenderCommandList *commandList;
-            RenderTexture *texture;
-            const RenderSwapChain *swapChain;
-            const ShaderLibrary *shaderLibrary;
-            RenderFormat textureFormat;
+            RenderDevice *device = nullptr;
+            RenderCommandList *commandList = nullptr;
+            RenderTexture *texture = nullptr;
+            const RenderSwapChain *swapChain = nullptr;
+            const ShaderLibrary *shaderLibrary = nullptr;
+            RenderFormat textureFormat = RenderFormat::UNKNOWN;
             hlslpp::float2 resolutionScale;
-            uint32_t downsamplingScale;
-            uint32_t textureWidth;
-            uint32_t textureHeight;
-            UserConfiguration::Filtering filtering;
-            const VI *vi;
+            uint32_t downsamplingScale = 0;
+            uint32_t textureWidth = 0;
+            uint32_t textureHeight = 0;
+            UserConfiguration::Filtering filtering = UserConfiguration::Filtering::Linear;
+            const VI *vi = nullptr;
         };
 
         VIRenderer();

@@ -2082,6 +2082,12 @@ namespace RT64 {
 
                     genConfigChanged = ImGui::Checkbox("Three-Point Filtering", &userConfig.threePointFiltering) || genConfigChanged;
                     genConfigChanged = ImGui::Checkbox("High Performance State", &userConfig.idleWorkActive) || genConfigChanged;
+
+                    if (ImGui::Checkbox("Hardware Resolve", &userConfig.hardwareResolve)) {
+                        // Update shader library to automatically control all logic around hardware resolve.
+                        ext.shaderLibrary->usesHardwareResolve = userConfig.hardwareResolve;
+                        genConfigChanged = true;
+                    }
                     
                     // Emulator configuration.
                     ImGui::NewLine();

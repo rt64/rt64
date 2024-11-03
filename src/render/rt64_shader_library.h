@@ -15,8 +15,9 @@ namespace RT64 {
     };
 
     struct ShaderLibrary {
-        bool usesHDR = false;
         SamplerLibrary samplerLibrary;
+        bool usesHDR = false;
+        bool usesHardwareResolve = false;
 
         // All shaders.
         ShaderRecord bicubicScaling;
@@ -54,11 +55,12 @@ namespace RT64 {
         ShaderRecord rtCopyDepthToColorMS;
         ShaderRecord textureDecode;
         ShaderRecord textureCopy;
+        ShaderRecord textureResolve;
         ShaderRecord videoInterfaceLinear;
         ShaderRecord videoInterfaceNearest;
         ShaderRecord videoInterfacePixel;
 
-        ShaderLibrary(bool usesHDR);
+        ShaderLibrary(bool usesHDR, bool usesHardwareResolve);
         ~ShaderLibrary();
         void setupCommonShaders(RenderInterface *rhi, RenderDevice *device);
         void setupMultisamplingShaders(RenderInterface *rhi, RenderDevice *device, const RenderMultisampling &multisampling);

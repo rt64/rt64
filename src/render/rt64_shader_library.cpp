@@ -37,6 +37,9 @@
 #include "shaders/RtCopyDepthToColorPSMS.hlsl.spirv.h"
 #include "shaders/TextureCopyPS.hlsl.spirv.h"
 #include "shaders/TextureDecodeCS.hlsl.spirv.h"
+#include "shaders/TextureResolveSamples2XPS.hlsl.spirv.h"
+#include "shaders/TextureResolveSamples4XPS.hlsl.spirv.h"
+#include "shaders/TextureResolveSamples8XPS.hlsl.spirv.h"
 #include "shaders/VideoInterfacePSRegular.hlsl.spirv.h"
 #include "shaders/VideoInterfacePSPixel.hlsl.spirv.h"
 #include "shaders/FullScreenVS.hlsl.spirv.h"
@@ -78,6 +81,9 @@
 #   include "shaders/RtCopyDepthToColorPSMS.hlsl.dxil.h"
 #   include "shaders/TextureCopyPS.hlsl.dxil.h"
 #   include "shaders/TextureDecodeCS.hlsl.dxil.h"
+#   include "shaders/TextureResolveSamples2XPS.hlsl.dxil.h"
+#   include "shaders/TextureResolveSamples4XPS.hlsl.dxil.h"
+#   include "shaders/TextureResolveSamples8XPS.hlsl.dxil.h"
 #   include "shaders/VideoInterfacePSRegular.hlsl.dxil.h"
 #   include "shaders/VideoInterfacePSPixel.hlsl.dxil.h"
 #   include "shaders/FullScreenVS.hlsl.dxil.h"
@@ -115,8 +121,9 @@
 namespace RT64 {
     // ShaderLibrary
 
-    ShaderLibrary::ShaderLibrary(bool usesHDR) {
+    ShaderLibrary::ShaderLibrary(bool usesHDR, bool usesHardwareResolve) {
         this->usesHDR = usesHDR;
+        this->usesHardwareResolve = usesHardwareResolve;
     }
 
     ShaderLibrary::~ShaderLibrary() { }
@@ -705,6 +712,70 @@ namespace RT64 {
 
             std::unique_ptr<RenderShader> computeShaderMS = device->createShader(CREATE_SHADER_INPUTS(RSPVertexTestZCSMSBlobDXIL, RSPVertexTestZCSMSBlobSPIRV, "CSMain", shaderFormat));
             rspVertexTestZMS.pipeline = device->createComputePipeline(RenderComputePipelineDesc(rspVertexTestZMS.pipelineLayout.get(), computeShaderMS.get()));
+        }
+
+        // Texture Resolve.
+        {
+            const void *PSBlob = nullptr;
+            uint32_t PSBlobSize = 0;
+            if (shaderFormat == RenderShaderFormat::DXIL) {
+                switch (multisampling.sampleCount) {
+                case RenderSampleCount::COUNT_2:
+                    PSBlob = TextureResolveSamples2XPSBlobDXIL;
+                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobDXIL);
+                    break;
+                case RenderSampleCount::COUNT_4:
+                    PSBlob = TextureResolveSamples4XPSBlobDXIL;
+                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobDXIL);
+                    break;
+                case RenderSampleCount::COUNT_8:
+                    PSBlob = TextureResolveSamples8XPSBlobDXIL;
+                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobDXIL);
+                    break;
+                }
+            }
+            else if (shaderFormat == RenderShaderFormat::SPIRV) {
+                switch (multisampling.sampleCount) {
+                case RenderSampleCount::COUNT_2:
+                    PSBlob = TextureResolveSamples2XPSBlobSPIRV;
+                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobSPIRV);
+                    break;
+                case RenderSampleCount::COUNT_4:
+                    PSBlob = TextureResolveSamples4XPSBlobSPIRV;
+                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobSPIRV);
+                    break;
+                case RenderSampleCount::COUNT_8:
+                    PSBlob = TextureResolveSamples8XPSBlobSPIRV;
+                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobSPIRV);
+                    break;
+                }
+            }
+            else {
+                assert(false && "Unknown shader format.");
+            }
+
+            if (PSBlob != nullptr) {
+                TextureCopyDescriptorSet descriptorSet;
+                layoutBuilder.begin();
+                layoutBuilder.addPushConstant(0, 0, sizeof(interop::TextureCopyCB), RenderShaderStageFlag::PIXEL);
+                layoutBuilder.addDescriptorSet(descriptorSet);
+                layoutBuilder.end();
+                textureResolve.pipelineLayout = layoutBuilder.create(device);
+
+                std::unique_ptr<RenderShader> pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
+                RenderGraphicsPipelineDesc pipelineDesc;
+                pipelineDesc.pipelineLayout = textureResolve.pipelineLayout.get();
+                pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+                pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
+                pipelineDesc.renderTargetCount = 1;
+                pipelineDesc.vertexShader = fullScreenVertexShader.get();
+                pipelineDesc.pixelShader = pixelShader.get();
+                textureResolve.pipeline = device->createGraphicsPipeline(pipelineDesc);
+            }
+            else {
+                textureResolve.pipeline.reset();
+                textureResolve.pipelineLayout.reset();
+            }
         }
     }
 };

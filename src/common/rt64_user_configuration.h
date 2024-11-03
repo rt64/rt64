@@ -80,6 +80,7 @@ namespace RT64 {
         Resolution resolution;
         DisplayBuffering displayBuffering;
         Antialiasing antialiasing;
+        bool hardwareResolve;
         double resolutionMultiplier;
         int downsampleMultiplier;
         Filtering filtering;
