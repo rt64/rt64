@@ -16,6 +16,7 @@ namespace RT64 {
     void to_json(json &j, const UserConfiguration &cfg) {
         j["graphicsAPI"] = cfg.graphicsAPI;
         j["resolution"] = cfg.resolution;
+        j["displayBuffering"] = cfg.displayBuffering;
         j["antialiasing"] = cfg.antialiasing;
         j["resolutionMultiplier"] = cfg.resolutionMultiplier;
         j["downsampleMultiplier"] = cfg.downsampleMultiplier;
@@ -37,6 +38,7 @@ namespace RT64 {
         UserConfiguration defaultCfg;
         cfg.graphicsAPI = j.value("graphicsAPI", defaultCfg.graphicsAPI);
         cfg.resolution = j.value("resolution", defaultCfg.resolution);
+        cfg.displayBuffering = j.value("displayBuffering", defaultCfg.displayBuffering);
         cfg.antialiasing = j.value("antialiasing", defaultCfg.antialiasing);
         cfg.resolutionMultiplier = j.value("resolutionMultiplier", defaultCfg.resolutionMultiplier);
         cfg.downsampleMultiplier = j.value("downsampleMultiplier", defaultCfg.downsampleMultiplier);
@@ -66,6 +68,7 @@ namespace RT64 {
     UserConfiguration::UserConfiguration() {
         graphicsAPI = DefaultGraphicsAPI;
         resolution = Resolution::WindowIntegerScale;
+        displayBuffering = DisplayBuffering::Double;
         antialiasing = Antialiasing::None;
         resolutionMultiplier = 2.0f;
         downsampleMultiplier = 1;
@@ -86,6 +89,7 @@ namespace RT64 {
     void UserConfiguration::validate() {
         clampEnum<GraphicsAPI>(graphicsAPI);
         clampEnum<Resolution>(resolution);
+        clampEnum<DisplayBuffering>(displayBuffering);
         clampEnum<Antialiasing>(antialiasing);
         clampEnum<Filtering>(filtering);
         clampEnum<AspectRatio>(aspectRatio);

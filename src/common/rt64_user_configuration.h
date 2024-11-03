@@ -19,11 +19,17 @@ namespace RT64 {
         };
 
         static GraphicsAPI DefaultGraphicsAPI;
-
+        
         enum class Resolution {
             Original,
             WindowIntegerScale,
             Manual,
+            OptionCount
+        };
+
+        enum class DisplayBuffering {
+            Double,
+            Triple,
             OptionCount
         };
 
@@ -72,6 +78,7 @@ namespace RT64 {
 
         GraphicsAPI graphicsAPI;
         Resolution resolution;
+        DisplayBuffering displayBuffering;
         Antialiasing antialiasing;
         double resolutionMultiplier;
         int downsampleMultiplier;

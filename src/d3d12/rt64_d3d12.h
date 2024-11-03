@@ -71,23 +71,30 @@ namespace RT64 {
 
     struct D3D12DescriptorSet : RenderDescriptorSet {
         D3D12Device *device = nullptr;
-        uint32_t allocatorOffset = 0;
-        uint32_t entryCount = 0;
+
+        struct HeapAllocation {
+            uint32_t offset = 0;
+            uint32_t count = 0;
+            uint32_t hostModifiedIndex = 0;
+            uint32_t hostModifiedCount = 0;
+        };
+
+        HeapAllocation viewAllocation;
+        HeapAllocation samplerAllocation;
         std::vector<RenderDescriptorRangeType> descriptorTypes;
+        std::vector<uint32_t> descriptorHeapIndices;
         uint32_t descriptorTypeMaxIndex = 0;
-        uint32_t hostModifiedIndex = 0;
-        uint32_t hostModifiedCount = 0;
 
         D3D12DescriptorSet(D3D12Device *device, const RenderDescriptorSetDesc &desc);
-        D3D12DescriptorSet(D3D12Device *device, uint32_t entryCount);
         ~D3D12DescriptorSet() override;
         void setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) override;
         void setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) override;
+        void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) override;
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
         void setSRV(uint32_t descriptorIndex, ID3D12Resource *resource, const D3D12_SHADER_RESOURCE_VIEW_DESC *viewDesc);
         void setUAV(uint32_t descriptorIndex, ID3D12Resource *resource, const D3D12_UNORDERED_ACCESS_VIEW_DESC *viewDesc);
         void setCBV(uint32_t descriptorIndex, ID3D12Resource *resource, uint64_t bufferSize);
-        void setHostModified(uint32_t descriptorIndex);
+        void setHostModified(HeapAllocation &heapAllocation, uint32_t heapIndex);
     };
 
     struct D3D12SwapChain : RenderSwapChain {
@@ -102,12 +109,15 @@ namespace RT64 {
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t refreshRate = 0;
+        bool vsyncEnabled = true;
 
         D3D12SwapChain(D3D12CommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~D3D12SwapChain() override;
         bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
         bool resize() override;
         bool needsResize() const override;
+        void setVsyncEnabled(bool vsyncEnabled) override;
+        bool isVsyncEnabled() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
         RenderTexture *getTexture(uint32_t textureIndex) override;
@@ -141,14 +151,14 @@ namespace RT64 {
         D3D12Device *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
         const D3D12Framebuffer *targetFramebuffer = nullptr;
-        bool targetFramebufferSamplePositionsSet = false;
-        bool open = false;
         const D3D12PipelineLayout *activeComputePipelineLayout = nullptr;
         const D3D12PipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const D3D12GraphicsPipeline *activeGraphicsPipeline = nullptr;
-        bool descriptorHeapsSet = false;
         D3D12_PRIMITIVE_TOPOLOGY activeTopology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+        bool targetFramebufferSamplePositionsSet = false;
+        bool descriptorHeapsSet = false;
         bool activeSamplePositions = false;
+        bool open = false;
 
         D3D12CommandList(D3D12Device *device, RenderCommandListType type);
         ~D3D12CommandList() override;
@@ -191,6 +201,7 @@ namespace RT64 {
         void setSamplePositions(const RenderTexture *texture);
         void resetSamplePositions();
         void setDescriptorSet(const D3D12PipelineLayout *activePipelineLayout, RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
+        void setRootDescriptorTable(D3D12DescriptorHeapAllocator *heapAllocator, D3D12DescriptorSet::HeapAllocation &heapAllocation, uint32_t rootIndex, bool setCompute);
     };
 
     struct D3D12CommandFence : RenderCommandFence {
@@ -277,6 +288,7 @@ namespace RT64 {
         RenderTextureDimension dimension = RenderTextureDimension::UNKNOWN;
         uint32_t mipLevels = 0;
         uint32_t mipSlice = 0;
+        UINT componentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
         D3D12TextureView(D3D12Texture *texture, const RenderTextureViewDesc &desc);
         ~D3D12TextureView() override;
@@ -362,7 +374,7 @@ namespace RT64 {
         ID3D12StateObjectProperties *stateObjectProperties = nullptr;
         std::vector<void *> programShaderIdentifiers;
         std::unordered_map<std::string, RenderPipelineProgram> nameProgramMap;
-        uint32_t descriptorSetCount = 0;
+        const D3D12PipelineLayout *pipelineLayout = nullptr;
 
         D3D12RaytracingPipeline(D3D12Device *device, const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline);
         ~D3D12RaytracingPipeline() override;
@@ -373,7 +385,10 @@ namespace RT64 {
         ID3D12RootSignature *rootSignature = nullptr;
         D3D12Device *device = nullptr;
         std::vector<RenderPushConstantRange> pushConstantRanges;
+        std::vector<uint32_t> setViewRootIndices;
+        std::vector<uint32_t> setSamplerRootIndices;
         uint32_t setCount = 0;
+        uint32_t rootCount = 0;
 
         D3D12PipelineLayout(D3D12Device *device, const RenderPipelineLayoutDesc &desc);
         ~D3D12PipelineLayout() override;
@@ -387,7 +402,8 @@ namespace RT64 {
         D3D_SHADER_MODEL shaderModel = D3D_SHADER_MODEL(0);
         std::unique_ptr<RenderPipelineLayout> rtDummyGlobalPipelineLayout;
         std::unique_ptr<RenderPipelineLayout> rtDummyLocalPipelineLayout;
-        std::unique_ptr<D3D12DescriptorHeapAllocator> descriptorHeapAllocator;
+        std::unique_ptr<D3D12DescriptorHeapAllocator> viewHeapAllocator;
+        std::unique_ptr<D3D12DescriptorHeapAllocator> samplerHeapAllocator;
         std::unique_ptr<D3D12DescriptorHeapAllocator> colorTargetHeapAllocator;
         std::unique_ptr<D3D12DescriptorHeapAllocator> depthTargetHeapAllocator;
         RenderDeviceCapabilities capabilities;

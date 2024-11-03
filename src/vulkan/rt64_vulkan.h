@@ -191,6 +191,7 @@ namespace RT64 {
         ~VulkanDescriptorSet() override;
         void setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) override;
         void setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) override;
+        void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) override;
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
         void setDescriptor(uint32_t descriptorIndex, const VkDescriptorBufferInfo *bufferInfo, const VkDescriptorImageInfo *imageInfo, const VkBufferView *texelBufferView, void *pNext);
         static VkDescriptorPool createDescriptorPool(VulkanDevice *device, const std::unordered_map<VkDescriptorType, uint32_t> &typeCounts);
@@ -208,15 +209,19 @@ namespace RT64 {
         uint32_t height = 0;
         VkSwapchainCreateInfoKHR createInfo = {};
         VkSurfaceFormatKHR pickedSurfaceFormat = {};
-        VkPresentModeKHR pickedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+        VkPresentModeKHR createdPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+        VkPresentModeKHR requiredPresentMode = VK_PRESENT_MODE_FIFO_KHR;
         VkCompositeAlphaFlagBitsKHR pickedAlphaFlag = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         std::vector<VulkanTexture> textures;
+        bool immediatePresentModeSupported = false;
 
         VulkanSwapChain(VulkanCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~VulkanSwapChain() override;
         bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
         bool resize() override;
         bool needsResize() const override;
+        void setVsyncEnabled(bool vsyncEnabled) override;
+        bool isVsyncEnabled() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
         RenderTexture *getTexture(uint32_t textureIndex) override;

@@ -311,6 +311,10 @@ namespace RT64 {
             return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
         case RenderPrimitiveTopology::TRIANGLE_LIST:
             return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        case RenderPrimitiveTopology::TRIANGLE_STRIP:
+            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        case RenderPrimitiveTopology::TRIANGLE_FAN:
+            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
         default:
             assert(false && "Unknown primitive topology type.");
             return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
@@ -655,6 +659,28 @@ namespace RT64 {
         }
     }
 
+    static VkComponentSwizzle toVk(RenderSwizzle swizzle) {
+        switch (swizzle) {
+        case RenderSwizzle::IDENTITY:
+            return VK_COMPONENT_SWIZZLE_IDENTITY;
+        case RenderSwizzle::ZERO:
+            return VK_COMPONENT_SWIZZLE_ZERO;
+        case RenderSwizzle::ONE:
+            return VK_COMPONENT_SWIZZLE_ONE;
+        case RenderSwizzle::R:
+            return VK_COMPONENT_SWIZZLE_R;
+        case RenderSwizzle::G:
+            return VK_COMPONENT_SWIZZLE_G;
+        case RenderSwizzle::B:
+            return VK_COMPONENT_SWIZZLE_B;
+        case RenderSwizzle::A:
+            return VK_COMPONENT_SWIZZLE_A;
+        default:
+            assert(false && "Unknown swizzle type.");
+            return VK_COMPONENT_SWIZZLE_IDENTITY;
+        }
+    }
+
     static void setObjectName(VkDevice device, VkDebugReportObjectTypeEXT objectType, uint64_t object, const std::string &name) {
 #   ifdef VULKAN_OBJECT_NAMES_ENABLED
         VkDebugMarkerObjectNameInfoEXT nameInfo = {};
@@ -948,10 +974,10 @@ namespace RT64 {
         viewInfo.image = texture->vk;
         viewInfo.viewType = toImageViewType(desc.dimension);
         viewInfo.format = toVk(desc.format);
-        viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        viewInfo.components.r = toVk(desc.componentMapping.r);
+        viewInfo.components.g = toVk(desc.componentMapping.g);
+        viewInfo.components.b = toVk(desc.componentMapping.b);
+        viewInfo.components.a = toVk(desc.componentMapping.a);
         viewInfo.subresourceRange.aspectMask = (texture->desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
         viewInfo.subresourceRange.baseMipLevel = desc.mipSlice;
         viewInfo.subresourceRange.levelCount = desc.mipLevels;
@@ -1388,6 +1414,7 @@ namespace RT64 {
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampling.pNext = multisamplingNext;
         multisampling.rasterizationSamples = VkSampleCountFlagBits(desc.multisampling.sampleCount);
+        multisampling.alphaToCoverageEnable = desc.alphaToCoverageEnabled;
 
         thread_local std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
         colorBlendAttachments.clear();
@@ -1796,6 +1823,17 @@ namespace RT64 {
         setDescriptor(descriptorIndex, nullptr, &imageInfo, nullptr, nullptr);
     }
 
+    void VulkanDescriptorSet::setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) {
+        if (sampler == nullptr) {
+            return;
+        }
+
+        const VulkanSampler *interfaceSampler = static_cast<const VulkanSampler *>(sampler);
+        VkDescriptorImageInfo imageInfo = {};
+        imageInfo.sampler = interfaceSampler->vk;
+        setDescriptor(descriptorIndex, nullptr, &imageInfo, nullptr, nullptr);
+    }
+
     void VulkanDescriptorSet::setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
         if (accelerationStructure == nullptr) {
             return;
@@ -1956,6 +1994,7 @@ namespace RT64 {
 
         std::vector<VkPresentModeKHR> presentModes(presentModeCount);
         vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data());
+        immediatePresentModeSupported = std::find(presentModes.begin(), presentModes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != presentModes.end();
 
         // Check if the format we requested is part of the supported surface formats.
         std::vector<VkSurfaceFormatKHR> compatibleSurfaceFormats;
@@ -1985,7 +2024,7 @@ namespace RT64 {
         }
 
         // FIFO is guaranteed to be supported.
-        pickedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+        requiredPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 
         // Pick an alpha compositing mode, prefer opaque over inherit.
         if (surfaceCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
@@ -2073,7 +2112,7 @@ namespace RT64 {
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
         createInfo.compositeAlpha = pickedAlphaFlag;
-        createInfo.presentMode = pickedPresentMode;
+        createInfo.presentMode = requiredPresentMode;
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = vk;
 
@@ -2082,6 +2121,9 @@ namespace RT64 {
             fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
             return false;
         }
+
+        // Store the chosen present mode to identify later whether the swapchain needs to be recreated.
+        createdPresentMode = requiredPresentMode;
 
         // Reset present counter.
         presentCount = 1;
@@ -2130,7 +2172,19 @@ namespace RT64 {
     bool VulkanSwapChain::needsResize() const {
         uint32_t windowWidth, windowHeight;
         getWindowSize(windowWidth, windowHeight);
-        return (vk == VK_NULL_HANDLE) || (windowWidth != width) || (windowHeight != height);
+        return (vk == VK_NULL_HANDLE) || (windowWidth != width) || (windowHeight != height) || (requiredPresentMode != createdPresentMode);
+    }
+
+    void VulkanSwapChain::setVsyncEnabled(bool vsyncEnabled) {
+        // Immediate mode must be supported and the presentation mode will only be used on the next resize.
+        // needsResize() will return as true as long as the created and required present mode do not match.
+        if (immediatePresentModeSupported) {
+            requiredPresentMode = vsyncEnabled ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+        }
+    }
+
+    bool VulkanSwapChain::isVsyncEnabled() const {
+        return createdPresentMode == VK_PRESENT_MODE_FIFO_KHR;
     }
 
     uint32_t VulkanSwapChain::getWidth() const {
@@ -2766,6 +2820,8 @@ namespace RT64 {
         assert(dstBuffer.ref != nullptr);
         assert(srcBuffer.ref != nullptr);
 
+        endActiveRenderPass();
+
         const VulkanBuffer *interfaceDstBuffer = static_cast<const VulkanBuffer *>(dstBuffer.ref);
         const VulkanBuffer *interfaceSrcBuffer = static_cast<const VulkanBuffer *>(srcBuffer.ref);
         VkBufferCopy bufferCopy = {};
@@ -2778,6 +2834,8 @@ namespace RT64 {
     void VulkanCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
+
+        endActiveRenderPass();
 
         const VulkanTexture *dstTexture = static_cast<const VulkanTexture *>(dstLocation.texture);
         const VulkanTexture *srcTexture = static_cast<const VulkanTexture *>(srcLocation.texture);
@@ -2842,6 +2900,8 @@ namespace RT64 {
     void VulkanCommandList::copyBuffer(const RenderBuffer *dstBuffer, const RenderBuffer *srcBuffer) {
         assert(dstBuffer != nullptr);
         assert(srcBuffer != nullptr);
+
+        endActiveRenderPass();
         
         const VulkanBuffer *interfaceDstBuffer = static_cast<const VulkanBuffer *>(dstBuffer);
         const VulkanBuffer *interfaceSrcBuffer = static_cast<const VulkanBuffer *>(srcBuffer);
@@ -2855,6 +2915,8 @@ namespace RT64 {
     void VulkanCommandList::copyTexture(const RenderTexture *dstTexture, const RenderTexture *srcTexture) {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
+
+        endActiveRenderPass();
 
         thread_local std::vector<VkImageCopy> imageCopies;
         imageCopies.clear();
@@ -2893,6 +2955,8 @@ namespace RT64 {
     void VulkanCommandList::resolveTextureRegion(const RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RenderTexture *srcTexture, const RenderRect *srcRect) {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
+
+        endActiveRenderPass();
 
         thread_local std::vector<VkImageResolve> imageResolves;
         imageResolves.clear();
@@ -2939,6 +3003,8 @@ namespace RT64 {
         assert(dstAccelerationStructure != nullptr);
         assert(scratchBuffer.ref != nullptr);
 
+        endActiveRenderPass();
+
         const VulkanAccelerationStructure *interfaceAccelerationStructure = static_cast<const VulkanAccelerationStructure *>(dstAccelerationStructure);
         assert(interfaceAccelerationStructure->type == RenderAccelerationStructureType::BOTTOM_LEVEL);
 
@@ -2973,6 +3039,8 @@ namespace RT64 {
         assert(dstAccelerationStructure != nullptr);
         assert(scratchBuffer.ref != nullptr);
         assert(instancesBuffer.ref != nullptr);
+
+        endActiveRenderPass();
 
         const VulkanAccelerationStructure *interfaceAccelerationStructure = static_cast<const VulkanAccelerationStructure *>(dstAccelerationStructure);
         assert(interfaceAccelerationStructure->type == RenderAccelerationStructureType::TOP_LEVEL);

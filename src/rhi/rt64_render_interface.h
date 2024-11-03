@@ -75,6 +75,7 @@ namespace RT64 {
         virtual ~RenderDescriptorSet() { }
         virtual void setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize = 0, const RenderBufferStructuredView *bufferStructuredView = nullptr, const RenderBufferFormattedView *bufferFormattedView = nullptr) = 0;
         virtual void setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView = nullptr) = 0;
+        virtual void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) = 0;
         virtual void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) = 0;
     };
 
@@ -83,6 +84,8 @@ namespace RT64 {
         virtual bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) = 0;
         virtual bool resize() = 0;
         virtual bool needsResize() const = 0;
+        virtual void setVsyncEnabled(bool vsyncEnabled) = 0;
+        virtual bool isVsyncEnabled() const = 0;
         virtual uint32_t getWidth() const = 0;
         virtual uint32_t getHeight() const = 0;
         virtual RenderTexture *getTexture(uint32_t textureIndex) = 0;
