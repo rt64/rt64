@@ -749,7 +749,7 @@ namespace RT64 {
                     // Do the resolve if using MSAA while target override is active and we're on the correct framebuffer pair index.
                     if (usingMSAA && (overrideTarget != nullptr) && ((uint32_t)overrideTargetFbPairIndex == f)) {
                         overrideTarget->resize(ext.workloadGraphicsWorker, colorTarget->width, colorTarget->height);
-                        overrideTarget->resolveFromTarget(ext.workloadGraphicsWorker, colorTarget);
+                        overrideTarget->resolveFromTarget(ext.workloadGraphicsWorker, colorTarget, ext.shaderLibrary);
                     }
 
                     const uint64_t writeTimestamp = fbManager.nextWriteTimestamp();

@@ -147,6 +147,10 @@ namespace RT64 {
             descriptorSet->setTexture(descriptorIndex, texture, textureLayout, textureView);
         }
 
+        void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) {
+            descriptorSet->setSampler(descriptorIndex, sampler);
+        }
+
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
             descriptorSet->setAccelerationStructure(descriptorIndex, accelerationStructure);
         }

@@ -63,6 +63,13 @@ namespace RT64 {
 
     // Enums.
 
+    enum class RenderDeviceVendor {
+        UNKNOWN = 0x0,
+        AMD = 0x1002,
+        NVIDIA = 0x10DE,
+        INTEL = 0x8086
+    };
+
     enum class RenderFormat {
         UNKNOWN,
         R32G32B32A32_TYPELESS,
@@ -158,7 +165,9 @@ namespace RT64 {
         UNKNOWN,
         POINT_LIST,
         LINE_LIST,
-        TRIANGLE_LIST
+        TRIANGLE_LIST,
+        TRIANGLE_STRIP,
+        TRIANGLE_FAN
     };
 
     enum class RenderSRVType {
@@ -280,6 +289,16 @@ namespace RT64 {
         CLAMP,
         BORDER,
         MIRROR_ONCE
+    };
+
+    enum class RenderSwizzle : uint8_t {
+        IDENTITY,
+        ZERO,
+        ONE,
+        R,
+        G,
+        B,
+        A
     };
 
     enum class RenderBorderColor {
@@ -891,11 +910,28 @@ namespace RT64 {
         }
     };
 
+    struct RenderComponentMapping {
+        RenderSwizzle r = RenderSwizzle::IDENTITY;
+        RenderSwizzle g = RenderSwizzle::IDENTITY;
+        RenderSwizzle b = RenderSwizzle::IDENTITY;
+        RenderSwizzle a = RenderSwizzle::IDENTITY;
+
+        RenderComponentMapping() = default;
+
+        RenderComponentMapping(RenderSwizzle r, RenderSwizzle g, RenderSwizzle b, RenderSwizzle a) {
+            this->r = r;
+            this->g = g;
+            this->b = b;
+            this->a = a;
+        }
+    };
+
     struct RenderTextureViewDesc {
         RenderFormat format = RenderFormat::UNKNOWN;
         RenderTextureDimension dimension = RenderTextureDimension::UNKNOWN;
         uint32_t mipLevels = 0;
         uint32_t mipSlice = 0;
+        RenderComponentMapping componentMapping;
 
         RenderTextureViewDesc() = default;
 
@@ -1097,16 +1133,12 @@ namespace RT64 {
         const RenderShader *geometryShader = nullptr;
         const RenderShader *pixelShader = nullptr;
         RenderComparisonFunction depthFunction = RenderComparisonFunction::NEVER;
-        bool depthClipEnabled = false;
-        bool depthEnabled = false;
-        bool depthWriteEnabled = false;
         RenderMultisampling multisampling;
         RenderPrimitiveTopology primitiveTopology = RenderPrimitiveTopology::TRIANGLE_LIST;
         RenderCullMode cullMode = RenderCullMode::NONE;
         RenderFormat renderTargetFormat[MaxRenderTargets] = {};
         RenderBlendDesc renderTargetBlend[MaxRenderTargets] = {};
         uint32_t renderTargetCount = 0;
-        bool logicOpEnabled = false;
         RenderLogicOperation logicOp = RenderLogicOperation::NOOP;
         RenderFormat depthTargetFormat = RenderFormat::UNKNOWN;
         const RenderInputSlot *inputSlots = nullptr;
@@ -1115,6 +1147,11 @@ namespace RT64 {
         uint32_t inputElementsCount = 0;
         const RenderSpecConstant *specConstants = nullptr;
         uint32_t specConstantsCount = 0;
+        bool depthClipEnabled = false;
+        bool depthEnabled = false;
+        bool depthWriteEnabled = false;
+        bool logicOpEnabled = false;
+        bool alphaToCoverageEnabled = false;
     };
 
     struct RenderRaytracingPipelineLibrarySymbol {
@@ -1662,7 +1699,8 @@ namespace RT64 {
 
     struct RenderDeviceDescription {
         std::string name = "Unknown";
-        uint32_t driverVersion = 0;
+        RenderDeviceVendor vendor = RenderDeviceVendor::UNKNOWN;
+        uint64_t driverVersion = 0;
         uint64_t dedicatedVideoMemory = 0;
     };
 

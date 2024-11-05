@@ -156,27 +156,61 @@ namespace RT64 {
             return SetupResult::GraphicsDeviceNotFound;
         }
 
+        // Detect if the application should use hardware resolve or not.
+        bool usesHardwareResolve = (userConfig.hardwareResolve != UserConfiguration::HardwareResolve::Disabled);
+
         // Driver workarounds.
-        //
-        // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
-        bool isRDNA3 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
-        bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
-        if (isRDNA3 && useHDRinD3D12) {
-            device.reset();
-            renderInterface.reset();
-            renderInterface = CreateVulkanInterface();
-            if (renderInterface == nullptr) {
-                fprintf(stderr, "Unable to initialize graphics API.\n");
-                return SetupResult::GraphicsAPINotFound;
+        const RenderDeviceVendor deviceVendor = device->getDescription().vendor;
+        const uint64_t driverVersion = device->getDescription().driverVersion;
+        if (deviceVendor == RenderDeviceVendor::NVIDIA) {
+            if (createdGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
+                if (usesHardwareResolve) {
+                    // MSAA Resolve in D3D12 is broken since 565.90. During Resolve operations, the contents from unrelated graphics commands in a queue can leak to other commands
+                    // being run in a different queue even if the resources aren't shared at all. The workaround is to disable hardware resolve and use rasterization instead.
+                    const uint64_t BrokenNVIDIADriverD3D12 = 0x00200000000f19be; // 565.90
+                    const uint64_t FixedNVIDIADriverD3D12 = UINT64_MAX; // No driver is known to fix the issue at the moment.
+                    if ((driverVersion >= BrokenNVIDIADriverD3D12) && (driverVersion < FixedNVIDIADriverD3D12) && (userConfig.hardwareResolve == UserConfiguration::HardwareResolve::Automatic)) {
+                        usesHardwareResolve = false;
+                    }
+                }
             }
+        }
+        else if (deviceVendor == RenderDeviceVendor::AMD) {
+            // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
+            bool isRDNA3 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
+            bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
+            if (isRDNA3 && useHDRinD3D12) {
+                device.reset();
+                renderInterface.reset();
+                renderInterface = CreateVulkanInterface();
+                if (renderInterface == nullptr) {
+                    fprintf(stderr, "Unable to initialize graphics API.\n");
+                    return SetupResult::GraphicsAPINotFound;
+                }
 
-            createdGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+                createdGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
 
-            device = renderInterface->createDevice();
-            if (device == nullptr) {
-                fprintf(stderr, "Unable to find compatible graphics device.\n");
-                return SetupResult::GraphicsDeviceNotFound;
+                device = renderInterface->createDevice();
+                if (device == nullptr) {
+                    fprintf(stderr, "Unable to find compatible graphics device.\n");
+                    return SetupResult::GraphicsDeviceNotFound;
+                }
             }
+        }
+
+        // Detect if the application should use HDR framebuffers or not.
+        bool usesHDR;
+        switch (userConfig.internalColorFormat) {
+        case UserConfiguration::InternalColorFormat::High:
+            usesHDR = true;
+            break;
+        case UserConfiguration::InternalColorFormat::Automatic:
+            usesHDR = device->getCapabilities().preferHDR;
+            break;
+        case UserConfiguration::InternalColorFormat::Standard:
+        default:
+            usesHDR = false;
+            break;
         }
 
         // Call the init hook if one was attached.
@@ -197,22 +231,10 @@ namespace RT64 {
         textureCopyWorker = std::make_unique<RenderWorker>(device.get(), "Texture Copy", RenderCommandListType::COPY);
         workloadGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Workload Graphics", RenderCommandListType::DIRECT);
         presentGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Present Graphics", RenderCommandListType::DIRECT);
-        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, 2, RenderFormat::B8G8R8A8_UNORM);
 
-        // Detect if the application should use HDR framebuffers or not.
-        bool usesHDR;
-        switch (userConfig.internalColorFormat) {
-        case UserConfiguration::InternalColorFormat::High:
-            usesHDR = true;
-            break;
-        case UserConfiguration::InternalColorFormat::Automatic:
-            usesHDR = device->getCapabilities().preferHDR;
-            break;
-        case UserConfiguration::InternalColorFormat::Standard:
-        default:
-            usesHDR = false;
-            break;
-        }
+        // Create the swap chain with the buffer count specified from the configuration.
+        const uint32_t bufferCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
+        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM);
         
         // Before configuring multisampling, make sure the device actually supports it for the formats we'll use. If it doesn't, turn off antialiasing in the configuration.
         const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR));
@@ -224,7 +246,7 @@ namespace RT64 {
 
         // Create the shader library.
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(userConfig.msaaSampleCount(), device->getCapabilities().sampleLocations);
-        shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR);
+        shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR, usesHardwareResolve);
         shaderLibrary->setupCommonShaders(renderInterface.get(), device.get());
         shaderLibrary->setupMultisamplingShaders(renderInterface.get(), device.get(), multisampling);
         

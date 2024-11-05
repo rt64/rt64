@@ -19,11 +19,17 @@ namespace RT64 {
         };
 
         static GraphicsAPI DefaultGraphicsAPI;
-
+        
         enum class Resolution {
             Original,
             WindowIntegerScale,
             Manual,
+            OptionCount
+        };
+
+        enum class DisplayBuffering {
+            Double,
+            Triple,
             OptionCount
         };
 
@@ -70,8 +76,16 @@ namespace RT64 {
             OptionCount
         };
 
+        enum class HardwareResolve {
+            Disabled,
+            Enabled,
+            Automatic,
+            OptionCount
+        };
+
         GraphicsAPI graphicsAPI;
         Resolution resolution;
+        DisplayBuffering displayBuffering;
         Antialiasing antialiasing;
         double resolutionMultiplier;
         int downsampleMultiplier;
@@ -85,6 +99,7 @@ namespace RT64 {
         RefreshRate refreshRate;
         int refreshRateTarget;
         InternalColorFormat internalColorFormat;
+        HardwareResolve hardwareResolve;
         bool idleWorkActive;
         bool developerMode;
 
@@ -143,6 +158,12 @@ namespace RT64 {
         { UserConfiguration::InternalColorFormat::Standard, "Standard" },
         { UserConfiguration::InternalColorFormat::High, "High" },
         { UserConfiguration::InternalColorFormat::Automatic, "Automatic" }
+    });
+
+    NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::HardwareResolve, {
+        { UserConfiguration::HardwareResolve::Disabled, "Disabled" },
+        { UserConfiguration::HardwareResolve::Enabled, "Enabled" },
+        { UserConfiguration::HardwareResolve::Automatic, "Automatic" }
     });
 
     struct ConfigurationJSON {
