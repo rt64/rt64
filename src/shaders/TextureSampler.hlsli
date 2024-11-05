@@ -118,12 +118,19 @@ float4 sampleTextureLevel(const RDPTile rdpTile, const GPUTile gpuTile, bool fil
     tcScale /= mipScale;
     
     int2 texelBaseInt = floor(uvCoord);
-    float4 sample00 = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(0, 0), textureIndex, tlut, canDecodeTMEM, mipLevel, usesHDR);
-    if (filterBilerp || linearFiltering) {
+    bool filtering = or(filterBilerp, linearFiltering);
+    int numSamples = select_uint(filtering, 4, 1);
+    float4 samples[4];
+    [unroll]
+    for (int i = 0; i < numSamples; i++) {
+        samples[i] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(i >> 1, i & 1), textureIndex, tlut, canDecodeTMEM, mipLevel, usesHDR);
+    }
+    float4 sample00 = samples[0];
+    if (filtering) {
         float2 fracPart = uvCoord - texelBaseInt;
-        float4 sample01 = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(0, 1), textureIndex, tlut, canDecodeTMEM, mipLevel, usesHDR);
-        float4 sample10 = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(1, 0), textureIndex, tlut, canDecodeTMEM, mipLevel, usesHDR);
-        float4 sample11 = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(1, 1), textureIndex, tlut, canDecodeTMEM, mipLevel, usesHDR);
+        float4 sample01 = samples[1];
+        float4 sample10 = samples[2];
+        float4 sample11 = samples[3];
         if (linearFiltering) {
             return lerp(lerp(sample00, sample10, fracPart.x), lerp(sample01, sample11, fracPart.x), fracPart.y);
         }
@@ -187,27 +194,37 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
     const bool canDecodeTMEM = renderFlagCanDecodeTMEM(renderFlags);
     const bool usesHDR = renderFlagUsesHDR(renderFlags);
     const uint nativeSampler = rdpTile.nativeSampler;
-    if (!gpuTileFlagHasMipmaps(gpuTile.flags)) {
-        return sampleTextureLevel(rdpTile, gpuTile, filterBilerp, filterAverage, linearFiltering, uvCoord, textureIndex, tlut, canDecodeTMEM, 0, usesHDR);
+    const bool flagHasMipmaps = gpuTileFlagHasMipmaps(gpuTile.flags);
+    uint numRDPSamples = 0;
+    uint RDPMipLevels[2];
+    RDPMipLevels[0] = 0;
+    RDPMipLevels[1] = 0;
+    float mip;
+
+    // Determine the RDP sample count and mip levels.
+    if (!flagHasMipmaps) {
+        numRDPSamples = 1;
     }
     else {
         // Retrieve the dimensions of the texture for either type of sampler.
         Texture2D texture = gTextures[NonUniformResourceIndex(textureIndex)];
         uint textureWidth, textureHeight, textureLevels;
         texture.GetDimensions(0, textureWidth, textureHeight, textureLevels);
-        
+
         if (nativeSampler == NATIVE_SAMPLER_NONE) {
             float2 ddxUVxScaled = ddxUVx * gpuTile.tcScale;
             float2 ddxUVyScaled = ddyUVy * gpuTile.tcScale;
             float ddMax = max(dot(ddxUVxScaled, ddxUVxScaled), dot(ddxUVyScaled, ddxUVyScaled));
             float mipBias = -0.5f;
-            float mip = 0.5 * log2(ddMax) + mipBias;
+            mip = 0.5 * log2(ddMax) + mipBias;
             float maxMip = float(textureLevels - 1);
-            float4 hiLevel = sampleTextureLevel(rdpTile, gpuTile, filterBilerp, filterAverage, linearFiltering, uvCoord, textureIndex, tlut, canDecodeTMEM, min(floor(mip), maxMip), usesHDR);
-            float4 loLevel = sampleTextureLevel(rdpTile, gpuTile, filterBilerp, filterAverage, linearFiltering, uvCoord, textureIndex, tlut, canDecodeTMEM, min(floor(mip) + 1, maxMip), usesHDR);
-            return lerp(hiLevel, loLevel, frac(mip));
+            RDPMipLevels[0] = min(floor(mip), maxMip);
+            RDPMipLevels[1] = min(floor(mip) + 1, maxMip);
+            numRDPSamples = 2;
         }
         else {
+            // Native sampling, just return the native sampling result directly.
+            numRDPSamples = 0;
             // Must normalize the texture coordinate and the derivatives.
             float2 nativeUVCoord = uvCoord / float2(textureWidth, textureHeight);
             float2 originalSize = float2(textureWidth, textureHeight) / gpuTile.tcScale;
@@ -237,5 +254,23 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
                     return texture.SampleGrad(gClampClampSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
             }
         }
+    }
+
+    float4 textureSamples[2];
+
+    // Perform the RDP sampling.
+    [unroll]
+    for (uint i = 0; i < numRDPSamples; i++) {
+        textureSamples[i] = sampleTextureLevel(rdpTile, gpuTile, filterBilerp, filterAverage, linearFiltering, uvCoord, textureIndex, tlut, canDecodeTMEM, RDPMipLevels[i], usesHDR);
+    }
+
+    // Compute the result from the RDP samples.
+    if (!flagHasMipmaps) {
+        return textureSamples[0];
+    }
+    else {
+        float4 hiLevel = textureSamples[0];
+        float4 loLevel = textureSamples[1];
+        return lerp(hiLevel, loLevel, frac(mip));
     }
 }
