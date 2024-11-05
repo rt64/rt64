@@ -5,6 +5,7 @@
 #include "rt64_state.h"
 
 #include <cassert>
+#include <cinttypes>
 
 #include "im3d/im3d.h"
 #include "im3d/im3d_math.h"
@@ -2080,14 +2081,14 @@ namespace RT64 {
                         ImGui::Text("You must restart the application for this change to be applied.");
                     }
 
-                    genConfigChanged = ImGui::Checkbox("Three-Point Filtering", &userConfig.threePointFiltering) || genConfigChanged;
-                    genConfigChanged = ImGui::Checkbox("High Performance State", &userConfig.idleWorkActive) || genConfigChanged;
-
-                    if (ImGui::Checkbox("Hardware Resolve", &userConfig.hardwareResolve)) {
+                    if (ImGui::Combo("Hardware Resolve", reinterpret_cast<int *>(&userConfig.hardwareResolve), "Disabled\0Enabled\0Automatic\0")) {
                         // Update shader library to automatically control all logic around hardware resolve.
-                        ext.shaderLibrary->usesHardwareResolve = userConfig.hardwareResolve;
+                        ext.shaderLibrary->usesHardwareResolve = (userConfig.hardwareResolve != UserConfiguration::HardwareResolve::Disabled);
                         genConfigChanged = true;
                     }
+
+                    genConfigChanged = ImGui::Checkbox("Three-Point Filtering", &userConfig.threePointFiltering) || genConfigChanged;
+                    genConfigChanged = ImGui::Checkbox("High Performance State", &userConfig.idleWorkActive) || genConfigChanged;
                     
                     // Emulator configuration.
                     ImGui::NewLine();
@@ -2430,12 +2431,15 @@ namespace RT64 {
 
                     ImGui::NewLine();
 
+                    const RenderDeviceDescription &description = ext.device->getDescription();
                     const RenderDeviceCapabilities &capabilities = ext.device->getCapabilities();
                     ImGui::Text("Display Refresh Rate (OS): %d\n", ext.appWindow->getRefreshRate());
                     if (capabilities.displayTiming) {
                         ImGui::Text("Display Refresh Rate (RHI): %d\n", ext.swapChain->getRefreshRate());
                     }
 
+                    ImGui::Text("Vendor ID: 0x%08x", uint32_t(description.vendor));
+                    ImGui::Text("Driver Version: 0x%016" PRIx64, description.driverVersion);
                     ImGui::Text("Raytracing: %d", capabilities.raytracing);
                     ImGui::Text("Raytracing State Update: %d", capabilities.raytracingStateUpdate);
                     ImGui::Text("Sample Locations: %d", capabilities.sampleLocations);

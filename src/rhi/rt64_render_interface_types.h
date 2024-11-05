@@ -63,6 +63,13 @@ namespace RT64 {
 
     // Enums.
 
+    enum class RenderDeviceVendor {
+        UNKNOWN = 0x0,
+        AMD = 0x1002,
+        NVIDIA = 0x10DE,
+        INTEL = 0x8086
+    };
+
     enum class RenderFormat {
         UNKNOWN,
         R32G32B32A32_TYPELESS,
@@ -1692,7 +1699,8 @@ namespace RT64 {
 
     struct RenderDeviceDescription {
         std::string name = "Unknown";
-        uint32_t driverVersion = 0;
+        RenderDeviceVendor vendor = RenderDeviceVendor::UNKNOWN;
+        uint64_t driverVersion = 0;
         uint64_t dedicatedVideoMemory = 0;
     };
 

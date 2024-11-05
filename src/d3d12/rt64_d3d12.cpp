@@ -3232,6 +3232,13 @@ namespace RT64 {
                 capabilities.sampleLocations = samplePositionsOption;
                 description.name = win32::Utf16ToUtf8(adapterDesc.Description);
                 description.dedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
+                description.vendor = RenderDeviceVendor(adapterDesc.VendorId);
+                
+                LARGE_INTEGER adapterVersion = {};
+                res = adapter->CheckInterfaceSupport(__uuidof(IDXGIDevice), &adapterVersion);
+                if (SUCCEEDED(res)) {
+                    description.driverVersion = adapterVersion.QuadPart;
+                }
 
                 if (preferUserChoice) {
                     break;

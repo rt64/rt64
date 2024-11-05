@@ -3389,6 +3389,7 @@ namespace RT64 {
                 physicalDevice = physicalDevices[i];
                 description.name = std::string(deviceProperties.deviceName);
                 description.driverVersion = deviceProperties.driverVersion;
+                description.vendor = RenderDeviceVendor(deviceProperties.vendorID);
                 currentDeviceTypeScore = deviceTypeScore;
             }
         }
