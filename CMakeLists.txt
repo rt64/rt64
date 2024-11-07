@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
-project(rt64)
+project(rt64 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
+if (APPLE)
+    enable_language(OBJC OBJCXX)
+endif()
 
 option(RT64_STATIC "Build RT64 as a static library" OFF)
 
@@ -378,6 +382,13 @@ target_link_libraries(rt64 libzstd_static)
 # Add tools.
 add_subdirectory(src/tools/texture_hasher)
 add_subdirectory(src/tools/texture_packer)
+
+# Add any Apple-specific source files and libraries
+if (APPLE)
+    target_sources(rt64 PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/common/rt64_apple.mm"
+    )
+endif()
 
 # Add any Windows-specific source files and libraries
 if (WIN32)
