@@ -6,6 +6,11 @@
 #include "rt64_metal.h"
 
 namespace RT64 {
+
+    static size_t calculateAlignedSize(size_t size, size_t alignment = 16) {
+        return (size + alignment - 1) & ~(alignment - 1);
+    }
+
     MTLDataType toMTL(RenderDescriptorRangeType type) {
         switch (type) {
             case RenderDescriptorRangeType::TEXTURE:
@@ -506,6 +511,9 @@ namespace RT64 {
         if (desc.flags & RenderTextureFlag::RENDER_TARGET) {
             descriptor.usage |= MTLTextureUsageRenderTarget;
         }
+        if (desc.flags & RenderTextureFlag::DEPTH_TARGET) {
+            descriptor.usage |= MTLTextureUsageRenderTarget;
+        }
         if (desc.flags & RenderTextureFlag::STORAGE) {
             descriptor.usage |= MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
         }
@@ -603,7 +611,93 @@ namespace RT64 {
             totalPushConstantSize += range.size;
         }
 
-        pushConstantsBuffer = [device->device newBufferWithLength: totalPushConstantSize options: MTLResourceStorageModeShared];
+        if (totalPushConstantSize > 0) {
+            uint32_t alignedSize = calculateAlignedSize(totalPushConstantSize);
+            pushConstantsBuffer = [device->device newBufferWithLength: alignedSize options: MTLResourceStorageModeShared];
+        }
+        
+        setCount = desc.descriptorSetDescsCount;
+
+        // Create Descriptor Set Layouts
+        for (uint32_t i = 0; i < desc.descriptorSetDescsCount; i++) {
+            const RenderDescriptorSetDesc &setDesc = desc.descriptorSetDescs[i];
+            setLayoutHandles.emplace_back(new MetalDescriptorSetLayout(device, setDesc));
+        }
+    }
+
+    MetalDescriptorSetLayout::MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
+        assert(device != nullptr);
+        assert(device != nullptr);
+        this->device = device;
+
+        entryCount = 0;
+        argumentDescriptors = [NSMutableArray array];
+
+        // Figure out the total amount of entries that will be required.
+        uint32_t rangeCount = desc.descriptorRangesCount;
+        if (desc.lastRangeIsBoundless) {
+            assert((desc.descriptorRangesCount > 0) && "There must be at least one descriptor set to define the last range as boundless.");
+            rangeCount--;
+        }
+
+        // Spirv-cross orders by binding number, so we sort
+        std::vector<RenderDescriptorRange> sortedRanges(desc.descriptorRanges, desc.descriptorRanges + desc.descriptorRangesCount);
+        std::sort(sortedRanges.begin(), sortedRanges.end(), [](const RenderDescriptorRange &a, const RenderDescriptorRange &b) {
+            return a.binding < b.binding;
+        });
+
+        for (uint32_t i = 0; i < rangeCount; i++) {
+            const RenderDescriptorRange &range = sortedRanges[i];
+            for (uint32_t j = 0; j < range.count; j++) {
+                descriptorTypes.emplace_back(range.type);
+                descriptorToRangeIndex.emplace_back(i);
+                entryCount++;
+
+                if (range.immutableSampler != nullptr) {
+                    const auto *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
+                    staticSamplers.emplace_back(sampler->samplerState);
+                    samplerIndices.emplace_back(range.binding - 1 + j);
+                }
+            }
+
+            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
+            argumentDesc.dataType = toMTL(range.type);
+            // DX shaders start at 1, so we need to subtract 1 to match the Metal API.
+            argumentDesc.index = range.binding - 1;
+            argumentDesc.arrayLength = range.count > 1 ? range.count : 0;
+            if (range.type == RenderDescriptorRangeType::TEXTURE) {
+                argumentDesc.textureType = MTLTextureType2D;
+            }
+
+            [argumentDescriptors addObject:argumentDesc];
+        }
+
+        if (desc.lastRangeIsBoundless) {
+            const RenderDescriptorRange &lastDescriptorRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
+            descriptorTypes.emplace_back(lastDescriptorRange.type);
+
+            // Ensure at least one entry is created for boundless ranges.
+            entryCount += std::max(desc.boundlessRangeSize, 1U);
+
+            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
+            argumentDesc.dataType = toMTL(lastDescriptorRange.type);
+            argumentDesc.index = lastDescriptorRange.binding - 1;
+            argumentDesc.arrayLength = lastDescriptorRange.count > 1 ? lastDescriptorRange.count : 0;
+            // TODO: Fix the upper bound length, metal wants fixed
+            argumentDesc.arrayLength = 8192;
+            if (lastDescriptorRange.type == RenderDescriptorRangeType::TEXTURE) {
+                argumentDesc.textureType = MTLTextureType2D;
+            }
+
+            [argumentDescriptors addObject:argumentDesc];
+        }
+
+        // argumentDescriptors must not be empty
+        assert([argumentDescriptors count] > 0 && "argumentDescriptors must not be empty.");
+
+        if (!descriptorTypes.empty()) {
+            descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
+        }
     }
 
     MetalPipelineLayout::~MetalPipelineLayout() {
@@ -647,6 +741,7 @@ namespace RT64 {
         this->device = device;
 
         MTLSamplerDescriptor *descriptor = [MTLSamplerDescriptor new];
+        descriptor.supportArgumentBuffers = true;
         descriptor.minFilter = toMTL(desc.minFilter);
         descriptor.magFilter = toMTL(desc.magFilter);
         descriptor.mipFilter = toMTL(desc.mipmapMode);
@@ -766,6 +861,8 @@ namespace RT64 {
             [descriptor.colorAttachments setObject: colorAttachmentDescriptor atIndexedSubscript: i];
         }
 
+        descriptor.depthAttachmentPixelFormat = toMTL(desc.depthTargetFormat);
+
         // State variables, initialized here to be reused in encoder re-binding
         renderState = new MetalRenderState();
 
@@ -821,23 +918,8 @@ namespace RT64 {
             const RenderDescriptorRange &range = sortedRanges[i];
             for (uint32_t j = 0; j < range.count; j++) {
                 descriptorTypes.emplace_back(range.type);
-                descriptorToRangeIndex.emplace_back(i);
                 entryCount++;
-
-                if (range.immutableSampler != nullptr) {
-                    const auto *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
-                    staticSamplers.emplace_back(sampler->samplerState);
-                    samplerIndices.emplace_back(range.binding - 1 + j);
-                }
             }
-
-            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
-            argumentDesc.dataType = toMTL(range.type);
-            // DX shaders start at 1, so we need to subtract 1 to match the Metal API.
-            argumentDesc.index = range.binding - 1;
-            argumentDesc.arrayLength = range.count > 1 ? range.count : 0;
-
-            argumentDescriptors.emplace_back(argumentDesc);
         }
 
         if (desc.lastRangeIsBoundless) {
@@ -846,13 +928,6 @@ namespace RT64 {
 
             // Ensure at least one entry is created for boundless ranges.
             entryCount += std::max(desc.boundlessRangeSize, 1U);
-
-            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
-            argumentDesc.dataType = toMTL(lastDescriptorRange.type);
-            argumentDesc.index = lastDescriptorRange.binding - 1;
-            argumentDesc.arrayLength = lastDescriptorRange.count > 1 ? lastDescriptorRange.count : 0;
-
-            argumentDescriptors.emplace_back(argumentDesc);
         }
 
         if (!descriptorTypes.empty()) {
@@ -881,14 +956,10 @@ namespace RT64 {
         const auto nativeResource = (interfaceTexture != nullptr) ? interfaceTexture->mtlTexture : nil;
         uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
         RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
-        uint32_t descriptorRangeIndex = descriptorToRangeIndex[descriptorIndexClamped];
         switch (descriptorType) {
             case RenderDescriptorRangeType::TEXTURE:
             case RenderDescriptorRangeType::READ_WRITE_TEXTURE: {
-                assert(argumentDescriptors[descriptorRangeIndex].dataType == MTLDataTypeTexture && "Descriptor type mismatch.");
-
                 indicesToTextures[descriptorIndex] = interfaceTexture->mtlTexture;
-                argumentDescriptors[descriptorRangeIndex].textureType = interfaceTexture->mtlTexture.textureType;
                 break;
             }
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
@@ -1143,63 +1214,46 @@ namespace RT64 {
                                        atIndex: vertexBufferIndices[i]];
             }
 
-            // Push constants go to the end, they'll be bound last
-            int maxIndex = -1;
-            if (!indicesToRenderDescriptorSets.empty()) {
-                for (const auto &i2d : indicesToRenderDescriptorSets) {
-                    uint32_t descriptorSetIndex = i2d.first;
-                    const auto *descriptorSet = i2d.second;
+            // Encode Descriptor set layouts and mark resources
+            for (uint32_t i = 0; i < activeGraphicsPipelineLayout->setCount; i++) {
+                const auto *setLayout = activeGraphicsPipelineLayout->setLayoutHandles[i];
 
+                auto argumentEncoder = [device->device newArgumentEncoderWithArguments: setLayout->argumentDescriptors];
+                uint32_t bufferLength = argumentEncoder.encodedLength;
+                auto buffer = [device->device newBufferWithLength: bufferLength options: MTLResourceStorageModeShared];
+                [argumentEncoder setArgumentBuffer: buffer offset: 0];
+
+                for (uint32_t j = 0; j < setLayout->staticSamplers.size(); j++) {
+                    auto sampler = setLayout->staticSamplers[j];
+                    if (sampler != nil) {
+                        [argumentEncoder setSamplerState:sampler atIndex:setLayout->samplerIndices[j]];
+                    }
+                }
+
+                if (indicesToRenderDescriptorSets.count(i) != 0) {
+                    const auto *descriptorSet = indicesToRenderDescriptorSets[i];
                     // Mark resources in the argument buffer as resident
-                    for (const auto& pair : descriptorSet->indicesToTextures) {
-                        uint32_t index = pair.first;
-                        const auto *texture = pair.second;
-                        if (texture != nil) {
-                            [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
-                        }
-                    }
-
-                    for (auto *buffer: descriptorSet->residentBuffers) {
-                        if (buffer != nil) {
-                            [renderEncoder useResource:buffer usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
-                        }
-                    }
-
-                    maxIndex = std::max(maxIndex, int(descriptorSetIndex));
-
-                    NSMutableArray* descriptorArray = [NSMutableArray arrayWithCapacity:descriptorSet->argumentDescriptors.size()];
-                    for (MTLArgumentDescriptor* descriptor : descriptorSet->argumentDescriptors) {
-                        [descriptorArray addObject:descriptor];
-                    }
-
-                    auto argumentEncoder = [this->device->device newArgumentEncoderWithArguments:descriptorArray];
-                    uint32_t bufferLength = argumentEncoder.encodedLength;
-                    auto buffer = [this->device->device newBufferWithLength:bufferLength options:MTLResourceStorageModeShared];
-                    [argumentEncoder setArgumentBuffer:buffer offset:0];
-
-                    for (uint32_t i = 0; i < descriptorSet->staticSamplers.size(); i++) {
-                        auto sampler = descriptorSet->staticSamplers[i];
-                        if (sampler != nil) {
-                            [argumentEncoder setSamplerState:sampler atIndex:descriptorSet->samplerIndices[i]];
-                        }
-                    }
-
                     for (const auto& pair : descriptorSet->indicesToTextures) {
                         uint32_t index = pair.first;
                         auto *texture = pair.second;
                         if (texture != nil) {
-                            [argumentEncoder setTexture:texture atIndex: index];
+                            [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+                            // DX shaders start at 1, so we need to subtract 1 to match the Metal API.
+                            [argumentEncoder setTexture:texture atIndex: index - 1];
                         }
                     }
 
-                    [renderEncoder setFragmentBuffer:buffer offset:0 atIndex:descriptorSetIndex];
+                    // TODO: Mark and bind buffers
                 }
+
+                [renderEncoder setFragmentBuffer:buffer offset:0 atIndex:i];
             }
 
             if (graphicsPushConstantsBuffer != nil) {
+                uint32_t pushConstantsIndex = activeGraphicsPipelineLayout->setCount;
                 [renderEncoder setFragmentBuffer: graphicsPushConstantsBuffer
                                           offset: 0
-                                         atIndex: maxIndex + 1];
+                                         atIndex: pushConstantsIndex];
             }
         }
     }
@@ -1396,7 +1450,7 @@ namespace RT64 {
         for (uint32_t i = 0; i < count; i++) {
             scissorVector.emplace_back(MTLScissorRect {
                     uint32_t(scissorRects[i].left),
-                    uint32_t(scissorRects[i].right),
+                    uint32_t(scissorRects[i].top),
                     uint32_t(scissorRects[i].right - scissorRects[i].left),
                     uint32_t(scissorRects[i].bottom - scissorRects[i].top)
             });

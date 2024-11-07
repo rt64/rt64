@@ -70,6 +70,24 @@ namespace RT64 {
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
     };
 
+    struct MetalDescriptorSetLayout {
+#ifdef __OBJC__
+        std::vector<id<MTLSamplerState>> staticSamplers;
+        NSMutableArray* argumentDescriptors = nil;
+#endif
+
+        MetalDevice *device = nullptr;
+        std::vector<RenderDescriptorRangeType> descriptorTypes;
+        std::vector<uint32_t> descriptorToRangeIndex;
+        std::vector<uint32_t> samplerIndices;
+        uint32_t bufferOffset = 0;
+        uint32_t entryCount = 0;
+        uint32_t descriptorTypeMaxIndex = 0;
+
+        MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
+        ~MetalDescriptorSetLayout();
+    };
+
     struct MetalSwapChain : RenderSwapChain {
 #ifdef __OBJC__
         id<CAMetalDrawable> drawable = nil;
@@ -362,6 +380,7 @@ namespace RT64 {
         MetalDevice *device = nullptr;
         std::vector<RenderPushConstantRange> pushConstantRanges;
         uint32_t setCount = 0;
+        std::vector<MetalDescriptorSetLayout *> setLayoutHandles;
 
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
