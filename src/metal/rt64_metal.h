@@ -33,6 +33,7 @@ namespace RT64 {
     struct MetalPool;
     struct MetalPipelineLayout;
     struct MetalTexture;
+    struct MetalSampler;
 
     struct MetalRenderState {
 #ifdef __OBJC__
@@ -47,8 +48,10 @@ namespace RT64 {
     struct MetalDescriptorSet : RenderDescriptorSet {
 #ifdef __OBJC__
         id<MTLBuffer> descriptorBuffer;
-        std::vector<id<MTLTexture>> residentTextures;
         std::vector<id<MTLBuffer>> residentBuffers;
+        std::unordered_map<uint32_t, id<MTLTexture>> indicesToTextures;
+        std::vector<id<MTLSamplerState>> staticSamplers;
+        std::vector<MTLArgumentDescriptor *> argumentDescriptors;
 #endif
 
         MetalDevice *device = nullptr;
@@ -56,7 +59,8 @@ namespace RT64 {
         uint32_t entryCount = 0;
         uint32_t descriptorTypeMaxIndex = 0;
         std::vector<RenderDescriptorRangeType> descriptorTypes;
-        std::vector<uint32_t> descriptorOffsets;
+        std::vector<uint32_t> descriptorToRangeIndex;
+        std::vector<uint32_t> samplerIndices;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
@@ -116,6 +120,8 @@ namespace RT64 {
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         id<MTLBlitCommandEncoder> blitEncoder = nil;
 
+        MTLRenderPassDescriptor *renderDescriptor = nil;
+
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
         id<MTLBuffer> indexBuffer = nil;
@@ -127,6 +133,9 @@ namespace RT64 {
 
         std::vector<MTLViewport> viewportVector;
         std::vector<MTLScissorRect> scissorVector;
+
+        id<MTLBuffer> graphicsPushConstantsBuffer = nil;
+        id<MTLBuffer> computePushConstantsBuffer = nil;
 #endif
 
         MetalDevice *device = nullptr;
@@ -136,32 +145,19 @@ namespace RT64 {
         const MetalPipelineLayout *activeComputePipelineLayout = nullptr;
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
+        const MetalRenderState *activeRenderState = nullptr;
 
-        std::vector<MetalDescriptorSet *> renderDescriptorSetsToBind;
-        std::vector<uint32_t> renderDescriptorSetsIndices;
+        std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
+        std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
 
-        std::vector<MetalDescriptorSet *> computeDescriptorSetsToBind;
-        std::vector<uint32_t> computeDescriptorSetsIndices;
-
-        // Draw instanced state.
-        bool toDrawInstanced = false;
-        uint32_t startVertexLocation = 0;
-        uint32_t vertexCountPerInstance = 0;
-        uint32_t instanceCount = 0;
-        uint32_t startInstanceLocation = 0;
-
-        // Draw indexed instanced state.
-        bool toDrawIndexedInstanced = false;
-        uint32_t indexCountPerInstance = 0;
-        uint32_t startIndexLocation = 0;
-        uint32_t baseVertexLocation = 0;
-
+        uint32_t colorAttachmentsCount = 0;
 
         MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
         void begin() override;
         void end() override;
         void endEncoder();
+        void guaranteeRenderDescriptor();
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
@@ -359,6 +355,10 @@ namespace RT64 {
     };
 
     struct MetalPipelineLayout : RenderPipelineLayout {
+#ifdef __OBJC__
+        id<MTLBuffer> pushConstantsBuffer = nil;
+#endif
+
         MetalDevice *device = nullptr;
         std::vector<RenderPushConstantRange> pushConstantRanges;
         uint32_t setCount = 0;

@@ -6,6 +6,18 @@
 #include "rt64_metal.h"
 
 namespace RT64 {
+    MTLDataType toMTL(RenderDescriptorRangeType type) {
+        switch (type) {
+            case RenderDescriptorRangeType::TEXTURE:
+                return MTLDataTypeTexture;
+            case RenderDescriptorRangeType::SAMPLER:
+                return MTLDataTypeSampler;
+            default:
+                assert(false && "Unknown descriptor range type.");
+                return MTLDataTypeStruct;
+        }
+    }
+
     MTLPixelFormat toMTL(RenderFormat format) {
         switch (format) {
             case RenderFormat::UNKNOWN:
@@ -120,29 +132,91 @@ namespace RT64 {
         }
     }
 
-    static MTLVertexFormat toVertexFormat(MTLPixelFormat format) {
+    static MTLVertexFormat toVertexFormat(RenderFormat format) {
         switch (format) {
-            case MTLPixelFormatRGBA32Float:
+            case RenderFormat::UNKNOWN:
+                return MTLVertexFormatInvalid;
+            case RenderFormat::R32G32B32A32_FLOAT:
                 return MTLVertexFormatFloat4;
-            case MTLPixelFormatRGBA16Float:
-                return MTLVertexFormatFloat4;
-            case MTLPixelFormatRG32Float:
+            case RenderFormat::R32G32B32A32_UINT:
+                return MTLVertexFormatUInt4;
+            case RenderFormat::R32G32B32A32_SINT:
+                return MTLVertexFormatInt4;
+            case RenderFormat::R32G32B32_FLOAT:
+                return MTLVertexFormatFloat3;
+            case RenderFormat::R32G32B32_UINT:
+                return MTLVertexFormatUInt3;
+            case RenderFormat::R32G32B32_SINT:
+                return MTLVertexFormatInt3;
+            case RenderFormat::R16G16B16A16_FLOAT:
+                return MTLVertexFormatHalf4;
+            case RenderFormat::R16G16B16A16_UNORM:
+                return MTLVertexFormatUShort4Normalized;
+            case RenderFormat::R16G16B16A16_UINT:
+                return MTLVertexFormatUShort4;
+            case RenderFormat::R16G16B16A16_SNORM:
+                return MTLVertexFormatShort4Normalized;
+            case RenderFormat::R16G16B16A16_SINT:
+                return MTLVertexFormatShort4;
+            case RenderFormat::R32G32_FLOAT:
                 return MTLVertexFormatFloat2;
-            case MTLPixelFormatRGBA8Unorm:
+            case RenderFormat::R32G32_UINT:
+                return MTLVertexFormatUInt2;
+            case RenderFormat::R32G32_SINT:
+                return MTLVertexFormatInt2;
+            case RenderFormat::R8G8B8A8_UNORM:
                 return MTLVertexFormatUChar4Normalized;
-            case MTLPixelFormatRG16Float:
-                return MTLVertexFormatFloat2;
-            case MTLPixelFormatR32Float:
+            case RenderFormat::R8G8B8A8_UINT:
+                return MTLVertexFormatUChar4;
+            case RenderFormat::R8G8B8A8_SNORM:
+                return MTLVertexFormatChar4Normalized;
+            case RenderFormat::R8G8B8A8_SINT:
+                return MTLVertexFormatChar4;
+            case RenderFormat::R16G16_FLOAT:
+                return MTLVertexFormatHalf2;
+            case RenderFormat::R16G16_UNORM:
+                return MTLVertexFormatUShort2Normalized;
+            case RenderFormat::R16G16_UINT:
+                return MTLVertexFormatUShort2;
+            case RenderFormat::R16G16_SNORM:
+                return MTLVertexFormatShort2Normalized;
+            case RenderFormat::R16G16_SINT:
+                return MTLVertexFormatShort2;
+            case RenderFormat::R32_FLOAT:
                 return MTLVertexFormatFloat;
-            case MTLPixelFormatRG8Unorm:
+            case RenderFormat::R32_UINT:
+                return MTLVertexFormatUInt;
+            case RenderFormat::R32_SINT:
+                return MTLVertexFormatInt;
+            case RenderFormat::R8G8_UNORM:
                 return MTLVertexFormatUChar2Normalized;
-            case MTLPixelFormatR16Float:
-                return MTLVertexFormatFloat;
-            case MTLPixelFormatR8Unorm:
+            case RenderFormat::R8G8_UINT:
+                return MTLVertexFormatUChar2;
+            case RenderFormat::R8G8_SNORM:
+                return MTLVertexFormatChar2Normalized;
+            case RenderFormat::R8G8_SINT:
+                return MTLVertexFormatChar2;
+            case RenderFormat::R16_FLOAT:
+                return MTLVertexFormatHalf;
+            case RenderFormat::R16_UNORM:
+                return MTLVertexFormatUShortNormalized;
+            case RenderFormat::R16_UINT:
+                return MTLVertexFormatUShort;
+            case RenderFormat::R16_SNORM:
+                return MTLVertexFormatShortNormalized;
+            case RenderFormat::R16_SINT:
+                return MTLVertexFormatShort;
+            case RenderFormat::R8_UNORM:
                 return MTLVertexFormatUCharNormalized;
+            case RenderFormat::R8_UINT:
+                return MTLVertexFormatUChar;
+            case RenderFormat::R8_SNORM:
+                return MTLVertexFormatCharNormalized;
+            case RenderFormat::R8_SINT:
+                return MTLVertexFormatChar;
             default:
-                assert(false && "Unknown vertex format.");
-                return MTLVertexFormatFloat4;
+                assert(false && "Unsupported vertex format.");
+                return MTLVertexFormatInvalid;
         }
     }
 
@@ -432,6 +506,12 @@ namespace RT64 {
         if (desc.flags & RenderTextureFlag::RENDER_TARGET) {
             descriptor.usage |= MTLTextureUsageRenderTarget;
         }
+        if (desc.flags & RenderTextureFlag::STORAGE) {
+            descriptor.usage |= MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+        }
+        if (desc.flags & RenderTextureFlag::UNORDERED_ACCESS) {
+            descriptor.usage |= MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+        }
 
         if (pool != nullptr) {
             this->mtlTexture = [pool->heap newTextureWithDescriptor: descriptor];
@@ -514,7 +594,16 @@ namespace RT64 {
         this->device = device;
         this->setCount = desc.descriptorSetDescsCount;
 
-        pushConstantRanges = std::vector<RenderPushConstantRange>(desc.pushConstantRanges, desc.pushConstantRanges + desc.pushConstantRangesCount);
+        // TODO: Make sure push constant ranges are laid out correctly
+
+        uint32_t totalPushConstantSize = 0;
+        for (uint32_t i = 0; i < desc.pushConstantRangesCount; i++) {
+            RenderPushConstantRange range = desc.pushConstantRanges[i];
+            pushConstantRanges.push_back(range);
+            totalPushConstantSize += range.size;
+        }
+
+        pushConstantsBuffer = [device->device newBufferWithLength: totalPushConstantSize options: MTLResourceStorageModeShared];
     }
 
     MetalPipelineLayout::~MetalPipelineLayout() {
@@ -649,7 +738,7 @@ namespace RT64 {
             MTLVertexAttributeDescriptor *attributeDescriptor = [MTLVertexAttributeDescriptor new];
             attributeDescriptor.offset = inputElement.alignedByteOffset;
             attributeDescriptor.bufferIndex = inputElement.slotIndex;
-            attributeDescriptor.format = toVertexFormat(toMTL(inputElement.format));
+            attributeDescriptor.format = toVertexFormat(inputElement.format);
             [vertexDescriptor.attributes setObject: attributeDescriptor atIndexedSubscript: i];
         }
 
@@ -722,16 +811,33 @@ namespace RT64 {
             rangeCount--;
         }
 
-        uint32_t offset = 0;
+        // Spirv-cross orders by binding number, so we sort
+        std::vector<RenderDescriptorRange> sortedRanges(desc.descriptorRanges, desc.descriptorRanges + desc.descriptorRangesCount);
+        std::sort(sortedRanges.begin(), sortedRanges.end(), [](const RenderDescriptorRange &a, const RenderDescriptorRange &b) {
+            return a.binding < b.binding;
+        });
 
         for (uint32_t i = 0; i < rangeCount; i++) {
-            const RenderDescriptorRange &range = desc.descriptorRanges[i];
+            const RenderDescriptorRange &range = sortedRanges[i];
             for (uint32_t j = 0; j < range.count; j++) {
                 descriptorTypes.emplace_back(range.type);
-                descriptorOffsets.emplace_back(offset);
+                descriptorToRangeIndex.emplace_back(i);
                 entryCount++;
+
+                if (range.immutableSampler != nullptr) {
+                    const auto *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
+                    staticSamplers.emplace_back(sampler->samplerState);
+                    samplerIndices.emplace_back(range.binding - 1 + j);
+                }
             }
-            offset += range.count * sizeof(MTLResourceID);
+
+            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
+            argumentDesc.dataType = toMTL(range.type);
+            // DX shaders start at 1, so we need to subtract 1 to match the Metal API.
+            argumentDesc.index = range.binding - 1;
+            argumentDesc.arrayLength = range.count > 1 ? range.count : 0;
+
+            argumentDescriptors.emplace_back(argumentDesc);
         }
 
         if (desc.lastRangeIsBoundless) {
@@ -740,13 +846,18 @@ namespace RT64 {
 
             // Ensure at least one entry is created for boundless ranges.
             entryCount += std::max(desc.boundlessRangeSize, 1U);
+
+            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
+            argumentDesc.dataType = toMTL(lastDescriptorRange.type);
+            argumentDesc.index = lastDescriptorRange.binding - 1;
+            argumentDesc.arrayLength = lastDescriptorRange.count > 1 ? lastDescriptorRange.count : 0;
+
+            argumentDescriptors.emplace_back(argumentDesc);
         }
 
         if (!descriptorTypes.empty()) {
             descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
         }
-
-        descriptorBuffer = [device->device newBufferWithLength: entryCount * sizeof(MTLResourceID) options: MTLResourceStorageModeShared];
     }
 
     MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, uint32_t entryCount) {
@@ -755,9 +866,6 @@ namespace RT64 {
 
         this->device = device;
         this->entryCount = entryCount;
-
-        descriptorBuffer = [device->device newBufferWithLength: entryCount * sizeof(MTLResourceID) options: MTLResourceStorageModeShared];
-        descriptorOffsets = std::vector<uint32_t>(entryCount, 0);
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
@@ -773,17 +881,14 @@ namespace RT64 {
         const auto nativeResource = (interfaceTexture != nullptr) ? interfaceTexture->mtlTexture : nil;
         uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
         RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
-        uint32_t descriptorOffset = descriptorOffsets[descriptorIndexClamped];
+        uint32_t descriptorRangeIndex = descriptorToRangeIndex[descriptorIndexClamped];
         switch (descriptorType) {
             case RenderDescriptorRangeType::TEXTURE:
             case RenderDescriptorRangeType::READ_WRITE_TEXTURE: {
-                if ((nativeResource != nil) && (textureView != nullptr)) {
-                    const auto *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
-                    auto *descriptorBufferContents = (MTLResourceID *)[descriptorBuffer contents];
-                    descriptorBufferContents[descriptorOffset + descriptorIndexClamped * sizeof(MTLResourceID)] = [interfaceTextureView->mtlTexture gpuResourceID];
-                    residentTextures.emplace_back(interfaceTextureView->mtlTexture);
-                }
+                assert(argumentDescriptors[descriptorRangeIndex].dataType == MTLDataTypeTexture && "Descriptor type mismatch.");
 
+                indicesToTextures[descriptorIndex] = interfaceTexture->mtlTexture;
+                argumentDescriptors[descriptorRangeIndex].textureType = interfaceTexture->mtlTexture.textureType;
                 break;
             }
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
@@ -827,6 +932,7 @@ namespace RT64 {
 
     MetalSwapChain::~MetalSwapChain() {
         // TODO: Should be handled by ARC
+        delete proxyTexture;
     }
 
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
@@ -894,7 +1000,7 @@ namespace RT64 {
 
     uint32_t MetalSwapChain::getRefreshRate() const {
         // TODO: Unimplemented.
-        return 60;
+        return 0;
     }
 
     void MetalSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
@@ -982,12 +1088,12 @@ namespace RT64 {
         blitEncoder = nil;
     }
 
-    void MetalCommandList::guaranteeRenderEncoder() {
-        if (renderEncoder == nil) {
-            endEncoder();
+    void MetalCommandList::guaranteeRenderDescriptor() {
+        if (renderDescriptor == nil) {
             assert(targetFramebuffer != nullptr && "Cannot encode render commands without a target framebuffer");
 
-            auto renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+            renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+            colorAttachmentsCount = targetFramebuffer->colorAttachments.size();
 
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
                 // If framebuffer was created using a swap chain, use the drawable's texture
@@ -995,7 +1101,7 @@ namespace RT64 {
                     auto *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
                     auto *drawable = swapChain->drawable;
                     renderDescriptor.colorAttachments[i].texture = drawable.texture;
-                    renderDescriptor.colorAttachments[i].loadAction = MTLLoadActionClear;
+                    renderDescriptor.colorAttachments[i].loadAction = MTLLoadActionLoad;
                     renderDescriptor.colorAttachments[i].storeAction = MTLStoreActionStore;
                     break;
                 }
@@ -1012,8 +1118,21 @@ namespace RT64 {
                 depthAttachment.loadAction = MTLLoadActionLoad;
                 depthAttachment.storeAction = MTLStoreActionStore;
             }
+        }
+    }
 
+    void MetalCommandList::guaranteeRenderEncoder() {
+        if (renderEncoder == nil) {
+            endEncoder();
+
+            guaranteeRenderDescriptor();
             renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+
+            [renderEncoder setRenderPipelineState: activeRenderState->renderPipelineState];
+            [renderEncoder setDepthStencilState: activeRenderState->depthStencilState];
+            [renderEncoder setDepthClipMode: activeRenderState->depthClipMode];
+            [renderEncoder setCullMode: activeRenderState->cullMode];
+            [renderEncoder setFrontFacingWinding: activeRenderState->winding];
 
             [renderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
             [renderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
@@ -1024,25 +1143,63 @@ namespace RT64 {
                                        atIndex: vertexBufferIndices[i]];
             }
 
-            if (!renderDescriptorSetsToBind.empty()) {
-                for (uint32_t i = 0; i < renderDescriptorSetsToBind.size(); i++) {
-                    auto *descriptorSet = renderDescriptorSetsToBind[i];
+            // Push constants go to the end, they'll be bound last
+            int maxIndex = -1;
+            if (!indicesToRenderDescriptorSets.empty()) {
+                for (const auto &i2d : indicesToRenderDescriptorSets) {
+                    uint32_t descriptorSetIndex = i2d.first;
+                    const auto *descriptorSet = i2d.second;
 
                     // Mark resources in the argument buffer as resident
-                    for (auto *texture : descriptorSet->residentTextures) {
-                        [renderEncoder useResource:texture usage:MTLResourceUsageRead];
+                    for (const auto& pair : descriptorSet->indicesToTextures) {
+                        uint32_t index = pair.first;
+                        const auto *texture = pair.second;
+                        if (texture != nil) {
+                            [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+                        }
                     }
 
                     for (auto *buffer: descriptorSet->residentBuffers) {
-                        [renderEncoder useResource:buffer usage:MTLResourceUsageRead];
+                        if (buffer != nil) {
+                            [renderEncoder useResource:buffer usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+                        }
                     }
 
-                    [renderEncoder setFragmentBuffer: descriptorSet->descriptorBuffer
-                                              offset: 0
-                                             atIndex: renderDescriptorSetsIndices[i]];
+                    maxIndex = std::max(maxIndex, int(descriptorSetIndex));
+
+                    NSMutableArray* descriptorArray = [NSMutableArray arrayWithCapacity:descriptorSet->argumentDescriptors.size()];
+                    for (MTLArgumentDescriptor* descriptor : descriptorSet->argumentDescriptors) {
+                        [descriptorArray addObject:descriptor];
+                    }
+
+                    auto argumentEncoder = [this->device->device newArgumentEncoderWithArguments:descriptorArray];
+                    uint32_t bufferLength = argumentEncoder.encodedLength;
+                    auto buffer = [this->device->device newBufferWithLength:bufferLength options:MTLResourceStorageModeShared];
+                    [argumentEncoder setArgumentBuffer:buffer offset:0];
+
+                    for (uint32_t i = 0; i < descriptorSet->staticSamplers.size(); i++) {
+                        auto sampler = descriptorSet->staticSamplers[i];
+                        if (sampler != nil) {
+                            [argumentEncoder setSamplerState:sampler atIndex:descriptorSet->samplerIndices[i]];
+                        }
+                    }
+
+                    for (const auto& pair : descriptorSet->indicesToTextures) {
+                        uint32_t index = pair.first;
+                        auto *texture = pair.second;
+                        if (texture != nil) {
+                            [argumentEncoder setTexture:texture atIndex: index];
+                        }
+                    }
+
+                    [renderEncoder setFragmentBuffer:buffer offset:0 atIndex:descriptorSetIndex];
                 }
-                renderDescriptorSetsToBind.clear();
-                renderDescriptorSetsIndices.clear();
+            }
+
+            if (graphicsPushConstantsBuffer != nil) {
+                [renderEncoder setFragmentBuffer: graphicsPushConstantsBuffer
+                                          offset: 0
+                                         atIndex: maxIndex + 1];
             }
         }
     }
@@ -1066,34 +1223,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::rebindRenderState(MetalRenderState *renderState) {
-        [renderEncoder setRenderPipelineState: renderState->renderPipelineState];
-        [renderEncoder setDepthStencilState: renderState->depthStencilState];
-        [renderEncoder setDepthClipMode: renderState->depthClipMode];
-        [renderEncoder setCullMode: renderState->cullMode];
-        [renderEncoder setFrontFacingWinding: renderState->winding];
-
-        if (toDrawInstanced) {
-            [renderEncoder drawPrimitives:currentPrimitiveType
-                              vertexStart:startVertexLocation
-                              vertexCount:vertexCountPerInstance
-                            instanceCount:instanceCount
-                             baseInstance:startInstanceLocation];
-
-            toDrawInstanced = false;
-        }
-
-        if (toDrawIndexedInstanced && indexBuffer != nil) {
-            [renderEncoder drawIndexedPrimitives: currentPrimitiveType
-                                      indexCount: indexCountPerInstance
-                                       indexType: currentIndexType
-                                     indexBuffer: indexBuffer
-                               indexBufferOffset: startIndexLocation
-                                   instanceCount: instanceCount
-                                      baseVertex: baseVertexLocation
-                                    baseInstance: startInstanceLocation];
-
-            toDrawIndexedInstanced = false;
-        }
+        activeRenderState = renderState;
     }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
@@ -1113,22 +1243,28 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
-        // Set the state variables for the next draw call
-        this->toDrawInstanced = true;
-        this->startVertexLocation = startVertexLocation;
-        this->vertexCountPerInstance = vertexCountPerInstance;
-        this->instanceCount = instanceCount;
-        this->startInstanceLocation = startInstanceLocation;
+        guaranteeRenderEncoder();
+        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+
+        [renderEncoder drawPrimitives: currentPrimitiveType
+                          vertexStart: startVertexLocation
+                          vertexCount: vertexCountPerInstance
+                        instanceCount: instanceCount
+                         baseInstance: startInstanceLocation];
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
-        // Set the state variables for the next draw call
-        this->toDrawIndexedInstanced = true;
-        this->indexCountPerInstance = indexCountPerInstance;
-        this->startIndexLocation = startIndexLocation;
-        this->instanceCount = instanceCount;
-        this->baseVertexLocation = baseVertexLocation;
-        this->startInstanceLocation = startInstanceLocation;
+        guaranteeRenderEncoder();
+        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+
+        [renderEncoder drawIndexedPrimitives: currentPrimitiveType
+                                  indexCount: indexCountPerInstance
+                                   indexType: currentIndexType
+                                 indexBuffer: indexBuffer
+                           indexBufferOffset: startIndexLocation
+                               instanceCount: instanceCount
+                                  baseVertex: baseVertexLocation
+                                baseInstance: startInstanceLocation];
     }
 
     void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {
@@ -1144,9 +1280,7 @@ namespace RT64 {
                 break;
             }
             case MetalPipeline::Type::Graphics: {
-                guaranteeRenderEncoder();
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
-                assert(renderEncoder != nil && "Cannot set pipeline state on nil MTLRenderCommandEncoder!");
                 rebindRenderState(graphicsPipeline->renderState);
                 break;
             }
@@ -1173,12 +1307,30 @@ namespace RT64 {
 
     void MetalCommandList::setGraphicsPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
         assert(pipelineLayout != nullptr);
-        // TODO: Layouts
+
+        const auto oldLayout = activeGraphicsPipelineLayout;
+        activeGraphicsPipelineLayout = static_cast<const MetalPipelineLayout *>(pipelineLayout);
+
+        if (oldLayout != activeGraphicsPipelineLayout) {
+            indicesToComputeDescriptorSets.clear();
+            indicesToRenderDescriptorSets.clear();
+            graphicsPushConstantsBuffer = nil;
+        }
     }
 
     void MetalCommandList::setGraphicsPushConstants(uint32_t rangeIndex, const void *data) {
-        assert(renderEncoder != nil && "Cannot set bytes on nil MTLRenderCommandEncoder!");
-        // TODO: Push Constants
+        assert(activeGraphicsPipelineLayout != nullptr);
+        assert(rangeIndex < activeGraphicsPipelineLayout->pushConstantRanges.size());
+
+        const RenderPushConstantRange &range = activeGraphicsPipelineLayout->pushConstantRanges[rangeIndex];
+        uint32_t startOffset = 0;
+        for (uint32_t i = 0; i < rangeIndex; i++) {
+            startOffset += activeGraphicsPipelineLayout->pushConstantRanges[i].size;
+        }
+        auto bufferContents = (uint8_t *)[activeGraphicsPipelineLayout->pushConstantsBuffer contents];
+        memcpy(bufferContents + startOffset, data, range.size);
+
+        graphicsPushConstantsBuffer = activeGraphicsPipelineLayout->pushConstantsBuffer;
     }
 
     void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
@@ -1253,7 +1405,6 @@ namespace RT64 {
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
         endEncoder();
-
         if (framebuffer != nullptr) {
             targetFramebuffer = static_cast<const MetalFramebuffer *>(framebuffer);
         } else {
@@ -1262,7 +1413,9 @@ namespace RT64 {
     }
 
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
-
+//        guaranteeRenderEncoder();
+//        assert(renderEncoder != nil && "Cannot clear color on nil MTLRenderCommandEncoder");
+        // TODO: Clear Color
     }
 
     void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
@@ -1370,7 +1523,24 @@ namespace RT64 {
     }
 
     void MetalCommandList::resolveTexture(const RT64::RenderTexture *dstTexture, const RT64::RenderTexture *srcTexture) {
-        // TODO: Unimplemented.
+        assert(dstTexture != nullptr);
+        assert(srcTexture != nullptr);
+        guaranteeRenderDescriptor();
+
+        const auto *interfaceDstTexture = static_cast<const MetalTexture *>(dstTexture);
+        const auto *interfaceSrcTexture = static_cast<const MetalTexture *>(srcTexture);
+
+        for (uint32_t i = 0; i < colorAttachmentsCount; i++) {
+            if (interfaceSrcTexture->mtlTexture == renderDescriptor.colorAttachments[i].texture) {
+                renderDescriptor.colorAttachments[i].storeAction = MTLStoreActionStoreAndMultisampleResolve;
+                renderDescriptor.colorAttachments[i].resolveTexture = interfaceDstTexture->mtlTexture;
+            }
+        }
+
+        if (interfaceSrcTexture->mtlTexture == renderDescriptor.depthAttachment.texture) {
+            renderDescriptor.depthAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
+            renderDescriptor.depthAttachment.resolveTexture = interfaceDstTexture->mtlTexture;
+        }
     }
 
     void MetalCommandList::resolveTextureRegion(const RT64::RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RT64::RenderTexture *srcTexture, const RT64::RenderRect *srcRect) {
@@ -1388,11 +1558,9 @@ namespace RT64 {
     void MetalCommandList::setDescriptorSet(RT64::RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
         auto *interfaceDescriptorSet = static_cast<MetalDescriptorSet *>(descriptorSet);
         if (setCompute) {
-            computeDescriptorSetsToBind.emplace_back(interfaceDescriptorSet);
-            computeDescriptorSetsIndices.emplace_back(setIndex);
+            indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
         } else {
-            renderDescriptorSetsToBind.emplace_back(interfaceDescriptorSet);
-            renderDescriptorSetsIndices.emplace_back(setIndex);
+            indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
         }
     }
 
