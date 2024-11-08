@@ -612,7 +612,7 @@ namespace RT64 {
         }
 
         if (totalPushConstantSize > 0) {
-            uint32_t alignedSize = calculateAlignedSize(totalPushConstantSize);
+            size_t alignedSize = calculateAlignedSize(totalPushConstantSize);
             pushConstantsBuffer = [device->device newBufferWithLength: alignedSize options: MTLResourceStorageModeShared];
         }
         
@@ -633,6 +633,16 @@ namespace RT64 {
         entryCount = 0;
         argumentDescriptors = [NSMutableArray array];
 
+        for (uint32_t i = 0; i < desc.descriptorRangesCount; i++) {
+            const RenderDescriptorRange &range = desc.descriptorRanges[i];
+
+            uint32_t indexBase = uint32_t(descriptorIndexBases.size());
+            for (uint32_t j = 0; j < range.count; j++) {
+                descriptorIndexBases.emplace_back(indexBase);
+                descriptorRangeBinding.emplace_back(range.binding);
+            }
+        }
+
         // Figure out the total amount of entries that will be required.
         uint32_t rangeCount = desc.descriptorRangesCount;
         if (desc.lastRangeIsBoundless) {
@@ -650,21 +660,18 @@ namespace RT64 {
             const RenderDescriptorRange &range = sortedRanges[i];
             for (uint32_t j = 0; j < range.count; j++) {
                 descriptorTypes.emplace_back(range.type);
-                descriptorToRangeIndex.emplace_back(i);
                 entryCount++;
 
                 if (range.immutableSampler != nullptr) {
                     const auto *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
                     staticSamplers.emplace_back(sampler->samplerState);
-                    samplerIndices.emplace_back(range.binding - 1 + j);
+                    samplerIndices.emplace_back(range.binding + j);
                 }
             }
 
             MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
             argumentDesc.dataType = toMTL(range.type);
-            
-            // TODO: Figure out the binding mess
-            argumentDesc.index = range.binding - 1;
+            argumentDesc.index = range.binding;
             argumentDesc.arrayLength = range.count > 1 ? range.count : 0;
             if (range.type == RenderDescriptorRangeType::TEXTURE) {
                 argumentDesc.textureType = MTLTextureType2D;
@@ -682,7 +689,7 @@ namespace RT64 {
 
             MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
             argumentDesc.dataType = toMTL(lastDescriptorRange.type);
-            argumentDesc.index = lastDescriptorRange.binding - 1;
+            argumentDesc.index = lastDescriptorRange.binding;
             argumentDesc.arrayLength = lastDescriptorRange.count > 1 ? lastDescriptorRange.count : 0;
             // TODO: Fix the upper bound length, metal wants fixed
             argumentDesc.arrayLength = 8192;
@@ -701,7 +708,7 @@ namespace RT64 {
         }
 
         argumentEncoder = [device->device newArgumentEncoderWithArguments: argumentDescriptors];
-        uint64_t bufferLength = [argumentEncoder encodedLength];
+        size_t bufferLength = [argumentEncoder encodedLength];
         descriptorBuffer = [device->device newBufferWithLength: bufferLength options: MTLResourceStorageModeShared];
         [argumentEncoder setArgumentBuffer: descriptorBuffer offset: 0];
 
@@ -1250,7 +1257,9 @@ namespace RT64 {
                         auto *texture = pair.second;
                         if (texture != nil) {
                             [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
-                            [setLayout->argumentEncoder setTexture:texture atIndex: index];
+
+                            uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                            [setLayout->argumentEncoder setTexture:texture atIndex: adjustedIndex];
                         }
                     }
 
@@ -1285,10 +1294,6 @@ namespace RT64 {
             auto blitDescriptor = [MTLBlitPassDescriptor new];
             blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
         }
-    }
-
-    void MetalCommandList::rebindRenderState(MetalRenderState *renderState) {
-        activeRenderState = renderState;
     }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
@@ -1346,7 +1351,7 @@ namespace RT64 {
             }
             case MetalPipeline::Type::Graphics: {
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
-                rebindRenderState(graphicsPipeline->renderState);
+                activeRenderState = graphicsPipeline->renderState;
                 break;
             }
             default:
@@ -1387,6 +1392,7 @@ namespace RT64 {
         assert(activeGraphicsPipelineLayout != nullptr);
         assert(rangeIndex < activeGraphicsPipelineLayout->pushConstantRanges.size());
 
+        // TODO: make sure there's parity with Vulkan
         const RenderPushConstantRange &range = activeGraphicsPipelineLayout->pushConstantRanges[rangeIndex];
         uint32_t startOffset = 0;
         for (uint32_t i = 0; i < rangeIndex; i++) {

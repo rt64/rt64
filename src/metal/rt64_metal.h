@@ -61,7 +61,6 @@ namespace RT64 {
         uint32_t entryCount = 0;
         uint32_t descriptorTypeMaxIndex = 0;
         std::vector<RenderDescriptorRangeType> descriptorTypes;
-        std::vector<uint32_t> descriptorToRangeIndex;
         std::vector<uint32_t> samplerIndices;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
@@ -83,10 +82,13 @@ namespace RT64 {
         MetalDevice *device = nullptr;
         std::vector<RenderDescriptorRangeType> descriptorTypes;
         std::vector<uint32_t> descriptorToRangeIndex;
+        std::vector<uint32_t> descriptorIndexBases;
+        std::vector<uint32_t> descriptorRangeBinding;
         std::vector<uint32_t> samplerIndices;
         uint32_t bufferOffset = 0;
         uint32_t entryCount = 0;
         uint32_t descriptorTypeMaxIndex = 0;
+        uint32_t initialIndexOffset = 0;
 
         MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         ~MetalDescriptorSetLayout();
@@ -141,6 +143,7 @@ namespace RT64 {
         id<MTLRenderCommandEncoder> renderEncoder = nil;
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         id<MTLBlitCommandEncoder> blitEncoder = nil;
+        MTLCaptureManager *captureManager = nil;
 
         MTLRenderPassDescriptor *renderDescriptor = nil;
 
@@ -183,7 +186,6 @@ namespace RT64 {
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
-        void rebindRenderState(MetalRenderState *renderState);
         void barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) override;
         void dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) override;
         void traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) override;
