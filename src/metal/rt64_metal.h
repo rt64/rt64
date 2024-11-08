@@ -33,9 +33,35 @@ namespace RT64 {
     struct MetalPool;
     struct MetalPipelineLayout;
     struct MetalTexture;
+    struct MetalSampler;
+
+    struct MetalRenderState {
+#ifdef __OBJC__
+        id<MTLRenderPipelineState> renderPipelineState = nil;
+        id<MTLDepthStencilState> depthStencilState = nil;
+        MTLCullMode cullMode = MTLCullModeNone;
+        MTLDepthClipMode depthClipMode = MTLDepthClipModeClip;
+        MTLWinding winding = MTLWindingClockwise;
+        MTLSamplePosition *samplePositions = nullptr;
+#endif
+        uint32_t sampleCount = 0;
+    };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
+#ifdef __OBJC__
+        id<MTLBuffer> descriptorBuffer;
+        std::vector<id<MTLBuffer>> residentBuffers;
+        std::unordered_map<uint32_t, id<MTLTexture>> indicesToTextures;
+        std::vector<id<MTLSamplerState>> staticSamplers;
+        std::vector<MTLArgumentDescriptor *> argumentDescriptors;
+#endif
+
         MetalDevice *device = nullptr;
+        uint32_t bufferOffset = 0;
+        uint32_t entryCount = 0;
+        uint32_t descriptorTypeMaxIndex = 0;
+        std::vector<RenderDescriptorRangeType> descriptorTypes;
+        std::vector<uint32_t> samplerIndices;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
@@ -45,12 +71,38 @@ namespace RT64 {
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
     };
 
+    struct MetalDescriptorSetLayout {
+#ifdef __OBJC__
+        std::vector<id<MTLSamplerState>> staticSamplers;
+        NSMutableArray* argumentDescriptors = nil;
+        id<MTLArgumentEncoder> argumentEncoder = nil;
+        id<MTLBuffer> descriptorBuffer = nil;
+#endif
+
+        MetalDevice *device = nullptr;
+        std::vector<RenderDescriptorRangeType> descriptorTypes;
+        std::vector<uint32_t> descriptorToRangeIndex;
+        std::vector<uint32_t> descriptorIndexBases;
+        std::vector<uint32_t> descriptorRangeBinding;
+        std::vector<uint32_t> samplerIndices;
+        uint32_t bufferOffset = 0;
+        uint32_t entryCount = 0;
+        uint32_t descriptorTypeMaxIndex = 0;
+        uint32_t initialIndexOffset = 0;
+
+        MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
+        ~MetalDescriptorSetLayout();
+    };
+
     struct MetalSwapChain : RenderSwapChain {
+#ifdef __OBJC__
+        id<CAMetalDrawable> drawable = nil;
+#endif
         CAMetalLayer *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
-        std::vector<MetalTexture> textures;
         uint32_t textureCount = 0;
+        MetalTexture *proxyTexture;
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;
@@ -70,7 +122,6 @@ namespace RT64 {
         bool isEmpty() const override;
         uint32_t getRefreshRate() const override;
         void getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const;
-        void setTextures();
     };
 
     struct MetalFramebuffer : RenderFramebuffer {
@@ -92,13 +143,24 @@ namespace RT64 {
         id<MTLRenderCommandEncoder> renderEncoder = nil;
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         id<MTLBlitCommandEncoder> blitEncoder = nil;
+        MTLCaptureManager *captureManager = nil;
+
+        MTLRenderPassDescriptor *renderDescriptor = nil;
 
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
         id<MTLBuffer> indexBuffer = nil;
 
+        uint32_t viewCount = 0;
+        std::vector<id<MTLBuffer>> vertexBuffers;
+        std::vector<uint32_t> vertexBufferOffsets;
+        std::vector<uint32_t> vertexBufferIndices;
+
         std::vector<MTLViewport> viewportVector;
         std::vector<MTLScissorRect> scissorVector;
+
+        id<MTLBuffer> graphicsPushConstantsBuffer = nil;
+        id<MTLBuffer> computePushConstantsBuffer = nil;
 #endif
 
         MetalDevice *device = nullptr;
@@ -108,12 +170,19 @@ namespace RT64 {
         const MetalPipelineLayout *activeComputePipelineLayout = nullptr;
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
+        const MetalRenderState *activeRenderState = nullptr;
+
+        std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
+        std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
+
+        uint32_t colorAttachmentsCount = 0;
 
         MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
         void begin() override;
         void end() override;
         void endEncoder();
+        void guaranteeRenderDescriptor();
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
@@ -147,7 +216,7 @@ namespace RT64 {
         void resolveTextureRegion(const RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RenderTexture *srcTexture, const RenderRect *srcRect) override;
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
-        void setDescriptorSet(const MetalPipelineLayout *activePipelineLayout, RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
+        void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
     };
 
     struct MetalCommandFence : RenderCommandFence {
@@ -207,6 +276,7 @@ namespace RT64 {
         MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
         RenderTextureDesc desc;
+        MetalSwapChain *parentSwapChain = nullptr;
 
         MetalTexture() = default;
         MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
@@ -302,15 +372,21 @@ namespace RT64 {
         id<MTLRenderPipelineState> state = nil;
 #endif
 
+        MetalRenderState *renderState;
         MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
     };
 
     struct MetalPipelineLayout : RenderPipelineLayout {
+#ifdef __OBJC__
+        id<MTLBuffer> pushConstantsBuffer = nil;
+#endif
+
         MetalDevice *device = nullptr;
         std::vector<RenderPushConstantRange> pushConstantRanges;
         uint32_t setCount = 0;
+        std::vector<MetalDescriptorSetLayout *> setLayoutHandles;
 
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;

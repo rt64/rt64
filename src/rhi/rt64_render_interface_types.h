@@ -23,7 +23,8 @@
 #undef ControlMask
 #undef Success
 #elif defined(__APPLE__)
-typedef struct _NSWindow NSWindow;
+//typedef struct _NSWindow NSWindow;
+#include <SDL.h>
 #endif
 
 namespace RT64 {
@@ -43,7 +44,7 @@ namespace RT64 {
     };
 #elif defined(__APPLE__)
     struct RenderWindow {
-        NSWindow* window;
+        SDL_Window* window;
         bool operator==(const struct RenderWindow& rhs) const {
             return window == rhs.window;
         }

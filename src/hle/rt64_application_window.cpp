@@ -135,7 +135,7 @@ namespace RT64 {
         windowHandle.display = wmInfo.info.x11.display;
         windowHandle.window = wmInfo.info.x11.window;
 #   elif defined(__APPLE__)
-        windowHandle.window = wmInfo.info.cocoa.window;
+        windowHandle.window = sdlWindow;
 #   else
         static_assert(false && "Unimplemented");
 #   endif
