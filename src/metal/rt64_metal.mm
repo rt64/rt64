@@ -662,7 +662,8 @@ namespace RT64 {
 
             MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
             argumentDesc.dataType = toMTL(range.type);
-            // DX shaders start at 1, so we need to subtract 1 to match the Metal API.
+            
+            // TODO: Figure out the binding mess
             argumentDesc.index = range.binding - 1;
             argumentDesc.arrayLength = range.count > 1 ? range.count : 0;
             if (range.type == RenderDescriptorRangeType::TEXTURE) {
@@ -697,6 +698,15 @@ namespace RT64 {
 
         if (!descriptorTypes.empty()) {
             descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
+        }
+
+        argumentEncoder = [device->device newArgumentEncoderWithArguments: argumentDescriptors];
+        uint64_t bufferLength = [argumentEncoder encodedLength];
+        descriptorBuffer = [device->device newBufferWithLength: bufferLength options: MTLResourceStorageModeShared];
+        [argumentEncoder setArgumentBuffer: descriptorBuffer offset: 0];
+
+        for (uint32_t i = 0; i < staticSamplers.size(); i++) {
+            [argumentEncoder setSamplerState: staticSamplers[i] atIndex: samplerIndices[i]];
         }
     }
 
@@ -862,6 +872,7 @@ namespace RT64 {
         }
 
         descriptor.depthAttachmentPixelFormat = toMTL(desc.depthTargetFormat);
+        descriptor.rasterSampleCount = desc.multisampling.sampleCount;
 
         // State variables, initialized here to be reused in encoder re-binding
         renderState = new MetalRenderState();
@@ -873,6 +884,14 @@ namespace RT64 {
         renderState->cullMode = toMTL(desc.cullMode);
         renderState->depthClipMode = (desc.depthClipEnabled) ? MTLDepthClipModeClip : MTLDepthClipModeClamp;
         renderState->winding = MTLWindingClockwise;
+        renderState->sampleCount = desc.multisampling.sampleCount;
+        if (desc.multisampling.sampleCount > 1) {
+            renderState->samplePositions = new MTLSamplePosition[desc.multisampling.sampleCount];
+            for (uint32_t i = 0; i < desc.multisampling.sampleCount; i++) {
+                renderState->samplePositions[i].x = desc.multisampling.sampleLocations[i].x;
+                renderState->samplePositions[i].y = desc.multisampling.sampleLocations[i].y;
+            }
+        }
 
         NSError *error = nullptr;
         this->state = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
@@ -1144,6 +1163,7 @@ namespace RT64 {
     void MetalCommandList::endEncoder() {
         if (renderEncoder != nil) {
             [renderEncoder endEncoding];
+            renderDescriptor = nil;
         }
 
         if (computeEncoder != nil) {
@@ -1189,6 +1209,10 @@ namespace RT64 {
                 depthAttachment.loadAction = MTLLoadActionLoad;
                 depthAttachment.storeAction = MTLStoreActionStore;
             }
+
+            if (activeRenderState->samplePositions != nullptr) {
+                [renderDescriptor setSamplePositions:activeRenderState->samplePositions count:activeRenderState->sampleCount];
+            }
         }
     }
 
@@ -1218,18 +1242,6 @@ namespace RT64 {
             for (uint32_t i = 0; i < activeGraphicsPipelineLayout->setCount; i++) {
                 const auto *setLayout = activeGraphicsPipelineLayout->setLayoutHandles[i];
 
-                auto argumentEncoder = [device->device newArgumentEncoderWithArguments: setLayout->argumentDescriptors];
-                uint32_t bufferLength = argumentEncoder.encodedLength;
-                auto buffer = [device->device newBufferWithLength: bufferLength options: MTLResourceStorageModeShared];
-                [argumentEncoder setArgumentBuffer: buffer offset: 0];
-
-                for (uint32_t j = 0; j < setLayout->staticSamplers.size(); j++) {
-                    auto sampler = setLayout->staticSamplers[j];
-                    if (sampler != nil) {
-                        [argumentEncoder setSamplerState:sampler atIndex:setLayout->samplerIndices[j]];
-                    }
-                }
-
                 if (indicesToRenderDescriptorSets.count(i) != 0) {
                     const auto *descriptorSet = indicesToRenderDescriptorSets[i];
                     // Mark resources in the argument buffer as resident
@@ -1238,15 +1250,14 @@ namespace RT64 {
                         auto *texture = pair.second;
                         if (texture != nil) {
                             [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
-                            // DX shaders start at 1, so we need to subtract 1 to match the Metal API.
-                            [argumentEncoder setTexture:texture atIndex: index - 1];
+                            [setLayout->argumentEncoder setTexture:texture atIndex: index];
                         }
                     }
 
                     // TODO: Mark and bind buffers
                 }
 
-                [renderEncoder setFragmentBuffer:buffer offset:0 atIndex:i];
+                [renderEncoder setFragmentBuffer:setLayout->descriptorBuffer offset:0 atIndex:i];
             }
 
             if (graphicsPushConstantsBuffer != nil) {

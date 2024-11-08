@@ -42,7 +42,9 @@ namespace RT64 {
         MTLCullMode cullMode = MTLCullModeNone;
         MTLDepthClipMode depthClipMode = MTLDepthClipModeClip;
         MTLWinding winding = MTLWindingClockwise;
+        MTLSamplePosition *samplePositions = nullptr;
 #endif
+        uint32_t sampleCount = 0;
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
@@ -74,6 +76,8 @@ namespace RT64 {
 #ifdef __OBJC__
         std::vector<id<MTLSamplerState>> staticSamplers;
         NSMutableArray* argumentDescriptors = nil;
+        id<MTLArgumentEncoder> argumentEncoder = nil;
+        id<MTLBuffer> descriptorBuffer = nil;
 #endif
 
         MetalDevice *device = nullptr;
