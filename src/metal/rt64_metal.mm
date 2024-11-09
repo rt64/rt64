@@ -1164,13 +1164,15 @@ namespace RT64 {
     void MetalCommandList::begin() { }
 
     void MetalCommandList::end() {
-        endEncoder();
+        endEncoder(true);
     }
 
-    void MetalCommandList::endEncoder() {
+    void MetalCommandList::endEncoder(bool clearDescs) {
         if (renderEncoder != nil) {
             [renderEncoder endEncoding];
-            renderDescriptor = nil;
+            if (clearDescs) {
+                renderDescriptor = nil;
+            }
         }
 
         if (computeEncoder != nil) {
@@ -1225,7 +1227,7 @@ namespace RT64 {
 
     void MetalCommandList::guaranteeRenderEncoder() {
         if (renderEncoder == nil) {
-            endEncoder();
+            endEncoder(false);
 
             guaranteeRenderDescriptor();
             renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
@@ -1280,7 +1282,7 @@ namespace RT64 {
 
     void MetalCommandList::guaranteeComputeEncoder() {
         if (computeEncoder == nil) {
-            endEncoder();
+            endEncoder(false);
 
             auto computeDescriptor = [MTLComputePassDescriptor new];
             computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
@@ -1289,7 +1291,7 @@ namespace RT64 {
 
     void MetalCommandList::guaranteeBlitEncoder() {
         if (blitEncoder == nil) {
-            endEncoder();
+            endEncoder(false);
 
             auto blitDescriptor = [MTLBlitPassDescriptor new];
             blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
@@ -1475,7 +1477,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
-        endEncoder();
+        endEncoder(true);
         if (framebuffer != nullptr) {
             targetFramebuffer = static_cast<const MetalFramebuffer *>(framebuffer);
         } else {

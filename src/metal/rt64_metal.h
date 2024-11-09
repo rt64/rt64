@@ -181,7 +181,7 @@ namespace RT64 {
         ~MetalCommandList() override;
         void begin() override;
         void end() override;
-        void endEncoder();
+        void endEncoder(bool clearDescs);
         void guaranteeRenderDescriptor();
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
