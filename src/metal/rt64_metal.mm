@@ -886,7 +886,7 @@ namespace RT64 {
 
         MTLDepthStencilDescriptor *depthStencilDescriptor = [MTLDepthStencilDescriptor new];
         depthStencilDescriptor.depthWriteEnabled = desc.depthWriteEnabled;
-        depthStencilDescriptor.depthCompareFunction = toMTL(desc.depthFunction);
+        depthStencilDescriptor.depthCompareFunction = desc.depthEnabled ? toMTL(desc.depthFunction) : MTLCompareFunctionAlways;
         renderState->depthStencilState = [device->device newDepthStencilStateWithDescriptor: depthStencilDescriptor];
         renderState->cullMode = toMTL(desc.cullMode);
         renderState->depthClipMode = (desc.depthClipEnabled) ? MTLDepthClipModeClip : MTLDepthClipModeClamp;
