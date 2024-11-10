@@ -527,19 +527,8 @@ namespace RT64 {
         descriptor.mipmapLevelCount = desc.mipLevels;
         descriptor.arrayLength = 1;
         descriptor.sampleCount = desc.multisampling.sampleCount;
-        // TODO: Usage flags
-        if (desc.flags & RenderTextureFlag::RENDER_TARGET) {
-            descriptor.usage |= MTLTextureUsageRenderTarget;
-        }
-        if (desc.flags & RenderTextureFlag::DEPTH_TARGET) {
-            descriptor.usage |= MTLTextureUsageRenderTarget;
-        }
-        if (desc.flags & RenderTextureFlag::STORAGE) {
-            descriptor.usage |= MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
-        }
-        if (desc.flags & RenderTextureFlag::UNORDERED_ACCESS) {
-            descriptor.usage |= MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
-        }
+        descriptor.usage |= (desc.flags & (RenderTextureFlag::RENDER_TARGET | RenderTextureFlag::DEPTH_TARGET)) ? MTLTextureUsageRenderTarget : MTLTextureUsageUnknown;
+        descriptor.usage |= (desc.flags & (RenderTextureFlag::UNORDERED_ACCESS)) ? MTLTextureUsageShaderWrite : MTLTextureUsageUnknown;
 
         if (pool != nullptr) {
             this->mtlTexture = [pool->heap newTextureWithDescriptor: descriptor];
