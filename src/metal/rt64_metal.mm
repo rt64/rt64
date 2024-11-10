@@ -1168,6 +1168,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::endEncoder(bool clearDescs) {
+        clearDrawCalls();
         if (renderEncoder != nil) {
             [renderEncoder endEncoding];
             if (clearDescs) {
@@ -1186,6 +1187,32 @@ namespace RT64 {
         renderEncoder = nil;
         computeEncoder = nil;
         blitEncoder = nil;
+    }
+
+    void MetalCommandList::clearDrawCalls() {
+        if (!deferredDrawCalls.empty()) {
+            guaranteeRenderEncoder();
+        }
+        for (auto &drawCall : deferredDrawCalls) {
+            if (drawCall.type == DrawCall::Type::Draw) {
+                [renderEncoder drawPrimitives: drawCall.primitiveType
+                                  vertexStart: drawCall.startVertexLocation
+                                  vertexCount: drawCall.vertexCountPerInstance
+                                instanceCount: drawCall.instanceCount
+                                 baseInstance: drawCall.startInstanceLocation];
+            } else if (drawCall.type == DrawCall::Type::DrawIndexed) {
+                [renderEncoder drawIndexedPrimitives: drawCall.primitiveType
+                                          indexCount: drawCall.indexCountPerInstance
+                                           indexType: drawCall.indexType
+                                         indexBuffer: drawCall.indexBuffer
+                                   indexBufferOffset: drawCall.startIndexLocation
+                                       instanceCount: drawCall.instanceCount
+                                          baseVertex: drawCall.baseVertexLocation
+                                        baseInstance: drawCall.startInstanceLocation];
+            }
+        }
+
+        deferredDrawCalls.clear();
     }
 
     void MetalCommandList::guaranteeRenderDescriptor() {
@@ -1251,8 +1278,6 @@ namespace RT64 {
 
     void MetalCommandList::guaranteeRenderEncoder() {
         if (renderEncoder == nil) {
-            endEncoder(false);
-
             guaranteeRenderDescriptor();
             renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
 
@@ -1339,28 +1364,46 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
-        guaranteeRenderEncoder();
-        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+//        guaranteeRenderEncoder();
+//        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
 
-        [renderEncoder drawPrimitives: currentPrimitiveType
-                          vertexStart: startVertexLocation
-                          vertexCount: vertexCountPerInstance
-                        instanceCount: instanceCount
-                         baseInstance: startInstanceLocation];
+//        [renderEncoder drawPrimitives: currentPrimitiveType
+//                          vertexStart: startVertexLocation
+//                          vertexCount: vertexCountPerInstance
+//                        instanceCount: instanceCount
+//                         baseInstance: startInstanceLocation];
+
+        deferredDrawCalls.emplace_back(DrawCall{
+            .type = DrawCall::Type::Draw,
+            .startVertexLocation = startVertexLocation,
+            .vertexCountPerInstance = vertexCountPerInstance,
+            .instanceCount = instanceCount,
+            .startInstanceLocation = startInstanceLocation
+        });
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
-        guaranteeRenderEncoder();
-        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+//        guaranteeRenderEncoder();
+//        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
 
-        [renderEncoder drawIndexedPrimitives: currentPrimitiveType
-                                  indexCount: indexCountPerInstance
-                                   indexType: currentIndexType
-                                 indexBuffer: indexBuffer
-                           indexBufferOffset: startIndexLocation
-                               instanceCount: instanceCount
-                                  baseVertex: baseVertexLocation
-                                baseInstance: startInstanceLocation];
+//        [renderEncoder drawIndexedPrimitives: currentPrimitiveType
+//                                  indexCount: indexCountPerInstance
+//                                   indexType: currentIndexType
+//                                 indexBuffer: indexBuffer
+//                           indexBufferOffset: startIndexLocation
+//                               instanceCount: instanceCount
+//                                  baseVertex: baseVertexLocation
+//                                baseInstance: startInstanceLocation];
+
+        deferredDrawCalls.emplace_back(DrawCall{
+            .type = DrawCall::Type::DrawIndexed,
+            .instanceCount = instanceCount,
+            .startInstanceLocation = startInstanceLocation,
+            .indexCountPerInstance = indexCountPerInstance,
+            .indexBuffer = indexBuffer,
+            .baseVertexLocation = baseVertexLocation,
+            .startIndexLocation = startIndexLocation,
+        });
     }
 
     void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {

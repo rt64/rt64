@@ -164,6 +164,26 @@ namespace RT64 {
         id<MTLBuffer> computePushConstantsBuffer = nil;
 
         std::map<id<MTLTexture>, id<MTLTexture>> resolveTo;
+
+        struct DrawCall {
+            enum class Type {
+                Draw,
+                DrawIndexed
+            };
+            Type type;
+            MTLPrimitiveType primitiveType = MTLPrimitiveTypeTriangle;
+            uint32_t startVertexLocation = 0;
+            uint32_t vertexCountPerInstance = 0;
+            uint32_t instanceCount = 0;
+            uint32_t startInstanceLocation = 0;
+
+            uint32_t indexCountPerInstance = 0;
+            MTLIndexType indexType = MTLIndexTypeUInt32;
+            id<MTLBuffer> indexBuffer = nil;
+            int32_t baseVertexLocation = 0;
+            uint32_t startIndexLocation = 0;
+        };
+        std::vector<DrawCall> deferredDrawCalls;
 #endif
 
         MetalDevice *device = nullptr;
@@ -192,6 +212,7 @@ namespace RT64 {
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
+        void clearDrawCalls();
         void barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) override;
         void dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) override;
         void traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) override;
