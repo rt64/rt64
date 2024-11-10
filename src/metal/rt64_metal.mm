@@ -553,10 +553,13 @@ namespace RT64 {
 
     MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
         assert(texture != nullptr);
-
-        this->texture = texture;
-        // TODO: Check this stuff is right
-        this->mtlTexture = texture->mtlTexture;
+        // TODO: Validate levels and slices
+        this->mtlTexture = [texture->mtlTexture
+                            newTextureViewWithPixelFormat: toMTL(desc.format)
+                            textureType: texture->mtlTexture.textureType
+                            levels: NSMakeRange(desc.mipSlice, desc.mipLevels)
+                            slices: NSMakeRange(0, 1)
+        ];
     }
 
     MetalTextureView::~MetalTextureView() {
@@ -994,7 +997,12 @@ namespace RT64 {
         switch (descriptorType) {
             case RenderDescriptorRangeType::TEXTURE:
             case RenderDescriptorRangeType::READ_WRITE_TEXTURE: {
-                indicesToTextures[descriptorIndex] = interfaceTexture->mtlTexture;
+                if (textureView != nullptr) {
+                    const MetalTextureView *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
+                    indicesToTextures[descriptorIndex] = interfaceTextureView->mtlTexture;
+                } else {
+                    indicesToTextures[descriptorIndex] = interfaceTexture->mtlTexture;
+                }
                 break;
             }
             case RenderDescriptorRangeType::CONSTANT_BUFFER:

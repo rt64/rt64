@@ -316,7 +316,6 @@ namespace RT64 {
 #ifdef __OBJC__
         id<MTLTexture> mtlTexture = nil;
 #endif
-        MetalTexture *texture = nullptr;
 
         MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc);
         ~MetalTextureView() override;
