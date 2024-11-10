@@ -467,7 +467,7 @@ namespace RT64 {
     }
 
     void MetalBuffer::setName(const std::string &name) {
-
+        [this->buffer setLabel: [NSString stringWithUTF8String: name.c_str()]];
     }
 
     // MetalBufferFormattedView
@@ -500,6 +500,7 @@ namespace RT64 {
         }
 
         descriptor.textureType = textureType;
+        descriptor.storageMode = MTLStorageModePrivate;
         descriptor.pixelFormat = toMTL(desc.format);
         descriptor.width = desc.width;
         descriptor.height = desc.height;
