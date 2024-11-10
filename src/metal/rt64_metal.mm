@@ -433,6 +433,20 @@ namespace RT64 {
         }
     }
 
+    static MTLResourceOptions toMTL(RenderHeapType heapType) {
+        switch (heapType) {
+            case RenderHeapType::DEFAULT:
+                return MTLResourceStorageModePrivate;
+            case RenderHeapType::UPLOAD:
+                return MTLStorageModeShared;
+            case RenderHeapType::READBACK:
+                return MTLStorageModeShared;
+            default:
+                assert(false && "Unknown heap type.");
+                return MTLResourceStorageModePrivate;
+        }
+    }
+
     // MetalBuffer
 
     MetalBuffer::MetalBuffer(MetalDevice *device, MetalPool *pool, const RenderBufferDesc &desc) {
@@ -444,9 +458,9 @@ namespace RT64 {
 
         // TODO: Set the right buffer options
         if (pool != nullptr) {
-            this->buffer = [pool->heap newBufferWithLength: desc.size options: MTLResourceStorageModeShared];
+            this->buffer = [pool->heap newBufferWithLength: desc.size options: toMTL(desc.heapType)];
         } else {
-            this->buffer = [device->device newBufferWithLength: desc.size options: MTLResourceStorageModeShared];
+            this->buffer = [device->device newBufferWithLength: desc.size options: toMTL(desc.heapType)];
         }
     }
 
