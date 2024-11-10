@@ -447,6 +447,11 @@ namespace RT64 {
         }
     }
 
+
+    static MTLClearColor toClearColor(RenderColor color) {
+        return MTLClearColorMake(color.r, color.g, color.b, color.a);
+    }
+
     // MetalBuffer
 
     MetalBuffer::MetalBuffer(MetalDevice *device, MetalPool *pool, const RenderBufferDesc &desc) {
@@ -1256,15 +1261,12 @@ namespace RT64 {
 
                 if (resolveTo.count(colorAttachment.texture) != 0) {
                     colorAttachment.resolveTexture = resolveTo[colorAttachment.texture];
-                    colorAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
+                    colorAttachment.storeAction = MTLStoreActionMultisampleResolve;
                 }
 
                 if (attachmentsToClear.count(i) != 0) {
                     colorAttachment.loadAction = MTLLoadActionClear;
-                    colorAttachment.clearColor = MTLClearColorMake(attachmentsToClear[i].r,
-                                                                   attachmentsToClear[i].g,
-                                                                   attachmentsToClear[i].b,
-                                                                   attachmentsToClear[i].a);
+                    colorAttachment.clearColor = toClearColor(attachmentsToClear[i]);
                 }
             }
 
@@ -1276,7 +1278,7 @@ namespace RT64 {
 
                 if (resolveTo.count(depthAttachment.texture) != 0) {
                     depthAttachment.resolveTexture = resolveTo[depthAttachment.texture];
-                    depthAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
+                    depthAttachment.storeAction = MTLStoreActionMultisampleResolve;
                 }
 
                 if (depthClearValue >= 0.0) {
