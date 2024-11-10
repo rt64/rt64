@@ -5,6 +5,7 @@
 #pragma once
 
 #include "rhi/rt64_render_interface.h"
+#include <map>
 
 #ifdef __OBJC__
 #import <Metal/Metal.h>
@@ -161,6 +162,8 @@ namespace RT64 {
 
         id<MTLBuffer> graphicsPushConstantsBuffer = nil;
         id<MTLBuffer> computePushConstantsBuffer = nil;
+
+        std::map<id<MTLTexture>, id<MTLTexture>> resolveTo;
 #endif
 
         MetalDevice *device = nullptr;
@@ -174,6 +177,9 @@ namespace RT64 {
 
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
+
+        std::unordered_map<uint32_t, RenderColor> attachmentsToClear;
+        float depthClearValue = -1.0f;
 
         uint32_t colorAttachmentsCount = 0;
 

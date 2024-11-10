@@ -1196,27 +1196,51 @@ namespace RT64 {
             colorAttachmentsCount = targetFramebuffer->colorAttachments.size();
 
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+                auto *colorAttachment = renderDescriptor.colorAttachments[i];
                 // If framebuffer was created using a swap chain, use the drawable's texture
                 if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
-                    auto *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
+                    assert(targetFramebuffer->colorAttachments.size() == 1 && "Swap chain framebuffers must have exactly one color attachment.");
+
+                    MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
                     auto *drawable = swapChain->drawable;
-                    renderDescriptor.colorAttachments[i].texture = drawable.texture;
-                    renderDescriptor.colorAttachments[i].loadAction = MTLLoadActionLoad;
-                    renderDescriptor.colorAttachments[i].storeAction = MTLStoreActionStore;
-                    break;
+                    colorAttachment.texture = drawable.texture;
+                    colorAttachment.loadAction = MTLLoadActionLoad;
+                    colorAttachment.storeAction = MTLStoreActionStore;
+                } else {
+                    colorAttachment.texture = targetFramebuffer->colorAttachments[i]->mtlTexture;
+                    colorAttachment.loadAction = MTLLoadActionLoad;
+                    colorAttachment.storeAction = MTLStoreActionStore;
                 }
 
-                auto colorAttachment = renderDescriptor.colorAttachments[i];
-                colorAttachment.texture = targetFramebuffer->colorAttachments[i]->mtlTexture;
-                colorAttachment.loadAction = MTLLoadActionLoad;
-                colorAttachment.storeAction = MTLStoreActionStore;
+                if (resolveTo.count(colorAttachment.texture) != 0) {
+                    colorAttachment.resolveTexture = resolveTo[colorAttachment.texture];
+                    colorAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
+                }
+
+                if (attachmentsToClear.count(i) != 0) {
+                    colorAttachment.loadAction = MTLLoadActionClear;
+                    colorAttachment.clearColor = MTLClearColorMake(attachmentsToClear[i].r,
+                                                                   attachmentsToClear[i].g,
+                                                                   attachmentsToClear[i].b,
+                                                                   attachmentsToClear[i].a);
+                }
             }
 
             if (targetFramebuffer->depthAttachment != nullptr) {
-                auto depthAttachment = renderDescriptor.depthAttachment;
+                auto *depthAttachment = renderDescriptor.depthAttachment;
                 depthAttachment.texture = targetFramebuffer->depthAttachment->mtlTexture;
                 depthAttachment.loadAction = MTLLoadActionLoad;
                 depthAttachment.storeAction = MTLStoreActionStore;
+
+                if (resolveTo.count(depthAttachment.texture) != 0) {
+                    depthAttachment.resolveTexture = resolveTo[depthAttachment.texture];
+                    depthAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
+                }
+
+                if (depthClearValue >= 0.0) {
+                    depthAttachment.loadAction = MTLLoadActionClear;
+                    depthAttachment.clearDepth = depthClearValue;
+                }
             }
 
             if (activeRenderState->samplePositions != nullptr) {
@@ -1258,7 +1282,7 @@ namespace RT64 {
                         uint32_t index = pair.first;
                         auto *texture = pair.second;
                         if (texture != nil) {
-                            [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+                            [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment|MTLRenderStageVertex];
 
                             uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
                             [setLayout->argumentEncoder setTexture:texture atIndex: adjustedIndex];
@@ -1478,6 +1502,9 @@ namespace RT64 {
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
         endEncoder(true);
+        // Need to clear explicitly to remove from new descriptor
+        attachmentsToClear.clear();
+        depthClearValue = -1.0;
         if (framebuffer != nullptr) {
             targetFramebuffer = static_cast<const MetalFramebuffer *>(framebuffer);
         } else {
@@ -1488,11 +1515,16 @@ namespace RT64 {
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
 //        guaranteeRenderEncoder();
 //        assert(renderEncoder != nil && "Cannot clear color on nil MTLRenderCommandEncoder");
-        // TODO: Clear Color
+        // TODO: Clear Color with rects, current impl only sets clear on the full attachment
+
+        attachmentsToClear[attachmentIndex] = colorValue;
     }
 
     void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
-
+        // TODO: Clear Color with rects, current impl only sets clear on the full attachment
+        if (clearDepth) {
+            depthClearValue = depthValue;
+        }
     }
 
     void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
@@ -1598,22 +1630,11 @@ namespace RT64 {
     void MetalCommandList::resolveTexture(const RT64::RenderTexture *dstTexture, const RT64::RenderTexture *srcTexture) {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
-        guaranteeRenderDescriptor();
 
         const auto *interfaceDstTexture = static_cast<const MetalTexture *>(dstTexture);
         const auto *interfaceSrcTexture = static_cast<const MetalTexture *>(srcTexture);
 
-        for (uint32_t i = 0; i < colorAttachmentsCount; i++) {
-            if (interfaceSrcTexture->mtlTexture == renderDescriptor.colorAttachments[i].texture) {
-                renderDescriptor.colorAttachments[i].storeAction = MTLStoreActionStoreAndMultisampleResolve;
-                renderDescriptor.colorAttachments[i].resolveTexture = interfaceDstTexture->mtlTexture;
-            }
-        }
-
-        if (interfaceSrcTexture->mtlTexture == renderDescriptor.depthAttachment.texture) {
-            renderDescriptor.depthAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
-            renderDescriptor.depthAttachment.resolveTexture = interfaceDstTexture->mtlTexture;
-        }
+        resolveTo[interfaceSrcTexture->mtlTexture] = interfaceDstTexture->mtlTexture;
     }
 
     void MetalCommandList::resolveTextureRegion(const RT64::RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RT64::RenderTexture *srcTexture, const RT64::RenderRect *srcRect) {
