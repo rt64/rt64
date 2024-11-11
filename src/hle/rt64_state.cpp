@@ -839,10 +839,10 @@ namespace RT64 {
                 // FIXME: A safety check to only do this on textures that were determined to be big was added until the
                 // correctness of the texcoord determination can be guaranteed to not cause issues elsewhere.
                 const bool bigTextureCheck = (callTile.sampleWidth > 0x1000) || (callTile.sampleHeight > 0x1000);
-                if (bigTextureCheck && !TMEMHasher::requiresRawTMEM(callTile.loadTile, maxTexcoord.x, maxTexcoord.y)) {
+                if (bigTextureCheck) {
                     callTile.sampleWidth = maxTexcoord.x;
                     callTile.sampleHeight = maxTexcoord.y;
-                    callTile.rawTMEM = false;
+                    callTile.rawTMEM = TMEMHasher::requiresRawTMEM(callTile.loadTile, maxTexcoord.x, maxTexcoord.y);
                 }
             }
 
