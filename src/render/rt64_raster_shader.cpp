@@ -107,7 +107,9 @@ namespace RT64 {
         const bool useMSAA = (multisampling.sampleCount > 1);
         std::unique_ptr<RenderShader> vertexShader;
         std::unique_ptr<RenderShader> pixelShader;
+#ifdef __APPLE__
         std::vector<RenderSpecConstant> specConstants;
+#endif
         if (shaderFormat == RenderShaderFormat::SPIRV) {
 #       ifndef __APPLE__
             // Choose the pre-compiled shader permutations.
@@ -134,6 +136,7 @@ namespace RT64 {
                 }
             }
 
+            thread_local std::vector<respv::SpecConstant> specConstants;
             thread_local bool specConstantsSetup = false;
             thread_local std::vector<uint8_t> optimizedVS;
             thread_local std::vector<uint8_t> optimizedPS;
