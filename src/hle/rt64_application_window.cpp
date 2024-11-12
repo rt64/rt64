@@ -114,13 +114,13 @@ namespace RT64 {
 #   else
         static_assert(false && "Unimplemented");
 #   endif
-        auto createFlags = SDL_WINDOW_RESIZABLE;
+        uint32_t createFlags = SDL_WINDOW_RESIZABLE;
 #   if defined(__APPLE__)
         createFlags |= SDL_WINDOW_METAL;
 #   endif
 
         // Create window.
-        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE);
+        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, createFlags);
         assert((sdlWindow != nullptr) && "Failed to open window with SDL");
 
         // Get native window handles from the window.

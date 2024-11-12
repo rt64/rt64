@@ -93,43 +93,46 @@
 #   include "shaders/Im3DPS.hlsl.dxil.h"
 #   include "shaders/PostProcessPS.hlsl.dxil.h"
 #elif defined(__APPLE__)
-#include "shaders/FbChangesClearCS.hlsl.metallib.h"
-#include "shaders/FbChangesDrawColorPS.hlsl.metallib.h"
-#include "shaders/FbChangesDrawDepthPS.hlsl.metallib.h"
-#include "shaders/FbReadAnyChangesCS.hlsl.metallib.h"
-#include "shaders/FbReadAnyFullCS.hlsl.metallib.h"
-#include "shaders/FbReinterpretCS.hlsl.metallib.h"
-#include "shaders/FbWriteColorCS.hlsl.metallib.h"
-#include "shaders/FbWriteDepthCS.hlsl.metallib.h"
-#include "shaders/FbWriteDepthCSMS.hlsl.metallib.h"
-#include "shaders/GaussianFilterRGB3x3CS.hlsl.metallib.h"
-#include "shaders/BoxFilterCS.hlsl.metallib.h"
-#include "shaders/BicubicScalingCS.hlsl.metallib.h"
-#include "shaders/HistogramAverageCS.hlsl.metallib.h"
-#include "shaders/HistogramClearCS.hlsl.metallib.h"
-#include "shaders/HistogramSetCS.hlsl.metallib.h"
-#include "shaders/IdleCS.hlsl.metallib.h"
-#include "shaders/LuminanceHistogramCS.hlsl.metallib.h"
-#include "shaders/RSPModifyCS.hlsl.metallib.h"
-#include "shaders/RSPProcessCS.hlsl.metallib.h"
-#include "shaders/RSPSmoothNormalCS.hlsl.metallib.h"
-#include "shaders/RSPVertexTestZCS.hlsl.metallib.h"
-#include "shaders/RSPVertexTestZCSMS.hlsl.metallib.h"
-#include "shaders/RSPWorldCS.hlsl.metallib.h"
-#include "shaders/RtCopyColorToDepthPS.hlsl.metallib.h"
-#include "shaders/RtCopyColorToDepthPSMS.hlsl.metallib.h"
-#include "shaders/RtCopyDepthToColorPS.hlsl.metallib.h"
-#include "shaders/RtCopyDepthToColorPSMS.hlsl.metallib.h"
-#include "shaders/TextureCopyPS.hlsl.metallib.h"
-#include "shaders/TextureDecodeCS.hlsl.metallib.h"
-#include "shaders/VideoInterfacePSRegular.hlsl.metallib.h"
-#include "shaders/VideoInterfacePSPixel.hlsl.metallib.h"
-#include "shaders/FullScreenVS.hlsl.metallib.h"
-#include "shaders/Im3DVS.hlsl.metallib.h"
-#include "shaders/ComposePS.hlsl.metallib.h"
-#include "shaders/DebugPS.hlsl.metallib.h"
-#include "shaders/Im3DPS.hlsl.metallib.h"
-#include "shaders/PostProcessPS.hlsl.metallib.h"
+#   include "shaders/FbChangesClearCS.hlsl.metallib.h"
+#   include "shaders/FbChangesDrawColorPS.hlsl.metallib.h"
+#   include "shaders/FbChangesDrawDepthPS.hlsl.metallib.h"
+#   include "shaders/FbReadAnyChangesCS.hlsl.metallib.h"
+#   include "shaders/FbReadAnyFullCS.hlsl.metallib.h"
+#   include "shaders/FbReinterpretCS.hlsl.metallib.h"
+#   include "shaders/FbWriteColorCS.hlsl.metallib.h"
+#   include "shaders/FbWriteDepthCS.hlsl.metallib.h"
+#   include "shaders/FbWriteDepthCSMS.hlsl.metallib.h"
+#   include "shaders/GaussianFilterRGB3x3CS.hlsl.metallib.h"
+#   include "shaders/BoxFilterCS.hlsl.metallib.h"
+#   include "shaders/BicubicScalingCS.hlsl.metallib.h"
+#   include "shaders/HistogramAverageCS.hlsl.metallib.h"
+#   include "shaders/HistogramClearCS.hlsl.metallib.h"
+#   include "shaders/HistogramSetCS.hlsl.metallib.h"
+#   include "shaders/IdleCS.hlsl.metallib.h"
+#   include "shaders/LuminanceHistogramCS.hlsl.metallib.h"
+#   include "shaders/RSPModifyCS.hlsl.metallib.h"
+#   include "shaders/RSPProcessCS.hlsl.metallib.h"
+#   include "shaders/RSPSmoothNormalCS.hlsl.metallib.h"
+#   include "shaders/RSPVertexTestZCS.hlsl.metallib.h"
+#   include "shaders/RSPVertexTestZCSMS.hlsl.metallib.h"
+#   include "shaders/RSPWorldCS.hlsl.metallib.h"
+#   include "shaders/RtCopyColorToDepthPS.hlsl.metallib.h"
+#   include "shaders/RtCopyColorToDepthPSMS.hlsl.metallib.h"
+#   include "shaders/RtCopyDepthToColorPS.hlsl.metallib.h"
+#   include "shaders/RtCopyDepthToColorPSMS.hlsl.metallib.h"
+#   include "shaders/TextureCopyPS.hlsl.metallib.h"
+#   include "shaders/TextureDecodeCS.hlsl.metallib.h"
+#   include "shaders/TextureResolveSamples2XPS.hlsl.metallib.h"
+#   include "shaders/TextureResolveSamples4XPS.hlsl.metallib.h"
+#   include "shaders/TextureResolveSamples8XPS.hlsl.metallib.h"
+#   include "shaders/VideoInterfacePSRegular.hlsl.metallib.h"
+#   include "shaders/VideoInterfacePSPixel.hlsl.metallib.h"
+#   include "shaders/FullScreenVS.hlsl.metallib.h"
+#   include "shaders/Im3DVS.hlsl.metallib.h"
+#   include "shaders/ComposePS.hlsl.metallib.h"
+#   include "shaders/DebugPS.hlsl.metallib.h"
+#   include "shaders/Im3DPS.hlsl.metallib.h"
+#   include "shaders/PostProcessPS.hlsl.metallib.h"
 #endif
 
 #include "shared/rt64_fb_common.h"
@@ -779,6 +782,7 @@ namespace RT64 {
             }
             else 
 #       endif
+#       ifndef __APPLE__
             if (shaderFormat == RenderShaderFormat::SPIRV) {
                 switch (multisampling.sampleCount) {
                 case RenderSampleCount::COUNT_2:
@@ -795,6 +799,24 @@ namespace RT64 {
                     break;
                 }
             }
+#       elif defined(__APPLE__)
+            if (shaderFormat == RenderShaderFormat::METAL) {
+                switch (multisampling.sampleCount) {
+                case RenderSampleCount::COUNT_2:
+                    PSBlob = TextureResolveSamples2XPSBlobMSL;
+                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobMSL);
+                    break;
+                case RenderSampleCount::COUNT_4:
+                    PSBlob = TextureResolveSamples4XPSBlobMSL;
+                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobMSL);
+                    break;
+                case RenderSampleCount::COUNT_8:
+                    PSBlob = TextureResolveSamples8XPSBlobMSL;
+                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobMSL);
+                    break;
+                }
+            }
+#       endif
             else {
                 assert(false && "Unknown shader format.");
             }
