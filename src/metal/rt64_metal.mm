@@ -462,7 +462,6 @@ namespace RT64 {
         }
     }
 
-
     static MTLClearColor toClearColor(RenderColor color) {
         return MTLClearColorMake(color.r, color.g, color.b, color.a);
     }
@@ -488,12 +487,19 @@ namespace RT64 {
         // TODO: ARC should handle this
     }
 
-    void *MetalBuffer::map(uint32_t subresource, const RT64::RenderRange *readRange) {
-        return [this->buffer contents];
+    void* MetalBuffer::map(uint32_t subresource, const RenderRange* readRange) {
+        return [buffer contents];
     }
 
-    void MetalBuffer::unmap(uint32_t subresource, const RT64::RenderRange *writtenRange) {
-
+    void MetalBuffer::unmap(uint32_t subresource, const RenderRange* writtenRange) {
+        // For managed buffers, we need to notify Metal about changes
+        if (writtenRange && [buffer storageMode] == MTLStorageModeManaged) {
+            NSRange range = {
+                writtenRange->begin,
+                writtenRange->end - writtenRange->begin
+            };
+            [buffer didModifyRange:range];
+        }
     }
 
     std::unique_ptr<RenderBufferFormattedView> MetalBuffer::createBufferFormattedView(RenderFormat format) {
@@ -654,52 +660,57 @@ namespace RT64 {
 
     MetalDescriptorSetLayout::MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
         assert(device != nullptr);
-        assert(device != nullptr);
         this->device = device;
 
-        entryCount = 0;
-        argumentDescriptors = [NSMutableArray array];
+        // Pre-allocate vectors with known size
+        const uint32_t totalDescriptors = desc.descriptorRangesCount + (desc.lastRangeIsBoundless ? desc.boundlessRangeSize : 0);
+        descriptorTypes.reserve(totalDescriptors);
+        descriptorIndexBases.reserve(totalDescriptors);
+        descriptorRangeBinding.reserve(totalDescriptors);
+        
+        argumentDescriptors = [[NSMutableArray alloc] initWithCapacity:desc.descriptorRangesCount];
 
+        // First pass: Calculate descriptor bases and bindings
         for (uint32_t i = 0; i < desc.descriptorRangesCount; i++) {
             const RenderDescriptorRange &range = desc.descriptorRanges[i];
-
             uint32_t indexBase = uint32_t(descriptorIndexBases.size());
-            for (uint32_t j = 0; j < range.count; j++) {
-                descriptorIndexBases.emplace_back(indexBase);
-                descriptorRangeBinding.emplace_back(range.binding);
-            }
+            
+            descriptorIndexBases.resize(descriptorIndexBases.size() + range.count, indexBase);
+            descriptorRangeBinding.resize(descriptorRangeBinding.size() + range.count, range.binding);
         }
 
-        // Figure out the total amount of entries that will be required.
-        uint32_t rangeCount = desc.descriptorRangesCount;
-        if (desc.lastRangeIsBoundless) {
-            assert((desc.descriptorRangesCount > 0) && "There must be at least one descriptor set to define the last range as boundless.");
-            rangeCount--;
-        }
-
-        // Spirv-cross orders by binding number, so we sort
+        // Sort ranges by binding due to how spirv-cross orders them
         std::vector<RenderDescriptorRange> sortedRanges(desc.descriptorRanges, desc.descriptorRanges + desc.descriptorRangesCount);
-        std::sort(sortedRanges.begin(), sortedRanges.end(), [](const RenderDescriptorRange &a, const RenderDescriptorRange &b) {
-            return a.binding < b.binding;
-        });
+        std::sort(sortedRanges.begin(), sortedRanges.end(),
+                  [](const RenderDescriptorRange &a, const RenderDescriptorRange &b) {
+                      return a.binding < b.binding;
+                  });
 
+        // Second pass: Create argument descriptors and handle immutable samplers
+        uint32_t rangeCount = desc.lastRangeIsBoundless ? desc.descriptorRangesCount - 1 : desc.descriptorRangesCount;
+        
         for (uint32_t i = 0; i < rangeCount; i++) {
             const RenderDescriptorRange &range = sortedRanges[i];
-            for (uint32_t j = 0; j < range.count; j++) {
-                descriptorTypes.emplace_back(range.type);
-                entryCount++;
+            
+            // Add descriptor types
+            descriptorTypes.resize(descriptorTypes.size() + range.count, range.type);
+            entryCount += range.count;
 
-                if (range.immutableSampler != nullptr) {
+            // Handle immutable samplers
+            if (range.immutableSampler) {
+                for (uint32_t j = 0; j < range.count; j++) {
                     const auto *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
-                    staticSamplers.emplace_back(sampler->samplerState);
-                    samplerIndices.emplace_back(range.binding + j);
+                    staticSamplers.push_back(sampler->samplerState);
+                    samplerIndices.push_back(range.binding + j);
                 }
             }
 
-            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
+            // Create argument descriptor
+            MTLArgumentDescriptor *argumentDesc = [[MTLArgumentDescriptor alloc] init];
             argumentDesc.dataType = toMTL(range.type);
             argumentDesc.index = range.binding;
             argumentDesc.arrayLength = range.count > 1 ? range.count : 0;
+            
             if (range.type == RenderDescriptorRangeType::TEXTURE) {
                 argumentDesc.textureType = MTLTextureType2D;
             }
@@ -707,40 +718,37 @@ namespace RT64 {
             [argumentDescriptors addObject:argumentDesc];
         }
 
+        // Handle boundless range if present
         if (desc.lastRangeIsBoundless) {
-            const RenderDescriptorRange &lastDescriptorRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
-            descriptorTypes.emplace_back(lastDescriptorRange.type);
-
-            // Ensure at least one entry is created for boundless ranges.
+            const RenderDescriptorRange &lastRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
+            descriptorTypes.push_back(lastRange.type);
             entryCount += std::max(desc.boundlessRangeSize, 1U);
 
-            MTLArgumentDescriptor *argumentDesc = [MTLArgumentDescriptor new];
-            argumentDesc.dataType = toMTL(lastDescriptorRange.type);
-            argumentDesc.index = lastDescriptorRange.binding;
-            argumentDesc.arrayLength = lastDescriptorRange.count > 1 ? lastDescriptorRange.count : 0;
-            // TODO: Fix the upper bound length, metal wants fixed
-            argumentDesc.arrayLength = 8192;
-            if (lastDescriptorRange.type == RenderDescriptorRangeType::TEXTURE) {
+            MTLArgumentDescriptor *argumentDesc = [[MTLArgumentDescriptor alloc] init];
+            argumentDesc.dataType = toMTL(lastRange.type);
+            argumentDesc.index = lastRange.binding;
+            argumentDesc.arrayLength = 8192; // Fixed upper bound for Metal
+            
+            if (lastRange.type == RenderDescriptorRangeType::TEXTURE) {
                 argumentDesc.textureType = MTLTextureType2D;
             }
 
             [argumentDescriptors addObject:argumentDesc];
         }
 
-        // argumentDescriptors must not be empty
-        assert([argumentDescriptors count] > 0 && "argumentDescriptors must not be empty.");
+        assert([argumentDescriptors count] > 0);
+        descriptorTypeMaxIndex = descriptorTypes.empty() ? 0 : uint32_t(descriptorTypes.size() - 1);
 
-        if (!descriptorTypes.empty()) {
-            descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
-        }
+        // Create and initialize argument encoder
+        argumentEncoder = [device->device newArgumentEncoderWithArguments:argumentDescriptors];
+        const size_t bufferLength = [argumentEncoder encodedLength];
+        descriptorBuffer = [device->device newBufferWithLength:bufferLength options:MTLResourceStorageModeShared];
+        
+        [argumentEncoder setArgumentBuffer:descriptorBuffer offset:0];
 
-        argumentEncoder = [device->device newArgumentEncoderWithArguments: argumentDescriptors];
-        size_t bufferLength = [argumentEncoder encodedLength];
-        descriptorBuffer = [device->device newBufferWithLength: bufferLength options: MTLResourceStorageModeShared];
-        [argumentEncoder setArgumentBuffer: descriptorBuffer offset: 0];
-
-        for (uint32_t i = 0; i < staticSamplers.size(); i++) {
-            [argumentEncoder setSamplerState: staticSamplers[i] atIndex: samplerIndices[i]];
+        // Set static samplers
+        for (size_t i = 0; i < staticSamplers.size(); i++) {
+            [argumentEncoder setSamplerState:staticSamplers[i] atIndex:samplerIndices[i]];
         }
     }
 
