@@ -13,13 +13,28 @@ namespace RT64 {
 
     MTLDataType toMTL(RenderDescriptorRangeType type) {
         switch (type) {
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
             case RenderDescriptorRangeType::TEXTURE:
+            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
                 return MTLDataTypeTexture;
+                
+            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
+                return MTLDataTypePointer;
+                
+            case RenderDescriptorRangeType::CONSTANT_BUFFER:
+                return MTLDataTypePointer;
+                
             case RenderDescriptorRangeType::SAMPLER:
                 return MTLDataTypeSampler;
+                
             default:
                 assert(false && "Unknown descriptor range type.");
-                return MTLDataTypeStruct;
+                return MTLDataTypeNone;
         }
     }
 
@@ -1380,9 +1395,9 @@ namespace RT64 {
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
         guaranteeComputeEncoder();
         assert(computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
-
-        [computeEncoder dispatchThreadgroups: MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
-                       threadsPerThreadgroup: MTLSizeMake(1, 1, 1)];
+        
+        [computeEncoder dispatchThreadgroups:MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
+                      threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
     }
 
     void MetalCommandList::traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) {
