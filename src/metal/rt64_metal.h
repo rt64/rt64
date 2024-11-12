@@ -42,6 +42,7 @@ namespace RT64 {
         ~MetalDescriptorSet() override;
         void setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) override;
         void setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) override;
+        virtual void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) override;
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
     };
 
@@ -61,6 +62,8 @@ namespace RT64 {
         bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
         bool resize() override;
         bool needsResize() const override;
+        virtual void setVsyncEnabled(bool vsyncEnabled) override;
+        virtual bool isVsyncEnabled() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
         RenderTexture *getTexture(uint32_t textureIndex) override;
