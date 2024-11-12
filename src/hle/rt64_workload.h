@@ -196,6 +196,14 @@ namespace RT64 {
         float fov;
     };
 
+    struct SpriteCommand {
+        uint32_t fbPairIndex;
+        uint32_t projIndex;
+        uint32_t callIndex;
+        uint32_t callCount;
+        uint64_t replacementHash;
+    };
+
     struct Workload {
         uint64_t submissionFrame;
         DrawData drawData;
@@ -204,6 +212,7 @@ namespace RT64 {
         OutputBuffers outputBuffers;
         std::vector<FramebufferPair> fbPairs;
         std::vector<CommandWarning> commandWarnings;
+        std::vector<SpriteCommand> spriteCommands;
         std::vector<interop::PointLight> pointLights;
         uint32_t fbPairCount;
         uint32_t fbPairSubmitted;

@@ -85,6 +85,7 @@ namespace RT64 {
         std::unique_ptr<RenderTarget> dummyDepthTarget;
         DrawCall drawCall;
         DrawStatus drawStatus;
+        SpriteCommand activeSpriteCommand;
         bool addLightsOnFlush;
         std::vector<FramebufferOperation> drawFbOperations;
         std::vector<uint32_t> drawFbDiscards;
@@ -159,6 +160,8 @@ namespace RT64 {
         void setRenderToRAM(uint8_t renderToRAM);
         void setDitherNoiseStrength(float noiseStrength);
         void setExtendedRDRAM(bool isExtended);
+        void startSpriteCommand(uint64_t replacementHash);
+        void endSpriteCommand();
         uint8_t *fromRDRAM(uint32_t rdramAddress) const;
         void dumpRDRAM(const std::string &path);
         void enableExtendedGBI(uint8_t opCode);
