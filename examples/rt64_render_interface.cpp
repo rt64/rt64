@@ -9,6 +9,7 @@
 #include <chrono>
 #include <SDL.h>
 #include <SDL_syswm.h>
+#include <random>
 
 #ifdef _WIN64
 #include "shaders/RenderInterfaceTestPS.hlsl.dxil.h"
@@ -27,23 +28,49 @@
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
 #else
 #include "metal/rt64_metal.h"
-#include "shaders/RenderInterfaceTestPS.hlsl.metallib.h"
+#include "shaders/RenderInterfaceTestPS.hlsl.metal.h"
 // TODO: Enable when RT is added to Metal.
-//#include "shaders/RenderInterfaceTestRT.hlsl.metallib.h"
-#include "shaders/RenderInterfaceTestVS.hlsl.metallib.h"
-#include "shaders/RenderInterfaceTestCS.hlsl.metallib.h"
-#include "shaders/RenderInterfaceTestPostPS.hlsl.metallib.h"
-#include "shaders/RenderInterfaceTestPostVS.hlsl.metallib.h"
+//#include "shaders/RenderInterfaceTestRT.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestVS.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestCS.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestPostPS.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestPostVS.hlsl.metal.h"
 #endif
 
 #define ENABLE_SWAP_CHAIN 1
 #define ENABLE_CLEAR 1
 #define ENABLE_RASTER 1
-#define ENABLE_TEXTURE 0
+#define ENABLE_TEXTURE 1
 #define ENABLE_COMPUTE 0
 #define ENABLE_RT 0
 
 namespace RT64 {
+    struct BlueNoiseTextureGenerator {
+        static std::vector<uint8_t> generateBlueNoiseData(uint32_t width, uint32_t height) {
+            std::vector<uint8_t> textureData(width * height * 4);
+            
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+            
+            for (uint32_t y = 0; y < height; y++) {
+                for (uint32_t x = 0; x < width; x++) {
+                    uint32_t index = (y * width + x) * 4;
+                    
+                    float noiseValue = dis(gen);
+                    uint8_t pixelValue = static_cast<uint8_t>(noiseValue * 255.0f);
+                    
+                    textureData[index + 0] = pixelValue;  // R
+                    textureData[index + 1] = pixelValue;  // G
+                    textureData[index + 2] = pixelValue;  // B
+                    textureData[index + 3] = 255;         // A
+                }
+            }
+            
+            return textureData;
+        }
+    };
+
     struct RasterDescriptorSet : RenderDescriptorSetBase {
         uint32_t gSampler;
         uint32_t gTextures;
@@ -352,7 +379,8 @@ namespace RT64 {
 
         // Copy to upload buffer.
         void *bufferData = Test.uploadBuffer->map();
-        memcpy(bufferData, LDR_64_64_64_RGB1_BGRA8, BufferSize);
+        auto noiseData = BlueNoiseTextureGenerator::generateBlueNoiseData(Width, Height);
+        memcpy(bufferData, noiseData.data(), BufferSize);
         Test.uploadBuffer->unmap();
 
         // Run command list to copy the upload buffer to the texture.
@@ -551,7 +579,7 @@ namespace RT64 {
         Test.framebuffer = Test.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, Test.depthTarget.get()));
 #   endif
 #   if ENABLE_COMPUTE
-        Test.computeSecondSet->setTexture(Test.computeSecondSet->gTarget, Test.colorTarget.get(), RenderTextureLayout::GENERAL);
+        Test.computeSecondSet->setTexture(Test.computeSecondSet->gTarget, Test.colorTargetMS.get(), RenderTextureLayout::GENERAL);
 #   endif
 #   if ENABLE_RT
         Test.rtSet->setTexture(Test.rtSet->gOutput, Test.colorTarget.get(), RenderTextureLayout::GENERAL);

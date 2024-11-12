@@ -739,7 +739,6 @@ namespace RT64 {
         assert(device != nullptr);
         assert(data != nullptr);
         assert(size > 0);
-        assert(format != RenderShaderFormat::UNKNOWN);
         assert(format == RenderShaderFormat::METAL);
 
         this->device = device;
@@ -1613,7 +1612,10 @@ namespace RT64 {
                                size: size];
     }
 
-    void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
+    void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation,
+                                            const RenderTextureCopyLocation &srcLocation,
+                                            uint32_t dstX, uint32_t dstY, uint32_t dstZ,
+                                            const RenderBox *srcBox) {
         guaranteeBlitEncoder();
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
@@ -1623,48 +1625,77 @@ namespace RT64 {
         const auto srcTexture = static_cast<const MetalTexture *>(srcLocation.texture);
         const auto dstBuffer = static_cast<const MetalBuffer *>(dstLocation.buffer);
         const auto srcBuffer = static_cast<const MetalBuffer *>(srcLocation.buffer);
-        if ((dstLocation.type == RenderTextureCopyType::SUBRESOURCE) && (srcLocation.type == RenderTextureCopyType::PLACED_FOOTPRINT)) {
+
+        if (dstLocation.type == RenderTextureCopyType::SUBRESOURCE &&
+            srcLocation.type == RenderTextureCopyType::PLACED_FOOTPRINT) {
             assert(dstTexture != nullptr);
             assert(srcBuffer != nullptr);
 
-            auto origin = MTLOriginMake(dstX, dstY, dstZ);
-            auto size = MTLSizeMake(srcTexture->desc.width, srcTexture->desc.height, srcTexture->desc.depth);
+            MTLOrigin dstOrigin = MTLOriginMake(dstX, dstY, dstZ);
+            
+            // Calculate actual dimensions based on format block size
+            uint32_t blockWidth = RenderFormatBlockWidth(srcLocation.placedFootprint.format);
+            uint32_t width = ((srcLocation.placedFootprint.width + blockWidth - 1) / blockWidth) * blockWidth;
+            uint32_t height = ((srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
+            uint32_t depth = srcLocation.placedFootprint.depth;
+            
+            MTLSize size = MTLSizeMake(width, height, depth);
+
+            // Calculate proper bytes per row based on format
+            uint32_t blockCount = (srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth;
+            uint32_t bytesPerRow = blockCount * RenderFormatSize(srcLocation.placedFootprint.format);
+            
+            // Calculate bytes per image (row pitch * height)
+            uint32_t bytesPerImage = bytesPerRow * height;
+
+            // Verify alignment requirements
+            assert((srcLocation.placedFootprint.offset % 256) == 0 && "Buffer offset must be aligned");
+            assert((bytesPerRow % 256) == 0 && "Bytes per row must be aligned");
 
             [blitEncoder copyFromBuffer: srcBuffer->buffer
-                           sourceOffset: srcLocation.placedFootprint.offset
-                      sourceBytesPerRow: srcLocation.placedFootprint.rowWidth
-                    // TODO: Check this calculation is correct
-                    sourceBytesPerImage: srcLocation.placedFootprint.rowWidth * srcLocation.placedFootprint.height
-                             sourceSize: size
-                              toTexture: dstTexture->mtlTexture
-                       destinationSlice: 0
-                       destinationLevel: 0
-                      destinationOrigin: origin];
+                         sourceOffset: srcLocation.placedFootprint.offset
+                    sourceBytesPerRow: bytesPerRow
+                  sourceBytesPerImage: bytesPerImage
+                           sourceSize: size
+                            toTexture: dstTexture->mtlTexture
+                     destinationSlice: dstLocation.subresource.index
+                     destinationLevel: 0
+                    destinationOrigin: dstOrigin];
         }
-        else {
-            auto origin = MTLOriginMake(dstX, dstY, dstZ);
+        else if (dstLocation.type == RenderTextureCopyType::SUBRESOURCE &&
+                 srcLocation.type == RenderTextureCopyType::SUBRESOURCE) {
+            assert(dstTexture != nullptr);
+            assert(srcTexture != nullptr);
+
+            MTLOrigin srcOrigin;
             MTLSize size;
 
             if (srcBox != nullptr) {
-                size.width = srcBox->right - srcBox->left;
-                size.height = srcBox->bottom - srcBox->top;
-                size.depth = srcBox->back - srcBox->front;
-            }
-            else {
-                size.width = srcTexture->desc.width;
-                size.height = srcTexture->desc.height;
-                size.depth = srcTexture->desc.depth;
+                srcOrigin = MTLOriginMake(srcBox->left, srcBox->top, srcBox->front);
+                size = MTLSizeMake(srcBox->right - srcBox->left,
+                                 srcBox->bottom - srcBox->top,
+                                 srcBox->back - srcBox->front);
+            } else {
+                srcOrigin = MTLOriginMake(0, 0, 0);
+                size = MTLSizeMake(srcTexture->desc.width,
+                                 srcTexture->desc.height,
+                                 srcTexture->desc.depth);
             }
 
+            MTLOrigin dstOrigin = MTLOriginMake(dstX, dstY, dstZ);
+
             [blitEncoder copyFromTexture: srcTexture->mtlTexture
-                             sourceSlice: 0
-                             sourceLevel: 0
-                            sourceOrigin: origin
-                              sourceSize: size
-                               toTexture: dstTexture->mtlTexture
-                        destinationSlice: 0
-                        destinationLevel: 0
-                       destinationOrigin: origin];
+                           sourceSlice: srcLocation.subresource.index
+                           sourceLevel: 0
+                          sourceOrigin: srcOrigin
+                            sourceSize: size
+                             toTexture: dstTexture->mtlTexture
+                      destinationSlice: dstLocation.subresource.index
+                      destinationLevel: 0
+                     destinationOrigin: dstOrigin];
+        }
+        else {
+            assert(false && "Unsupported texture copy type combination");
         }
     }
 
