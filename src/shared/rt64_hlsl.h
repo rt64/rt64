@@ -248,6 +248,15 @@ namespace interop {
         inline const float *operator[](int i) const { return m[i]; }
         static float4x4 identity() { return FLOAT4X4_IDENTITY; }
     };
+
+    // Wrappers for select to prevent implicit casting to float.
+    inline uint select_uint(bool cond, uint val1, uint val2) {
+        return cond ? val1 : val2;
+    }
+
+    inline int select_int(bool cond, int val1, int val2) {
+        return cond ? val1 : val2;
+    }
 };
 
 
@@ -256,5 +265,14 @@ namespace interop {
 #else
 
 #define constmethod
+
+// Wrappers for select to prevent implicit casting to float.
+uint select_uint(bool cond, uint val1, uint val2) {
+    return select(cond, val1, val2);
+}
+
+int select_int(bool cond, int val1, int val2) {
+    return select(cond, val1, val2);
+}
 
 #endif

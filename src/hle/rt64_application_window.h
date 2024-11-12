@@ -9,41 +9,45 @@
 #include <Windows.h>
 #endif
 
-#define RT64_SDL_WINDOW
-
-#ifdef RT64_SDL_WINDOW
-#   include "SDL_events.h"
-#   include "SDL_system.h"
-#   include "SDL_syswm.h"
-#   include "SDL_video.h"
-#endif
+#include "SDL.h"
+#include "SDL_events.h"
+#include "SDL_system.h"
+#include "SDL_syswm.h"
+#include "SDL_video.h"
 
 namespace RT64 {
     struct ApplicationWindow {
         static ApplicationWindow *HookedApplicationWindow;
 
         struct Listener {
+            virtual bool usesWindowMessageFilter() = 0;
+
             // Return true if the listener should accept and handle the message.
             // Return false otherwise for the default message handler to take over.
+            virtual bool sdlEventFilter(SDL_Event *event) = 0;
+
 #       ifdef _WIN32
             virtual bool windowMessageFilter(unsigned int message, WPARAM wParam, LPARAM lParam) = 0;
-            virtual bool usesWindowMessageFilter() = 0;
 #       endif
         };
 
-        RenderWindow windowHandle;
-#   ifdef _WIN32
-        HHOOK windowHook;
-        HMENU windowMenu;
-        RECT lastWindowRect;
-#   endif
+        RenderWindow windowHandle = {};
         Listener *listener;
         uint32_t refreshRate = 0;
-        bool fullScreen;
-        bool lastMaximizedState;
-        bool usingSdl;
+        bool fullScreen = false;
+        bool lastMaximizedState = false;
         int32_t windowLeft = INT32_MAX;
         int32_t windowTop = INT32_MAX;
+        SDL_Window *sdlWindow = nullptr;
+        SDL_EventFilter sdlEventFilterStored = nullptr;
+        void *sdlEventFilterUserdata = nullptr;
+        bool sdlEventFilterInstalled = false;
+
+#   ifdef _WIN32
+        HHOOK windowHook = nullptr;
+        HMENU windowMenu = nullptr;
+        RECT lastWindowRect = {};
+#   endif
 
         ApplicationWindow();
         ~ApplicationWindow();
@@ -54,20 +58,12 @@ namespace RT64 {
         void detectRefreshRate();
         uint32_t getRefreshRate() const;
         bool detectWindowMoved();
+        void sdlCheckFilterInstallation();
+        static int sdlEventFilter(void *userdata, SDL_Event *event);
 
 #   ifdef _WIN32
         void windowMessage(UINT message, WPARAM wParam, LPARAM lParam);
         static LRESULT windowHookCallback(int nCode, WPARAM wParam, LPARAM lParam);
-#   endif
-
-#   ifdef RT64_SDL_WINDOW
-        SDL_EventFilter sdlEventFilter;
-        void *sdlEventFilterUserdata;
-        bool sdlEventFilterStored;
-
-        void blockSdlKeyboard();
-        void unblockSdlKeyboard();
-        static int sdlEventKeyboardFilter(void *userdata, SDL_Event *event);
 #   endif
     };
 };

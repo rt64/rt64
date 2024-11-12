@@ -580,10 +580,18 @@ namespace RT64 {
                 worker->commandList->setGraphicsPushConstants(0, &rasterParams);
                 drawCallTriangles(drawCall);
 
+                // Simulate dither noise.
                 if (triangles.postBlendDitherNoise) {
-                    worker->commandList->setPipeline(postBlendDitherNoiseAddPipeline);
-                    drawCallTriangles(drawCall);
-                    worker->commandList->setPipeline(postBlendDitherNoiseSubPipeline);
+                    if (triangles.postBlendDitherNoiseNegative) {
+                        worker->commandList->setPipeline(postBlendDitherNoiseSubNegativePipeline);
+                    }
+                    else {
+                        worker->commandList->setPipeline(postBlendDitherNoiseAddPipeline);
+                        drawCallTriangles(drawCall);
+
+                        worker->commandList->setPipeline(postBlendDitherNoiseSubPipeline);
+                    }
+
                     drawCallTriangles(drawCall);
                     previousPipeline = nullptr;
                 }
@@ -736,7 +744,7 @@ namespace RT64 {
         worker->commandList->setFramebuffer(nullptr);
 
         // Resolve the color target if necessary before using it as the RT scene background.
-        colorTarget->resolveTarget(worker);
+        colorTarget->resolveTarget(worker, shaderLibrary);
         worker->commandList->barriers(RenderBarrierStage::COMPUTE, RenderTextureBarrier(colorTarget->getResolvedTexture(), RenderTextureLayout::SHADER_READ));
 
         if (rtResources->transitionOutputBuffers) {
@@ -1246,7 +1254,7 @@ namespace RT64 {
 
                     // Resolve the interleaved scene.
                     // TODO: Depth textures need to be thrown into a separate view vector for multisampled textures.
-                    fbStorage->colorTarget->resolveTarget(worker);
+                    fbStorage->colorTarget->resolveTarget(worker, shaderLibrary);
 
                     interleavedBarriers.emplace_back(RenderTextureBarrier(colorRenderTarget->texture.get(), RenderTextureLayout::SHADER_READ));
                     interleavedBarriers.emplace_back(RenderTextureBarrier(depthRenderTarget->texture.get(), RenderTextureLayout::DEPTH_READ));
@@ -1313,12 +1321,15 @@ namespace RT64 {
         framebuffer.descDummyFbSet->setTexture(framebuffer.descDummyFbSet->gBackgroundColor, p.fbStorage->colorTarget->getResolvedTexture(), RenderTextureLayout::SHADER_READ, p.fbStorage->colorTarget->getResolvedTextureView());
         framebuffer.descDummyFbSet->setTexture(framebuffer.descDummyFbSet->gBackgroundDepth, dummyDepthTarget.get(), RenderTextureLayout::DEPTH_READ, dummyDepthTargetView.get());
 
-        // Make a new render target draw call.
-        RenderTargetDrawCall &targetDrawCall = framebuffer.renderTargetDrawCall;
+        // Store ubershader and other effect pipelines.
         const RasterShaderUber *rasterShaderUber = p.rasterShaderCache->getGPUShaderUber();
         rendererPipelineLayout = rasterShaderUber->pipelineLayout.get();
         postBlendDitherNoiseAddPipeline = rasterShaderUber->postBlendDitherNoiseAddPipeline.get();
         postBlendDitherNoiseSubPipeline = rasterShaderUber->postBlendDitherNoiseSubPipeline.get();
+        postBlendDitherNoiseSubNegativePipeline = rasterShaderUber->postBlendDitherNoiseSubNegativePipeline.get();
+
+        // Make a new render target draw call.
+        RenderTargetDrawCall &targetDrawCall = framebuffer.renderTargetDrawCall;
         const DrawData &drawData = p.curWorkload->drawData;
         const DrawBuffers &drawBuffers = p.curWorkload->drawBuffers;
         const OutputBuffers &outputBuffers = p.curWorkload->outputBuffers;
@@ -1544,11 +1555,8 @@ namespace RT64 {
                         else {
                             const bool copyMode = (call.shaderDesc.otherMode.cycleType() == G_CYC_COPY);
                             triangles.pipeline = rasterShaderUber->getPipeline(
-                                !copyMode && interop::Blender::usesAlphaBlend(call.shaderDesc.otherMode),
-                                !copyMode && call.shaderDesc.flags.culling,
-                                !copyMode && call.shaderDesc.otherMode.zCmp(),
+                                !copyMode && call.shaderDesc.otherMode.zCmp() && (call.shaderDesc.otherMode.zMode() != ZMODE_DEC),
                                 !copyMode && call.shaderDesc.otherMode.zUpd(),
-                                !copyMode && (call.shaderDesc.otherMode.zMode() == ZMODE_DEC),
                                 (call.shaderDesc.otherMode.cvgDst() == CVG_DST_WRAP) || (call.shaderDesc.otherMode.cvgDst() == CVG_DST_SAVE));
                         }
                         
@@ -1612,6 +1620,7 @@ namespace RT64 {
                                 // Indicate if post blend dither noise should be applied.
                                 bool rgbDitherNoise = (call.shaderDesc.otherMode.rgbDither() == G_CD_NOISE);
                                 triangles.postBlendDitherNoise = rgbDitherNoise && !call.shaderDesc.otherMode.zCmp() && !call.shaderDesc.otherMode.zUpd();
+                                triangles.postBlendDitherNoiseNegative = p.postBlendNoiseNegative;
                             }
 
                             break;

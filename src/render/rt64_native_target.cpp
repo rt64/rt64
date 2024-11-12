@@ -234,7 +234,7 @@ namespace RT64 {
     void NativeTarget::copyToNative(RenderWorker *worker, RenderTarget *srcTarget, uint32_t rowWidth, uint32_t rowStart, uint32_t rowEnd, uint8_t siz, uint8_t fmt, uint32_t ditherPattern, uint32_t ditherRandomSeed, const ShaderLibrary *shaderLibrary) {
         assert(worker != nullptr);
 
-        srcTarget->resolveTarget(worker);
+        srcTarget->resolveTarget(worker, shaderLibrary);
 
         if (srcTarget->fbWriteDescSet == nullptr) {
             srcTarget->fbWriteDescSet = std::make_unique<FramebufferWriteDescriptorTextureSet>(worker->device);

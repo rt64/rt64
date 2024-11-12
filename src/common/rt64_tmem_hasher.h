@@ -6,7 +6,7 @@
 
 namespace RT64 {
     struct TMEMHasher {
-        static const uint32_t CurrentHashVersion = 2;
+        static const uint32_t CurrentHashVersion = 3;
 
         static bool needsToHashRowsIndividually(const LoadTile &loadTile, uint32_t width) {
             // When using 32-bit formats, TMEM contents are split in half in the lower and upper half, so the size per row is effectively
@@ -24,10 +24,18 @@ namespace RT64 {
             XXH3_state_t xxh3;
             XXH3_64bits_reset(&xxh3);
             const bool RGBA32 = (loadTile.siz == G_IM_SIZ_32b) && (loadTile.fmt == G_IM_FMT_RGBA);
-            const uint32_t tmemSize = RGBA32 ? (TMEMBytes >> 1) : TMEMBytes;
+            const bool usesTLUT = tlut > 0;
+            bool halfTMEM = RGBA32;
+            
+            // Version 3 fixes an error where using TLUT did not mask the address to the lower half of TMEM.
+            if ((version >= 3) && usesTLUT) {
+                halfTMEM = true;
+            }
+
+            const uint32_t tmemSize = halfTMEM ? (TMEMBytes >> 1) : TMEMBytes;
             const uint32_t drawBytesPerRow = std::max(uint32_t(width) << (RGBA32 ? G_IM_SIZ_16b : loadTile.siz) >> 1U, 1U);
             const uint32_t drawBytesTotal = (loadTile.line << 3) * (height - 1) + drawBytesPerRow;
-            const uint32_t tmemMask = RGBA32 ? TMEMMask16 : TMEMMask8;
+            const uint32_t tmemMask = halfTMEM ? TMEMMask16 : TMEMMask8;
             const uint32_t tmemAddress = (loadTile.tmem << 3) & tmemMask;
             auto hashTMEM = [&](uint32_t tmemBaseAddress, uint32_t tmemOrAddress, uint32_t byteCount) {
                 // Too many bytes to hash in a single step. Wrap around TMEM and hash the rest.
@@ -64,7 +72,7 @@ namespace RT64 {
             }
 
             // If TLUT is active, we also hash the corresponding palette bytes.
-            if (tlut > 0) {
+            if (usesTLUT) {
                 const bool CI4 = (loadTile.siz == G_IM_SIZ_4b);
                 const int32_t paletteOffset = CI4 ? (loadTile.palette << 7) : 0;
                 const int32_t bytesToHash = CI4 ? 0x80 : 0x800;

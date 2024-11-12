@@ -12,6 +12,12 @@
 #include "imgui/imgui.h"
 #include "implot/implot.h"
 
+// Volk must be included before the ImGui Vulkan backend.
+#include "vulkan/rt64_vulkan.h"
+
+#include "imgui/backends/imgui_impl_sdl2.h"
+#include "imgui/backends/imgui_impl_vulkan.h"
+
 #if defined(_WIN32)
 #   include "imgui/backends/imgui_impl_dx12.h"
 #   include "imgui/backends/imgui_impl_win32.h"
@@ -21,10 +27,6 @@
 #if defined(_WIN32)
 #   include "d3d12/rt64_d3d12.h"
 #endif
-
-// Volk must be included before the ImGui Vulkan backend.
-#include "vulkan/rt64_vulkan.h"
-#include "imgui/backends/imgui_impl_vulkan.h"
 
 static std::string IniFilenameUTF8;
 
@@ -59,13 +61,14 @@ namespace RT64 {
 
     // Inspector
 
-    Inspector::Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI) {
+    Inspector::Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI, SDL_Window *sdlWindow) {
         assert(device != nullptr);
         assert(swapChain != nullptr);
 
         this->device = device;
         this->swapChain = swapChain;
         this->graphicsAPI = graphicsAPI;
+        this->sdlWindow = sdlWindow;
 
         IMGUI_CHECKVERSION();
 
@@ -73,10 +76,15 @@ namespace RT64 {
         ImPlot::CreateContext();
         ImGui::StyleColorsDark();
 
-#   ifdef _WIN32
-        RenderWindow renderWindow = swapChain->getWindow();
-        ImGui_ImplWin32_Init(renderWindow);
-#   endif
+        if (sdlWindow != nullptr) {
+            ImGui_ImplSDL2_InitForOther(sdlWindow);
+        }
+        else {
+#       ifdef _WIN32
+            RenderWindow renderWindow = swapChain->getWindow();
+            ImGui_ImplWin32_Init(renderWindow);
+#       endif
+        }
 
         switch (graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12: {
@@ -87,9 +95,9 @@ namespace RT64 {
 
             D3D12DescriptorSet *interfaceDescriptorSet = static_cast<D3D12DescriptorSet *>(descriptorSet.get());
             const D3D12SwapChain *interfaceSwapChain = static_cast<const D3D12SwapChain *>(swapChain);
-            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = interfaceDevice->descriptorHeapAllocator->getShaderCPUHandleAt(interfaceDescriptorSet->allocatorOffset);
-            const D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = interfaceDevice->descriptorHeapAllocator->getShaderGPUHandleAt(interfaceDescriptorSet->allocatorOffset);
-            ImGui_ImplDX12_Init(interfaceDevice->d3d, 2, interfaceSwapChain->nativeFormat, interfaceDevice->descriptorHeapAllocator->shaderHeap, cpuHandle, gpuHandle);
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = interfaceDevice->viewHeapAllocator->getShaderCPUHandleAt(interfaceDescriptorSet->viewAllocation.offset);
+            const D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = interfaceDevice->viewHeapAllocator->getShaderGPUHandleAt(interfaceDescriptorSet->viewAllocation.offset);
+            ImGui_ImplDX12_Init(interfaceDevice->d3d, 2, interfaceSwapChain->nativeFormat, interfaceDevice->viewHeapAllocator->shaderHeap, cpuHandle, gpuHandle);
 #       else
             assert(false && "Unsupported Graphics API.");
             return;
@@ -153,11 +161,14 @@ namespace RT64 {
             break;
         }
 
-#   ifdef _WIN32
-        ImGui_ImplWin32_Shutdown();
-#   else
-        assert(false && "Unimplemented.");
-#   endif
+        if (sdlWindow != nullptr) {
+            ImGui_ImplSDL2_Shutdown();
+        }
+        else {
+#       ifdef _WIN32
+            ImGui_ImplWin32_Shutdown();
+#       endif
+        }
 
         ImPlot::DestroyContext();
         ImGui::DestroyContext();
@@ -173,12 +184,15 @@ namespace RT64 {
         assert(worker != nullptr);
 
         frameMutex.lock();
-
-#   ifdef _WIN32
-        ImGui_ImplWin32_NewFrame();
-#   else
-        assert(false && "Unimplemented.");
-#   endif
+        
+        if (sdlWindow != nullptr) {
+            ImGui_ImplSDL2_NewFrame();
+        }
+        else {
+#       ifdef _WIN32
+            ImGui_ImplWin32_NewFrame();
+#       endif
+        }
 
         switch (graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12: {
@@ -240,4 +254,20 @@ namespace RT64 {
         return ImGui_ImplWin32_WndProcHandler(swapChain->getWindow(), msg, wParam, lParam);
     }
 #endif
+
+    bool Inspector::handleSdlEvent(SDL_Event *event) {
+        assert((sdlWindow != nullptr) && "SDL Events shouldn't be handled if SDL was not used.");
+
+        bool processed = ImGui_ImplSDL2_ProcessEvent(event);
+        if (processed) {
+            if ((event->type == SDL_KEYDOWN) || (event->type == SDL_KEYUP)) {
+                return ImGui::GetIO().WantCaptureKeyboard;
+            }
+            else if ((event->type == SDL_MOUSEMOTION) || (event->type == SDL_MOUSEBUTTONDOWN) || (event->type == SDL_MOUSEBUTTONUP) || (event->type == SDL_MOUSEWHEEL)) {
+                return ImGui::GetIO().WantCaptureMouse;
+            }
+        }
+        
+        return false;
+    }
 };

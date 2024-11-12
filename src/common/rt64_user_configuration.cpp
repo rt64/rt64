@@ -16,6 +16,7 @@ namespace RT64 {
     void to_json(json &j, const UserConfiguration &cfg) {
         j["graphicsAPI"] = cfg.graphicsAPI;
         j["resolution"] = cfg.resolution;
+        j["displayBuffering"] = cfg.displayBuffering;
         j["antialiasing"] = cfg.antialiasing;
         j["resolutionMultiplier"] = cfg.resolutionMultiplier;
         j["downsampleMultiplier"] = cfg.downsampleMultiplier;
@@ -29,6 +30,7 @@ namespace RT64 {
         j["refreshRate"] = cfg.refreshRate;
         j["refreshRateTarget"] = cfg.refreshRateTarget;
         j["internalColorFormat"] = cfg.internalColorFormat;
+        j["hardwareResolve"] = cfg.hardwareResolve;
         j["idleWorkActive"] = cfg.idleWorkActive;
         j["developerMode"] = cfg.developerMode;
     }
@@ -37,6 +39,7 @@ namespace RT64 {
         UserConfiguration defaultCfg;
         cfg.graphicsAPI = j.value("graphicsAPI", defaultCfg.graphicsAPI);
         cfg.resolution = j.value("resolution", defaultCfg.resolution);
+        cfg.displayBuffering = j.value("displayBuffering", defaultCfg.displayBuffering);
         cfg.antialiasing = j.value("antialiasing", defaultCfg.antialiasing);
         cfg.resolutionMultiplier = j.value("resolutionMultiplier", defaultCfg.resolutionMultiplier);
         cfg.downsampleMultiplier = j.value("downsampleMultiplier", defaultCfg.downsampleMultiplier);
@@ -50,6 +53,7 @@ namespace RT64 {
         cfg.refreshRate = j.value("refreshRate", defaultCfg.refreshRate);
         cfg.refreshRateTarget = j.value("refreshRateTarget", defaultCfg.refreshRateTarget);
         cfg.internalColorFormat = j.value("internalColorFormat", defaultCfg.internalColorFormat);
+        cfg.hardwareResolve = j.value("hardwareResolve", defaultCfg.hardwareResolve);
         cfg.idleWorkActive = j.value("idleWorkActive", defaultCfg.idleWorkActive);
         cfg.developerMode = j.value("developerMode", defaultCfg.developerMode);
     }
@@ -66,6 +70,7 @@ namespace RT64 {
     UserConfiguration::UserConfiguration() {
         graphicsAPI = DefaultGraphicsAPI;
         resolution = Resolution::WindowIntegerScale;
+        displayBuffering = DisplayBuffering::Double;
         antialiasing = Antialiasing::None;
         resolutionMultiplier = 2.0f;
         downsampleMultiplier = 1;
@@ -79,6 +84,7 @@ namespace RT64 {
         refreshRate = RefreshRate::Original;
         refreshRateTarget = 60;
         internalColorFormat = InternalColorFormat::Automatic;
+        hardwareResolve = HardwareResolve::Automatic;
         idleWorkActive = true;
         developerMode = false;
     }
@@ -86,6 +92,7 @@ namespace RT64 {
     void UserConfiguration::validate() {
         clampEnum<GraphicsAPI>(graphicsAPI);
         clampEnum<Resolution>(resolution);
+        clampEnum<DisplayBuffering>(displayBuffering);
         clampEnum<Antialiasing>(antialiasing);
         clampEnum<Filtering>(filtering);
         clampEnum<AspectRatio>(aspectRatio);
@@ -93,6 +100,7 @@ namespace RT64 {
         clampEnum<Upscale2D>(upscale2D);
         clampEnum<RefreshRate>(refreshRate);
         clampEnum<InternalColorFormat>(internalColorFormat);
+        clampEnum<HardwareResolve>(hardwareResolve);
         resolutionMultiplier = std::clamp<double>(resolutionMultiplier, 0.0f, ResolutionMultiplierLimit);
         downsampleMultiplier = std::clamp<int>(downsampleMultiplier, 1, ResolutionMultiplierLimit);
         aspectTarget = std::clamp<double>(aspectTarget, 0.1f, 100.0f);

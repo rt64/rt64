@@ -44,7 +44,7 @@ namespace RT64 {
     struct ReplacementConfiguration {
         ReplacementAutoPath autoPath = ReplacementAutoPath::RT64;
         uint32_t configurationVersion = 2;
-        uint32_t hashVersion = 2;
+        uint32_t hashVersion = 3;
     };
 
     struct ReplacementHashes {

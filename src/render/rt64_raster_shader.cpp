@@ -7,21 +7,20 @@
 #include "xxHash/xxh3.h"
 
 #include "shaders/RenderParams.hlsli.rw.h"
-#ifndef __APPLE__
-#   include "shaders/RasterPSDynamic.hlsl.spirv.h"
-#   include "shaders/RasterPSDynamicMS.hlsl.spirv.h"
-#   include "shaders/RasterPSSpecConstant.hlsl.spirv.h"
-#   include "shaders/RasterPSSpecConstantFlat.hlsl.spirv.h"
-#   include "shaders/RasterPSSpecConstantDepth.hlsl.spirv.h"
-#   include "shaders/RasterPSSpecConstantDepthMS.hlsl.spirv.h"
-#   include "shaders/RasterPSSpecConstantFlatDepth.hlsl.spirv.h"
-#   include "shaders/RasterPSSpecConstantFlatDepthMS.hlsl.spirv.h"
-#   include "shaders/RasterVSDynamic.hlsl.spirv.h"
-#   include "shaders/RasterVSSpecConstant.hlsl.spirv.h"
-#   include "shaders/RasterVSSpecConstantFlat.hlsl.spirv.h"
-#   include "shaders/PostBlendDitherNoiseAddPS.hlsl.spirv.h"
-#   include "shaders/PostBlendDitherNoiseSubPS.hlsl.spirv.h"
-#endif
+#include "shaders/RasterPSDynamic.hlsl.spirv.h"
+#include "shaders/RasterPSDynamicMS.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstant.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstantFlat.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstantDepth.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstantDepthMS.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstantFlatDepth.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstantFlatDepthMS.hlsl.spirv.h"
+#include "shaders/RasterVSDynamic.hlsl.spirv.h"
+#include "shaders/RasterVSSpecConstant.hlsl.spirv.h"
+#include "shaders/RasterVSSpecConstantFlat.hlsl.spirv.h"
+#include "shaders/PostBlendDitherNoiseAddPS.hlsl.spirv.h"
+#include "shaders/PostBlendDitherNoiseSubPS.hlsl.spirv.h"
+#include "shaders/PostBlendDitherNoiseSubNegativePS.hlsl.spirv.h"
 #ifdef _WIN32
 #   include "shaders/RasterPSLibrary.hlsl.dxil.h"
 #   include "shaders/RasterPSLibraryMS.hlsl.dxil.h"
@@ -31,20 +30,7 @@
 #   include "shaders/RasterVSDynamic.hlsl.dxil.h"
 #   include "shaders/PostBlendDitherNoiseAddPS.hlsl.dxil.h"
 #   include "shaders/PostBlendDitherNoiseSubPS.hlsl.dxil.h"
-#elif defined(__APPLE__)
-#   include "shaders/RasterPSDynamic.hlsl.metallib.h"
-#   include "shaders/RasterPSDynamicMS.hlsl.metallib.h"
-#   include "shaders/RasterPSSpecConstant.hlsl.metallib.h"
-#   include "shaders/RasterPSSpecConstantFlat.hlsl.metallib.h"
-#   include "shaders/RasterPSSpecConstantDepth.hlsl.metallib.h"
-#   include "shaders/RasterPSSpecConstantDepthMS.hlsl.metallib.h"
-#   include "shaders/RasterPSSpecConstantFlatDepth.hlsl.metallib.h"
-#   include "shaders/RasterPSSpecConstantFlatDepthMS.hlsl.metallib.h"
-#   include "shaders/RasterVSDynamic.hlsl.metallib.h"
-#   include "shaders/RasterVSSpecConstant.hlsl.metallib.h"
-#   include "shaders/RasterVSSpecConstantFlat.hlsl.metallib.h"
-#   include "shaders/PostBlendDitherNoiseAddPS.hlsl.metallib.h"
-#   include "shaders/PostBlendDitherNoiseSubPS.hlsl.metallib.h"
+#   include "shaders/PostBlendDitherNoiseSubNegativePS.hlsl.dxil.h"
 #endif
 #include "shared/rt64_raster_params.h"
 
@@ -68,10 +54,31 @@ namespace RT64 {
         RenderInputElement("COLOR", 0, 2, RasterColorFormat, 2, 0)
     };
 
+    // OptimizerCacheSPIRV
+
+    void OptimizerCacheSPIRV::initialize() {
+        rasterVS.parse(RasterVSSpecConstantBlobSPIRV, std::size(RasterVSSpecConstantBlobSPIRV));
+        rasterVSFlat.parse(RasterVSSpecConstantFlatBlobSPIRV, std::size(RasterVSSpecConstantFlatBlobSPIRV));
+        rasterPS.parse(RasterPSSpecConstantBlobSPIRV, std::size(RasterPSSpecConstantBlobSPIRV));
+        rasterPSDepth.parse(RasterPSSpecConstantDepthBlobSPIRV, std::size(RasterPSSpecConstantDepthBlobSPIRV));
+        rasterPSDepthMS.parse(RasterPSSpecConstantDepthMSBlobSPIRV, std::size(RasterPSSpecConstantDepthMSBlobSPIRV));
+        rasterPSFlatDepth.parse(RasterPSSpecConstantFlatDepthBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthBlobSPIRV));
+        rasterPSFlatDepthMS.parse(RasterPSSpecConstantFlatDepthMSBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthMSBlobSPIRV));
+        rasterPSFlat.parse(RasterPSSpecConstantFlatBlobSPIRV, std::size(RasterPSSpecConstantFlatBlobSPIRV));
+        assert(!rasterVS.empty());
+        assert(!rasterVSFlat.empty());
+        assert(!rasterPS.empty());
+        assert(!rasterPSDepth.empty());
+        assert(!rasterPSDepthMS.empty());
+        assert(!rasterPSFlatDepth.empty());
+        assert(!rasterPSFlatDepthMS.empty());
+        assert(!rasterPSFlat.empty());
+    }
+
     // RasterShader
 
     RasterShader::RasterShader(RenderDevice *device, const ShaderDescription &desc, const RenderPipelineLayout *pipelineLayout, RenderShaderFormat shaderFormat, const RenderMultisampling &multisampling, 
-        const ShaderCompiler *shaderCompiler, std::vector<uint8_t> *vsBytes, std::vector<uint8_t> *psBytes, bool useBytes)
+        const ShaderCompiler *shaderCompiler, const OptimizerCacheSPIRV *optimizerCacheSPIRV)
     {
         assert(device != nullptr);
 
@@ -81,163 +88,93 @@ namespace RT64 {
         const bool useMSAA = (multisampling.sampleCount > 1);
         std::unique_ptr<RenderShader> vertexShader;
         std::unique_ptr<RenderShader> pixelShader;
-        std::vector<RenderSpecConstant> specConstants;
         if (shaderFormat == RenderShaderFormat::SPIRV) {
-#       ifndef __APPLE__
             // Choose the pre-compiled shader permutations.
-            const void *VSBlob = nullptr;
-            const void *PSBlob = nullptr;
-            uint32_t VSBlobSize = 0;
-            uint32_t PSBlobSize = 0;
+            const respv::Shader *VS = nullptr;
+            const respv::Shader *PS = nullptr;
             const bool outputDepth = desc.outputDepth(useMSAA);
-            if (desc.flags.smoothShade) {
-                VSBlob = RasterVSSpecConstantBlobSPIRV;
-                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantBlobSPIRV));
-            }
-            else {
-                VSBlob = RasterVSSpecConstantFlatBlobSPIRV;
-                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantFlatBlobSPIRV));
-            }
-            
-            // Pick the correct SPIR-V based on the configuration.
-            if (desc.flags.smoothShade) {
-                if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantDepthMSBlobSPIRV : RasterPSSpecConstantDepthBlobSPIRV;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantDepthMSBlobSPIRV) : std::size(RasterPSSpecConstantDepthBlobSPIRV));
-                }
-                else {
-                    PSBlob = RasterPSSpecConstantBlobSPIRV;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantBlobSPIRV));
-                }
-            }
-            else {
-                if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantFlatDepthMSBlobSPIRV : RasterPSSpecConstantFlatDepthBlobSPIRV;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatDepthMSBlobSPIRV) : std::size(RasterPSSpecConstantFlatDepthBlobSPIRV));
-                }
-                else {
-                    PSBlob = RasterPSSpecConstantFlatBlobSPIRV;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantFlatBlobSPIRV));
-                }
-            }
-            
-            vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
-            pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
-            
-            // Spec constants should replace the constants embedded in the shader directly.
-            specConstants.emplace_back(0, desc.otherMode.L);
-            specConstants.emplace_back(1, desc.otherMode.H);
-            specConstants.emplace_back(2, desc.colorCombiner.L);
-            specConstants.emplace_back(3, desc.colorCombiner.H);
-            specConstants.emplace_back(4, desc.flags.value);
-#       else
-            assert(false && "This platform does not support SPIRV shaders.");
-#       endif
-        }
-        else if (shaderFormat == RenderShaderFormat::METAL) {
-#       ifdef __APPLE__
-            // Choose the pre-compiled shader permutations.
-            const void *VSBlob = nullptr;
-            const void *PSBlob = nullptr;
-            uint32_t VSBlobSize = 0;
-            uint32_t PSBlobSize = 0;
-            const bool outputDepth = desc.outputDepth(useMSAA);
-            if (desc.flags.smoothShade) {
-                VSBlob = RasterVSSpecConstantBlobMSL;
-                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantBlobMSL));
-            }
-            else {
-                VSBlob = RasterVSSpecConstantFlatBlobMSL;
-                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantFlatBlobMSL));
-            }
+            VS = desc.flags.smoothShade ? &optimizerCacheSPIRV->rasterVS : &optimizerCacheSPIRV->rasterVSFlat;
 
             // Pick the correct SPIR-V based on the configuration.
             if (desc.flags.smoothShade) {
                 if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantDepthMSBlobMSL : RasterPSSpecConstantDepthBlobMSL;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantDepthMSBlobMSL) : std::size(RasterPSSpecConstantDepthBlobMSL));
+                    PS = useMSAA ? &optimizerCacheSPIRV->rasterPSDepthMS : &optimizerCacheSPIRV->rasterPSDepth;
                 }
                 else {
-                    PSBlob = RasterPSSpecConstantBlobMSL;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantBlobMSL));
+                    PS = &optimizerCacheSPIRV->rasterPS;
                 }
             }
             else {
                 if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantFlatDepthMSBlobMSL : RasterPSSpecConstantFlatDepthBlobMSL;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatDepthMSBlobMSL) : std::size(RasterPSSpecConstantFlatDepthBlobMSL));
+                    PS = useMSAA ? &optimizerCacheSPIRV->rasterPSFlatDepthMS : &optimizerCacheSPIRV->rasterPSFlatDepth;
                 }
                 else {
-                    PSBlob = RasterPSSpecConstantFlatBlobMSL;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantFlatBlobMSL));
+                    PS = &optimizerCacheSPIRV->rasterPSFlat;
                 }
             }
 
-            vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
-            pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
+            thread_local std::vector<respv::SpecConstant> specConstants;
+            thread_local bool specConstantsSetup = false;
+            thread_local std::vector<uint8_t> optimizedVS;
+            thread_local std::vector<uint8_t> optimizedPS;
+            if (!specConstantsSetup) {
+                for (uint32_t i = 0; i < 5; i++) {
+                    specConstants.push_back(respv::SpecConstant(i, { 0 }));
+                }
 
-            // Spec constants should replace the constants embedded in the shader directly.
-            specConstants.emplace_back(0, desc.otherMode.L);
-            specConstants.emplace_back(1, desc.otherMode.H);
-            specConstants.emplace_back(2, desc.colorCombiner.L);
-            specConstants.emplace_back(3, desc.colorCombiner.H);
-            specConstants.emplace_back(4, desc.flags.value);
-#       else
-            assert(false && "This platform does not support METAL shaders.");
-#       endif
+                specConstantsSetup = true;
+            }
+            
+            specConstants[0].values[0] = desc.otherMode.L;
+            specConstants[1].values[0] = desc.otherMode.H;
+            specConstants[2].values[0] = desc.colorCombiner.L;
+            specConstants[3].values[0] = desc.colorCombiner.H;
+            specConstants[4].values[0] = desc.flags.value;
+            
+            bool vsRun = respv::Optimizer::run(*VS, specConstants.data(), uint32_t(specConstants.size()), optimizedVS);
+            bool psRun = respv::Optimizer::run(*PS, specConstants.data(), uint32_t(specConstants.size()), optimizedPS);
+            assert(vsRun && psRun && "Shader optimization must always succeed as the inputs are always the same.");
+
+            vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
+            pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
         }
         else {
 #       if defined(_WIN32)
-            if (useBytes) {
-                vertexShader = device->createShader(vsBytes->data(), vsBytes->size(), "VSMain", shaderFormat);
-                pixelShader = device->createShader(psBytes->data(), psBytes->size(), "PSMain", shaderFormat);
-            }
-            else {
-                RasterShaderText shaderText = generateShaderText(desc, useMSAA);
+            RasterShaderText shaderText = generateShaderText(desc, useMSAA);
 
-                // Compile both shaders from text with the constants hard-coded in.
-                static const wchar_t *blobVSLibraryNames[] = { L"RasterVSEntry", L"RasterVSLibrary" };
-                static const wchar_t *blobPSLibraryNames[] = { L"RasterPSEntry", L"RasterPSLibrary" };
-                IDxcBlob *blobVSLibraries[] = { nullptr, nullptr };
-                IDxcBlob *blobPSLibraries[] = { nullptr, nullptr };
-                shaderCompiler->dxcUtils->CreateBlobFromPinned(RasterVSLibraryBlobDXIL, sizeof(RasterVSLibraryBlobDXIL), DXC_CP_ACP, (IDxcBlobEncoding **)(&blobVSLibraries[1]));
+            // Compile both shaders from text with the constants hard-coded in.
+            static const wchar_t *blobVSLibraryNames[] = { L"RasterVSEntry", L"RasterVSLibrary" };
+            static const wchar_t *blobPSLibraryNames[] = { L"RasterPSEntry", L"RasterPSLibrary" };
+            IDxcBlob *blobVSLibraries[] = { nullptr, nullptr };
+            IDxcBlob *blobPSLibraries[] = { nullptr, nullptr };
+            shaderCompiler->dxcUtils->CreateBlobFromPinned(RasterVSLibraryBlobDXIL, sizeof(RasterVSLibraryBlobDXIL), DXC_CP_ACP, (IDxcBlobEncoding **)(&blobVSLibraries[1]));
 
-                const void *PSLibraryBlob = useMSAA ? RasterPSLibraryMSBlobDXIL : RasterPSLibraryBlobDXIL;
-                uint32_t PSLibraryBlobSize = useMSAA ? sizeof(RasterPSLibraryMSBlobDXIL) : sizeof(RasterPSLibraryBlobDXIL);
-                shaderCompiler->dxcUtils->CreateBlobFromPinned(PSLibraryBlob, PSLibraryBlobSize, DXC_CP_ACP, (IDxcBlobEncoding **)(&blobPSLibraries[1]));
+            const void *PSLibraryBlob = useMSAA ? RasterPSLibraryMSBlobDXIL : RasterPSLibraryBlobDXIL;
+            uint32_t PSLibraryBlobSize = useMSAA ? sizeof(RasterPSLibraryMSBlobDXIL) : sizeof(RasterPSLibraryBlobDXIL);
+            shaderCompiler->dxcUtils->CreateBlobFromPinned(PSLibraryBlob, PSLibraryBlobSize, DXC_CP_ACP, (IDxcBlobEncoding **)(&blobPSLibraries[1]));
                 
-                // Compile both the vertex and pixel shader functions as libraries.
-                const std::wstring VertexShaderName = L"VSMain";
-                const std::wstring PixelShaderName = L"PSMain";
-                shaderCompiler->compile(shaderText.vertexShader, VertexShaderName, L"lib_6_3", shaderFormat, &blobVSLibraries[0]);
-                shaderCompiler->compile(shaderText.pixelShader, PixelShaderName, L"lib_6_3", shaderFormat, &blobPSLibraries[0]);
+            // Compile both the vertex and pixel shader functions as libraries.
+            const std::wstring VertexShaderName = L"VSMain";
+            const std::wstring PixelShaderName = L"PSMain";
+            shaderCompiler->compile(shaderText.vertexShader, VertexShaderName, L"lib_6_3", shaderFormat, &blobVSLibraries[0]);
+            shaderCompiler->compile(shaderText.pixelShader, PixelShaderName, L"lib_6_3", shaderFormat, &blobPSLibraries[0]);
 
-                // Link the vertex and pixel shaders with the libraries that define their main functions.
-                IDxcBlob *blobVS = nullptr;
-                IDxcBlob *blobPS = nullptr;
-                shaderCompiler->link(VertexShaderName, L"vs_6_3", blobVSLibraries, blobVSLibraryNames, std::size(blobVSLibraries), &blobVS);
-                shaderCompiler->link(PixelShaderName, L"ps_6_3", blobPSLibraries, blobPSLibraryNames, std::size(blobPSLibraries), &blobPS);
+            // Link the vertex and pixel shaders with the libraries that define their main functions.
+            IDxcBlob *blobVS = nullptr;
+            IDxcBlob *blobPS = nullptr;
+            shaderCompiler->link(VertexShaderName, L"vs_6_3", blobVSLibraries, blobVSLibraryNames, std::size(blobVSLibraries), &blobVS);
+            shaderCompiler->link(PixelShaderName, L"ps_6_3", blobPSLibraries, blobPSLibraryNames, std::size(blobPSLibraries), &blobPS);
 
-                vertexShader = device->createShader(blobVS->GetBufferPointer(), blobVS->GetBufferSize(), "VSMain", shaderFormat);
-                pixelShader = device->createShader(blobPS->GetBufferPointer(), blobPS->GetBufferSize(), "PSMain", shaderFormat);
+            vertexShader = device->createShader(blobVS->GetBufferPointer(), blobVS->GetBufferSize(), "VSMain", shaderFormat);
+            pixelShader = device->createShader(blobPS->GetBufferPointer(), blobPS->GetBufferSize(), "PSMain", shaderFormat);
 
-                // Store the bytes in the auxiliary buffers if specified.
-                if (vsBytes != nullptr) {
-                    *vsBytes = std::vector<uint8_t>((const uint8_t *)(blobVS->GetBufferPointer()), (const uint8_t *)(blobVS->GetBufferPointer()) + blobVS->GetBufferSize());
-                }
-
-                if (psBytes != nullptr) {
-                    *psBytes = std::vector<uint8_t>((const uint8_t *)(blobPS->GetBufferPointer()), (const uint8_t *)(blobPS->GetBufferPointer()) + blobPS->GetBufferSize());
-                }
-
-                // Blobs can be discarded once the shaders are created.
-                blobVSLibraries[0]->Release();
-                blobVSLibraries[1]->Release();
-                blobPSLibraries[0]->Release();
-                blobPSLibraries[1]->Release();
-                blobPS->Release();
-                blobVS->Release();
-            }
+            // Blobs can be discarded once the shaders are created.
+            blobVSLibraries[0]->Release();
+            blobVSLibraries[1]->Release();
+            blobPSLibraries[0]->Release();
+            blobPSLibraries[1]->Release();
+            blobPS->Release();
+            blobVS->Release();
 #       else
             assert(false && "This platform does not support runtime shader compilation.");
 #       endif
@@ -252,13 +189,11 @@ namespace RT64 {
         creation.pixelShader = pixelShader.get();
         creation.alphaBlend = !copyMode && interop::Blender::usesAlphaBlend(desc.otherMode);
         creation.culling = !copyMode && desc.flags.culling;
-        creation.zCmp = !copyMode && desc.otherMode.zCmp();
+        creation.zCmp = !copyMode && desc.otherMode.zCmp() && (desc.otherMode.zMode() != ZMODE_DEC);
         creation.zUpd = !copyMode && desc.otherMode.zUpd();
-        creation.zDecal = !copyMode && (desc.otherMode.zMode() == ZMODE_DEC);
         creation.cvgAdd = (desc.otherMode.cvgDst() == CVG_DST_WRAP) || (desc.otherMode.cvgDst() == CVG_DST_SAVE);
         creation.NoN = desc.flags.NoN;
         creation.usesHDR = desc.flags.usesHDR;
-        creation.specConstants = specConstants;
         creation.multisampling = multisampling;
         pipeline = createPipeline(creation);
     }
@@ -299,7 +234,7 @@ namespace RT64 {
         pss << std::string_view(RenderParamsText, sizeof(RenderParamsText));
         pss << "RenderParams getRenderParams() {" + renderParamsCode + "; return rp; }";
         pss <<
-            "bool RasterPS(const RenderParams, bool, float4, float2, float4, float4, uint, out float4, out float4, out float);"
+            "bool RasterPS(const RenderParams, bool, float4, float2, float4, float4, bool, uint, out float4, out float4, out float);"
             "[shader(\"pixel\")]"
             "void PSMain("
             "  in float4 vertexPosition : SV_POSITION"
@@ -338,7 +273,7 @@ namespace RT64 {
             "   float4 resultColor;"
             "   float4 resultAlpha;"
             "   float resultDepth;"
-            "   if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, sampleIndex, resultColor, resultAlpha, resultDepth)) discard;"
+            "   if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, false, sampleIndex, resultColor, resultAlpha, resultDepth)) discard;"
             "   pixelColor = resultColor;"
             "   pixelAlpha = resultAlpha;";
 
@@ -352,8 +287,6 @@ namespace RT64 {
     }
     
     std::unique_ptr<RenderPipeline> RasterShader::createPipeline(const PipelineCreation &c) {
-        assert((!c.zDecal || !c.zUpd) && "Decals with depth write should never be created.");
-
         RenderGraphicsPipelineDesc pipelineDesc;
         pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
         pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(c.usesHDR);
@@ -361,6 +294,7 @@ namespace RT64 {
         pipelineDesc.cullMode = c.culling ? RenderCullMode::FRONT : RenderCullMode::NONE;
         pipelineDesc.depthClipEnabled = !c.NoN;
         pipelineDesc.depthEnabled = c.zCmp || c.zUpd;
+        pipelineDesc.depthFunction = c.zCmp ? RenderComparisonFunction::LESS : RenderComparisonFunction::ALWAYS;
         pipelineDesc.depthWriteEnabled = c.zUpd;
         pipelineDesc.depthTargetFormat = RenderFormat::D32_FLOAT;
         pipelineDesc.multisampling = c.multisampling;
@@ -374,20 +308,6 @@ namespace RT64 {
         pipelineDesc.pixelShader = c.pixelShader;
         pipelineDesc.specConstants = c.specConstants.data();
         pipelineDesc.specConstantsCount = uint32_t(c.specConstants.size());
-
-        if (c.zCmp) {
-            // While these modes evaluate equality in the hardware, we use LEQUAL to simulate the depth comparison in the shader instead.
-            if (c.zDecal) {
-                pipelineDesc.depthFunction = RenderComparisonFunction::LESS_EQUAL;
-            }
-            // ZMODE_OPA, ZMODE_XLU and ZMODE_INTER only differ based on coverage, which is not emulated, so they can all be approximated the same way.
-            else {
-                pipelineDesc.depthFunction = RenderComparisonFunction::LESS;
-            }
-        }
-        else {
-            pipelineDesc.depthFunction = RenderComparisonFunction::ALWAYS;
-        }
 
         // Alpha blending is performed by using dual source blending. The blending factor will be in the secondary output.
         RenderBlendDesc &targetBlend = pipelineDesc.renderTargetBlend[0];
@@ -482,21 +402,12 @@ namespace RT64 {
             PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSDynamicMSBlobDXIL) : std::size(RasterPSDynamicBlobDXIL));
             break;
 #   endif
-#   ifndef __APPLE__
         case RenderShaderFormat::SPIRV:
             VSBlob = RasterVSDynamicBlobSPIRV;
             PSBlob = useMSAA ? RasterPSDynamicMSBlobSPIRV : RasterPSDynamicBlobSPIRV;
             VSBlobSize = uint32_t(std::size(RasterVSDynamicBlobSPIRV));
             PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSDynamicMSBlobSPIRV) : std::size(RasterPSDynamicBlobSPIRV));
             break;
-#   else
-        case RenderShaderFormat::METAL:
-            VSBlob = RasterVSDynamicBlobMSL;
-            PSBlob = useMSAA ? RasterPSDynamicMSBlobMSL : RasterPSDynamicBlobMSL;
-            VSBlobSize = uint32_t(std::size(RasterVSDynamicBlobMSL));
-            PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSDynamicMSBlobMSL) : std::size(RasterPSDynamicBlobMSL));
-            break;
-#   endif
         default:
             assert(false && "Unknown shader format.");
             return;
@@ -519,32 +430,26 @@ namespace RT64 {
         pipelineLayout = layoutBuilder.create(device);
 
         // Generate all possible combinations of pipeline creations and assign them to each thread. Skip the ones that are invalid.
+        uint32_t pipelineCount = uint32_t(std::size(pipelines));
         pipelineThreadCreations.clear();
-        pipelineThreadCreations.resize(threadCount);
+        pipelineThreadCreations.resize(std::min(threadCount, pipelineCount));
 
         PipelineCreation creation;
         creation.device = device;
         creation.pipelineLayout = pipelineLayout.get();
         creation.vertexShader = vertexShader.get();
         creation.pixelShader = pixelShader.get();
+        creation.alphaBlend = true;
+        creation.culling = false;
         creation.NoN = true;
         creation.usesHDR = shaderLibrary->usesHDR;
         creation.multisampling = multisampling;
 
         uint32_t threadIndex = 0;
-        uint32_t pipelineCount = uint32_t(std::size(pipelines));
         for (uint32_t i = 0; i < pipelineCount; i++) {
-            creation.alphaBlend = i & (1 << 0);
-            creation.culling = i & (1 << 1);
-            creation.zCmp = i & (1 << 2);
-            creation.zUpd = i & (1 << 3);
-            creation.zDecal = i & (1 << 4);
-            creation.cvgAdd = i & (1 << 5);
-
-            // Skip all PSOs that would lead to invalid decal behavior.
-            if (creation.zDecal && (creation.zUpd || !creation.zCmp)) {
-                continue;
-            }
+            creation.zCmp = i & (1 << 0);
+            creation.zUpd = i & (1 << 1);
+            creation.cvgAdd = i & (1 << 2);
 
             pipelineThreadCreations[threadIndex].emplace_back(creation);
             threadIndex = (threadIndex + 1) % threadCount;
@@ -552,32 +457,28 @@ namespace RT64 {
 
         // Spawn the threads that will compile all the pipelines.
         pipelineThreads.clear();
-        pipelineThreads.resize(threadCount);
-        for (uint32_t i = 0; i < threadCount; i++) {
+        pipelineThreads.resize(pipelineThreadCreations.size());
+        for (uint32_t i = 0; i < uint32_t(pipelineThreads.size()); i++) {
             pipelineThreads[i] = std::make_unique<std::thread>(&RasterShaderUber::threadCreatePipelines, this, i);
         }
 
         // Create the pipelines for post blend operations.
         std::unique_ptr<RenderShader> postBlendAddPixelShader;
         std::unique_ptr<RenderShader> postBlendSubPixelShader;
+        std::unique_ptr<RenderShader> postBlendSubNegativePixelShader;
         switch (shaderFormat) {
 #   ifdef _WIN32
         case RenderShaderFormat::DXIL:
             postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobDXIL, std::size(PostBlendDitherNoiseAddPSBlobDXIL), "PSMain", shaderFormat);
             postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobDXIL, std::size(PostBlendDitherNoiseSubPSBlobDXIL), "PSMain", shaderFormat);
+            postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobDXIL, std::size(PostBlendDitherNoiseSubNegativePSBlobDXIL), "PSMain", shaderFormat);
             break;
 #   endif
-#   ifndef __APPLE__
         case RenderShaderFormat::SPIRV:
             postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobSPIRV, std::size(PostBlendDitherNoiseAddPSBlobSPIRV), "PSMain", shaderFormat);
             postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobSPIRV, std::size(PostBlendDitherNoiseSubPSBlobSPIRV), "PSMain", shaderFormat);
+            postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobSPIRV, std::size(PostBlendDitherNoiseSubNegativePSBlobSPIRV), "PSMain", shaderFormat);
             break;
-#   else
-        case RenderShaderFormat::METAL:
-            postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobMSL, std::size(PostBlendDitherNoiseAddPSBlobMSL), "PSMain", shaderFormat);
-            postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobMSL, std::size(PostBlendDitherNoiseSubPSBlobMSL), "PSMain", shaderFormat);
-            break;
-#   endif
         default:
             assert(false && "Unknown shader format.");
             return;
@@ -613,6 +514,9 @@ namespace RT64 {
         postBlendDesc.pixelShader = postBlendSubPixelShader.get();
         targetBlend.blendOp = RenderBlendOperation::REV_SUBTRACT;
         postBlendDitherNoiseSubPipeline = device->createGraphicsPipeline(postBlendDesc);
+
+        postBlendDesc.pixelShader = postBlendSubNegativePixelShader.get();
+        postBlendDitherNoiseSubNegativePipeline = device->createGraphicsPipeline(postBlendDesc);
     }
 
     RasterShaderUber::~RasterShaderUber() {
@@ -620,9 +524,28 @@ namespace RT64 {
     }
 
     void RasterShaderUber::threadCreatePipelines(uint32_t threadIndex) {
+        // Delay the creation of all other pipelines until the first pipeline is created. This can help the
+        // driver reuse its shader cache between pipelines and achieve a much lower creation time than if
+        // all threads started at the same time.
+        if (threadIndex > 0) {
+            std::unique_lock<std::mutex> lock(firstPipelineMutex);
+            firstPipelineCondition.wait(lock, [this]() {
+                return (pipelines[0] != nullptr);
+            });
+        }
+
         for (const PipelineCreation &creation : pipelineThreadCreations[threadIndex]) {
-            uint32_t pipelineIndex = pipelineStateIndex(creation.alphaBlend, creation.culling, creation.zCmp, creation.zUpd, creation.zDecal, creation.cvgAdd);
-            pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+            uint32_t pipelineIndex = pipelineStateIndex(creation.zCmp, creation.zUpd, creation.cvgAdd);
+
+            if (pipelineIndex == 0) {
+                firstPipelineMutex.lock();
+                pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+                firstPipelineMutex.unlock();
+                firstPipelineCondition.notify_all();
+            }
+            else {
+                pipelines[pipelineIndex] = RasterShader::createPipeline(creation);
+            }
         }
     }
 
@@ -640,23 +563,14 @@ namespace RT64 {
         }
     }
 
-    uint32_t RasterShaderUber::pipelineStateIndex(bool alphaBlend, bool culling, bool zCmp, bool zUpd, bool zDecal, bool cvgAdd) const {
+    uint32_t RasterShaderUber::pipelineStateIndex(bool zCmp, bool zUpd, bool cvgAdd) const {
         return
-            (uint32_t(alphaBlend)   << 0) |
-            (uint32_t(culling)      << 1) |
-            (uint32_t(zCmp)         << 2) |
-            (uint32_t(zUpd)         << 3) |
-            (uint32_t(zDecal)       << 4) |
-            (uint32_t(cvgAdd)       << 5);
+            (uint32_t(zCmp)         << 0) |
+            (uint32_t(zUpd)         << 1) |
+            (uint32_t(cvgAdd)       << 2);
     }
 
-    const RenderPipeline *RasterShaderUber::getPipeline(bool alphaBlend, bool culling, bool zCmp, bool zUpd, bool zDecal, bool cvgAdd) const {
-        // Force read and turn off writing on decal modes since those PSOs are not generated.
-        if (zDecal) {
-            zCmp = true;
-            zUpd = false;
-        }
-
-        return pipelines[pipelineStateIndex(alphaBlend, culling, zCmp, zUpd, zDecal, cvgAdd)].get();
+    const RenderPipeline *RasterShaderUber::getPipeline(bool zCmp, bool zUpd, bool cvgAdd) const {
+        return pipelines[pipelineStateIndex(zCmp, zUpd, cvgAdd)].get();
     }
 };

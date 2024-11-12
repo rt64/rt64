@@ -308,11 +308,9 @@ namespace RT64 {
                 RenderCommandList *commandList = ext.presentGraphicsWorker->commandList.get();
                 commandList->begin();
                 commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
-                commandList->setFramebuffer(swapChainFramebuffer);
-                commandList->clearColor();
-
+                
+                VIRenderer::RenderParams renderParams;
                 if (colorTarget != nullptr) {
-                    VIRenderer::RenderParams renderParams;
                     renderParams.device = ext.device;
                     renderParams.commandList = commandList;
                     renderParams.swapChain = ext.swapChain;
@@ -332,21 +330,24 @@ namespace RT64 {
                         renderParams.downsamplingScale = colorTarget->downsampleMultiplier;
                     }
                     else {
-                        colorTarget->resolveTarget(ext.presentGraphicsWorker);
+                        colorTarget->resolveTarget(ext.presentGraphicsWorker, ext.shaderLibrary);
                         renderParams.texture = colorTarget->getResolvedTexture();
                         renderParams.textureWidth = colorTarget->width;
                         renderParams.textureHeight = colorTarget->height;
                     }
+                }
+                
+                commandList->setFramebuffer(swapChainFramebuffer);
+                commandList->clearColor();
 
+                if (renderParams.texture != nullptr) {
                     commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(renderParams.texture, RenderTextureLayout::SHADER_READ));
                     viRenderer->render(renderParams);
                 }
 
-                {
-                    RenderHookDraw *drawHook = GetRenderHookDraw();
-                    if (drawHook) {
-                        drawHook(commandList, swapChainFramebuffer);
-                    }
+                RenderHookDraw *drawHook = GetRenderHookDraw();
+                if (drawHook != nullptr) {
+                    drawHook(commandList, swapChainFramebuffer);
                 }
 
                 {
@@ -490,7 +491,7 @@ namespace RT64 {
 
                 skipPresent = skipPresent || ext.swapChain->isEmpty();
 
-                const Present &present = presents[processCursor];
+                Present &present = presents[processCursor];
                 ext.workloadQueue->waitForWorkloadId(present.workloadId);
 
                 if (!presentThreadRunning) {
@@ -505,12 +506,13 @@ namespace RT64 {
                     threadPresent(present, swapChainValid);
                 }
 
-                if (!present.fbOperations.empty()) {
-                    const std::scoped_lock lock(screenFbChangePoolMutex);
-                    screenFbChangePool.release(present.fbOperations.front().writeChanges.id);
-                }
-
                 if (!present.paused) {
+                    if (!present.fbOperations.empty()) {
+                        const std::scoped_lock lock(screenFbChangePoolMutex);
+                        screenFbChangePool.release(present.fbOperations.front().writeChanges.id);
+                        present.fbOperations.clear();
+                    }
+
                     threadAdvanceBarrier();
                 }
 

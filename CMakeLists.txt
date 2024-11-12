@@ -12,6 +12,10 @@ if (${RT64_BUILD_EXAMPLES})
     set(RT64_STATIC ON)
 endif()
 
+if (NOT ${RT64_STATIC})
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 function(preprocess INFILE OUTFILE OPTIONS)
     if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -62,6 +66,7 @@ set(ZSTD_BUILD_STATIC ON)
 set(ZSTD_BUILD_SHARED OFF)
 
 add_subdirectory(src/tools/file_to_c)
+add_subdirectory(src/contrib/re-spirv)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 add_subdirectory(src/contrib/zstd/build/cmake)
 
@@ -380,6 +385,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_draw.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_tables.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_widgets.cpp"
+    "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_sdl2.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_vulkan.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/im3d/im3d.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot.cpp"
@@ -407,7 +413,6 @@ if (WIN32)
     include_directories("${PROJECT_SOURCE_DIR}/src/contrib/dxc/inc")
 endif()
 
-option(RT64_STATIC "Build RT64 as a static library" OFF)
 if (${RT64_STATIC})
     add_library(rt64 STATIC ${SOURCES})
 else()
@@ -418,6 +423,7 @@ set_target_properties(rt64 PROPERTIES OUTPUT_NAME "rt64")
 set_target_properties(rt64 PROPERTIES PREFIX "")
 
 # Add common libraries.
+target_link_libraries(rt64 re-spirv)
 target_link_libraries(rt64 nfd)
 target_link_libraries(rt64 libzstd_static)
 
@@ -502,6 +508,7 @@ build_compute_shader(rt64 "src/shaders/IdleCS.hlsl")
 build_compute_shader(rt64 "src/shaders/LuminanceHistogramCS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/PostBlendDitherNoisePS.hlsl" "src/shaders/PostBlendDitherNoiseAddPS.hlsl" "-D ADD_MODE")
 build_pixel_shader(  rt64 "src/shaders/PostBlendDitherNoisePS.hlsl" "src/shaders/PostBlendDitherNoiseSubPS.hlsl" "-D SUB_MODE")
+build_pixel_shader(  rt64 "src/shaders/PostBlendDitherNoisePS.hlsl" "src/shaders/PostBlendDitherNoiseSubNegativePS.hlsl" "-D SUB_MODE" "-D NEGATIVE_MODE")
 build_compute_shader(rt64 "src/shaders/RSPModifyCS.hlsl")
 build_compute_shader(rt64 "src/shaders/RSPProcessCS.hlsl")
 build_compute_shader(rt64 "src/shaders/RSPWorldCS.hlsl")
@@ -514,6 +521,9 @@ build_pixel_shader(  rt64 "src/shaders/RtCopyDepthToColorPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/RtCopyDepthToColorPS.hlsl" "src/shaders/RtCopyDepthToColorPSMS.hlsl" "-D MULTISAMPLING")
 build_pixel_shader(  rt64 "src/shaders/TextureCopyPS.hlsl")
 build_compute_shader(rt64 "src/shaders/TextureDecodeCS.hlsl")
+build_pixel_shader(  rt64 "src/shaders/TextureResolvePS.hlsl" "src/shaders/TextureResolveSamples2XPS.hlsl" "-D SAMPLES_2X")
+build_pixel_shader(  rt64 "src/shaders/TextureResolvePS.hlsl" "src/shaders/TextureResolveSamples4XPS.hlsl" "-D SAMPLES_4X")
+build_pixel_shader(  rt64 "src/shaders/TextureResolvePS.hlsl" "src/shaders/TextureResolveSamples8XPS.hlsl" "-D SAMPLES_8X")
 build_pixel_shader(  rt64 "src/shaders/VideoInterfacePS.hlsl" "src/shaders/VideoInterfacePSRegular.hlsl")
 build_pixel_shader(  rt64 "src/shaders/VideoInterfacePS.hlsl" "src/shaders/VideoInterfacePSPixel.hlsl" "-D PIXEL_ANTIALIASING")
 build_vertex_shader( rt64 "src/shaders/FullScreenVS.hlsl")

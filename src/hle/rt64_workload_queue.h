@@ -57,6 +57,7 @@ namespace RT64 {
             uint32_t targetRate = 0;
             bool fixRectLR = false;
             bool postBlendNoise = false;
+            bool postBlendNoiseNegative = false;
         };
 
         External ext;

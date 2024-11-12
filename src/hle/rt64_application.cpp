@@ -170,27 +170,61 @@ namespace RT64 {
             return SetupResult::GraphicsDeviceNotFound;
         }
 
+        // Detect if the application should use hardware resolve or not.
+        bool usesHardwareResolve = (userConfig.hardwareResolve != UserConfiguration::HardwareResolve::Disabled);
+
         // Driver workarounds.
-        //
-        // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
-        bool isRDNA3 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
-        bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
-        if (isRDNA3 && useHDRinD3D12) {
-            device.reset();
-            renderInterface.reset();
-            renderInterface = CreateVulkanInterface();
-            if (renderInterface == nullptr) {
-                fprintf(stderr, "Unable to initialize graphics API.\n");
-                return SetupResult::GraphicsAPINotFound;
+        const RenderDeviceVendor deviceVendor = device->getDescription().vendor;
+        const uint64_t driverVersion = device->getDescription().driverVersion;
+        if (deviceVendor == RenderDeviceVendor::NVIDIA) {
+            if (createdGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
+                if (usesHardwareResolve) {
+                    // MSAA Resolve in D3D12 is broken since 565.90. During Resolve operations, the contents from unrelated graphics commands in a queue can leak to other commands
+                    // being run in a different queue even if the resources aren't shared at all. The workaround is to disable hardware resolve and use rasterization instead.
+                    const uint64_t BrokenNVIDIADriverD3D12 = 0x00200000000f19be; // 565.90
+                    const uint64_t FixedNVIDIADriverD3D12 = UINT64_MAX; // No driver is known to fix the issue at the moment.
+                    if ((driverVersion >= BrokenNVIDIADriverD3D12) && (driverVersion < FixedNVIDIADriverD3D12) && (userConfig.hardwareResolve == UserConfiguration::HardwareResolve::Automatic)) {
+                        usesHardwareResolve = false;
+                    }
+                }
             }
+        }
+        else if (deviceVendor == RenderDeviceVendor::AMD) {
+            // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
+            bool isRDNA3 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
+            bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
+            if (isRDNA3 && useHDRinD3D12) {
+                device.reset();
+                renderInterface.reset();
+                renderInterface = CreateVulkanInterface();
+                if (renderInterface == nullptr) {
+                    fprintf(stderr, "Unable to initialize graphics API.\n");
+                    return SetupResult::GraphicsAPINotFound;
+                }
 
-            createdGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+                createdGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
 
-            device = renderInterface->createDevice();
-            if (device == nullptr) {
-                fprintf(stderr, "Unable to find compatible graphics device.\n");
-                return SetupResult::GraphicsDeviceNotFound;
+                device = renderInterface->createDevice();
+                if (device == nullptr) {
+                    fprintf(stderr, "Unable to find compatible graphics device.\n");
+                    return SetupResult::GraphicsDeviceNotFound;
+                }
             }
+        }
+
+        // Detect if the application should use HDR framebuffers or not.
+        bool usesHDR;
+        switch (userConfig.internalColorFormat) {
+        case UserConfiguration::InternalColorFormat::High:
+            usesHDR = true;
+            break;
+        case UserConfiguration::InternalColorFormat::Automatic:
+            usesHDR = device->getCapabilities().preferHDR;
+            break;
+        case UserConfiguration::InternalColorFormat::Standard:
+        default:
+            usesHDR = false;
+            break;
         }
 
         // Call the init hook if one was attached.
@@ -211,22 +245,10 @@ namespace RT64 {
         textureCopyWorker = std::make_unique<RenderWorker>(device.get(), "Texture Copy", RenderCommandListType::COPY);
         workloadGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Workload Graphics", RenderCommandListType::DIRECT);
         presentGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Present Graphics", RenderCommandListType::DIRECT);
-        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, 2, RenderFormat::B8G8R8A8_UNORM);
 
-        // Detect if the application should use HDR framebuffers or not.
-        bool usesHDR;
-        switch (userConfig.internalColorFormat) {
-        case UserConfiguration::InternalColorFormat::High:
-            usesHDR = true;
-            break;
-        case UserConfiguration::InternalColorFormat::Automatic:
-            usesHDR = device->getCapabilities().preferHDR;
-            break;
-        case UserConfiguration::InternalColorFormat::Standard:
-        default:
-            usesHDR = false;
-            break;
-        }
+        // Create the swap chain with the buffer count specified from the configuration.
+        const uint32_t bufferCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
+        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM);
         
         // Before configuring multisampling, make sure the device actually supports it for the formats we'll use. If it doesn't, turn off antialiasing in the configuration.
         const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR));
@@ -238,13 +260,16 @@ namespace RT64 {
 
         // Create the shader library.
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(userConfig.msaaSampleCount(), device->getCapabilities().sampleLocations);
-        shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR);
+        shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR, usesHardwareResolve);
         shaderLibrary->setupCommonShaders(renderInterface.get(), device.get());
         shaderLibrary->setupMultisamplingShaders(renderInterface.get(), device.get(), multisampling);
         
-        // Create the shader caches. Estimate the amount of shader compiler threads by trying to use about half of the system's available threads.
+        // Create the shader caches.
+        // Estimate the amount of shader compiler threads by trying to use about half of the system's available threads.
+        // We need the ubershader pipelines done as soon as possible, so we use a different thread count that demands more of the system.
         const uint32_t rasterShaderThreads = std::max(threadsAvailable / 2U, 1U);
-        rasterShaderCache = std::make_unique<RasterShaderCache>(rasterShaderThreads);
+        const uint32_t ubershaderThreads = uint32_t(std::max(int(threadsAvailable) - 2, 1));
+        rasterShaderCache = std::make_unique<RasterShaderCache>(rasterShaderThreads, ubershaderThreads);
         rasterShaderCache->setup(device.get(), renderInterface->getCapabilities().shaderFormat, shaderLibrary.get(), multisampling);
 
 #   if RT_ENABLED
@@ -401,12 +426,9 @@ namespace RT64 {
     }
     
     void Application::updateScreen() {
+        appWindow->sdlCheckFilterInstallation();
         screenApiProfiler.logAndRestart();
         state->updateScreen(core.decodeVI(), false);
-    }
-
-    bool Application::loadOfflineShaderCache(std::istream &stream) {
-        return rasterShaderCache->loadOfflineList(stream);
     }
 
     void Application::destroyShaderCache() {
@@ -444,7 +466,6 @@ namespace RT64 {
 
         // Wait for all pipelines of the ubershader to be ready again.
         rasterShaderCache->shaderUber->waitForPipelineCreation();
-        rasterShaderCache->resetOfflineList();
     }
 
 #ifdef _WIN32
@@ -459,43 +480,20 @@ namespace RT64 {
         switch (message) {
         case WM_KEYDOWN: {
             switch (wParam) {
-            case VK_F1: {
-                if (userConfig.developerMode) {
-                    const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
-                    if (presentQueue->inspector == nullptr) {
-                        presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI);
-                        if (!userPaths.isEmpty()) {
-                            presentQueue->inspector->setIniPath(userPaths.imguiPath);
-                        }
-
-                        freeCamClearQueued = true;
-                        appWindow->blockSdlKeyboard();
-                    }
-                    else if (presentQueue->inspector != nullptr) {
-                        presentQueue->inspector.reset(nullptr);
-                        appWindow->unblockSdlKeyboard();
-                    }
-                }
-                else {
-                    fprintf(stdout, "Inspector is not available: developer mode is not enabled in the configuration.\n");
-                }
-
+            case VK_F1:
+                processDeveloperShortcut(DeveloperShortcut::Inspector);
                 return true;
-            }
-            case VK_F2: {
-                workloadQueue->rtEnabled = !workloadQueue->rtEnabled;
+            case VK_F2:
+                processDeveloperShortcut(DeveloperShortcut::RayTracing);
                 return true;
-            }
-            case VK_F3: {
-                presentQueue->viewRDRAM = !presentQueue->viewRDRAM;
+            case VK_F3:
+                processDeveloperShortcut(DeveloperShortcut::ViewRDRAM);
                 return true;
-            }
-            case VK_F4: {
-                textureCache->textureMap.replacementMapEnabled = !textureCache->textureMap.replacementMapEnabled;
+            case VK_F4:
+                processDeveloperShortcut(DeveloperShortcut::Replacements);
                 return true;
-            }
             default:
-                // Ignore key.
+                // Unknown shortcut.
                 break;
             }
         }
@@ -503,11 +501,82 @@ namespace RT64 {
         
         return false;
     }
+#endif
+
+    bool Application::sdlEventFilter(SDL_Event *event) {
+        if (userConfig.developerMode && (presentQueue != nullptr) && (state != nullptr) && !FileDialog::isOpen) {
+            const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
+            if ((presentQueue->inspector != nullptr) && presentQueue->inspector->handleSdlEvent(event)) {
+                return true;
+            }
+        }
+
+        if (event->type == SDL_KEYDOWN) {
+            switch (event->key.keysym.scancode) {
+            case SDL_SCANCODE_F1:
+                processDeveloperShortcut(DeveloperShortcut::Inspector);
+                return true;
+            case SDL_SCANCODE_F2:
+                processDeveloperShortcut(DeveloperShortcut::RayTracing);
+                return true;
+            case SDL_SCANCODE_F3:
+                processDeveloperShortcut(DeveloperShortcut::ViewRDRAM);
+                return true;
+            case SDL_SCANCODE_F4:
+                processDeveloperShortcut(DeveloperShortcut::Replacements);
+                return true;
+            default:
+                // Don't filter the key event.
+                break;
+            }
+        }
+
+        return false;
+    }
 
     bool Application::usesWindowMessageFilter() {
         return userConfig.developerMode;
     }
-#endif
+
+    void Application::processDeveloperShortcut(DeveloperShortcut developerShortcut) {
+        switch (developerShortcut) {
+        case DeveloperShortcut::Inspector: {
+            if (userConfig.developerMode) {
+                const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
+                if (presentQueue->inspector == nullptr) {
+                    presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI, appWindow->sdlWindow);
+                    if (!userPaths.isEmpty()) {
+                        presentQueue->inspector->setIniPath(userPaths.imguiPath);
+                    }
+
+                    freeCamClearQueued = true;
+                }
+                else if (presentQueue->inspector != nullptr) {
+                    presentQueue->inspector.reset(nullptr);
+                }
+            }
+            else {
+                fprintf(stdout, "Inspector is not available: developer mode is not enabled in the configuration.\n");
+            }
+
+            break;
+        }
+        case DeveloperShortcut::RayTracing: {
+            workloadQueue->rtEnabled = !workloadQueue->rtEnabled;
+            break;
+        }
+        case DeveloperShortcut::ViewRDRAM: {
+            presentQueue->viewRDRAM = !presentQueue->viewRDRAM;
+            break;
+        }
+        case DeveloperShortcut::Replacements: {
+            textureCache->textureMap.replacementMapEnabled = !textureCache->textureMap.replacementMapEnabled;
+            break;
+        }
+        default:
+            break;
+        };
+    }
 
     void Application::end() {
 #   if SCRIPT_ENABLED

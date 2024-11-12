@@ -40,8 +40,7 @@ namespace RT64 {
                 state->rsp->setViewport((*dl)->w1);
                 break;
             case F3DEX2_G_MV_MATRIX:
-                assert(false && "Unimplemented move matrix");
-                *dl = *dl + 1;
+                state->rsp->forceMatrix((*dl)->w1);
                 break;
             case F3DEX2_G_MV_LIGHT: {
                 uint8_t offset = (*dl)->p0(8, 8) * 8;

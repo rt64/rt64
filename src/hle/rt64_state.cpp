@@ -5,6 +5,7 @@
 #include "rt64_state.h"
 
 #include <cassert>
+#include <cinttypes>
 
 #include "im3d/im3d.h"
 #include "im3d/im3d_math.h"
@@ -838,10 +839,10 @@ namespace RT64 {
                 // FIXME: A safety check to only do this on textures that were determined to be big was added until the
                 // correctness of the texcoord determination can be guaranteed to not cause issues elsewhere.
                 const bool bigTextureCheck = (callTile.sampleWidth > 0x1000) || (callTile.sampleHeight > 0x1000);
-                if (bigTextureCheck && !TMEMHasher::requiresRawTMEM(callTile.loadTile, maxTexcoord.x, maxTexcoord.y)) {
+                if (bigTextureCheck) {
                     callTile.sampleWidth = maxTexcoord.x;
                     callTile.sampleHeight = maxTexcoord.y;
-                    callTile.rawTMEM = false;
+                    callTile.rawTMEM = TMEMHasher::requiresRawTMEM(callTile.loadTile, maxTexcoord.x, maxTexcoord.y);
                 }
             }
 
@@ -1217,6 +1218,7 @@ namespace RT64 {
                         drawParams.ubershadersOnly = false;
                         drawParams.fixRectLR = false;
                         drawParams.postBlendNoise = ext.emulatorConfig->dither.postBlendNoise;
+                        drawParams.postBlendNoiseNegative = ext.emulatorConfig->dither.postBlendNoiseNegative;
                         drawParams.maxGameCall = UINT_MAX;
                         framebufferRenderer->addFramebuffer(drawParams);
                     }
@@ -2079,6 +2081,12 @@ namespace RT64 {
                         ImGui::Text("You must restart the application for this change to be applied.");
                     }
 
+                    if (ImGui::Combo("Hardware Resolve", reinterpret_cast<int *>(&userConfig.hardwareResolve), "Disabled\0Enabled\0Automatic\0")) {
+                        // Update shader library to automatically control all logic around hardware resolve.
+                        ext.shaderLibrary->usesHardwareResolve = (userConfig.hardwareResolve != UserConfiguration::HardwareResolve::Disabled);
+                        genConfigChanged = true;
+                    }
+
                     genConfigChanged = ImGui::Checkbox("Three-Point Filtering", &userConfig.threePointFiltering) || genConfigChanged;
                     genConfigChanged = ImGui::Checkbox("High Performance State", &userConfig.idleWorkActive) || genConfigChanged;
                     
@@ -2090,6 +2098,7 @@ namespace RT64 {
                     ImGui::Text("Dither");
                     ImGui::Indent();
                     emulatorConfigChanged = ImGui::Checkbox("Post Blend Noise", &emulatorConfig.dither.postBlendNoise) || emulatorConfigChanged;
+                    emulatorConfigChanged = ImGui::Checkbox("Post Blend Noise Negative", &emulatorConfig.dither.postBlendNoiseNegative) || emulatorConfigChanged;
                     ImGui::Unindent();
                     ImGui::Text("Framebuffer");
                     ImGui::Indent();
@@ -2127,32 +2136,7 @@ namespace RT64 {
                     ImGui::Indent();
                     enhanceConfigChanged = ImGui::Checkbox("Scale LOD", &enhancementConfig.textureLOD.scale) || enhanceConfigChanged;
                     ImGui::Unindent();
-                    ImGui::Text("Shader cache");
-                    ImGui::Indent();
-                    bool dumpingDisabled = (userConfig.graphicsAPI != UserConfiguration::GraphicsAPI::D3D12);
-                    ImGui::BeginDisabled(dumpingDisabled);
-                    bool offlineDumperActive = ext.rasterShaderCache->isOfflineDumperActive();
-                    bool offlineDumperToggled = ImGui::Button(offlineDumperActive ? "Stop dumping##shaderCache" : "Start dumping##shaderCache");
-                    if (offlineDumperToggled) {
-                        if (offlineDumperActive) {
-                            ext.rasterShaderCache->stopOfflineDumper();
-                        }
-                        else {
-                            std::filesystem::path savePath = FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") });
-                            if (!savePath.empty()) {
-                                ext.rasterShaderCache->startOfflineDumper(savePath);
-                                shaderCacheChanged = true;
-                            }
-                        }
-                    }
 
-                    ImGui::EndDisabled();
-
-                    if (dumpingDisabled) {
-                        ImGui::Text("Shader cache dumping is only available in D3D12.");
-                    }
-
-                    ImGui::Unindent();
                     ImGui::EndTabItem();
                 }
 
@@ -2434,10 +2418,7 @@ namespace RT64 {
                     }
 #               endif
                     ImGui::NewLine();
-
-                    ImGui::Text("Offline Shaders: %zu", ext.rasterShaderCache->offlineList.entries.size());
                     ImGui::Text("Specialized Shaders: %u", ext.rasterShaderCache->shaderCount());
-
                     ImGui::NewLine();
 
                     bool ubershadersOnly = ext.workloadQueue->ubershadersOnly;
@@ -2450,12 +2431,15 @@ namespace RT64 {
 
                     ImGui::NewLine();
 
+                    const RenderDeviceDescription &description = ext.device->getDescription();
                     const RenderDeviceCapabilities &capabilities = ext.device->getCapabilities();
                     ImGui::Text("Display Refresh Rate (OS): %d\n", ext.appWindow->getRefreshRate());
                     if (capabilities.displayTiming) {
                         ImGui::Text("Display Refresh Rate (RHI): %d\n", ext.swapChain->getRefreshRate());
                     }
 
+                    ImGui::Text("Vendor ID: 0x%08x", uint32_t(description.vendor));
+                    ImGui::Text("Driver Version: 0x%016" PRIx64, description.driverVersion);
                     ImGui::Text("Raytracing: %d", capabilities.raytracing);
                     ImGui::Text("Raytracing State Update: %d", capabilities.raytracingStateUpdate);
                     ImGui::Text("Sample Locations: %d", capabilities.sampleLocations);

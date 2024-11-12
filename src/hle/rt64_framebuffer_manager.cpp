@@ -215,7 +215,7 @@ namespace RT64 {
         }
 
         // Resolve the target if necessary.
-        colorTarget.resolveTarget(renderWorker);
+        colorTarget.resolveTarget(renderWorker, shaderLibrary);
 
         cmdListCopies.copyRegionTargets.insert(&colorTarget);
 

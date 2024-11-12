@@ -32,8 +32,16 @@
 #define D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
 #endif
 
+#ifdef D3D12_AGILITY_SDK_ENABLED
+extern "C" {
+    __declspec(dllexport) extern const UINT D3D12SDKVersion = D3D12_SDK_VERSION;
+    __declspec(dllexport) extern const char *D3D12SDKPath = ".\\D3D12\\";
+}
+#endif
+
 namespace RT64 {
     static const uint32_t ShaderDescriptorHeapSize = 65536;
+    static const uint32_t SamplerDescriptorHeapSize = 1024;
     static const uint32_t TargetDescriptorHeapSize = 16384;
 
     // Common functions.
@@ -458,6 +466,16 @@ namespace RT64 {
             return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
         case RenderPrimitiveTopology::TRIANGLE_LIST:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        case RenderPrimitiveTopology::TRIANGLE_STRIP:
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+#ifdef D3D12_AGILITY_SDK_ENABLED
+        case RenderPrimitiveTopology::TRIANGLE_FAN:
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLEFAN;
+#else
+        case RenderPrimitiveTopology::TRIANGLE_FAN:
+            assert(false && "Triangle fan support requires the D3D12 Agility SDK.");
+            return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+#endif
         default:
             assert(false && "Unknown primitive topology.");
             return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
@@ -637,6 +655,36 @@ namespace RT64 {
         object->SetName(wideCharName.c_str());
     }
 
+    static UINT toD3D12(RenderSwizzle swizzle, UINT identity) {
+        switch (swizzle) {
+        case RenderSwizzle::IDENTITY:
+            return identity;
+        case RenderSwizzle::ZERO:
+            return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0;
+        case RenderSwizzle::ONE:
+            return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1;
+        case RenderSwizzle::R:
+            return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0;
+        case RenderSwizzle::G:
+            return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1;
+        case RenderSwizzle::B:
+            return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2;
+        case RenderSwizzle::A:
+            return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3;
+        default:
+            assert(false && "Unknown swizzle type.");
+            return identity;
+        }
+    }
+    static UINT toD3D12(RenderComponentMapping componentMapping) {
+        return D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+            toD3D12(componentMapping.r, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0),
+            toD3D12(componentMapping.g, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1),
+            toD3D12(componentMapping.b, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2),
+            toD3D12(componentMapping.a, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3)
+        );
+    }
+
     // D3D12DescriptorHeapAllocator
 
     D3D12DescriptorHeapAllocator::D3D12DescriptorHeapAllocator(D3D12Device *device, uint32_t heapSize, D3D12_DESCRIPTOR_HEAP_TYPE heapType) {
@@ -773,10 +821,24 @@ namespace RT64 {
 
         this->device = device;
 
-        entryCount = 0;
-
         // Figure out the total amount of entries that will be required.
         uint32_t rangeCount = desc.descriptorRangesCount;
+        uint32_t viewDescriptorCount = 0;
+        uint32_t samplerDescriptorCount = 0;
+        auto addDescriptor = [&](const RenderDescriptorRange &range, uint32_t descriptorCount) {
+            descriptorTypes.emplace_back(range.type);
+
+            bool isDynamicSampler = (range.type == RenderDescriptorRangeType::SAMPLER) && (range.immutableSampler == nullptr);
+            if (isDynamicSampler) {
+                descriptorHeapIndices.emplace_back(samplerDescriptorCount);
+                samplerDescriptorCount += descriptorCount;
+            }
+            else {
+                descriptorHeapIndices.emplace_back(viewDescriptorCount);
+                viewDescriptorCount += descriptorCount;
+            }
+        };
+
         if (desc.lastRangeIsBoundless) {
             assert((desc.descriptorRangesCount > 0) && "There must be at least one descriptor set to define the last range as boundless.");
             rangeCount--;
@@ -785,47 +847,48 @@ namespace RT64 {
         for (uint32_t i = 0; i < rangeCount; i++) {
             const RenderDescriptorRange &range = desc.descriptorRanges[i];
             for (uint32_t j = 0; j < range.count; j++) {
-                descriptorTypes.emplace_back(range.type);
-                entryCount++;
+                addDescriptor(range, 1);
             }
         }
 
         if (desc.lastRangeIsBoundless) {
             const RenderDescriptorRange &lastDescriptorRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
-            descriptorTypes.emplace_back(lastDescriptorRange.type);
-
-            // Ensure at least one entry is created for boundless ranges.
-            entryCount += std::max(desc.boundlessRangeSize, 1U);
+            addDescriptor(lastDescriptorRange, desc.boundlessRangeSize);
         }
 
         if (!descriptorTypes.empty()) {
             descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
         }
 
-        // Allocate the set in the global descriptor heap.
-        allocatorOffset = device->descriptorHeapAllocator->allocate(entryCount);
-        if (allocatorOffset == D3D12DescriptorHeapAllocator::INVALID_OFFSET) {
-            fprintf(stderr, "Allocator was unable to find free space for the set.");
-            return;
+        if (viewDescriptorCount > 0) {
+            viewAllocation.offset = device->viewHeapAllocator->allocate(viewDescriptorCount);
+            if (viewAllocation.offset == D3D12DescriptorHeapAllocator::INVALID_OFFSET) {
+                fprintf(stderr, "Allocator was unable to find free space for the set.");
+                return;
+            }
+
+            viewAllocation.count = viewDescriptorCount;
         }
-    }
 
-    D3D12DescriptorSet::D3D12DescriptorSet(D3D12Device *device, uint32_t entryCount) {
-        assert(device != nullptr);
-        assert(entryCount > 0);
+        if (samplerDescriptorCount > 0) {
+            samplerAllocation.offset = device->samplerHeapAllocator->allocate(samplerDescriptorCount);
+            if (samplerAllocation.offset == D3D12DescriptorHeapAllocator::INVALID_OFFSET) {
+                fprintf(stderr, "Allocator was unable to find free space for the set.");
+                return;
+            }
 
-        this->device = device;
-        this->entryCount = entryCount;
-
-        allocatorOffset = device->descriptorHeapAllocator->allocate(entryCount);
-        if (allocatorOffset == D3D12DescriptorHeapAllocator::INVALID_OFFSET) {
-            fprintf(stderr, "Allocator was unable to find free space for the set.");
-            return;
+            samplerAllocation.count = samplerDescriptorCount;
         }
     }
 
     D3D12DescriptorSet::~D3D12DescriptorSet() {
-        device->descriptorHeapAllocator->free(allocatorOffset, entryCount);
+        if (viewAllocation.count > 0) {
+            device->viewHeapAllocator->free(viewAllocation.offset, viewAllocation.count);
+        }
+
+        if (samplerAllocation.count > 0) {
+            device->samplerHeapAllocator->free(samplerAllocation.offset, samplerAllocation.count);
+        }
     }
 
     void D3D12DescriptorSet::setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
@@ -969,7 +1032,7 @@ namespace RT64 {
             if ((nativeResource != nullptr) && (textureView != nullptr)) {
                 const D3D12TextureView *interfaceTextureView = static_cast<const D3D12TextureView *>(textureView);
                 D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-                srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                srvDesc.Shader4ComponentMapping = interfaceTextureView->componentMapping;
                 srvDesc.Format = interfaceTextureView->format;
 
                 const bool isMSAA = (interfaceTextureView->texture->desc.multisampling.sampleCount > RenderSampleCount::COUNT_1);
@@ -1054,6 +1117,18 @@ namespace RT64 {
         }
     }
 
+    void D3D12DescriptorSet::setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) {
+        if (sampler != nullptr) {
+            const D3D12Sampler *interfaceSampler = static_cast<const D3D12Sampler *>(sampler);
+            uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+            uint32_t descriptorIndexRelative = (descriptorIndex - descriptorIndexClamped);
+            uint32_t descriptorHeapIndex = descriptorHeapIndices[descriptorIndexClamped];
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = device->samplerHeapAllocator->getHostCPUHandleAt(samplerAllocation.offset + descriptorHeapIndex + descriptorIndexRelative);
+            device->d3d->CreateSampler(&interfaceSampler->samplerDesc, cpuHandle);
+            setHostModified(samplerAllocation, descriptorHeapIndex + descriptorIndexRelative);
+        }
+    }
+
     void D3D12DescriptorSet::setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
         const D3D12AccelerationStructure *interfaceAccelerationStructure = static_cast<const D3D12AccelerationStructure *>(accelerationStructure);
         uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
@@ -1071,52 +1146,55 @@ namespace RT64 {
             setSRV(descriptorIndex, nullptr, nullptr);
         }
     }
-
+    
     void D3D12DescriptorSet::setSRV(uint32_t descriptorIndex, ID3D12Resource *resource, const D3D12_SHADER_RESOURCE_VIEW_DESC *viewDesc) {
-        assert(descriptorIndex < entryCount);
-
         if ((resource != nullptr) || (viewDesc != nullptr)) {
-            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = device->descriptorHeapAllocator->getHostCPUHandleAt(allocatorOffset + descriptorIndex);
+            uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+            uint32_t descriptorIndexRelative = (descriptorIndex - descriptorIndexClamped);
+            uint32_t descriptorHeapIndex = descriptorHeapIndices[descriptorIndexClamped];
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = device->viewHeapAllocator->getHostCPUHandleAt(viewAllocation.offset + descriptorHeapIndex + descriptorIndexRelative);
             device->d3d->CreateShaderResourceView(resource, viewDesc, cpuHandle);
-            setHostModified(descriptorIndex);
+            setHostModified(viewAllocation, descriptorHeapIndex + descriptorIndexRelative);
         }
     }
 
     void D3D12DescriptorSet::setUAV(uint32_t descriptorIndex, ID3D12Resource *resource, const D3D12_UNORDERED_ACCESS_VIEW_DESC *viewDesc) {
-        assert(descriptorIndex < entryCount);
-
         if ((resource != nullptr) || (viewDesc != nullptr)) {
-            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = device->descriptorHeapAllocator->getHostCPUHandleAt(allocatorOffset + descriptorIndex);
+            uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+            uint32_t descriptorIndexRelative = (descriptorIndex - descriptorIndexClamped);
+            uint32_t descriptorHeapIndex = descriptorHeapIndices[descriptorIndexClamped];
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = device->viewHeapAllocator->getHostCPUHandleAt(viewAllocation.offset + descriptorHeapIndex + descriptorIndexRelative);
             device->d3d->CreateUnorderedAccessView(resource, nullptr, viewDesc, cpuHandle);
-            setHostModified(descriptorIndex);
+            setHostModified(viewAllocation, descriptorHeapIndex + descriptorIndexRelative);
         }
     }
 
     void D3D12DescriptorSet::setCBV(uint32_t descriptorIndex, ID3D12Resource *resource, uint64_t bufferSize) {
-        assert(descriptorIndex < entryCount);
-
         if (resource != nullptr) {
             D3D12_CONSTANT_BUFFER_VIEW_DESC viewDesc = {};
             viewDesc.BufferLocation = resource->GetGPUVirtualAddress();
             viewDesc.SizeInBytes = UINT(roundUp(bufferSize, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
 
-            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = device->descriptorHeapAllocator->getHostCPUHandleAt(allocatorOffset + descriptorIndex);
+            uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+            uint32_t descriptorIndexRelative = (descriptorIndex - descriptorIndexClamped);
+            uint32_t descriptorHeapIndex = descriptorHeapIndices[descriptorIndexClamped];
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = device->viewHeapAllocator->getHostCPUHandleAt(viewAllocation.offset + descriptorHeapIndex + descriptorIndexRelative);
             device->d3d->CreateConstantBufferView(&viewDesc, cpuHandle);
-            setHostModified(descriptorIndex);
+            setHostModified(viewAllocation, descriptorHeapIndex + descriptorIndexRelative);
         }
     }
 
-    void D3D12DescriptorSet::setHostModified(uint32_t descriptorIndex) {
-        if (hostModifiedCount == 0) {
-            hostModifiedIndex = descriptorIndex;
-            hostModifiedCount = 1;
+    void D3D12DescriptorSet::setHostModified(HeapAllocation &heapAllocation, uint32_t heapIndex) {
+        if (heapAllocation.hostModifiedCount == 0) {
+            heapAllocation.hostModifiedIndex = heapIndex;
+            heapAllocation.hostModifiedCount = 1;
         }
-        else if (descriptorIndex < hostModifiedIndex) {
-            hostModifiedCount = hostModifiedIndex + hostModifiedCount - descriptorIndex;
-            hostModifiedIndex = descriptorIndex;
+        else if (heapIndex < heapAllocation.hostModifiedIndex) {
+            heapAllocation.hostModifiedCount = heapAllocation.hostModifiedIndex + heapAllocation.hostModifiedCount - heapIndex;
+            heapAllocation.hostModifiedIndex = heapIndex;
         }
-        else if (descriptorIndex >= (hostModifiedIndex + hostModifiedCount)) {
-            hostModifiedCount = descriptorIndex - hostModifiedIndex + 1;
+        else if (heapIndex >= (heapAllocation.hostModifiedIndex + heapAllocation.hostModifiedCount)) {
+            heapAllocation.hostModifiedCount = heapIndex - heapAllocation.hostModifiedIndex + 1;
         }
     }
 
@@ -1198,7 +1276,8 @@ namespace RT64 {
             while (WaitForSingleObjectEx(waitableObject, 0, FALSE));
         }
 
-        HRESULT res = d3d->Present(1, 0);
+        UINT syncInterval = vsyncEnabled ? 1 : 0;
+        HRESULT res = d3d->Present(syncInterval, 0);
         return SUCCEEDED(res);
     }
 
@@ -1230,6 +1309,14 @@ namespace RT64 {
         uint32_t windowWidth, windowHeight;
         getWindowSize(windowWidth, windowHeight);
         return (d3d == nullptr) || (windowWidth != width) || (windowHeight != height);
+    }
+
+    void D3D12SwapChain::setVsyncEnabled(bool vsyncEnabled) {
+        this->vsyncEnabled = vsyncEnabled;
+    }
+
+    bool D3D12SwapChain::isVsyncEnabled() const {
+        return vsyncEnabled;
     }
 
     uint32_t D3D12SwapChain::getWidth() const {
@@ -1883,7 +1970,8 @@ namespace RT64 {
 
     void D3D12CommandList::checkDescriptorHeaps() {
         if (!descriptorHeapsSet) {
-            d3d->SetDescriptorHeaps(1, &device->descriptorHeapAllocator->shaderHeap);
+            ID3D12DescriptorHeap *descriptorHeaps[] = { device->viewHeapAllocator->shaderHeap, device->samplerHeapAllocator->shaderHeap };
+            d3d->SetDescriptorHeaps(std::size(descriptorHeaps), descriptorHeaps);
             descriptorHeapsSet = true;
         }
     }
@@ -1942,6 +2030,18 @@ namespace RT64 {
         }
     }
 
+    static void updateShaderVisibleSet(D3D12Device *device, D3D12DescriptorHeapAllocator *heapAllocator, D3D12DescriptorSet::HeapAllocation &heapAllocation, D3D12_DESCRIPTOR_HEAP_TYPE heapType) {
+        if (heapAllocation.hostModifiedCount == 0) {
+            return;
+        }
+
+        const D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = heapAllocator->getShaderCPUHandleAt(heapAllocation.offset + heapAllocation.hostModifiedIndex);
+        const D3D12_CPU_DESCRIPTOR_HANDLE srcHandle = heapAllocator->getHostCPUHandleAt(heapAllocation.offset + heapAllocation.hostModifiedIndex);
+        device->d3d->CopyDescriptorsSimple(heapAllocation.hostModifiedCount, dstHandle, srcHandle, heapType);
+        heapAllocation.hostModifiedIndex = 0;
+        heapAllocation.hostModifiedCount = 0;
+    }
+
     void D3D12CommandList::setDescriptorSet(const D3D12PipelineLayout *activePipelineLayout, RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
         assert(descriptorSet != nullptr);
         assert(activePipelineLayout != nullptr);
@@ -1949,23 +2049,25 @@ namespace RT64 {
 
         // Copy descriptors if the shader visible heap is outdated.
         D3D12DescriptorSet *interfaceDescriptorSet = static_cast<D3D12DescriptorSet *>(descriptorSet);
-        if (interfaceDescriptorSet->hostModifiedCount > 0) {
-            const D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = device->descriptorHeapAllocator->getShaderCPUHandleAt(interfaceDescriptorSet->allocatorOffset + interfaceDescriptorSet->hostModifiedIndex);
-            const D3D12_CPU_DESCRIPTOR_HANDLE srcHandle = device->descriptorHeapAllocator->getHostCPUHandleAt(interfaceDescriptorSet->allocatorOffset + interfaceDescriptorSet->hostModifiedIndex);
-            device->d3d->CopyDescriptorsSimple(interfaceDescriptorSet->hostModifiedCount, dstHandle, srcHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-            interfaceDescriptorSet->hostModifiedIndex = 0;
-            interfaceDescriptorSet->hostModifiedCount = 0;
-        }
-
+        updateShaderVisibleSet(device, device->viewHeapAllocator.get(), interfaceDescriptorSet->viewAllocation, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        updateShaderVisibleSet(device, device->samplerHeapAllocator.get(), interfaceDescriptorSet->samplerAllocation, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
         checkDescriptorHeaps();
 
-        const uint32_t rootIndexOffset = uint32_t(activePipelineLayout->pushConstantRanges.size());
-        const D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = device->descriptorHeapAllocator->getShaderGPUHandleAt(interfaceDescriptorSet->allocatorOffset);
+        setRootDescriptorTable(device->viewHeapAllocator.get(), interfaceDescriptorSet->viewAllocation, activePipelineLayout->setViewRootIndices[setIndex], setCompute);
+        setRootDescriptorTable(device->samplerHeapAllocator.get(), interfaceDescriptorSet->samplerAllocation, activePipelineLayout->setSamplerRootIndices[setIndex], setCompute);
+    }
+
+    void D3D12CommandList::setRootDescriptorTable(D3D12DescriptorHeapAllocator *heapAllocator, D3D12DescriptorSet::HeapAllocation &heapAllocation, uint32_t rootIndex, bool setCompute) {
+        if (heapAllocation.count == 0) {
+            return;
+        }
+
+        const D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = heapAllocator->getShaderGPUHandleAt(heapAllocation.offset);
         if (setCompute) {
-            d3d->SetComputeRootDescriptorTable(rootIndexOffset + setIndex, gpuHandle);
+            d3d->SetComputeRootDescriptorTable(rootIndex, gpuHandle);
         }
         else {
-            d3d->SetGraphicsRootDescriptorTable(rootIndexOffset + setIndex, gpuHandle);
+            d3d->SetGraphicsRootDescriptorTable(rootIndex, gpuHandle);
         }
     }
 
@@ -2211,6 +2313,7 @@ namespace RT64 {
         this->dimension = desc.dimension;
         this->mipLevels = desc.mipLevels;
         this->mipSlice = desc.mipSlice;
+        this->componentMapping = toD3D12(desc.componentMapping);
         
         // D3D12 and Vulkan disagree on whether D32 is usable as a texture view format. We just make D3D12 use R32 instead.
         if (format == DXGI_FORMAT_D32_FLOAT) {
@@ -2585,6 +2688,7 @@ namespace RT64 {
         psoDesc.DepthStencilState.DepthWriteMask = desc.depthWriteEnabled ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
         psoDesc.DepthStencilState.DepthFunc = toD3D12(desc.depthFunction);
         psoDesc.NumRenderTargets = desc.renderTargetCount;
+        psoDesc.BlendState.AlphaToCoverageEnable = desc.alphaToCoverageEnabled;
 
         for (uint32_t i = 0; i < desc.renderTargetCount; i++) {
             psoDesc.RTVFormats[i] = toDXGI(desc.renderTargetFormat[i]);
@@ -2780,12 +2884,11 @@ namespace RT64 {
             }
         }
 
-        const D3D12PipelineLayout *interfacePipelineLayout = static_cast<const D3D12PipelineLayout *>(desc.pipelineLayout);
-        descriptorSetCount = interfacePipelineLayout->setCount;
+        pipelineLayout = static_cast<const D3D12PipelineLayout *>(desc.pipelineLayout);
 
         D3D12_STATE_SUBOBJECT &rootSignatureSubobject = subobjects[subobjectIndex++];
         rootSignatureSubobject.Type = D3D12_STATE_SUBOBJECT_TYPE_LOCAL_ROOT_SIGNATURE;
-        rootSignatureSubobject.pDesc = &interfacePipelineLayout->rootSignature;
+        rootSignatureSubobject.pDesc = &pipelineLayout->rootSignature;
 
         subobjectToExportsAssociation.pExports = associatedSymbolsNamesPointers.data();
         subobjectToExportsAssociation.NumExports = associatedSymbolCount;
@@ -2903,24 +3006,44 @@ namespace RT64 {
         }
 
         // Figure out the total size of ranges that will be needed first.
-        uint32_t descriptorRangesCount = 0;
-        for (uint32_t i = 0; i < desc.descriptorSetDescsCount; i++) {
-            descriptorRangesCount += desc.descriptorSetDescs[i].descriptorRangesCount;
-        }
-
-        thread_local std::vector<D3D12_DESCRIPTOR_RANGE> descriptorRanges;
-        descriptorRanges.resize(descriptorRangesCount);
-
-        // Descriptor sets will be created as descriptor table parameters.
-        uint32_t descriptorRangeIndex = 0;
+        uint32_t viewRangesCount = 0;
+        uint32_t samplerRangesCount = 0;
         for (uint32_t i = 0; i < desc.descriptorSetDescsCount; i++) {
             const RenderDescriptorSetDesc &descriptorSetDesc = desc.descriptorSetDescs[i];
-            uint32_t descriptorTableOffset = 0;
-            uint32_t descriptorTableSize = 0;
             for (uint32_t j = 0; j < descriptorSetDesc.descriptorRangesCount; j++) {
                 const RenderDescriptorRange &renderRange = descriptorSetDesc.descriptorRanges[j];
+                if (renderRange.immutableSampler != nullptr) {
+                    continue;
+                }
+                else if (renderRange.type == RenderDescriptorRangeType::SAMPLER) {
+                    samplerRangesCount++;
+                }
+                else {
+                    viewRangesCount++;
+                }
+            }
+        }
 
-                // Immutable samplers are converted to static samplers and filtered out of the descriptor table.
+        thread_local std::vector<D3D12_DESCRIPTOR_RANGE> viewRanges;
+        thread_local std::vector<D3D12_DESCRIPTOR_RANGE> samplerRanges;
+        uint32_t viewRangeIndex = 0;
+        uint32_t samplerRangeIndex = 0;
+        viewRanges.resize(viewRangesCount);
+        samplerRanges.resize(samplerRangesCount);
+
+        // Descriptor sets will be created as descriptor table parameters.
+        for (uint32_t i = 0; i < desc.descriptorSetDescsCount; i++) {
+            uint32_t viewTableOffset = 0;
+            uint32_t viewTableSize = 0;
+            uint32_t samplerTableOffset = 0;
+            uint32_t samplerTableSize = 0;
+            const RenderDescriptorSetDesc &descriptorSetDesc = desc.descriptorSetDescs[i];
+            for (uint32_t j = 0; j < descriptorSetDesc.descriptorRangesCount; j++) {
+                // D3D12 requires specifying boundless arrays by setting the descriptor count to UINT_MAX.
+                const RenderDescriptorRange &renderRange = descriptorSetDesc.descriptorRanges[j];
+                const bool isRangeBoundless = (descriptorSetDesc.lastRangeIsBoundless && (j == (descriptorSetDesc.descriptorRangesCount - 1)));
+
+                // Immutable samplers are converted to static samplers and filtered out of the table entirely.
                 if (renderRange.immutableSampler != nullptr) {
                     for (uint32_t k = 0; k < renderRange.count; k++) {
                         const D3D12Sampler *sampler = static_cast<const D3D12Sampler *>(renderRange.immutableSampler[k]);
@@ -2942,34 +3065,56 @@ namespace RT64 {
                         staticSamplers.emplace_back(staticSampler);
                     }
                 }
-                else {
-                    assert((renderRange.type != RenderDescriptorRangeType::SAMPLER) && "Dynamic sampler heaps aren't implemented.");
-                    D3D12_DESCRIPTOR_RANGE &descriptorRange = descriptorRanges[descriptorRangeIndex + descriptorTableSize];
+                // Dynamic samplers must use a different type of heap.
+                else if (renderRange.type == RenderDescriptorRangeType::SAMPLER) {
+                    D3D12_DESCRIPTOR_RANGE &descriptorRange = samplerRanges[samplerRangeIndex + samplerTableSize];
                     descriptorRange.RangeType = toRangeType(renderRange.type);
-                    descriptorRange.NumDescriptors = renderRange.count;
+                    descriptorRange.NumDescriptors = isRangeBoundless ? UINT_MAX : renderRange.count;
                     descriptorRange.BaseShaderRegister = renderRange.binding;
                     descriptorRange.RegisterSpace = i;
-                    descriptorRange.OffsetInDescriptorsFromTableStart = descriptorTableOffset;
-                    descriptorTableSize++;
+                    descriptorRange.OffsetInDescriptorsFromTableStart = samplerTableOffset;
+                    samplerTableSize++;
+                    samplerTableOffset += renderRange.count;
                 }
-
-                descriptorTableOffset += renderRange.count;
+                else {
+                    D3D12_DESCRIPTOR_RANGE &descriptorRange = viewRanges[viewRangeIndex + viewTableSize];
+                    descriptorRange.RangeType = toRangeType(renderRange.type);
+                    descriptorRange.NumDescriptors = isRangeBoundless ? UINT_MAX : renderRange.count;
+                    descriptorRange.BaseShaderRegister = renderRange.binding;
+                    descriptorRange.RegisterSpace = i;
+                    descriptorRange.OffsetInDescriptorsFromTableStart = viewTableOffset;
+                    viewTableSize++;
+                    viewTableOffset += renderRange.count;
+                }
             }
-            
-            // D3D12 requires specifying boundless arrays by setting the descriptor count to UINT_MAX.
-            if (descriptorSetDesc.lastRangeIsBoundless && (descriptorTableSize > 0)) {
-                D3D12_DESCRIPTOR_RANGE &lastRange = descriptorRanges[descriptorRangeIndex + descriptorTableSize - 1];
-                lastRange.NumDescriptors = UINT_MAX;
+
+            setViewRootIndices.emplace_back(uint32_t(rootParameters.size()));
+
+            if (viewTableSize > 0) {
+                D3D12_ROOT_PARAMETER rootParameter = {};
+                rootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+                rootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+                rootParameter.DescriptorTable.pDescriptorRanges = &viewRanges[viewRangeIndex];
+                rootParameter.DescriptorTable.NumDescriptorRanges = viewTableSize;
+                rootParameters.emplace_back(rootParameter);
+                viewRangeIndex += viewTableSize;
             }
 
-            D3D12_ROOT_PARAMETER rootParameter = {};
-            rootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-            rootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-            rootParameter.DescriptorTable.pDescriptorRanges = &descriptorRanges[descriptorRangeIndex];
-            rootParameter.DescriptorTable.NumDescriptorRanges = descriptorTableSize;
-            rootParameters.emplace_back(rootParameter);
-            descriptorRangeIndex += descriptorTableSize;
+            setSamplerRootIndices.emplace_back(uint32_t(rootParameters.size()));
+
+            if (samplerTableSize > 0) {
+                D3D12_ROOT_PARAMETER rootParameter = {};
+                rootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+                rootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+                rootParameter.DescriptorTable.pDescriptorRanges = &samplerRanges[samplerRangeIndex];
+                rootParameter.DescriptorTable.NumDescriptorRanges = samplerTableSize;
+                rootParameters.emplace_back(rootParameter);
+                samplerRangeIndex += samplerTableSize;
+            }
         }
+
+        // Store the total amount of root parameters.
+        rootCount = rootParameters.size();
 
         // Fill root signature desc.
         D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
@@ -3091,6 +3236,13 @@ namespace RT64 {
                 capabilities.sampleLocations = samplePositionsOption;
                 description.name = win32::Utf16ToUtf8(adapterDesc.Description);
                 description.dedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
+                description.vendor = RenderDeviceVendor(adapterDesc.VendorId);
+                
+                LARGE_INTEGER adapterVersion = {};
+                res = adapter->CheckInterfaceSupport(__uuidof(IDXGIDevice), &adapterVersion);
+                if (SUCCEEDED(res)) {
+                    description.driverVersion = adapterVersion.QuadPart;
+                }
 
                 if (preferUserChoice) {
                     break;
@@ -3170,13 +3322,15 @@ namespace RT64 {
         capabilities.preferHDR = description.dedicatedVideoMemory > (512 * 1024 * 1024);
 
         // Create descriptor heaps allocator.
-        descriptorHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, ShaderDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        viewHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, ShaderDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        samplerHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, SamplerDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
         colorTargetHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, TargetDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         depthTargetHeapAllocator = std::make_unique<D3D12DescriptorHeapAllocator>(this, TargetDescriptorHeapSize, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
     }
 
     D3D12Device::~D3D12Device() {
-        descriptorHeapAllocator.reset();
+        viewHeapAllocator.reset();
+        samplerHeapAllocator.reset();
         rtDummyGlobalPipelineLayout.reset();
         rtDummyLocalPipelineLayout.reset();
         release();
@@ -3331,7 +3485,7 @@ namespace RT64 {
 
         const D3D12RaytracingPipeline *raytracingPipeline = static_cast<const D3D12RaytracingPipeline *>(pipeline);
         assert((raytracingPipeline->type == D3D12Pipeline::Type::Raytracing) && "Only raytracing pipelines can be used to build shader binding tables.");
-        assert((raytracingPipeline->descriptorSetCount <= descriptorSetCount) && "There must be enough descriptor sets available for the pipeline.");
+        assert((raytracingPipeline->pipelineLayout->setCount <= descriptorSetCount) && "There must be enough descriptor sets available for the pipeline.");
 
         uint64_t tableSize = 0;
         auto setGroup = [&](RenderShaderBindingGroupInfo &groupInfo, const RenderShaderBindingGroup &renderGroup) {
@@ -3343,7 +3497,7 @@ namespace RT64 {
                 groupInfo.size = 0;
             }
             else {
-                groupInfo.stride = roundUp(D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT + 8 * raytracingPipeline->descriptorSetCount, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
+                groupInfo.stride = roundUp(D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT + sizeof(UINT64) * raytracingPipeline->pipelineLayout->rootCount, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
                 groupInfo.offset = tableSize;
                 groupInfo.size = groupInfo.stride * renderGroup.pipelineProgramsCount;
                 tableSize += groupInfo.size;
@@ -3361,14 +3515,21 @@ namespace RT64 {
         tableInfo.tableBufferData.resize(tableSize, 0);
         
         thread_local std::vector<UINT64> descriptorHandles;
-        descriptorHandles.resize(raytracingPipeline->descriptorSetCount);
-        for (uint32_t i = 0; i < raytracingPipeline->descriptorSetCount; i++) {
+        descriptorHandles.clear();
+        descriptorHandles.resize(raytracingPipeline->pipelineLayout->rootCount, 0);
+
+        for (uint32_t i = 0; i < raytracingPipeline->pipelineLayout->setCount; i++) {
             const D3D12DescriptorSet *interfaceDescriptorSet = static_cast<const D3D12DescriptorSet *>(descriptorSets[i]);
             if (interfaceDescriptorSet != nullptr) {
-                descriptorHandles[i] = descriptorHeapAllocator->getShaderGPUHandleAt(interfaceDescriptorSet->allocatorOffset).ptr;
-            }
-            else {
-                descriptorHandles[i] = 0;
+                if (interfaceDescriptorSet->viewAllocation.count > 0) {
+                    uint32_t viewRootIndex = raytracingPipeline->pipelineLayout->setViewRootIndices[i];
+                    descriptorHandles[viewRootIndex] = viewHeapAllocator->getShaderGPUHandleAt(interfaceDescriptorSet->viewAllocation.offset).ptr;
+                }
+
+                if (interfaceDescriptorSet->samplerAllocation.count > 0) {
+                    uint32_t samplerRootIndex = raytracingPipeline->pipelineLayout->setSamplerRootIndices[i];
+                    descriptorHandles[samplerRootIndex] = samplerHeapAllocator->getShaderGPUHandleAt(interfaceDescriptorSet->samplerAllocation.offset).ptr;
+                }
             }
         }
 
@@ -3378,9 +3539,9 @@ namespace RT64 {
                 uint64_t tableOffset = groupInfo.offset + i * groupInfo.stride;
                 memcpy(&tableInfo.tableBufferData[tableOffset], shaderId, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
 
-                if (raytracingPipeline->descriptorSetCount > 0) {
+                if (raytracingPipeline->pipelineLayout->rootCount > 0) {
                     UINT64 *tableDescriptorHandles = reinterpret_cast<UINT64 *>(&tableInfo.tableBufferData[tableOffset + D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT]);
-                    memcpy(tableDescriptorHandles, descriptorHandles.data(), sizeof(UINT64) * raytracingPipeline->descriptorSetCount);
+                    memcpy(tableDescriptorHandles, descriptorHandles.data(), sizeof(UINT64) * raytracingPipeline->pipelineLayout->rootCount);
                 }
             }
         };

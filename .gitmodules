@@ -55,3 +55,6 @@
 [submodule "src/contrib/zstd"]
 	path = src/contrib/zstd
 	url = https://github.com/facebook/zstd
+[submodule "src/contrib/re-spirv"]
+	path = src/contrib/re-spirv
+	url = https://github.com/rt64/re-spirv
