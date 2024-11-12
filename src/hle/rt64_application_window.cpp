@@ -139,7 +139,7 @@ namespace RT64 {
         auto *metalInterface = dynamic_cast<RT64::MetalInterface *>(renderInterface);
         metalInterface->assignDeviceToLayer(view);
 
-        windowHandle.window = wmInfo.info.cocoa.window;
+        windowHandle.window = sdlWindow;
 #   else
         static_assert(false && "Unimplemented");
 #   endif

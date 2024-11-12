@@ -847,12 +847,7 @@ namespace RT64 {
         auto *metalInterface = dynamic_cast<RT64::MetalInterface *>(renderInterface);
         metalInterface->assignDeviceToLayer(view);
 
-        // SDL_Window's handle can be used directly if needed
-        SDL_SysWMinfo wmInfo;
-        SDL_VERSION(&wmInfo.version);
-        SDL_GetWindowWMInfo(window, &wmInfo);
-
-        TestInitialize(renderInterface, { wmInfo.info.cocoa.window });
+        TestInitialize(renderInterface, { window });
         TestResize();
 
         bool running = true;
