@@ -122,7 +122,7 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
             COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
             DEPENDS ${FILENAME})
     add_custom_command(OUTPUT ${OUTNAME}.metal
-            COMMAND ${SPIRVCROSS} ${OUTNAME}.spv --msl --output ${OUTNAME}.metal --msl-version 20000 --msl-argument-buffers --msl-force-native-arrays
+            COMMAND ${SPIRVCROSS} ${OUTNAME}.spv --msl --output ${OUTNAME}.metal --msl-version 20000 --msl-argument-buffers --msl-force-native-arrays --msl-decoration-binding
             DEPENDS ${OUTNAME}.spv)
     add_custom_command(OUTPUT ${OUTNAME}.ir
             COMMAND xcrun -sdk macosx metal -o ${OUTNAME}.ir -c ${OUTNAME}.metal
@@ -130,13 +130,13 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     add_custom_command(OUTPUT ${OUTNAME}.metallib
             COMMAND xcrun -sdk macosx metallib ${OUTNAME}.ir -o ${OUTNAME}.metallib
             DEPENDS ${OUTNAME}.ir)
-    add_custom_command(OUTPUT ${OUTNAME}.metallib.c
-            COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metallib.c ${OUTNAME}.metallib.h
+    add_custom_command(OUTPUT ${OUTNAME}.metal.c
+            COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metal.c ${OUTNAME}.metal.h
             DEPENDS ${OUTNAME}.metallib file_to_c
-            BYPRODUCTS ${OUTNAME}.metallib.h)
+            BYPRODUCTS ${OUTNAME}.metal.h)
     add_custom_command(TARGET ${TARGETOBJ} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E rm -f ${OUTNAME}.spv ${OUTNAME}.metal ${OUTNAME}.ir ${OUTNAME}.metallib)
-    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metallib.c)
+    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metal.c)
 endfunction()
 
 function(build_shader TARGETOBJ SHADERNAME OPTIONS)
