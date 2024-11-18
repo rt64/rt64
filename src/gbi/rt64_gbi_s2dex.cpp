@@ -333,12 +333,20 @@ namespace RT64 {
                 int16_t ult = imageT;
                 int16_t lrs = uls + scaleBg.imageW;
                 int16_t lrt = ult + scaleBg.imageH;
-                state->rdp->setTextureImage(G_IM_FMT_RGBA, loadSiz, imageSrcWsize >> 1, imagePtr);
-                state->rdp->setTileSize(G_TX_RENDERTILE, uls, ult, lrs, lrt);
-                if (state->rdp->loadTileCopyCheck(G_TX_LOADTILE, uls, ult, lrs, lrt)) {
+                rdp->setTextureImage(G_IM_FMT_RGBA, loadSiz, imageSrcWsize >> 1, imagePtr);
+                rdp->setTileSize(G_TX_RENDERTILE, uls, ult, lrs, lrt);
+
+                uint64_t replacementHash = 0;
+                bool replacementCheck = rdp->loadTileReplacementCheck(G_TX_LOADTILE, uls, ult, lrs, lrt, scaleBg.imageSiz, scaleBg.imageFmt, scaleBg.imageLoad, scaleBg.imagePal, replacementHash);
+                bool singleTileMode = replacementCheck || rdp->loadTileCopyCheck(G_TX_LOADTILE, uls, ult, lrs, lrt);
+                state->startSpriteCommand(replacementHash);
+                if (singleTileMode) {
                     int32_t uly = frameY0 & ~0x3;
-                    state->rdp->loadTile(G_TX_LOADTILE, uls, ult, lrs, lrt);
-                    state->rdp->drawTexRect(frameX0, uly, frameX1, uly + frameH, G_TX_RENDERTILE, uls, ult, scaleW, scaleH, false);
+                    rdp->setTileReplacementHash(G_TX_RENDERTILE, replacementHash);
+                    rdp->loadTile(G_TX_LOADTILE, uls, ult, lrs, lrt);
+                    rdp->drawTexRect(frameX0, uly, frameX1, uly + frameH, G_TX_RENDERTILE, uls, ult, scaleW, scaleH, false);
+                    rdp->clearTileReplacementHash(G_TX_RENDERTILE);
+                    state->endSpriteCommand();
                     return;
                 }
             }
@@ -384,6 +392,8 @@ namespace RT64 {
                 imageT = 0;
             }
 
+            state->endSpriteCommand();
+
 #       ifdef LOG_BGRECT_METHODS
             RT64_LOG_PRINTF("bg1Cyc::end(0x%08X)", (*dl)->w1);
 #       endif
@@ -420,11 +430,18 @@ namespace RT64 {
             // If it fails to find a possible tile copy, fall back to the regular approach.
             // FIXME: The rest of the code should still run to account for state bleeding without drawing any rectangles.
             uint16_t bgRectLrt = bg.imageH - lrSubstract;
+            uint64_t replacementHash = 0;
             if (state->ext.enhancementConfig->s2dex.framebufferFastPath) {
-                if (rdp->loadTileCopyCheck(G_TX_LOADTILE, 0, 0, bgRectLrs, bgRectLrt)) {
+                bool replacementCheck = rdp->loadTileReplacementCheck(G_TX_LOADTILE, 0, 0, bgRectLrs, bgRectLrt, bg.imageSiz, bg.imageFmt, bg.imageLoad, bg.imagePal, replacementHash);
+                bool singleTileMode = replacementCheck || rdp->loadTileCopyCheck(G_TX_LOADTILE, 0, 0, bgRectLrs, bgRectLrt);
+                state->startSpriteCommand(replacementHash);
+                if (singleTileMode) {
+                    rdp->setTileReplacementHash(G_TX_RENDERTILE, replacementHash);
                     rdp->setTileSize(G_TX_RENDERTILE, 0, 0, bgRectLrs, bgRectLrt);
                     rdp->loadTile(G_TX_LOADTILE, 0, 0, bgRectLrs, bgRectLrt);
                     rdp->drawTexRect(bg.frameX, bg.frameY, bg.frameX + bg.frameW - lrSubstract, bg.frameY + bg.frameH - lrSubstract, G_TX_RENDERTILE, 0, 0, dsdx, dsdy, false);
+                    rdp->clearTileReplacementHash(G_TX_RENDERTILE);
+                    state->endSpriteCommand();
                     return;
                 }
             }
@@ -439,6 +456,8 @@ namespace RT64 {
                 rdp->loadTile(G_TX_LOADTILE, 0, bgRectUlt, bgRectLrs, bgRectUlt + bgRectLrt);
                 rdp->drawTexRect(bg.frameX, bg.frameY + bgRectUlt, bg.frameX + bg.frameW - lrSubstract, bg.frameY + bgRectUlt + bgRectLrt, G_TX_RENDERTILE, 0, 0, dsdx, dsdy, false);
             }
+
+            state->endSpriteCommand();
 
 #       ifdef LOG_BGRECT_METHODS
             RT64_LOG_PRINTF("bgCopy::end(0x%08X)", (*dl)->w1);

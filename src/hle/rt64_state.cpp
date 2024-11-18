@@ -87,6 +87,7 @@ namespace RT64 {
         lastScreenFactorCounter = 0;
         lastWorkloadIndex = 0;
         addLightsOnFlush = false;
+        activeSpriteCommand.replacementHash = 0;
 
         rsp->reset();
         rdp->reset();
@@ -397,7 +398,7 @@ namespace RT64 {
                     }
                     else {
                         dstCallTile.tileCopyUsed = false;
-                        dstCallTile.tmemHashOrID = 0;
+                        dstCallTile.tmemHashOrID = rdp->tileReplacementHashes[tileIndex];
                     }
                 }
             }
@@ -448,6 +449,17 @@ namespace RT64 {
         GameCall gameCall;
         gameCall.callDesc = drawCall;
         fbPair.addGameCall(gameCall);
+
+        // Assign the indices or increase the count of the active sprite command if it exists.
+        if (activeSpriteCommand.replacementHash != 0) {
+            if (activeSpriteCommand.callCount == 0) {
+                activeSpriteCommand.fbPairIndex = workload.fbPairCount - 1;
+                activeSpriteCommand.projIndex = fbPair.projectionCount - 1;
+                activeSpriteCommand.callIndex = fbPair.projections[activeSpriteCommand.projIndex].gameCallCount - 1;
+            }
+
+            activeSpriteCommand.callCount++;
+        }
 
         // Lights have been changed in this call.
         if (addLightsOnFlush) {
@@ -613,7 +625,10 @@ namespace RT64 {
             }
 
             if (!callTile.tileCopyUsed) {
-                if (callTile.rawTMEM) {
+                if (callTile.tmemHashOrID != 0) {
+                    textureManager.uploadEmpty(this, ext.textureCache, workload.submissionFrame, callTile.sampleWidth, callTile.sampleHeight, callTile.tmemHashOrID);
+                }
+                else if (callTile.rawTMEM) {
                     callTile.tmemHashOrID = textureManager.uploadTMEM(this, callTile.loadTile, ext.textureCache, workload.submissionFrame, 0, RDP_TMEM_BYTES, callTile.sampleWidth, callTile.sampleHeight, callTile.tlut);
                 }
                 else {
@@ -2592,6 +2607,28 @@ namespace RT64 {
     
     void State::setExtendedRDRAM(bool isExtended) {
         extended.extendRDRAM = isExtended;
+    }
+
+    void State::startSpriteCommand(uint64_t replacementHash) {
+        if (replacementHash != activeSpriteCommand.replacementHash) {
+            flush();
+            activeSpriteCommand.callCount = 0;
+            activeSpriteCommand.replacementHash = replacementHash;
+        }
+    }
+
+    void State::endSpriteCommand() {
+        if (activeSpriteCommand.replacementHash != 0) {
+            flush();
+
+            if (activeSpriteCommand.callCount > 0) {
+                const int workloadCursor = ext.workloadQueue->writeCursor;
+                Workload &workload = ext.workloadQueue->workloads[workloadCursor];
+                workload.spriteCommands.emplace_back(activeSpriteCommand);
+            }
+
+            activeSpriteCommand.replacementHash = 0;
+        }
     }
 
     uint8_t *State::fromRDRAM(uint32_t rdramAddress) const {
