@@ -43,7 +43,9 @@ namespace RT64 {
     };
 #elif defined(__APPLE__)
     struct RenderWindow {
-        NSWindow* window;
+        void* window;
+        void* layer;
+        
         bool operator==(const struct RenderWindow& rhs) const {
             return window == rhs.window;
         }

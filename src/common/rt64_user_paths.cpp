@@ -9,6 +9,8 @@
 #   include <pwd.h>
 #elif defined(_WIN32)
 #   include <Shlobj.h>
+#elif defined(__APPLE__)
+#   include "common/rt64_apple.h"
 #endif
 
 namespace RT64 {
@@ -30,10 +32,14 @@ namespace RT64 {
         }
 
         CoTaskMemFree(knownPath);
-#   elif defined(__linux__)
+#   elif defined(__linux__) || defined(__APPLE__)
         const char *homeDir = getenv("HOME");
         if (homeDir == nullptr) {
+            #if defined(__linux__)
             homeDir = getpwuid(getuid())->pw_dir;
+            #elif defined(__APPLE__)
+            homeDir = GetHomeDirectory();
+            #endif
         }
 
         if (homeDir != nullptr) {
