@@ -240,13 +240,15 @@ namespace RT64 {
         }
     }
 
-    static MTLTextureType toTextureType(RenderTextureDimension dimension) {
+    static MTLTextureType toTextureType(RenderTextureDimension dimension, RenderSampleCounts sampleCount) {
         switch (dimension) {
             case RenderTextureDimension::TEXTURE_1D:
+                assert(sampleCount <= 1 && "Multisampling not supported for 1D textures");
                 return MTLTextureType1D;
             case RenderTextureDimension::TEXTURE_2D:
-                return MTLTextureType2D;
+                return (sampleCount > 1) ? MTLTextureType2DMultisample : MTLTextureType2D;
             case RenderTextureDimension::TEXTURE_3D:
+                assert(sampleCount <= 1 && "Multisampling not supported for 3D textures");
                 return MTLTextureType3D;
             default:
                 assert(false && "Unknown resource dimension.");
@@ -533,11 +535,7 @@ namespace RT64 {
         this->desc = desc;
 
         auto descriptor = [MTLTextureDescriptor new];
-        auto textureType = toTextureType(desc.dimension);
-
-        if (desc.multisampling.sampleCount > 1 && textureType == MTLTextureType2D) {
-            textureType = MTLTextureType2DMultisample;
-        }
+        auto textureType = toTextureType(desc.dimension, desc.multisampling.sampleCount);
 
         descriptor.textureType = textureType;
         descriptor.storageMode = MTLStorageModePrivate;
