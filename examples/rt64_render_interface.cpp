@@ -45,20 +45,16 @@
 #define ENABLE_RT 0
 
 namespace RT64 {
-    struct BlueNoiseTextureGenerator {
-        static std::vector<uint8_t> generateBlueNoiseData(uint32_t width, uint32_t height) {
+    struct CheckeredTextureGenerator {
+        static std::vector<uint8_t> generateCheckeredData(uint32_t width, uint32_t height) {
             std::vector<uint8_t> textureData(width * height * 4);
-            
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+            const uint32_t squareSize = 32; // Size of each checker square
             
             for (uint32_t y = 0; y < height; y++) {
                 for (uint32_t x = 0; x < width; x++) {
                     uint32_t index = (y * width + x) * 4;
-                    
-                    float noiseValue = dis(gen);
-                    uint8_t pixelValue = static_cast<uint8_t>(noiseValue * 255.0f);
+                    bool isWhite = ((x / squareSize) + (y / squareSize)) % 2 == 0;
+                    uint8_t pixelValue = isWhite ? 255 : 0;
                     
                     textureData[index + 0] = pixelValue;  // R
                     textureData[index + 1] = pixelValue;  // G
@@ -379,7 +375,7 @@ namespace RT64 {
 
         // Copy to upload buffer.
         void *bufferData = Test.uploadBuffer->map();
-        auto noiseData = BlueNoiseTextureGenerator::generateBlueNoiseData(Width, Height);
+        auto noiseData = CheckeredTextureGenerator::generateCheckeredData(Width, Height);
         memcpy(bufferData, noiseData.data(), BufferSize);
         Test.uploadBuffer->unmap();
 
