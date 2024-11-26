@@ -94,7 +94,7 @@ namespace RT64 {
         }
 
         void matrix(State *state, DisplayList **dl) {
-            state->rsp->matrix((*dl)->w1, (*dl)->p0(0, 8) ^ state->rsp->pushMask, 0);
+            state->rsp->matrix((*dl)->w1, ((*dl)->p0(0, 8) ^ state->rsp->pushMask), 0);
         }
 
         void popMatrix(State *state, DisplayList **dl) {

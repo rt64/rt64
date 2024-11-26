@@ -33,7 +33,7 @@ namespace RT64 {
         void updatePerspective(const hlslpp::float4x4 &prevTransform, const hlslpp::float4x4 &curTransform, uint8_t perspInterpolation);
 
         // Decomposes the given matrix if specified and updates the tracked decomposed values.
-        void updateDecomposition(const hlslpp::float4x4 &curTransform, bool decompose);
+        void updateDecomposition(const hlslpp::float4x4 &prevTransform, const hlslpp::float4x4 &curTransform, bool decompose, bool overridePrevTransform);
 
         // Lerps between the previous and current transform with the given weight and recomposes the result into a matrix.
         // Falls back to the provided matrix if decomposition has failed for either transform.

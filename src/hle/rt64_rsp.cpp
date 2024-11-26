@@ -144,7 +144,9 @@ namespace RT64 {
         uint32_t &projectionMatrixSegmentedAddress = projectionMatrixSegmentedAddressStack[projectionMatrixStackSize - 1];
         uint32_t &projectionMatrixPhysicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
         if (params & projMask) {
-            assert(!prevAddressValid && "Not implemented yet.");
+            if (!prevAddressValid) {
+                // TODO
+            }
 
             if (params & loadMask) {
                 viewProjMatrix = floatMatrix;
