@@ -38,13 +38,6 @@
 #include "shaders/RenderInterfaceTestPostVS.hlsl.metal.h"
 #endif
 
-#define ENABLE_SWAP_CHAIN 1
-#define ENABLE_CLEAR 1
-#define ENABLE_RASTER 1
-#define ENABLE_TEXTURE 1
-#define ENABLE_COMPUTE 0
-#define ENABLE_RT 0
-
 namespace RT64 {
     struct CheckeredTextureGenerator {
         static std::vector<uint8_t> generateCheckeredData(uint32_t width, uint32_t height) {
@@ -67,84 +60,15 @@ namespace RT64 {
             return textureData;
         }
     };
-
-    struct RasterDescriptorSet : RenderDescriptorSetBase {
-        uint32_t gSampler;
-        uint32_t gTextures;
-        
-        std::unique_ptr<RenderSampler> linearSampler;
-        
-        RasterDescriptorSet(RenderDevice *device, uint32_t textureArraySize) {
-            linearSampler = device->createSampler(RenderSamplerDesc());
-
-            const uint32_t TextureArrayUpperRange = 512;
-            builder.begin();
-            gSampler = builder.addImmutableSampler(1, linearSampler.get());
-            gTextures = builder.addTexture(2, TextureArrayUpperRange);
-            builder.end(true, textureArraySize);
-
-            create(device);
-        }
-    };
-
-    struct ComputeDescriptorFirstSet : RenderDescriptorSetBase {
-        uint32_t gCheckeredTexture;
-        uint32_t gSampler;
-        uint32_t gTarget;
-
-        std::unique_ptr<RenderSampler> linearSampler;
-
-        ComputeDescriptorFirstSet(RenderDevice *device) {
-            linearSampler = device->createSampler(RenderSamplerDesc());
-
-            builder.begin();
-            gCheckeredTexture = builder.addTexture(1);
-            gSampler = builder.addImmutableSampler(2, linearSampler.get());
-            builder.end();
-
-            create(device);
-        }
-    };
-
-    struct ComputeDescriptorSecondSet : RenderDescriptorSetBase {
-        uint32_t gTarget;
-
-        ComputeDescriptorSecondSet(RenderDevice *device) {
-            builder.begin();
-            gTarget = builder.addReadWriteTexture(16);
-            builder.end();
-
-            create(device);
-        }
-    };
-
-    struct RaytracingDescriptorSet : RenderDescriptorSetBase {
-        uint32_t gBVH;
-        uint32_t gOutput;
-        uint32_t gBufferParams;
-
-        RaytracingDescriptorSet(RenderDevice *device) {
-            builder.begin();
-            gBVH = builder.addAccelerationStructure(0);
-            gOutput = builder.addReadWriteTexture(1);
-            gBufferParams = builder.addStructuredBuffer(2);
-            builder.end();
-
-            create(device);
-        }
-    };
-
-    struct TestMembers {
+    
+    struct TestBase {
         static const uint32_t BufferCount = 2;
+        static const RenderFormat SwapchainFormat = RenderFormat::B8G8R8A8_UNORM;
         static const uint32_t MSAACount = 4;
         static const RenderFormat ColorFormat = RenderFormat::R8G8B8A8_UNORM;
         static const RenderFormat DepthFormat = RenderFormat::D32_FLOAT;
-#ifdef __ANDROID__
-        static const RenderFormat SwapchainFormat = RenderFormat::R8G8B8A8_UNORM;
-#else
-        static const RenderFormat SwapchainFormat = RenderFormat::B8G8R8A8_UNORM;
-#endif
-        const RenderInterface *renderInterface = nullptr;
+        
+        const RenderInterface* renderInterface = nullptr;
         std::unique_ptr<RenderDevice> device;
         std::unique_ptr<RenderCommandQueue> commandQueue;
         std::unique_ptr<RenderCommandList> commandList;
@@ -152,582 +76,131 @@ namespace RT64 {
         std::unique_ptr<RenderCommandSemaphore> drawSemaphore;
         std::unique_ptr<RenderCommandFence> commandFence;
         std::unique_ptr<RenderSwapChain> swapChain;
-        std::unique_ptr<RenderFramebuffer> framebuffer;
         std::vector<std::unique_ptr<RenderFramebuffer>> swapFramebuffers;
-        std::unique_ptr<RenderSampler> linearSampler;
-        std::unique_ptr<RenderSampler> postSampler;
-        std::unique_ptr<RasterDescriptorSet> rasterSet;
-        std::unique_ptr<ComputeDescriptorFirstSet> computeFirstSet;
-        std::unique_ptr<ComputeDescriptorSecondSet> computeSecondSet;
-        std::unique_ptr<RaytracingDescriptorSet> rtSet;
-        std::unique_ptr<RenderDescriptorSet> postSet;
-        std::unique_ptr<RenderPipelineLayout> rasterPipelineLayout;
-        std::unique_ptr<RenderPipelineLayout> computePipelineLayout;
-        std::unique_ptr<RenderPipelineLayout> rtPipelineLayout;
-        std::unique_ptr<RenderPipelineLayout> postPipelineLayout;
-        std::unique_ptr<RenderPipeline> rasterPipeline;
-        std::unique_ptr<RenderPipeline> computePipeline;
-        std::unique_ptr<RenderPipeline> rtPipeline;
-        std::unique_ptr<RenderPipeline> postPipeline;
-        std::unique_ptr<RenderTexture> colorTargetMS;
-        std::unique_ptr<RenderTexture> colorTargetResolved;
-        std::unique_ptr<RenderTexture> depthTarget;
-        std::unique_ptr<RenderBuffer> uploadBuffer;
-        std::unique_ptr<RenderTexture> blueNoiseTexture;
-        std::unique_ptr<RenderBuffer> vertexBuffer;
-        std::unique_ptr<RenderBuffer> indexBuffer;
-        std::unique_ptr<RenderBuffer> rtParamsBuffer;
-        std::unique_ptr<RenderBuffer> rtVertexBuffer;
-        std::unique_ptr<RenderBuffer> rtScratchBuffer;
-        std::unique_ptr<RenderBuffer> rtInstancesBuffer;
-        std::unique_ptr<RenderBuffer> rtBottomLevelASBuffer;
-        std::unique_ptr<RenderAccelerationStructure> rtBottomLevelAS;
-        std::unique_ptr<RenderBuffer> rtTopLevelASBuffer;
-        std::unique_ptr<RenderAccelerationStructure> rtTopLevelAS;
-        std::unique_ptr<RenderBuffer> rtShaderBindingTableBuffer;
-        RenderShaderBindingTableInfo rtShaderBindingTableInfo;
-        RenderVertexBufferView vertexBufferView;
-        RenderIndexBufferView indexBufferView;
-        RenderInputSlot inputSlot;
-    } Test;
 
-    struct RasterPushConstant {
-        float colorAdd[4] = {};
-        uint32_t textureIndex = 0;
+        virtual void initialize(RenderInterface* interface, RenderWindow window) {
+            renderInterface = interface;
+            device = interface->createDevice();
+            commandQueue = device->createCommandQueue(RenderCommandListType::DIRECT);
+            commandList = commandQueue->createCommandList(RenderCommandListType::DIRECT);
+            acquireSemaphore = device->createCommandSemaphore();
+            drawSemaphore = device->createCommandSemaphore();
+            commandFence = device->createCommandFence();
+            swapChain = commandQueue->createSwapChain(window, BufferCount, SwapchainFormat);
+            resize();
+        }
+
+        virtual void resize() {
+            if (!swapChain) return;
+            swapFramebuffers.clear();
+            swapChain->resize();
+            swapFramebuffers.resize(swapChain->getTextureCount());
+            for (uint32_t i = 0; i < swapChain->getTextureCount(); i++) {
+                const RenderTexture* curTex = swapChain->getTexture(i);
+                swapFramebuffers[i] = device->createFramebuffer(RenderFramebufferDesc{&curTex, 1});
+            }
+        }
+
+        virtual void draw() = 0;
+        
+        virtual void shutdown() {
+            swapFramebuffers.clear();
+            commandList.reset();
+            drawSemaphore.reset();
+            acquireSemaphore.reset();
+            commandFence.reset();
+            swapChain.reset();
+            commandQueue.reset();
+            device.reset();
+        }
     };
 
-    struct ComputePushConstant {
-        float Multiply[4] = {};
-        uint32_t Resolution[2] = {};
+    struct ClearTest : TestBase {
+        void draw() override {
+            // Get swap chain texture index
+            uint32_t swapChainTextureIndex = 0;
+            swapChain->acquireTexture(acquireSemaphore.get(), &swapChainTextureIndex);
+            RenderTexture* swapChainTexture = swapChain->getTexture(swapChainTextureIndex);
+            RenderFramebuffer* swapFramebuffer = swapFramebuffers[swapChainTextureIndex].get();
+
+            // Begin command list
+            commandList->begin();
+
+            // Set viewport and scissor
+            const uint32_t width = swapChain->getWidth();
+            const uint32_t height = swapChain->getHeight();
+            const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
+            const RenderRect scissor(0, 0, width, height);
+            commandList->setViewports(viewport);
+            commandList->setScissors(scissor);
+
+            // Transition texture to color write layout and clear
+            commandList->barriers(RenderBarrierStage::GRAPHICS, 
+                RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
+            commandList->setFramebuffer(swapFramebuffer);
+            
+            // Clear full screen
+            commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f)); // Clear to blue
+            
+            // Clear with rects
+            std::vector<RenderRect> clearRects = {
+                {0, 0, 100, 100},
+                {200, 200, 100, 100},
+                {400, 400, 100, 100}
+            };
+            commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearRects.data(), clearRects.size()); // Clear to green
+
+            // Transition texture to present layout
+            commandList->barriers(RenderBarrierStage::NONE, 
+                RenderTextureBarrier(swapChainTexture, RenderTextureLayout::PRESENT));
+
+            // End and submit command list
+            commandList->end();
+
+            const RenderCommandList* cmdList = commandList.get();
+            RenderCommandSemaphore* waitSemaphore = acquireSemaphore.get();
+            RenderCommandSemaphore* signalSemaphore = drawSemaphore.get();
+            
+            commandQueue->executeCommandLists(&cmdList, 1, &waitSemaphore, 1, &signalSemaphore, 1, commandFence.get());
+            swapChain->present(swapChainTextureIndex, &signalSemaphore, 1);
+            commandQueue->waitForCommandFence(commandFence.get());
+        }
     };
 
-    void TestInitialize(RenderInterface *renderInterface, RenderWindow window) {
-        Test.renderInterface = renderInterface;
-        Test.device = renderInterface->createDevice();
-        Test.commandQueue = Test.device->createCommandQueue(RenderCommandListType::DIRECT);
-        Test.commandList = Test.commandQueue->createCommandList(RenderCommandListType::DIRECT);
-        Test.acquireSemaphore = Test.device->createCommandSemaphore();
-        Test.drawSemaphore = Test.device->createCommandSemaphore();
-        Test.commandFence = Test.device->createCommandFence();
+     struct RasterTest : TestBase {
+         void draw() override {
+             // TODO: Build this
+         }
+     };
 
-#   if ENABLE_SWAP_CHAIN
-        Test.swapChain = Test.commandQueue->createSwapChain(window, Test.BufferCount, Test.SwapchainFormat);
-#   endif
+     struct ComputeTest : RasterTest {
+         void draw() override {
+             // TODO: Build this
+         }
+     };
 
-#   if ENABLE_RASTER
-        const uint32_t textureArraySize = 3;
-        Test.rasterSet = std::make_unique<RasterDescriptorSet>(Test.device.get(), 3);
+     struct RaytracingTest : TestBase {
+         void draw() override {
+             // TODO: Build this
+         }
+     };
 
-        RenderPipelineLayoutBuilder layoutBuilder;
-        layoutBuilder.begin(false, true);
-        layoutBuilder.addPushConstant(0, 0, sizeof(RasterPushConstant), RenderShaderStageFlag::PIXEL);
-        layoutBuilder.addDescriptorSet(Test.rasterSet->builder);
-        layoutBuilder.end();
-
-        Test.rasterPipelineLayout = layoutBuilder.create(Test.device.get());
-
-        // Pick shader format depending on the render interface's requirements.
-        const RenderInterfaceCapabilities &interfaceCapabilities = Test.renderInterface->getCapabilities();
-        const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
-        const void *PSBlob = nullptr;
-        const void *VSBlob = nullptr;
-        const void *CSBlob = nullptr;
-        const void *RTBlob = nullptr;
-        const void *PostPSBlob = nullptr;
-        const void *PostVSBlob = nullptr;
-        uint64_t PSBlobSize = 0;
-        uint64_t VSBlobSize = 0;
-        uint64_t CSBlobSize = 0;
-        uint64_t RTBlobSize = 0;
-        uint64_t PostPSBlobSize = 0;
-        uint64_t PostVSBlobSize = 0;
-        switch (shaderFormat) {
-#ifdef _WIN64
-        case RenderShaderFormat::DXIL:
-            PSBlob = RenderInterfaceTestPSBlobDXIL;
-            PSBlobSize = sizeof(RenderInterfaceTestPSBlobDXIL);
-            VSBlob = RenderInterfaceTestVSBlobDXIL;
-            VSBlobSize = sizeof(RenderInterfaceTestVSBlobDXIL);
-            CSBlob = RenderInterfaceTestCSBlobDXIL;
-            CSBlobSize = sizeof(RenderInterfaceTestCSBlobDXIL);
-            RTBlob = RenderInterfaceTestRTBlobDXIL;
-            RTBlobSize = sizeof(RenderInterfaceTestRTBlobDXIL);
-            PostPSBlob = RenderInterfaceTestPostPSBlobDXIL;
-            PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobDXIL);
-            PostVSBlob = RenderInterfaceTestPostVSBlobDXIL;
-            PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobDXIL);
-            break;
-#endif
-        case RenderShaderFormat::SPIRV:
-            PSBlob = RenderInterfaceTestPSBlobSPIRV;
-            PSBlobSize = sizeof(RenderInterfaceTestPSBlobSPIRV);
-            VSBlob = RenderInterfaceTestVSBlobSPIRV;
-            VSBlobSize = sizeof(RenderInterfaceTestVSBlobSPIRV);
-            CSBlob = RenderInterfaceTestCSBlobSPIRV;
-            CSBlobSize = sizeof(RenderInterfaceTestCSBlobSPIRV);
+    // Test registration and management
+    using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
+    static std::vector<TestSetupFunc> g_Tests;
+    static std::unique_ptr<TestBase> g_CurrentTest;
+    static uint32_t g_CurrentTestIndex = 0;
+    
+    void RegisterTests() {
+        g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
+        g_Tests.push_back([]() { return std::make_unique<RasterTest>(); });
+        g_Tests.push_back([]() { return std::make_unique<ComputeTest>(); });
 #ifndef __APPLE__
-            RTBlob = RenderInterfaceTestRTBlobSPIRV;
-            RTBlobSize = sizeof(RenderInterfaceTestRTBlobSPIRV);
+        g_Tests.push_back([]() { return std::make_unique<RaytracingTest>(); });
 #endif
-            PostPSBlob = RenderInterfaceTestPostPSBlobSPIRV;
-            PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobSPIRV);
-            PostVSBlob = RenderInterfaceTestPostVSBlobSPIRV;
-            PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobSPIRV);
-            break;
-#ifdef __APPLE__
-        case RenderShaderFormat::METAL:
-            PSBlob = RenderInterfaceTestPSBlobMSL;
-            PSBlobSize = sizeof(RenderInterfaceTestPSBlobMSL);
-            VSBlob = RenderInterfaceTestVSBlobMSL;
-            VSBlobSize = sizeof(RenderInterfaceTestVSBlobMSL);
-            CSBlob = RenderInterfaceTestCSBlobMSL;
-            CSBlobSize = sizeof(RenderInterfaceTestCSBlobMSL);
-            // TODO: Enable when RT is added to Metal.
-//            RTBlob = RenderInterfaceTestRTBlobMSL;
-//            RTBlobSize = sizeof(RenderInterfaceTestRTBlobMSL);
-            PostPSBlob = RenderInterfaceTestPostPSBlobMSL;
-            PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobMSL);
-            PostVSBlob = RenderInterfaceTestPostVSBlobMSL;
-            PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobMSL);
-            break;
-#endif
-        default:
-            assert(false && "Unknown shader format.");
-            break;
-        }
-
-        const uint32_t VertexCount = 3;
-        const uint32_t FloatsPerVertex = 4;
-        const float Vertices[VertexCount * FloatsPerVertex] = {
-            -0.5f, -0.25f, 0.0f, 0.0f,
-            0.5f, -0.25f, 1.0f, 0.0f,
-            0.25f, 0.25f, 0.0f, 1.0f
-        };
-
-        const uint32_t Indices[3] = {
-            0, 1, 2
-        };
-
-        Test.inputSlot = RenderInputSlot(0, sizeof(float) * FloatsPerVertex);
-
-        std::vector<RenderInputElement> inputElements;
-        inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
-        inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
-
-        std::unique_ptr<RenderShader> pixelShader = Test.device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
-        std::unique_ptr<RenderShader> vertexShader = Test.device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
-
-        RenderGraphicsPipelineDesc graphicsDesc;
-        graphicsDesc.inputSlots = &Test.inputSlot;
-        graphicsDesc.inputSlotsCount = 1;
-        graphicsDesc.inputElements = inputElements.data();
-        graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
-        graphicsDesc.pipelineLayout = Test.rasterPipelineLayout.get();
-        graphicsDesc.pixelShader = pixelShader.get();
-        graphicsDesc.vertexShader = vertexShader.get();
-        graphicsDesc.renderTargetFormat[0] = Test.ColorFormat;
-        graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-        graphicsDesc.depthTargetFormat = Test.DepthFormat;
-        graphicsDesc.renderTargetCount = 1;
-        graphicsDesc.multisampling.sampleCount = Test.MSAACount;
-        Test.rasterPipeline = Test.device->createGraphicsPipeline(graphicsDesc);
-
-        Test.postSampler = Test.device->createSampler(RenderSamplerDesc());
-        const RenderSampler *postSamplerPtr = Test.postSampler.get();
-
-        // Create the post processing pipeline
-        std::vector<RenderDescriptorRange> postDescriptorRanges = {
-            RenderDescriptorRange(RenderDescriptorRangeType::TEXTURE, 1, 1),
-            RenderDescriptorRange(RenderDescriptorRangeType::SAMPLER, 2, 1, &postSamplerPtr)
-        };
-
-        RenderDescriptorSetDesc postDescriptorSetDesc(postDescriptorRanges.data(), uint32_t(postDescriptorRanges.size()));
-        Test.postSet = Test.device->createDescriptorSet(postDescriptorSetDesc);
-        Test.postPipelineLayout = Test.device->createPipelineLayout(RenderPipelineLayoutDesc(nullptr, 0, &postDescriptorSetDesc, 1, false, true));
-
-        inputElements.clear();
-        inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
-
-        std::unique_ptr<RenderShader> postPixelShader = Test.device->createShader(PostPSBlob, PostPSBlobSize, "PSMain", shaderFormat);
-        std::unique_ptr<RenderShader> postVertexShader = Test.device->createShader(PostVSBlob, PostVSBlobSize, "VSMain", shaderFormat);
-
-        RenderGraphicsPipelineDesc postDesc;
-        postDesc.inputSlots = nullptr;
-        postDesc.inputSlotsCount = 0;
-        postDesc.inputElements = nullptr;
-        postDesc.inputElementsCount = 0;
-        postDesc.pipelineLayout = Test.postPipelineLayout.get();
-        postDesc.pixelShader = postPixelShader.get();
-        postDesc.vertexShader = postVertexShader.get();
-        postDesc.renderTargetFormat[0] = Test.SwapchainFormat;
-        postDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-        postDesc.renderTargetCount = 1;
-        Test.postPipeline = Test.device->createGraphicsPipeline(postDesc);
-
-#   if ENABLE_TEXTURE
-        // Upload a texture.
-        const uint32_t Width = 512;
-        const uint32_t Height = 512;
-        const uint32_t RowLength = Width;
-        const RenderFormat Format = RenderFormat::R8G8B8A8_UNORM;
-        const uint32_t BufferSize = RowLength * Height * RenderFormatSize(Format);
-        Test.uploadBuffer = Test.device->createBuffer(RenderBufferDesc::UploadBuffer(BufferSize));
-        Test.blueNoiseTexture = Test.device->createTexture(RenderTextureDesc::Texture2D(Width, Height, 1, Format));
-        Test.rasterSet->setTexture(Test.rasterSet->gTextures + 2, Test.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
-
-        // Copy to upload buffer.
-        void *bufferData = Test.uploadBuffer->map();
-        auto noiseData = CheckeredTextureGenerator::generateCheckeredData(Width, Height);
-        memcpy(bufferData, noiseData.data(), BufferSize);
-        Test.uploadBuffer->unmap();
-
-        // Run command list to copy the upload buffer to the texture.
-        Test.commandList->begin();
-        Test.commandList->barriers(RenderBarrierStage::COPY,
-            RenderBufferBarrier(Test.uploadBuffer.get(), RenderBufferAccess::READ),
-            RenderTextureBarrier(Test.blueNoiseTexture.get(), RenderTextureLayout::COPY_DEST)
-        );
-
-        Test.commandList->copyTextureRegion(
-            RenderTextureCopyLocation::Subresource(Test.blueNoiseTexture.get()),
-            RenderTextureCopyLocation::PlacedFootprint(Test.uploadBuffer.get(), Format, Width, Height, 1, RowLength));
-
-        Test.commandList->barriers(RenderBarrierStage::GRAPHICS_AND_COMPUTE, RenderTextureBarrier(Test.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ));
-        Test.commandList->end();
-        Test.commandQueue->executeCommandLists(Test.commandList.get(), Test.commandFence.get());
-        Test.commandQueue->waitForCommandFence(Test.commandFence.get());
-#   endif
-
-        Test.vertexBuffer = Test.device->createBuffer(RenderBufferDesc::VertexBuffer(sizeof(Vertices), RenderHeapType::UPLOAD));
-        void *dstData = Test.vertexBuffer->map();
-        memcpy(dstData, Vertices, sizeof(Vertices));
-        Test.vertexBuffer->unmap();
-        Test.vertexBufferView = RenderVertexBufferView(Test.vertexBuffer.get(), sizeof(Vertices));
-
-        Test.indexBuffer = Test.device->createBuffer(RenderBufferDesc::IndexBuffer(sizeof(Indices), RenderHeapType::UPLOAD));
-        dstData = Test.indexBuffer->map();
-        memcpy(dstData, Indices, sizeof(Indices));
-        Test.indexBuffer->unmap();
-        Test.indexBufferView = RenderIndexBufferView(Test.indexBuffer.get(), sizeof(Indices), RenderFormat::R32_UINT);
-#   endif
-
-#   if ENABLE_COMPUTE
-        Test.computeFirstSet = std::make_unique<ComputeDescriptorFirstSet>(Test.device.get());
-        Test.computeSecondSet = std::make_unique<ComputeDescriptorSecondSet>(Test.device.get());
-        Test.computeFirstSet->setTexture(Test.computeFirstSet->gCheckeredTexture, Test.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
-
-        layoutBuilder.begin();
-        layoutBuilder.addPushConstant(0, 0, sizeof(ComputePushConstant), RenderShaderStageFlag::COMPUTE);
-        layoutBuilder.addDescriptorSet(Test.computeFirstSet->builder);
-        layoutBuilder.addDescriptorSet(Test.computeSecondSet->builder);
-        layoutBuilder.end();
-
-        Test.computePipelineLayout = layoutBuilder.create(Test.device.get());
-
-        std::unique_ptr<RenderShader> computeShader = Test.device->createShader(CSBlob, CSBlobSize, "CSMain", shaderFormat);
-        RenderComputePipelineDesc computeDesc;
-        computeDesc.computeShader = computeShader.get();
-        computeDesc.pipelineLayout = Test.computePipelineLayout.get();
-        Test.computePipeline = Test.device->createComputePipeline(computeDesc);
-#   endif
-
-#   if ENABLE_RT
-        Test.rtSet = std::make_unique<RaytracingDescriptorSet>(Test.device.get());
-
-        layoutBuilder.begin(true);
-        layoutBuilder.addDescriptorSet(Test.rtSet->builder);
-        layoutBuilder.end();
-
-        Test.rtPipelineLayout = layoutBuilder.create(Test.device.get());
-
-        struct BufferParams {
-            float rgbMultiplier[3];
-            uint32_t pad[3];
-        };
-        
-        BufferParams paramsToUpload[2];
-        paramsToUpload[0].rgbMultiplier[0] = 1.0f;
-        paramsToUpload[0].rgbMultiplier[1] = 0.25f;
-        paramsToUpload[0].rgbMultiplier[2] = 0.25f;
-        paramsToUpload[1].rgbMultiplier[0] = 0.25f;
-        paramsToUpload[1].rgbMultiplier[1] = 1.0f;
-        paramsToUpload[1].rgbMultiplier[2] = 0.25f;
-
-        RenderBufferStructuredView paramsView(sizeof(BufferParams));
-        Test.rtParamsBuffer = Test.device->createBuffer(RenderBufferDesc::UploadBuffer(sizeof(paramsToUpload), RenderBufferFlag::STORAGE));
-        Test.rtSet->setBuffer(Test.rtSet->gBufferParams, Test.rtParamsBuffer.get(), sizeof(paramsToUpload), &paramsView);
-        dstData = Test.rtParamsBuffer->map();
-        memcpy(dstData, paramsToUpload, sizeof(paramsToUpload));
-        Test.rtParamsBuffer->unmap();
-
-        RenderRaytracingPipelineLibrarySymbol rtLibrarySymbols[] = {
-            RenderRaytracingPipelineLibrarySymbol("ColorRayGen", RenderRaytracingPipelineLibrarySymbolType::RAYGEN),
-            RenderRaytracingPipelineLibrarySymbol("ColorClosestHit", RenderRaytracingPipelineLibrarySymbolType::CLOSEST_HIT),
-            RenderRaytracingPipelineLibrarySymbol("ColorMiss", RenderRaytracingPipelineLibrarySymbolType::MISS)
-        };
-
-        std::unique_ptr<RenderShader> rtShader = Test.device->createShader(RTBlob, RTBlobSize, nullptr, shaderFormat);
-        RenderRaytracingPipelineLibrary rtLibrary(rtShader.get(), rtLibrarySymbols, uint32_t(std::size(rtLibrarySymbols)));
-        RenderRaytracingPipelineHitGroup rtHitGroup("ColorHitGroup", "ColorClosestHit");
-        RenderRaytracingPipelineDesc rtPsoDesc;
-        rtPsoDesc.libraries = &rtLibrary;
-        rtPsoDesc.librariesCount = 1;
-        rtPsoDesc.hitGroups = &rtHitGroup;
-        rtPsoDesc.hitGroupsCount = 1;
-        rtPsoDesc.pipelineLayout = Test.rtPipelineLayout.get();
-        rtPsoDesc.maxPayloadSize = sizeof(float) * 4;
-        Test.rtPipeline = Test.device->createRaytracingPipeline(rtPsoDesc);
-        
-        // Create RT BVH.
-        const float BLASVertices[] = {
-            0.25f, 0.25f, 1.0f,
-            0.75f, 0.25f, 1.0f,
-            0.5f, 0.75f, 1.0f
-        };
-
-        dstData = Test.uploadBuffer->map();
-        memcpy(dstData, BLASVertices, sizeof(BLASVertices));
-        Test.uploadBuffer->unmap();
-
-        Test.rtVertexBuffer = Test.device->createBuffer(RenderBufferDesc::VertexBuffer(sizeof(BLASVertices), RenderHeapType::DEFAULT, RenderBufferFlag::ACCELERATION_STRUCTURE_INPUT));
-
-        RenderBottomLevelASMesh blasMesh;
-        blasMesh.vertexBuffer = Test.rtVertexBuffer.get();
-        blasMesh.vertexFormat = RenderFormat::R32G32B32_FLOAT;
-        blasMesh.vertexCount = 3;
-        blasMesh.vertexStride = sizeof(float) * 3;
-        blasMesh.isOpaque = true;
-
-        RenderBottomLevelASBuildInfo blasBuildInfo;
-        Test.device->setBottomLevelASBuildInfo(blasBuildInfo, &blasMesh, 1);
-
-        Test.rtBottomLevelASBuffer = Test.device->createBuffer(RenderBufferDesc::AccelerationStructureBuffer(blasBuildInfo.accelerationStructureSize));
-        Test.rtBottomLevelAS = Test.device->createAccelerationStructure(RenderAccelerationStructureDesc(RenderAccelerationStructureType::BOTTOM_LEVEL, Test.rtBottomLevelASBuffer.get(), blasBuildInfo.accelerationStructureSize));
-
-        RenderTopLevelASInstance tlasInstance;
-        tlasInstance.bottomLevelAS = Test.rtBottomLevelASBuffer.get();
-        tlasInstance.instanceMask = 0xFF;
-        tlasInstance.cullDisable = true;
-
-        RenderTopLevelASBuildInfo tlasBuildInfo;
-        Test.device->setTopLevelASBuildInfo(tlasBuildInfo, &tlasInstance, 1);
-
-        Test.rtInstancesBuffer = Test.device->createBuffer(RenderBufferDesc::UploadBuffer(tlasBuildInfo.instancesBufferData.size(), RenderBufferFlag::ACCELERATION_STRUCTURE_INPUT));
-        dstData = Test.rtInstancesBuffer->map();
-        memcpy(dstData, tlasBuildInfo.instancesBufferData.data(), tlasBuildInfo.instancesBufferData.size());
-        Test.rtInstancesBuffer->unmap();
-
-        Test.rtScratchBuffer = Test.device->createBuffer(RenderBufferDesc::DefaultBuffer(std::max(blasBuildInfo.scratchSize, tlasBuildInfo.scratchSize), RenderBufferFlag::ACCELERATION_STRUCTURE_SCRATCH));
-        Test.rtTopLevelASBuffer = Test.device->createBuffer(RenderBufferDesc::AccelerationStructureBuffer(tlasBuildInfo.accelerationStructureSize));
-        Test.rtTopLevelAS = Test.device->createAccelerationStructure(RenderAccelerationStructureDesc(RenderAccelerationStructureType::TOP_LEVEL, Test.rtTopLevelASBuffer.get(), tlasBuildInfo.accelerationStructureSize));
-        Test.rtSet->setAccelerationStructure(Test.rtSet->gBVH, Test.rtTopLevelAS.get());
-
-        RenderShaderBindingGroups bindingGroups;
-        RenderPipelineProgram rayGenProgram = Test.rtPipeline->getProgram("ColorRayGen");
-        RenderPipelineProgram missProgram = Test.rtPipeline->getProgram("ColorMiss");
-        RenderPipelineProgram hitGroupProgram = Test.rtPipeline->getProgram("ColorHitGroup");
-        bindingGroups.rayGen = RenderShaderBindingGroup(&rayGenProgram, 1);
-        bindingGroups.miss = RenderShaderBindingGroup(&missProgram, 1);
-        bindingGroups.hitGroup = RenderShaderBindingGroup(&hitGroupProgram, 1);
-
-        RenderDescriptorSet *rtSetPtr = Test.rtSet->get();
-        Test.device->setShaderBindingTableInfo(Test.rtShaderBindingTableInfo, bindingGroups, Test.rtPipeline.get(), &rtSetPtr, 1);
-
-        const std::vector<uint8_t> tableData = Test.rtShaderBindingTableInfo.tableBufferData;
-        Test.rtShaderBindingTableBuffer = Test.device->createBuffer(RenderBufferDesc::UploadBuffer(tableData.size(), RenderBufferFlag::SHADER_BINDING_TABLE));
-        dstData = Test.rtShaderBindingTableBuffer->map();
-        memcpy(dstData, tableData.data(), tableData.size());
-        Test.rtShaderBindingTableBuffer->unmap();
-
-        // Run command list to copy the vertex buffer and build the BLAS/TLAS.
-        Test.commandList->begin();
-        Test.commandList->barriers(RenderBarrierStage::COPY, RenderBufferBarrier(Test.rtVertexBuffer.get(), RenderBufferAccess::WRITE));
-        Test.commandList->copyBufferRegion(Test.rtVertexBuffer.get(), Test.uploadBuffer.get(), sizeof(BLASVertices));
-        Test.commandList->barriers(RenderBarrierStage::COMPUTE, RenderBufferBarrier(Test.rtVertexBuffer.get(), RenderBufferAccess::READ));
-        Test.commandList->buildBottomLevelAS(Test.rtBottomLevelAS.get(), Test.rtScratchBuffer.get(), blasBuildInfo);
-        Test.commandList->barriers(RenderBarrierStage::NONE, RenderBufferBarrier(Test.rtBottomLevelASBuffer.get(), RenderBufferAccess::READ));
-        Test.commandList->buildTopLevelAS(Test.rtTopLevelAS.get(), Test.rtScratchBuffer.get(), Test.rtInstancesBuffer.get(), tlasBuildInfo);
-        Test.commandList->end();
-        Test.commandQueue->executeCommandLists(Test.commandList.get(), Test.commandFence.get());
-        Test.commandQueue->waitForCommandFence(Test.commandFence.get());
-#   endif
     }
 
-    void TestResize() {
-        // Resize can be called during window creation by Windows.
-        if (Test.swapChain == nullptr) {
-            return;
-        }
-
-#   if ENABLE_SWAP_CHAIN
-        Test.swapFramebuffers.clear();
-        Test.swapChain->resize();
-        Test.swapFramebuffers.resize(Test.swapChain->getTextureCount());
-        for (uint32_t i = 0; i < Test.swapChain->getTextureCount(); i++) {
-            const RenderTexture *curTex = Test.swapChain->getTexture(i);
-            Test.swapFramebuffers[i] = Test.device->createFramebuffer(RenderFramebufferDesc{&curTex, 1});
-        }
-#   endif
-#   if ENABLE_CLEAR
-        Test.colorTargetMS = Test.device->createTexture(RenderTextureDesc::ColorTarget(Test.swapChain->getWidth(), Test.swapChain->getHeight(), Test.ColorFormat, RenderMultisampling(Test.MSAACount), nullptr));
-        Test.colorTargetResolved = Test.device->createTexture(RenderTextureDesc::ColorTarget(Test.swapChain->getWidth(), Test.swapChain->getHeight(), Test.ColorFormat, 1, nullptr, RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
-        Test.depthTarget = Test.device->createTexture(RenderTextureDesc::DepthTarget(Test.swapChain->getWidth(), Test.swapChain->getHeight(), Test.DepthFormat, RenderMultisampling(Test.MSAACount)));
-
-        const RenderTexture *colorTargetPtr = Test.colorTargetMS.get();
-        Test.framebuffer = Test.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, Test.depthTarget.get()));
-#   endif
-#   if ENABLE_COMPUTE
-        Test.computeSecondSet->setTexture(Test.computeSecondSet->gTarget, Test.colorTargetResolved.get(), RenderTextureLayout::GENERAL);
-#   endif
-#   if ENABLE_RT
-        Test.rtSet->setTexture(Test.rtSet->gOutput, Test.colorTarget.get(), RenderTextureLayout::GENERAL);
-#   endif
-    }
-    
-    void TestDraw() {
-        // Begin.
-        Test.commandList->begin();
-#   if ENABLE_CLEAR
-        const uint32_t SyncInterval = 1;
-        const uint32_t width = Test.swapChain->getWidth();
-        const uint32_t height = Test.swapChain->getHeight();
-        const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
-        const RenderRect scissor(0, 0, width, height);
-        
-        // Clear.
-        Test.commandList->setViewports(viewport);
-        Test.commandList->setScissors(scissor);
-        Test.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(Test.colorTargetMS.get(), RenderTextureLayout::COLOR_WRITE));
-        Test.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(Test.depthTarget.get(), RenderTextureLayout::DEPTH_WRITE));
-        Test.commandList->setFramebuffer(Test.framebuffer.get());
-        Test.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f));
-        Test.commandList->clearDepth();
-#   endif
-#   if ENABLE_RASTER
-        // Raster.
-        RasterPushConstant pushConstant;
-        pushConstant.colorAdd[0] = 0.5f;
-        pushConstant.colorAdd[1] = 0.25f;
-        pushConstant.colorAdd[2] = 0.0f;
-        pushConstant.colorAdd[3] = 0.0f;
-        pushConstant.textureIndex = 2;
-        Test.commandList->setPipeline(Test.rasterPipeline.get());
-        Test.commandList->setGraphicsPipelineLayout(Test.rasterPipelineLayout.get());
-        Test.commandList->setGraphicsPushConstants(0, &pushConstant);
-#   if ENABLE_TEXTURE
-        Test.commandList->setGraphicsDescriptorSet(Test.rasterSet->get(), 0);
-#   endif
-        Test.commandList->setVertexBuffers(0, &Test.vertexBufferView, 1, &Test.inputSlot);
-        Test.commandList->setIndexBuffer(&Test.indexBufferView);
-        Test.commandList->drawInstanced(3, 1, 0, 0);
-        Test.commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(Test.depthTarget.get(), RenderTextureLayout::DEPTH_READ));
-#   endif
-#   if ENABLE_COMPUTE || ENABLE_RT || ENABLE_CLEAR
-        Test.commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(Test.colorTargetMS.get(), RenderTextureLayout::RESOLVE_SOURCE));
-        Test.commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(Test.colorTargetResolved.get(), RenderTextureLayout::RESOLVE_DEST));
-        Test.commandList->resolveTexture(Test.colorTargetResolved.get(), Test.colorTargetMS.get());
-#   endif
-#   if ENABLE_COMPUTE || ENABLE_RT
-        Test.commandList->barriers(RenderBarrierStage::COMPUTE, RenderTextureBarrier(Test.colorTargetResolved.get(), RenderTextureLayout::GENERAL));
-#   endif
-#   if ENABLE_COMPUTE
-        const uint32_t GroupCount = 8;
-        ComputePushConstant pushCostant;
-        pushCostant.Resolution[0] = width;
-        pushCostant.Resolution[1] = height;
-        pushCostant.Multiply[0] = 0.5f;
-        pushCostant.Multiply[1] = 0.5f;
-        pushCostant.Multiply[2] = 1.0f;
-        pushCostant.Multiply[3] = 1.0f;
-        Test.commandList->setPipeline(Test.computePipeline.get());
-        Test.commandList->setComputePipelineLayout(Test.computePipelineLayout.get());
-        Test.commandList->setComputePushConstants(0, &pushCostant);
-        Test.commandList->setComputeDescriptorSet(Test.computeFirstSet->get(), 0);
-        Test.commandList->setComputeDescriptorSet(Test.computeSecondSet->get(), 1);
-        Test.commandList->dispatch((width + GroupCount - 1) / GroupCount, (height + GroupCount - 1) / GroupCount, 1);
-#   endif
-#   if ENABLE_RT
-        // RT.
-        Test.commandList->barriers(RenderBarrierStage::COMPUTE, RenderTextureBarrier(Test.colorTargetResolved.get(), RenderTextureLayout::GENERAL));
-        Test.commandList->setPipeline(Test.rtPipeline.get());
-        Test.commandList->setRaytracingPipelineLayout(Test.rtPipelineLayout.get());
-        Test.commandList->setRaytracingDescriptorSet(Test.rtSet->get(), 0);
-        Test.commandList->traceRays(width, height, 1, Test.rtShaderBindingTableBuffer.get(), Test.rtShaderBindingTableInfo.groups);
-#   endif
-#   if ENABLE_SWAP_CHAIN
-        uint32_t swapChainTextureIndex = 0;
-        Test.swapChain->acquireTexture(Test.acquireSemaphore.get(), &swapChainTextureIndex);
-        RenderTexture *swapChainTexture = Test.swapChain->getTexture(swapChainTextureIndex);
-        RenderFramebuffer *swapFramebuffer = Test.swapFramebuffers[swapChainTextureIndex].get();
-        Test.commandList->setViewports(viewport);
-        Test.commandList->setScissors(scissor);
-        Test.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
-        Test.commandList->setFramebuffer(swapFramebuffer);
-#   endif
-#   if ENABLE_CLEAR
-        Test.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(Test.colorTargetResolved.get(), RenderTextureLayout::SHADER_READ));
-        Test.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.0f));
-        Test.commandList->setPipeline(Test.postPipeline.get());
-        Test.commandList->setGraphicsPipelineLayout(Test.postPipelineLayout.get());
-        Test.postSet->setTexture(0, Test.colorTargetResolved.get(), RenderTextureLayout::SHADER_READ);
-        Test.commandList->setGraphicsDescriptorSet(Test.postSet.get(), 0);
-        Test.commandList->drawInstanced(3, 1, 0, 0);
-#   endif
-#   if ENABLE_SWAP_CHAIN
-        Test.commandList->barriers(RenderBarrierStage::NONE, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::PRESENT));
-#   endif
-        // End.
-        Test.commandList->end();
-        const RenderCommandList *commandList = Test.commandList.get();
-        RenderCommandSemaphore *waitSemaphore = Test.acquireSemaphore.get();
-        RenderCommandSemaphore *signalSemaphore = Test.drawSemaphore.get();
-        Test.commandQueue->executeCommandLists(&commandList, 1, &waitSemaphore, 1, &signalSemaphore, 1, Test.commandFence.get());
-#   if ENABLE_SWAP_CHAIN
-        Test.swapChain->present(swapChainTextureIndex, &signalSemaphore, 1);
-#   endif
-        Test.commandQueue->waitForCommandFence(Test.commandFence.get());
-    }
-    
-    void TestShutdown() {
-        Test.rtParamsBuffer.reset(nullptr);
-        Test.rtVertexBuffer.reset(nullptr);
-        Test.rtScratchBuffer.reset(nullptr);
-        Test.rtInstancesBuffer.reset(nullptr);
-        Test.rtBottomLevelASBuffer.reset(nullptr);
-        Test.rtTopLevelASBuffer.reset(nullptr);
-        Test.rtShaderBindingTableBuffer.reset(nullptr);
-        Test.uploadBuffer.reset(nullptr);
-        Test.blueNoiseTexture.reset(nullptr);
-        Test.vertexBuffer.reset(nullptr);
-        Test.indexBuffer.reset(nullptr);
-        Test.rasterPipeline.reset(nullptr);
-        Test.computePipeline.reset(nullptr);
-        Test.rtPipeline.reset(nullptr);
-        Test.postPipeline.reset(nullptr);
-        Test.rasterPipelineLayout.reset(nullptr);
-        Test.computePipelineLayout.reset(nullptr);
-        Test.rtPipelineLayout.reset(nullptr);
-        Test.postPipelineLayout.reset(nullptr);
-        Test.rtSet.reset(nullptr);
-        Test.rasterSet.reset(nullptr);
-        Test.computeFirstSet.reset(nullptr);
-        Test.computeSecondSet.reset(nullptr);
-        Test.postSet.reset(nullptr);
-        Test.linearSampler.reset(nullptr);
-        Test.postSampler.reset(nullptr);
-        Test.colorTargetMS.reset(nullptr);
-        Test.colorTargetResolved.reset(nullptr);
-        Test.framebuffer.reset(nullptr);
-        Test.swapFramebuffers.clear();
-        Test.commandList.reset(nullptr);
-        Test.drawSemaphore.reset(nullptr);
-        Test.acquireSemaphore.reset(nullptr);
-        Test.commandFence.reset(nullptr);
-        Test.swapChain.reset(nullptr);
-        Test.commandQueue.reset(nullptr);
-        Test.device.reset(nullptr);
-    }
-
+    // Update platform specific code to use the new test framework
 #if defined(_WIN64)
     static LRESULT CALLBACK TestWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         switch (message) {
@@ -735,15 +208,14 @@ namespace RT64 {
             PostQuitMessage(0);
             break;
         case WM_SIZE:
-            TestResize();
+            if (g_CurrentTest) g_CurrentTest->resize();
             return 0;
         case WM_PAINT:
-            TestDraw();
+            if (g_CurrentTest) g_CurrentTest->draw();
             return 0;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
-
         return 0;
     }
 
@@ -772,11 +244,12 @@ namespace RT64 {
     }
 
     void RenderInterfaceTest(RenderInterface *renderInterface) {
+        RegisterTests();
         HWND hwnd = TestCreateWindow();
-        TestInitialize(renderInterface, hwnd);
-        TestResize();
+        
+        g_CurrentTest = g_Tests[g_CurrentTestIndex]();
+        g_CurrentTest->initialize(renderInterface, hwnd);
 
-        // Message loop.
         MSG msg = {};
         while (msg.message != WM_QUIT) {
             if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -785,7 +258,7 @@ namespace RT64 {
             }
         }
 
-        TestShutdown();
+        g_CurrentTest->shutdown();
         DestroyWindow(hwnd);
     }
 #elif defined(__ANDROID__)
@@ -794,6 +267,7 @@ namespace RT64 {
     }
 #elif defined(__linux__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
+        RegisterTests();
         Display* display = XOpenDisplay(nullptr);
         int blackColor = BlackPixel(display, DefaultScreen(display));
         Window window = XCreateSimpleWindow(display, DefaultRootWindow(display), 
@@ -815,9 +289,10 @@ namespace RT64 {
         Atom wmDeleteMessage = XInternAtom(display, "WM_DELETE_WINDOW", False);
         XSetWMProtocols(display, window, &wmDeleteMessage, 1);
 
-        TestInitialize(renderInterface, {display, window});
-        TestResize();
-        TestDraw();
+        g_CurrentTest = g_Tests[g_CurrentTestIndex]();
+        g_CurrentTest->initialize(renderInterface, {display, window});
+        g_CurrentTest->resize();
+        g_CurrentTest->draw();
 
         // Loop until the window is closed.
         std::chrono::system_clock::time_point prev_frame = std::chrono::system_clock::now();
@@ -829,7 +304,7 @@ namespace RT64 {
 
                 switch (event.type) {
                     case Expose:
-                        TestDraw();
+                        g_CurrentTest->draw();
                         break;
 
                     case ClientMessage:
@@ -847,15 +322,16 @@ namespace RT64 {
             auto now_time = std::chrono::system_clock::now();
             if (now_time - prev_frame > 16666us) {
                 prev_frame = now_time;
-                TestDraw();
+                g_CurrentTest->draw();
             }
         }
 
-        TestShutdown();
+        g_CurrentTest->shutdown();
         XDestroyWindow(display, window);
     }
 #elif defined(__APPLE__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
+        RegisterTests();
         if (SDL_Init(SDL_INIT_VIDEO) != 0) {
             fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
             return;
@@ -876,8 +352,8 @@ namespace RT64 {
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
 
-        TestInitialize(renderInterface, { wmInfo.info.cocoa.window, SDL_Metal_GetLayer(view) });
-        TestResize();
+        g_CurrentTest = g_Tests[g_CurrentTestIndex]();
+        g_CurrentTest->initialize(renderInterface, { wmInfo.info.cocoa.window, SDL_Metal_GetLayer(view) });
 
         std::chrono::system_clock::time_point prev_frame = std::chrono::system_clock::now();
         bool running = true;
@@ -888,10 +364,9 @@ namespace RT64 {
                     case SDL_QUIT:
                         running = false;
                         break;
-
                     case SDL_WINDOWEVENT:
                         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                            TestResize();
+                            g_CurrentTest->resize();
                         }
                         break;
                 }
@@ -902,11 +377,11 @@ namespace RT64 {
             auto now_time = std::chrono::system_clock::now();
             if (now_time - prev_frame > 16666us) {
                 prev_frame = now_time;
-                TestDraw();
+                g_CurrentTest->draw();
             }
         }
 
-        TestShutdown();
+        g_CurrentTest->shutdown();
         SDL_Metal_DestroyView(view);
         SDL_DestroyWindow(window);
         SDL_Quit();
