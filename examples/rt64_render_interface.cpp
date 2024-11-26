@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstring>
 #include <chrono>
+#include <functional>
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include <thread>
@@ -78,9 +79,9 @@ namespace RT64 {
         std::unique_ptr<RenderSwapChain> swapChain;
         std::vector<std::unique_ptr<RenderFramebuffer>> swapFramebuffers;
 
-        virtual void initialize(RenderInterface* interface, RenderWindow window) {
-            renderInterface = interface;
-            device = interface->createDevice();
+        virtual void initialize(RenderInterface *renderInterface, RenderWindow window) {
+            this->renderInterface = renderInterface;
+            device = renderInterface->createDevice();
             commandQueue = device->createCommandQueue(RenderCommandListType::DIRECT);
             commandList = commandQueue->createCommandList(RenderCommandListType::DIRECT);
             acquireSemaphore = device->createCommandSemaphore();

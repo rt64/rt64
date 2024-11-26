@@ -339,7 +339,7 @@ namespace RT64 {
     LRESULT CALLBACK ApplicationWindow::windowHookCallback(int nCode, WPARAM wParam, LPARAM lParam) {
         if ((nCode >= 0) && (wParam == PM_REMOVE)) {
             const MSG &msg = *reinterpret_cast<MSG *>(lParam);
-            HookedApplicationWindow->windowMessage(msg.message, msg.wParam, msglayerParam);
+            HookedApplicationWindow->windowMessage(msg.message, msg.wParam, msg.lParam);
         }
 
         return CallNextHookEx(NULL, nCode, wParam, lParam);
