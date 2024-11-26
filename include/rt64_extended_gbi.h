@@ -366,7 +366,7 @@ typedef union {
         0 \
     )
 
-#define gEXVertexV1(cmd, vtx, count, v0) \
+#define gEXVertex(cmd, vtx, count, v0) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_VERTEX_V1, 24, 0), \
         PARAM((v0)+(n), 7, 1) | PARAM(n, 8, 12), \
@@ -518,7 +518,7 @@ typedef union {
         PARAM(isExtended, 1, 0) \
     )
 
-#define gEXMatrixV1(cmd, matrix, matrixp, param) \
+#define gEXMatrix(cmd, matrix, matrixp, param) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIX_V1, 24, 0), \
         (unsigned)(param), \
