@@ -73,7 +73,8 @@
 #define G_EX_POPGEOMETRYMODE_V1         0x00002A
 #define G_EX_SETDITHERNOISESTRENGTH_V1  0x00002B
 #define G_EX_SETRDRAMEXTENDED_V1        0x00002C
-#define G_EX_MAX                        0x00002D
+#define G_EX_MATRIX_V1                  0x00002D
+#define G_EX_MAX                        0x00002E
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -102,6 +103,8 @@
 #define G_EX_BILERP_NONE            0x0
 #define G_EX_BILERP_ONLY            0x1
 #define G_EX_BILERP_ALL             0x2
+
+#define G_EX_MTX_PREVIOUS           0x100
 
 // Represents the 8-byte commands in the F3D microcode family
 typedef union {
@@ -513,6 +516,14 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETRDRAMEXTENDED_V1, 24, 0), \
         PARAM(isExtended, 1, 0) \
+    )
+
+#define gEXMatrixV1(cmd, matrix, matrixp, param) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIX_V1, 24, 0), \
+        (unsigned)(param), \
+        (unsigned)(matrix), \
+        (unsigned)(matrixp) \
     )
 
 #endif // RT64_EXTENDED_GBI
