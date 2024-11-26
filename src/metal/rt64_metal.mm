@@ -2,8 +2,8 @@
 // RT64
 //
 
-#import <SDL.h>
 #include "rt64_metal.h"
+#import <AppKit/AppKit.h>
 
 namespace RT64 {
 
@@ -1053,10 +1053,14 @@ namespace RT64 {
     // MetalSwapChain
 
     MetalSwapChain::MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) {
-        this->layer = commandQueue->device->renderInterface->layer;
+        this->layer = renderWindow.view;
+        CAMetalLayer *metalLayer = (__bridge CAMetalLayer *)layer;
+        [metalLayer setDevice:commandQueue->device->device];
+
         this->commandQueue = commandQueue;
 
-        layer.pixelFormat = toMTL(format);
+        metalLayer.pixelFormat = toMTL(format);
+
         // We use only 1 proxy texture for the swap chain, and fetch
         // the next drawable from the layer's pool when needed.
         this->textureCount = 1;
@@ -1125,7 +1129,7 @@ namespace RT64 {
         // Ignore textureIndex for Metal in both acquireTexture and getTexture.
         // Metal will always return the next available texture from the layer's pool.
         *textureIndex = 0;
-        auto nextDrawable = [layer nextDrawable];
+        auto nextDrawable = [(__bridge CAMetalLayer *)layer nextDrawable];
         if (nextDrawable != nil) {
             drawable = nextDrawable;
             return true;
@@ -1146,13 +1150,22 @@ namespace RT64 {
     }
 
     uint32_t MetalSwapChain::getRefreshRate() const {
-        // TODO: Unimplemented.
+        NSWindow *window = (__bridge NSWindow *)renderWindow.window;
+        NSScreen *screen = [window screen];
+
+        if (@available(macOS 12.0, *)) {
+            return (int)[screen maximumFramesPerSecond];
+        }
+
+        // TODO: Implement this.
         return 0;
     }
 
     void MetalSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
-        auto window = renderWindow.window;
-        SDL_GetWindowSize(window, (int *)&dstWidth, (int *)&dstHeight);
+        NSWindow *window = (__bridge NSWindow *)renderWindow.window;
+        NSRect contentFrame = [[window contentView] frame];
+        dstWidth = contentFrame.size.width;
+        dstHeight = contentFrame.size.height;
     }
 
     // MetalFramebuffer
@@ -1989,11 +2002,6 @@ namespace RT64 {
     bool MetalInterface::isValid() const {
         // check if Metal is available and we support bindless textures: GPUFamilyMac2 or GPUFamilyApple6
         return [MTLCopyAllDevices() count] > 0 && ([device supportsFamily:MTLGPUFamilyMac2] || [device supportsFamily:MTLGPUFamilyApple6]);
-    }
-
-    void MetalInterface::assignDeviceToLayer(SDL_MetalView view) {
-        layer = (__bridge CAMetalLayer *)SDL_Metal_GetLayer(view);
-        [layer setDevice:device];
     }
 
     // Global creation function.

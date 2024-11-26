@@ -135,14 +135,6 @@ namespace RT64 {
             fprintf(stderr, "D3D12 is not supported on this platform. Please select a different Graphics API.\n");
             return SetupResult::InvalidGraphicsAPI;
 #       endif
-        case UserConfiguration::GraphicsAPI::Vulkan:
-#       ifndef __APPLE__
-            renderInterface = CreateVulkanInterface();
-            break;
-#       else
-            fprintf(stderr, "Vulkan is not supported on this platform. Please select a different Graphics API.\n");
-            return SetupResult::InvalidGraphicsAPI;
-#       endif
         case UserConfiguration::GraphicsAPI::Metal:
 #       ifdef __APPLE__
             renderInterface = CreateMetalInterface();
@@ -151,6 +143,9 @@ namespace RT64 {
             fprintf(stderr, "Metal is not supported on this platform. Please select a different Graphics API.\n");
             return SetupResult::InvalidGraphicsAPI;
 #       endif
+        case UserConfiguration::GraphicsAPI::Vulkan:
+            renderInterface = CreateVulkanInterface();
+            break;
         default:
             fprintf(stderr, "Unknown Graphics API specified in configuration.\n");
             return SetupResult::InvalidGraphicsAPI;

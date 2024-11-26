@@ -7,7 +7,6 @@
 #include "xxHash/xxh3.h"
 
 #include "shaders/RenderParams.hlsli.rw.h"
-#ifndef __APPLE__
 #include "shaders/RasterPSDynamic.hlsl.spirv.h"
 #include "shaders/RasterPSDynamicMS.hlsl.spirv.h"
 #include "shaders/RasterPSSpecConstant.hlsl.spirv.h"
@@ -22,7 +21,6 @@
 #include "shaders/PostBlendDitherNoiseAddPS.hlsl.spirv.h"
 #include "shaders/PostBlendDitherNoiseSubPS.hlsl.spirv.h"
 #include "shaders/PostBlendDitherNoiseSubNegativePS.hlsl.spirv.h"
-#endif
 #ifdef _WIN32
 #   include "shaders/RasterPSLibrary.hlsl.dxil.h"
 #   include "shaders/RasterPSLibraryMS.hlsl.dxil.h"
@@ -74,7 +72,6 @@ namespace RT64 {
     // OptimizerCacheSPIRV
 
     void OptimizerCacheSPIRV::initialize() {
-#ifndef __APPLE__
         rasterVS.parse(RasterVSSpecConstantBlobSPIRV, std::size(RasterVSSpecConstantBlobSPIRV));
         rasterVSFlat.parse(RasterVSSpecConstantFlatBlobSPIRV, std::size(RasterVSSpecConstantFlatBlobSPIRV));
         rasterPS.parse(RasterPSSpecConstantBlobSPIRV, std::size(RasterPSSpecConstantBlobSPIRV));
@@ -91,7 +88,6 @@ namespace RT64 {
         assert(!rasterPSFlatDepth.empty());
         assert(!rasterPSFlatDepthMS.empty());
         assert(!rasterPSFlat.empty());
-#endif
     }
 
     // RasterShader
@@ -111,7 +107,6 @@ namespace RT64 {
         std::vector<RenderSpecConstant> specConstants;
 #endif
         if (shaderFormat == RenderShaderFormat::SPIRV) {
-#       ifndef __APPLE__
             // Choose the pre-compiled shader permutations.
             const respv::Shader *VS = nullptr;
             const respv::Shader *PS = nullptr;
@@ -160,11 +155,8 @@ namespace RT64 {
 
             vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
             pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
-#       else
-            assert(false && "This platform does not support SPIRV shaders.");
-#       endif
         }
-        if (shaderFormat == RenderShaderFormat::SPIRV) {
+        if (shaderFormat == RenderShaderFormat::METAL) {
 #       ifdef __APPLE__
             // Choose the pre-compiled shader permutations.
             const void *VSBlob = nullptr;
@@ -483,14 +475,13 @@ namespace RT64 {
             PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSDynamicMSBlobDXIL) : std::size(RasterPSDynamicBlobDXIL));
             break;
 #   endif
-#   ifndef __APPLE__
         case RenderShaderFormat::SPIRV:
             VSBlob = RasterVSDynamicBlobSPIRV;
             PSBlob = useMSAA ? RasterPSDynamicMSBlobSPIRV : RasterPSDynamicBlobSPIRV;
             VSBlobSize = uint32_t(std::size(RasterVSDynamicBlobSPIRV));
             PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSDynamicMSBlobSPIRV) : std::size(RasterPSDynamicBlobSPIRV));
             break;
-#   else
+#   ifdef __APPLE__
         case RenderShaderFormat::METAL:
             VSBlob = RasterVSDynamicBlobMSL;
             PSBlob = useMSAA ? RasterPSDynamicMSBlobMSL : RasterPSDynamicBlobMSL;
@@ -564,13 +555,12 @@ namespace RT64 {
             postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobDXIL, std::size(PostBlendDitherNoiseSubNegativePSBlobDXIL), "PSMain", shaderFormat);
             break;
 #   endif
-#   ifndef __APPLE__
         case RenderShaderFormat::SPIRV:
             postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobSPIRV, std::size(PostBlendDitherNoiseAddPSBlobSPIRV), "PSMain", shaderFormat);
             postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobSPIRV, std::size(PostBlendDitherNoiseSubPSBlobSPIRV), "PSMain", shaderFormat);
             postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobSPIRV, std::size(PostBlendDitherNoiseSubNegativePSBlobSPIRV), "PSMain", shaderFormat);
             break;
-#   else
+#   ifdef __APPLE__
         case RenderShaderFormat::METAL:
             postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobMSL, std::size(PostBlendDitherNoiseAddPSBlobMSL), "PSMain", shaderFormat);
             postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobMSL, std::size(PostBlendDitherNoiseSubPSBlobMSL), "PSMain", shaderFormat);

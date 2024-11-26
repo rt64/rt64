@@ -16,7 +16,7 @@
 #   include <X11/extensions/Xrandr.h>
 #elif defined(__APPLE__)
 #   include "rt64_application.h"
-#   include "metal/rt64_metal.h"
+#   include "common/rt64_apple.h"
 #endif
 
 #include "common/rt64_common.h"
@@ -135,11 +135,9 @@ namespace RT64 {
         windowHandle.display = wmInfo.info.x11.display;
         windowHandle.window = wmInfo.info.x11.window;
 #   elif defined(__APPLE__)
-        SDL_MetalView view = SDL_Metal_CreateView(sdlWindow);
-        auto *metalInterface = dynamic_cast<RT64::MetalInterface *>(renderInterface);
-        metalInterface->assignDeviceToLayer(view);
-
         windowHandle.window = sdlWindow;
+        SDL_MetalView view = SDL_Metal_CreateView(sdlWindow);
+        windowHandle.view = SDL_Metal_GetLayer(view);
 #   else
         static_assert(false && "Unimplemented");
 #   endif
@@ -211,6 +209,8 @@ namespace RT64 {
         }
 
         fullScreen = newFullScreen;
+#   elif defined(__APPLE__)
+        WindowToggleFullscreen(windowHandle.window);
 #   endif
     }
     
@@ -283,6 +283,8 @@ namespace RT64 {
         }
 
         XRRFreeScreenResources(screenResources);
+#   elif defined(__APPLE__)
+        refreshRate = GetWindowRefreshRate(windowHandle.window);
 #   endif
     }
 
@@ -302,6 +304,11 @@ namespace RT64 {
 #   elif defined(__linux__)
         XWindowAttributes attributes;
         XGetWindowAttributes(windowHandle.display, windowHandle.window, &attributes);
+        newWindowLeft = attributes.x;
+        newWindowTop = attributes.y;
+#   elif defined(__APPLE__)
+        CocoaWindowAttributes attributes;
+        GetWindowAttributes(windowHandle.window, &attributes);
         newWindowLeft = attributes.x;
         newWindowTop = attributes.y;
 #   endif
@@ -332,7 +339,7 @@ namespace RT64 {
     LRESULT CALLBACK ApplicationWindow::windowHookCallback(int nCode, WPARAM wParam, LPARAM lParam) {
         if ((nCode >= 0) && (wParam == PM_REMOVE)) {
             const MSG &msg = *reinterpret_cast<MSG *>(lParam);
-            HookedApplicationWindow->windowMessage(msg.message, msg.wParam, msg.lParam);
+            HookedApplicationWindow->windowMessage(msg.message, msg.wParam, msglayerParam);
         }
 
         return CallNextHookEx(NULL, nCode, wParam, lParam);

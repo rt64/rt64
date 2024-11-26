@@ -15,6 +15,11 @@ std::unique_ptr<RT64::RenderInterface> CreateRenderInterface() {
     // Fallback to Vulkan if D3D12 is not chosen or available.
     return RT64::CreateVulkanInterface();
 #elif defined(__APPLE__)
+    const bool useMVK = false; // Or derive this from configuration or runtime check.
+    if (useMVK) {
+        return RT64::CreateVulkanInterface();
+    }
+
     return RT64::CreateMetalInterface();
 #else
     return RT64::CreateVulkanInterface();

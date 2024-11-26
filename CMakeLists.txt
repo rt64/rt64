@@ -158,11 +158,11 @@ function(build_shader TARGETOBJ SHADERNAME OPTIONS)
     if (WIN32)
         build_shader_dxil_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     endif()
+    # Compile Metal shader binaries if building on macOS
     if (APPLE)
         build_shader_msl_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
-    else()
-        build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     endif()
+    build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
 endfunction()
 
 function(build_shader_dxil TARGETOBJ SHADERNAME OPTIONS)
@@ -247,18 +247,16 @@ function(build_vertex_shader TARGETOBJ SHADERNAME)
 endfunction()
 
 function(build_pixel_shader_spec_constants TARGETOBJ SHADERNAME)
+    build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
     if (APPLE)
         build_shader_msl(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
-    else()
-        build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
     endif()
 endfunction()
 
 function(build_vertex_shader_spec_constants TARGETOBJ SHADERNAME)
+    build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
     if (APPLE)
         build_shader_msl(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
-    else()
-        build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
     endif()
 endfunction()
 
@@ -436,6 +434,7 @@ if (APPLE)
     target_compile_options(rt64 PUBLIC "-fobjc-arc")
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.mm"
+        "${PROJECT_SOURCE_DIR}/src/common/rt64_apple.mm"
     )
 
     target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")

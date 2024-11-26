@@ -8,7 +8,6 @@
 #include "shared/rt64_render_target_copy.h"
 #include "shared/rt64_rsp_vertex_test_z.h"
 
-#ifndef __APPLE__
 #include "shaders/FbChangesClearCS.hlsl.spirv.h"
 #include "shaders/FbChangesDrawColorPS.hlsl.spirv.h"
 #include "shaders/FbChangesDrawDepthPS.hlsl.spirv.h"
@@ -49,7 +48,6 @@
 #include "shaders/DebugPS.hlsl.spirv.h"
 #include "shaders/Im3DPS.hlsl.spirv.h"
 #include "shaders/PostProcessPS.hlsl.spirv.h"
-#endif
 
 #ifdef _WIN32
 #   include "shaders/FbChangesClearCS.hlsl.dxil.h"
@@ -782,24 +780,7 @@ namespace RT64 {
             }
             else 
 #       endif
-#       ifndef __APPLE__
-            if (shaderFormat == RenderShaderFormat::SPIRV) {
-                switch (multisampling.sampleCount) {
-                case RenderSampleCount::COUNT_2:
-                    PSBlob = TextureResolveSamples2XPSBlobSPIRV;
-                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobSPIRV);
-                    break;
-                case RenderSampleCount::COUNT_4:
-                    PSBlob = TextureResolveSamples4XPSBlobSPIRV;
-                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobSPIRV);
-                    break;
-                case RenderSampleCount::COUNT_8:
-                    PSBlob = TextureResolveSamples8XPSBlobSPIRV;
-                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobSPIRV);
-                    break;
-                }
-            }
-#       elif defined(__APPLE__)
+#       if defined(__APPLE__)
             if (shaderFormat == RenderShaderFormat::METAL) {
                 switch (multisampling.sampleCount) {
                 case RenderSampleCount::COUNT_2:
@@ -816,7 +797,24 @@ namespace RT64 {
                     break;
                 }
             }
+            else
 #       endif
+            if (shaderFormat == RenderShaderFormat::SPIRV) {
+                switch (multisampling.sampleCount) {
+                case RenderSampleCount::COUNT_2:
+                    PSBlob = TextureResolveSamples2XPSBlobSPIRV;
+                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobSPIRV);
+                    break;
+                case RenderSampleCount::COUNT_4:
+                    PSBlob = TextureResolveSamples4XPSBlobSPIRV;
+                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobSPIRV);
+                    break;
+                case RenderSampleCount::COUNT_8:
+                    PSBlob = TextureResolveSamples8XPSBlobSPIRV;
+                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobSPIRV);
+                    break;
+                }
+            }
             else {
                 assert(false && "Unknown shader format.");
             }

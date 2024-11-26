@@ -21,7 +21,6 @@ class MTLCommandBuffer;
 class MTLRenderCommandEncoder;
 class MTLComputeCommandEncoder;
 class MTLBlitCommandEncoder;
-class CAMetalLayer;
 #endif
 
 namespace RT64 {
@@ -100,7 +99,7 @@ namespace RT64 {
 #ifdef __OBJC__
         id<CAMetalDrawable> drawable = nil;
 #endif
-        CAMetalLayer *layer = nullptr;
+        void *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
         uint32_t textureCount = 0;
@@ -472,14 +471,11 @@ namespace RT64 {
 #ifdef __OBJC__
         id<MTLDevice> device;
 #endif
-        CAMetalLayer *layer;
 
         MetalInterface();
         ~MetalInterface() override;
         std::unique_ptr<RenderDevice> createDevice() override;
         const RenderInterfaceCapabilities &getCapabilities() const override;
         bool isValid() const;
-
-        void assignDeviceToLayer(void* layer);
     };
 };

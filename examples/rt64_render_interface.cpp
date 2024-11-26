@@ -9,6 +9,7 @@
 #include <chrono>
 #include <SDL.h>
 #include <SDL_syswm.h>
+#include <thread>
 #include <random>
 
 #ifdef _WIN64
@@ -19,15 +20,15 @@
 #include "shaders/RenderInterfaceTestPostPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.dxil.h"
 #endif
-#ifndef __APPLE__
 #include "shaders/RenderInterfaceTestPS.hlsl.spirv.h"
+#ifndef __APPLE__
 #include "shaders/RenderInterfaceTestRT.hlsl.spirv.h"
+#endif
 #include "shaders/RenderInterfaceTestVS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestCS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
-#else
-#include "metal/rt64_metal.h"
+#ifdef __APPLE__
 #include "shaders/RenderInterfaceTestPS.hlsl.metal.h"
 // TODO: Enable when RT is added to Metal.
 //#include "shaders/RenderInterfaceTestRT.hlsl.metal.h"
@@ -257,7 +258,6 @@ namespace RT64 {
             PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobDXIL);
             break;
 #endif
-#ifndef __APPLE__
         case RenderShaderFormat::SPIRV:
             PSBlob = RenderInterfaceTestPSBlobSPIRV;
             PSBlobSize = sizeof(RenderInterfaceTestPSBlobSPIRV);
@@ -265,14 +265,16 @@ namespace RT64 {
             VSBlobSize = sizeof(RenderInterfaceTestVSBlobSPIRV);
             CSBlob = RenderInterfaceTestCSBlobSPIRV;
             CSBlobSize = sizeof(RenderInterfaceTestCSBlobSPIRV);
+#ifndef __APPLE__
             RTBlob = RenderInterfaceTestRTBlobSPIRV;
             RTBlobSize = sizeof(RenderInterfaceTestRTBlobSPIRV);
+#endif
             PostPSBlob = RenderInterfaceTestPostPSBlobSPIRV;
             PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobSPIRV);
             PostVSBlob = RenderInterfaceTestPostVSBlobSPIRV;
             PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobSPIRV);
             break;
-#else
+#ifdef __APPLE__
         case RenderShaderFormat::METAL:
             PSBlob = RenderInterfaceTestPSBlobMSL;
             PSBlobSize = sizeof(RenderInterfaceTestPSBlobMSL);
@@ -868,12 +870,16 @@ namespace RT64 {
 
         // Setup Metal view.
         SDL_MetalView view = SDL_Metal_CreateView(window);
-        auto *metalInterface = dynamic_cast<RT64::MetalInterface *>(renderInterface);
-        metalInterface->assignDeviceToLayer(view);
 
-        TestInitialize(renderInterface, { window });
+        // SDL_Window's handle can be used directly if needed
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        SDL_GetWindowWMInfo(window, &wmInfo);
+
+        TestInitialize(renderInterface, { wmInfo.info.cocoa.window, SDL_Metal_GetLayer(view) });
         TestResize();
 
+        std::chrono::system_clock::time_point prev_frame = std::chrono::system_clock::now();
         bool running = true;
         while (running) {
             SDL_Event event;
@@ -891,8 +897,13 @@ namespace RT64 {
                 }
             }
 
-            TestDraw();
-            SDL_Delay(16); // Approximate 60 FPS
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(1ms);
+            auto now_time = std::chrono::system_clock::now();
+            if (now_time - prev_frame > 16666us) {
+                prev_frame = now_time;
+                TestDraw();
+            }
         }
 
         TestShutdown();
