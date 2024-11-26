@@ -146,8 +146,8 @@ namespace RT64 {
             // Clear with rects
             std::vector<RenderRect> clearRects = {
                 {0, 0, 100, 100},
-                {200, 200, 100, 100},
-                {400, 400, 100, 100}
+                {200, 200, 300, 300},
+                {400, 400, 500, 500}
             };
             commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearRects.data(), clearRects.size()); // Clear to green
 
