@@ -32,7 +32,7 @@ namespace RT64 {
         descriptorSet->setBuffer(descriptorSet->srcIndices, p.drawBuffers->worldIndicesBuffer.get(), p.drawBuffers->worldIndicesBuffer.getView(0));
         descriptorSet->setBuffer(descriptorSet->worldMats, p.drawBuffers->worldTransformsBuffer.get(), RenderBufferStructuredView(sizeof(interop::float4x4)));
         descriptorSet->setBuffer(descriptorSet->invTWorldMats, p.drawBuffers->invTWorldTransformsBuffer.get(), RenderBufferStructuredView(sizeof(interop::float4x4)));
-        descriptorSet->setBuffer(descriptorSet->prevWorldMats, p.drawBuffers->prevWorldTransformsBuffer.get(), RenderBufferStructuredView(sizeof(interop::float4x4)));
+        descriptorSet->setBuffer(descriptorSet->prevWorldMats, p.drawBuffers->prevLerpWorldTransformsBuffer.get(), RenderBufferStructuredView(sizeof(interop::float4x4)));
         descriptorSet->setBuffer(descriptorSet->dstPos, p.outputBuffers->worldPosBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
         descriptorSet->setBuffer(descriptorSet->dstNorm, p.outputBuffers->worldNormBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
         descriptorSet->setBuffer(descriptorSet->dstVel, p.outputBuffers->worldVelBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));

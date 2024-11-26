@@ -46,6 +46,8 @@ namespace RT64 {
         modelMatrixStack.fill(hlslpp::float4x4(0.0f));
         modelMatrixSegmentedAddressStack.fill(0);
         modelMatrixPhysicalAddressStack.fill(0);
+        prevModelMatrixStack.fill(hlslpp::float4x4(0.0f));
+        prevModelMatrixAssignedStack.reset();
         viewMatrixStack[0] = hlslpp::float4x4(0.0f);
         projMatrixStack[0] = hlslpp::float4x4(0.0f);
         viewProjMatrixStack[0] = hlslpp::float4x4(0.0f);
@@ -121,10 +123,19 @@ namespace RT64 {
         segments[seg] = address;
     }
 
-    void RSP::matrix(uint32_t address, uint8_t params) {
+    void RSP::matrix(uint32_t address, uint32_t params, uint32_t prevAddress) {
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
         const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
+        const bool prevAddressValid = (params & G_EX_MTX_PREVIOUS);
+        
+        // Load previous matrix as well if it was specified.
+        hlslpp::float4x4 prevFloatMatrix;
+        if (prevAddressValid) {
+            const uint32_t prevRdramAddress = fromSegmentedMasked(prevAddress);
+            const FixedMatrix *prevFixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(prevRdramAddress));
+            prevFloatMatrix = prevFixedMatrix->toMatrix4x4();
+        }
 
         // Projection matrix.
         hlslpp::float4x4 &viewMatrix = viewMatrixStack[projectionMatrixStackSize - 1];
@@ -133,6 +144,8 @@ namespace RT64 {
         uint32_t &projectionMatrixSegmentedAddress = projectionMatrixSegmentedAddressStack[projectionMatrixStackSize - 1];
         uint32_t &projectionMatrixPhysicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
         if (params & projMask) {
+            assert(!prevAddressValid && "Not implemented yet.");
+
             if (params & loadMask) {
                 viewProjMatrix = floatMatrix;
 
@@ -165,13 +178,32 @@ namespace RT64 {
             if ((params & pushMask) && (modelMatrixStackSize < RSP_MATRIX_STACK_SIZE)) {
                 modelMatrixStackSize++;
                 modelMatrixStack[modelMatrixStackSize - 1] = modelMatrixStack[modelMatrixStackSize - 2];
+
+                if (prevModelMatrixAssignedStack[modelMatrixStackSize - 2]) {
+                    prevModelMatrixStack[modelMatrixStackSize - 1] = prevModelMatrixStack[modelMatrixStackSize - 2];
+                    prevModelMatrixAssignedStack[modelMatrixStackSize - 1] = true;
+                }
+                else {
+                    prevModelMatrixAssignedStack[modelMatrixStackSize - 1] = false;
+                }
             }
 
             if (params & loadMask) {
                 modelMatrixStack[modelMatrixStackSize - 1] = floatMatrix;
+                prevModelMatrixAssignedStack[modelMatrixStackSize - 1] = prevAddressValid;
+
+                if (prevAddressValid) {
+                    prevModelMatrixStack[modelMatrixStackSize - 1] = prevFloatMatrix;
+                }
             }
             else {
                 modelMatrixStack[modelMatrixStackSize - 1] = hlslpp::mul(floatMatrix, modelMatrixStack[modelMatrixStackSize - 1]);
+
+                if (prevAddressValid) {
+                    const hlslpp::float4x4 &prevModelMatrix = prevModelMatrixAssignedStack[modelMatrixStackSize - 1] ? prevModelMatrixStack[modelMatrixStackSize - 1] : modelMatrixStack[modelMatrixStackSize - 1];
+                    prevModelMatrixStack[modelMatrixStackSize - 1] = hlslpp::mul(prevFloatMatrix, prevModelMatrix);
+                    prevModelMatrixAssignedStack[modelMatrixStackSize - 1] = true;
+                }
             }
 
             modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1] = address;
@@ -310,7 +342,7 @@ namespace RT64 {
         modelViewProjChanged = changed;
     }
 
-    void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertex(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -319,10 +351,10 @@ namespace RT64 {
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const Vertex *dlVerts = reinterpret_cast<const Vertex *>(state->fromRDRAM(rdramAddress));
         memcpy(&vertices[dstIndex], dlVerts, sizeof(Vertex) * vtxCount);
-        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true>(uint8_t(dstIndex), uint8_t(dstIndex + vtxCount));
     }
     
-    void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertexPD(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -345,10 +377,10 @@ namespace RT64 {
             dst.color.a = col[0];
         }
 
-        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true>(uint8_t(dstIndex), uint8_t(dstIndex + vtxCount));
     }
 
-    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertexEXV1(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -367,7 +399,7 @@ namespace RT64 {
             vertices[dstIndex + i] = src.v;
         }
 
-        setVertexCommon<false>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<false>(uint8_t(dstIndex), uint8_t(dstIndex + vtxCount));
     }
 
     void RSP::setVertexColorPD(uint32_t address) {
@@ -433,6 +465,8 @@ namespace RT64 {
         auto &worldTransformSegmentedAddresses = workload.drawData.worldTransformSegmentedAddresses;
         auto &worldTransformPhysicalAddresses = workload.drawData.worldTransformPhysicalAddresses;
         auto &worldTransformVertexIndices = workload.drawData.worldTransformVertexIndices;
+        auto &worldTransformPrevious = workload.drawData.worldTransformPrevious;
+        auto &worldTransformPreviousIndices = workload.drawData.worldTransformPreviousIndices;
         bool addWorldTransform = (modelViewProjChanged || modelViewProjInserted);
         if (modelViewProjChanged) {
             computeModelViewProj();
@@ -454,7 +488,7 @@ namespace RT64 {
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
             worldTransforms.emplace_back(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]));
         }
-
+        
         if (addWorldTransform) {
             uint32_t physicalAddress = modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1];
             workload.physicalAddressTransformMap.emplace(physicalAddress, uint32_t(worldTransformGroups.size()));
@@ -462,6 +496,14 @@ namespace RT64 {
             worldTransformSegmentedAddresses.emplace_back(modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1]);
             worldTransformPhysicalAddresses.emplace_back(physicalAddress);
             worldTransformVertexIndices.emplace_back(workload.drawData.vertexCount());
+
+            if (prevModelMatrixAssignedStack[modelMatrixStackSize - 1]) {
+                worldTransformPreviousIndices.emplace_back(uint32_t(worldTransformPrevious.size()));
+                worldTransformPrevious.emplace_back(prevModelMatrixStack[modelMatrixStackSize - 1]);
+            }
+            else {
+                worldTransformPreviousIndices.emplace_back(0);
+            }
         }
 
         // Push a new projection if it's changed.

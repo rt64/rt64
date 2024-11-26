@@ -51,8 +51,9 @@ namespace RT64 {
 
         struct TransformMap {
             RigidBody rigidBody;
-            uint32_t prevTransformIndex = 0;
+            uint32_t transformIndex = 0;
             bool mapped = false;
+            bool previousIndexOverriden = false;
         };
 
         struct TileMap {

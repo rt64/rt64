@@ -133,6 +133,8 @@ namespace RT64 {
         std::array<hlslpp::float4x4, RSP_MATRIX_STACK_SIZE> modelMatrixStack;
         std::array<uint32_t, RSP_MATRIX_STACK_SIZE> modelMatrixSegmentedAddressStack;
         std::array<uint32_t, RSP_MATRIX_STACK_SIZE> modelMatrixPhysicalAddressStack;
+        std::array<hlslpp::float4x4, RSP_MATRIX_STACK_SIZE> prevModelMatrixStack;
+        std::bitset<RSP_MATRIX_STACK_SIZE> prevModelMatrixAssignedStack;
         int modelMatrixStackSize;
         std::array<hlslpp::float4x4, RSP_EXTENDED_STACK_SIZE> viewMatrixStack;
         std::array<hlslpp::float4x4, RSP_EXTENDED_STACK_SIZE> projMatrixStack;
@@ -226,7 +228,7 @@ namespace RT64 {
         uint32_t fromSegmentedMasked(uint32_t segAddress);
         uint32_t fromSegmentedMaskedPD(uint32_t segAddress);
         void setSegment(uint32_t seg, uint32_t address);
-        void matrix(uint32_t address, uint8_t params);
+        void matrix(uint32_t address, uint32_t params, uint32_t prevAddress);
         void popMatrix(uint32_t count);
         void pushProjectionMatrix();
         void popProjectionMatrix();
@@ -235,9 +237,9 @@ namespace RT64 {
         void computeModelViewProj();
         void specialComputeModelViewProj();
         void setModelViewProjChanged(bool changed);
-        void setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
-        void setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
-        void setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
+        void setVertex(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
+        void setVertexPD(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
+        void setVertexEXV1(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
         void setVertexColorPD(uint32_t address);
         template<bool addEmptyVelocity>
         void setVertexCommon(uint8_t dstIndex, uint8_t dstMax);

@@ -317,8 +317,9 @@ namespace RT64 {
             for (uint32_t curIt : curWorkload.transformIgnoredIds) {
                 GameFrameMap::TransformMap &curTransformMap = curWorkloadMap.transforms[curIt];
                 curTransformMap.rigidBody = RigidBody();
-                curTransformMap.prevTransformIndex = 0;
+                curTransformMap.transformIndex = 0;
                 curTransformMap.mapped = false;
+                curTransformMap.previousIndexOverriden = false;
             }
         }
 
@@ -662,16 +663,18 @@ namespace RT64 {
             curTransformMap.rigidBody = prevWorkloadMap->transforms[prevTransformIndex].rigidBody;
         }
 
+        const uint32_t previousIndex = curWorkload.drawData.worldTransformPreviousIndices[curTransformIndex];
         const hlslpp::float4x4 &curTransform = curWorkload.drawData.worldTransforms[curTransformIndex];
-        const hlslpp::float4x4 &prevTransform = prevWorkload.drawData.worldTransforms[prevTransformIndex];
+        const hlslpp::float4x4 &prevTransform = (previousIndex > 0) ? curWorkload.drawData.worldTransformPrevious[previousIndex] : prevWorkload.drawData.worldTransforms[prevTransformIndex];
         const uint32_t curGroupIndex = curWorkload.drawData.worldTransformGroups[curTransformIndex];
         const TransformGroup &curGroup = curWorkload.drawData.transformGroups[curGroupIndex];
         curTransformMap.rigidBody.updateLinear(prevTransform, curTransform, curGroup.positionInterpolation);
         curTransformMap.rigidBody.updateAngular(prevTransform, curTransform, curGroup.rotationInterpolation, curGroup.scaleInterpolation, curGroup.skewInterpolation);
         curTransformMap.rigidBody.updatePerspective(prevTransform, curTransform, curGroup.perspectiveInterpolation);
         curTransformMap.rigidBody.updateDecomposition(curTransform, curGroup.decompose);
-        curTransformMap.prevTransformIndex = prevTransformIndex;
+        curTransformMap.transformIndex = (previousIndex > 0) ? previousIndex : prevTransformIndex;
         curTransformMap.mapped = true;
+        curTransformMap.previousIndexOverriden = (previousIndex > 0);
         curWorkloadMap.prevTransformsMapped[prevTransformIndex] = true;
 
         uint32_t curVertexIndex = curWorkload.drawData.worldTransformVertexIndices[curTransformIndex];

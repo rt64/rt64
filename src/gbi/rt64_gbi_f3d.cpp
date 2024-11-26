@@ -15,7 +15,7 @@
 namespace RT64 {
     namespace GBI_F3D {
         void matrix(State *state, DisplayList **dl) {
-            state->rsp->matrix((*dl)->w1, (*dl)->p0(16, 8));
+            state->rsp->matrix((*dl)->w1, (*dl)->p0(16, 8), 0);
         }
 
         void popMatrix(State *state, DisplayList **dl) {

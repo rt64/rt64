@@ -291,6 +291,12 @@ namespace RT64 {
             state->setExtendedRDRAM(extended);
         }
 
+        void matrixV1(State *state, DisplayList **dl) {
+            uint32_t params = (*dl)->w0;
+            *dl = *dl + 1;
+            state->rsp->matrix((*dl)->w1, params, (*dl)->w0);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -392,6 +398,7 @@ namespace RT64 {
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
             Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
+            Map[G_EX_MATRIX_V1] = &matrixV1;
             MapInitialized = true;
         }
     }
