@@ -88,7 +88,7 @@ namespace RT64 {
     };
 
     struct ComputeDescriptorFirstSet : RenderDescriptorSetBase {
-        uint32_t gBlueNoiseTexture;
+        uint32_t gCheckeredTexture;
         uint32_t gSampler;
         uint32_t gTarget;
 
@@ -98,7 +98,7 @@ namespace RT64 {
             linearSampler = device->createSampler(RenderSamplerDesc());
 
             builder.begin();
-            gBlueNoiseTexture = builder.addTexture(1);
+            gCheckeredTexture = builder.addTexture(1);
             gSampler = builder.addImmutableSampler(2, linearSampler.get());
             builder.end();
 
@@ -414,7 +414,7 @@ namespace RT64 {
 #   if ENABLE_COMPUTE
         Test.computeFirstSet = std::make_unique<ComputeDescriptorFirstSet>(Test.device.get());
         Test.computeSecondSet = std::make_unique<ComputeDescriptorSecondSet>(Test.device.get());
-        Test.computeFirstSet->setTexture(Test.computeFirstSet->gBlueNoiseTexture, Test.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
+        Test.computeFirstSet->setTexture(Test.computeFirstSet->gCheckeredTexture, Test.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
 
         layoutBuilder.begin();
         layoutBuilder.addPushConstant(0, 0, sizeof(ComputePushConstant), RenderShaderStageFlag::COMPUTE);
@@ -577,7 +577,7 @@ namespace RT64 {
         Test.framebuffer = Test.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, Test.depthTarget.get()));
 #   endif
 #   if ENABLE_COMPUTE
-        Test.computeSecondSet->setTexture(Test.computeSecondSet->gTarget, Test.colorTargetMS.get(), RenderTextureLayout::GENERAL);
+        Test.computeSecondSet->setTexture(Test.computeSecondSet->gTarget, Test.colorTargetResolved.get(), RenderTextureLayout::GENERAL);
 #   endif
 #   if ENABLE_RT
         Test.rtSet->setTexture(Test.rtSet->gOutput, Test.colorTarget.get(), RenderTextureLayout::GENERAL);
