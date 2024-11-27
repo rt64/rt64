@@ -217,6 +217,8 @@ namespace RT64 {
             bool viewProjMatrixIdStackChanged;
             int curViewProjMatrixIdGroupIndex;
             bool forceBranch;
+            hlslpp::float4x4 invViewMatrix;
+            hlslpp::float4x4 invViewMatrixModel;
         } extended;
 
         RSP(State *state);
@@ -234,6 +236,7 @@ namespace RT64 {
         void popProjectionMatrix();
         void insertMatrix(uint32_t address, uint32_t value);
         void forceMatrix(uint32_t address);
+        void setInvViewMatrixFloat(uint32_t address);
         void computeModelViewProj();
         void specialComputeModelViewProj();
         void setModelViewProjChanged(bool changed);

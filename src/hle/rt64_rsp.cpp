@@ -321,6 +321,20 @@ namespace RT64 {
         modelViewProjChanged = false;
     }
 
+    void RSP::setInvViewMatrixFloat(uint32_t address) {
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
+        const float *floatMatrix = reinterpret_cast<float *>(state->fromRDRAM(rdramAddress));
+        for (uint32_t j = 0; j < 4; j++) {
+            for (uint32_t i = 0; i < 4; i++) {
+                extended.invViewMatrix[j][i] = floatMatrix[j * 4 + i];
+            }
+        }
+
+        extended.invViewMatrixModel = hlslpp::inverse(extended.invViewMatrix);
+        projectionMatrixChanged = true;
+        modelViewProjChanged = true;
+    }
+
     void RSP::computeModelViewProj() {
         const hlslpp::float4x4 &viewProjMatrix = viewProjMatrixStack[projectionMatrixStackSize - 1];
         modelViewProjMatrix = hlslpp::mul(modelMatrixStack[modelMatrixStackSize - 1], viewProjMatrix);
@@ -436,9 +450,9 @@ namespace RT64 {
 
             uint32_t physicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
             workload.physicalAddressTransformMap.emplace(physicalAddress, uint32_t(drawData.viewProjTransformGroups.size()));
-            drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
+            drawData.viewTransforms.emplace_back(hlslpp::mul(extended.invViewMatrix, viewMatrixStack[projectionMatrixStackSize - 1]));
             drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
-            drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
+            drawData.viewProjTransforms.emplace_back(hlslpp::mul(extended.invViewMatrix, viewProjMatrixStack[projectionMatrixStackSize - 1]));
             drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdGroupIndex);
             drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
             drawData.viewportOrigins.emplace_back(extended.viewportOrigin);
@@ -473,7 +487,7 @@ namespace RT64 {
         if (modelViewProjChanged) {
             computeModelViewProj();
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
-            worldTransforms.emplace_back(modelMatrixStack[modelMatrixStackSize - 1]);
+            worldTransforms.emplace_back(hlslpp::mul(modelMatrixStack[modelMatrixStackSize - 1], extended.invViewMatrixModel));
         }
         else if (modelViewProjInserted) {
 #       ifdef LOG_SPECIAL_MATRIX_OPERATIONS
@@ -488,7 +502,7 @@ namespace RT64 {
             }
 
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
-            worldTransforms.emplace_back(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]));
+            worldTransforms.emplace_back(hlslpp::mul(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]), extended.invViewMatrixModel));
         }
         
         if (addWorldTransform) {
@@ -1212,6 +1226,8 @@ namespace RT64 {
         extended.viewProjMatrixIdStackChanged = false;
         extended.curViewProjMatrixIdGroupIndex = 0;
         extended.forceBranch = false;
+        extended.invViewMatrix = hlslpp::float4x4::identity();
+        extended.invViewMatrixModel = hlslpp::float4x4::identity();
     }
 
     void RSP::setGBI(GBI *gbi) {

@@ -292,9 +292,13 @@ namespace RT64 {
         }
 
         void matrixV1(State *state, DisplayList **dl) {
-            uint32_t params = (*dl)->w0;
+            uint32_t matrix = (*dl)->w1;
             *dl = *dl + 1;
-            state->rsp->matrix((*dl)->w1, params, (*dl)->w0);
+            state->rsp->matrix(matrix, (*dl)->w0, (*dl)->w1);
+        }
+
+        void setInvViewMatrixFloatV1(State *state, DisplayList **dl) {
+            state->rsp->setInvViewMatrixFloat((*dl)->w1);
         }
 
         void noOpHook(State *state, DisplayList **dl) {
@@ -399,6 +403,7 @@ namespace RT64 {
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
             Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
             Map[G_EX_MATRIX_V1] = &matrixV1;
+            Map[G_EX_SETINVVIEWMATRIXFLOAT_V1] = &setInvViewMatrixFloatV1;
             MapInitialized = true;
         }
     }

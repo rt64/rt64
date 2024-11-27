@@ -74,7 +74,8 @@
 #define G_EX_SETDITHERNOISESTRENGTH_V1  0x00002B
 #define G_EX_SETRDRAMEXTENDED_V1        0x00002C
 #define G_EX_MATRIX_V1                  0x00002D
-#define G_EX_MAX                        0x00002E
+#define G_EX_SETINVVIEWMATRIXFLOAT_V1   0x00002E
+#define G_EX_MAX                        0x00002F
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -518,12 +519,18 @@ typedef union {
         PARAM(isExtended, 1, 0) \
     )
 
-#define gEXMatrix(cmd, matrix, matrixp, param) \
+#define gEXMatrix(cmd, matrix, param, matrixp) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIX_V1, 24, 0), \
-        (unsigned)(param), \
         (unsigned)(matrix), \
+        (unsigned)(param), \
         (unsigned)(matrixp) \
+    )
+
+#define gEXSetInvViewMatrixFloat(cmd, matrix) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETINVVIEWMATRIXFLOAT_V1, 24, 0), \
+        (unsigned)(matrix) \
     )
 
 #endif // RT64_EXTENDED_GBI
