@@ -1737,6 +1737,9 @@ namespace RT64 {
         pipelineDesc.vertexFunction = [library newFunctionWithName:@"clearVert"];
         pipelineDesc.fragmentFunction = [library newFunctionWithName:@"clearFrag"];
         
+        NSUInteger sampleCount = targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount;
+        pipelineDesc.rasterSampleCount = sampleCount;
+        
         // Configure attachments
         colorAttachmentsCount = targetFramebuffer->colorAttachments.size();
         for (uint32_t i = 0; i < colorAttachmentsCount; i++) {
@@ -1752,9 +1755,13 @@ namespace RT64 {
             pipelineDesc.colorAttachments[i].pixelFormat = format;
             pipelineDesc.colorAttachments[i].blendingEnabled = NO;
         }
+        
+        // Set depth format if there's a depth attachment
+        if (targetFramebuffer->depthAttachment != nullptr) {
+            pipelineDesc.depthAttachmentPixelFormat = targetFramebuffer->depthAttachment->mtlTexture.pixelFormat;
+        }
 
-        clearPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc
-                                                                           error:&error];
+        clearPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
         if (!clearPipelineState) {
             NSLog(@"Failed to create pipeline state: %@", error);
             return;
