@@ -26,10 +26,10 @@ namespace RT64 {
             const bool prevFrameValid = (p.prevFrame != nullptr) && p.curFrame->frameMap.workloads[w].mapped;
             auto &lerpWorldTransforms = drawData.lerpWorldTransforms;
             auto &invTWorldTransforms = drawData.invTWorldTransforms;
-            auto &prevWorldTransforms = drawData.prevWorldTransforms;
+            auto &prevLerpWorldTransforms = drawData.prevLerpWorldTransforms;
             lerpWorldTransforms.clear();
             invTWorldTransforms.clear();
-            prevWorldTransforms.clear();
+            prevLerpWorldTransforms.clear();
 
             hlslpp::float4x4 prevMatrix, curMatrix, invMatrix, invTMatrix;
 
@@ -40,7 +40,7 @@ namespace RT64 {
                 for (size_t t = 0; t < drawData.worldTransforms.size(); t++) {
                     const GameFrameMap::TransformMap &transformMap = workloadMap.transforms[t];
                     if (transformMap.mapped) {
-                        const hlslpp::float4x4 &prevTransform = prevDrawData.worldTransforms[workloadMap.transforms[t].prevTransformIndex];
+                        const hlslpp::float4x4 &prevTransform = transformMap.previousIndexOverriden ? drawData.worldTransformPrevious[transformMap.transformIndex] : prevDrawData.worldTransforms[transformMap.transformIndex];
                         const hlslpp::float4x4 &curTransform = drawData.worldTransforms[t];
                         prevMatrix = transformMap.rigidBody.lerp(p.prevFrameWeight, prevTransform, curTransform, true);
                         curMatrix = transformMap.rigidBody.lerp(p.curFrameWeight, prevTransform, curTransform, true);
@@ -48,14 +48,14 @@ namespace RT64 {
                         invTMatrix = hlslpp::transpose(invMatrix);
                         lerpWorldTransforms.emplace_back(curMatrix);
                         invTWorldTransforms.emplace_back(invTMatrix);
-                        prevWorldTransforms.emplace_back(prevMatrix);
+                        prevLerpWorldTransforms.emplace_back(prevMatrix);
                     }
                     else {
                         invMatrix = hlslpp::inverse(drawData.worldTransforms[t]);
                         invTMatrix = hlslpp::transpose(invMatrix);
                         lerpWorldTransforms.emplace_back(drawData.worldTransforms[t]);
                         invTWorldTransforms.emplace_back(invTMatrix);
-                        prevWorldTransforms.emplace_back(drawData.worldTransforms[t]);
+                        prevLerpWorldTransforms.emplace_back(drawData.worldTransforms[t]);
                     }
                 }
             }
@@ -79,11 +79,11 @@ namespace RT64 {
             const DrawData &drawData = workload.drawData;
             DrawBuffers &drawBuffers = workload.drawBuffers;
             const interop::float4x4 *worldMatrices = prevFrameValid ? drawData.lerpWorldTransforms.data() : drawData.worldTransforms.data();
-            const interop::float4x4 *prevWorldMatrices = prevFrameValid ? drawData.prevWorldTransforms.data() : drawData.worldTransforms.data();
+            const interop::float4x4 *prevWorldMatrices = prevFrameValid ? drawData.prevLerpWorldTransforms.data() : drawData.worldTransforms.data();
             const interop::float4x4 *invTWorldMatrices = drawData.invTWorldTransforms.data();
             std::pair<size_t, size_t> uploadRange = { 0, drawData.worldTransforms.size() };
             uploads.emplace_back(BufferUploader::Upload{ worldMatrices, uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.worldTransformsBuffer });
-            uploads.emplace_back(BufferUploader::Upload{ prevWorldMatrices, uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.prevWorldTransformsBuffer });
+            uploads.emplace_back(BufferUploader::Upload{ prevWorldMatrices, uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.prevLerpWorldTransformsBuffer });
             uploads.emplace_back(BufferUploader::Upload{ invTWorldMatrices, uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.invTWorldTransformsBuffer });
         }
 
