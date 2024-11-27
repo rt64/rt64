@@ -149,6 +149,9 @@ namespace RT64 {
         MTLCaptureManager *captureManager = nil;
 
         MTLRenderPassDescriptor *renderDescriptor = nil;
+        
+        id <MTLRenderPipelineState> clearPipelineState = nil;
+        MTLRenderPassDescriptor *clearRenderDescriptor = nil;
 
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
@@ -186,6 +189,8 @@ namespace RT64 {
             uint32_t startIndexLocation = 0;
         };
         std::vector<DrawCall> deferredDrawCalls;
+        
+        void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor);
 #endif
 
         MetalDevice *device = nullptr;
@@ -200,7 +205,6 @@ namespace RT64 {
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
 
-        std::unordered_map<uint32_t, RenderColor> attachmentsToClear;
         float depthClearValue = -1.0f;
 
         uint32_t colorAttachmentsCount = 0;
@@ -210,7 +214,7 @@ namespace RT64 {
         void begin() override;
         void end() override;
         void endEncoder(bool clearDescs);
-        void guaranteeRenderDescriptor();
+        void guaranteeRenderDescriptor(bool forClearColor);
         void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
@@ -246,6 +250,8 @@ namespace RT64 {
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
+        
+        void setupClearPipeline();
     };
 
     struct MetalCommandFence : RenderCommandFence {
