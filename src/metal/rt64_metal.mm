@@ -1648,9 +1648,10 @@ namespace RT64 {
             
             // Full screen clear
             MTLViewport viewport = {
-                0, 0,
+                0,
+                (double)targetFramebuffer->height, // Start from bottom
                 (double)targetFramebuffer->width,
-                (double)targetFramebuffer->height,
+                -(double)targetFramebuffer->height, // Negative height for Y inversion
                 0.0, 1.0
             };
             [renderEncoder setViewport:viewport];
@@ -1667,23 +1668,23 @@ namespace RT64 {
                     continue;
                 }
                 
-                // Convert to x,y,width,height format
+                // Convert to x, y, width, height format
                 double width = rect.right - rect.left;
                 double height = rect.bottom - rect.top;
-                
+
                 MTLViewport viewport = {
-                    (double)rect.left,    // x
-                    (double)rect.top,     // y
-                    width,                // width
-                    height,              // height
+                    (double)rect.left,
+                    (double)(targetFramebuffer->height - rect.top), // y is inverted from top
+                    width,
+                    -height,                                     // negative height for Y inversion
                     0.0, 1.0
                 };
-                
+
                 MTLScissorRect scissor = {
-                    (NSUInteger)rect.left,    // x
-                    (NSUInteger)rect.top,     // y
-                    (NSUInteger)width,        // width
-                    (NSUInteger)height        // height
+                    (NSUInteger)rect.left,
+                    (NSUInteger)(targetFramebuffer->height - rect.top - height), // y inverted from top
+                    (NSUInteger)width,
+                    (NSUInteger)height
                 };
                 
                 [renderEncoder setViewport:viewport];
