@@ -146,11 +146,9 @@ namespace RT64 {
 #ifdef __OBJC__
         id<MTLRenderCommandEncoder> activeRenderEncoder = nil;
         id<MTLRenderCommandEncoder> activeClearRenderEncoder = nil;
-        
-        
-        
+        id<MTLBlitCommandEncoder> activeBlitEncoder = nil;
+    
         id<MTLComputeCommandEncoder> computeEncoder = nil;
-        id<MTLBlitCommandEncoder> blitEncoder = nil;
         MTLCaptureManager *captureManager = nil;
 
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
@@ -196,7 +194,6 @@ namespace RT64 {
         void endEncoder(bool clearDescs);
         void guaranteeRenderDescriptor(bool forClearColor);
         void guaranteeComputeEncoder();
-        void guaranteeBlitEncoder();
         void clearDrawCalls();
         void barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) override;
         void dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) override;
@@ -233,6 +230,8 @@ namespace RT64 {
         void endActiveRenderEncoder();
         void checkActiveClearRenderEncoder();
         void endActiveClearRenderEncoder();
+        void checkActiveBlitEncoder();
+        void endActiveBlitEncoder();
     };
 
     struct MetalCommandFence : RenderCommandFence {

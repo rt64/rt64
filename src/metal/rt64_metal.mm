@@ -1234,18 +1234,14 @@ namespace RT64 {
     void MetalCommandList::end() {
         endActiveClearRenderEncoder();
         endActiveRenderEncoder();
+        endActiveBlitEncoder();
         
         if (computeEncoder != nil) {
             [computeEncoder endEncoding];
         }
 
-        if (blitEncoder != nil) {
-            [blitEncoder endEncoding];
-        }
-
         targetFramebuffer = nullptr;
         computeEncoder = nil;
-        blitEncoder = nil;
     }
 
     void MetalCommandList::configureRenderDescriptor(MTLRenderPassDescriptor* renderDescriptor) {
@@ -1299,12 +1295,6 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::guaranteeBlitEncoder() {
-        if (blitEncoder == nil) {
-            auto blitDescriptor = [MTLBlitPassDescriptor new];
-            blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
-        }
-    }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
         // TODO: Ignore for now, Metal should handle most of this itself.
@@ -1574,18 +1564,19 @@ namespace RT64 {
     }
 
     void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
-        guaranteeBlitEncoder();
         assert(dstBuffer.ref != nullptr);
         assert(srcBuffer.ref != nullptr);
-        assert(blitEncoder != nil && "Cannot copy buffer region on a nil MTLBlitCommandEncoder");
+        
+        endActiveRenderEncoder();
+        checkActiveBlitEncoder();
 
         const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
         const auto interfaceSrcBuffer = static_cast<const MetalBuffer *>(srcBuffer.ref);
 
-        [blitEncoder copyFromBuffer: interfaceSrcBuffer->buffer
-                       sourceOffset: 0
+        [activeBlitEncoder copyFromBuffer: interfaceSrcBuffer->buffer
+                       sourceOffset: srcBuffer.offset
                            toBuffer: interfaceDstBuffer->buffer
-                  destinationOffset: 0
+                  destinationOffset: dstBuffer.offset
                                size: size];
     }
 
@@ -1593,10 +1584,11 @@ namespace RT64 {
                                             const RenderTextureCopyLocation &srcLocation,
                                             uint32_t dstX, uint32_t dstY, uint32_t dstZ,
                                             const RenderBox *srcBox) {
-        guaranteeBlitEncoder();
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
-        assert(blitEncoder != nil && "Cannot copy texture region on a nil MTLBlitCommandEncoder");
+        
+        endActiveRenderEncoder();
+        checkActiveBlitEncoder();
 
         const auto dstTexture = static_cast<const MetalTexture *>(dstLocation.texture);
         const auto srcTexture = static_cast<const MetalTexture *>(srcLocation.texture);
@@ -1629,7 +1621,7 @@ namespace RT64 {
             assert((srcLocation.placedFootprint.offset % 256) == 0 && "Buffer offset must be aligned");
             assert((bytesPerRow % 256) == 0 && "Bytes per row must be aligned");
 
-            [blitEncoder copyFromBuffer: srcBuffer->buffer
+            [activeBlitEncoder copyFromBuffer: srcBuffer->buffer
                          sourceOffset: srcLocation.placedFootprint.offset
                     sourceBytesPerRow: bytesPerRow
                   sourceBytesPerImage: bytesPerImage
@@ -1661,7 +1653,7 @@ namespace RT64 {
 
             MTLOrigin dstOrigin = MTLOriginMake(dstX, dstY, dstZ);
 
-            [blitEncoder copyFromTexture: srcTexture->mtlTexture
+            [activeBlitEncoder copyFromTexture: srcTexture->mtlTexture
                            sourceSlice: srcLocation.subresource.index
                            sourceLevel: 0
                           sourceOrigin: srcOrigin
@@ -1677,15 +1669,16 @@ namespace RT64 {
     }
 
     void MetalCommandList::copyBuffer(const RenderBuffer *dstBuffer, const RenderBuffer *srcBuffer) {
-        guaranteeBlitEncoder();
         assert(dstBuffer != nullptr);
         assert(srcBuffer != nullptr);
-        assert(blitEncoder != nil && "Cannot copy buffer on nil MTLBlitCommandEncoder!");
+        
+        endActiveRenderEncoder();
+        checkActiveBlitEncoder();
 
         const auto dst = static_cast<const MetalBuffer *>(dstBuffer);
         const auto src = static_cast<const MetalBuffer *>(srcBuffer);
 
-        [blitEncoder copyFromBuffer: src->buffer
+        [activeBlitEncoder copyFromBuffer: src->buffer
                        sourceOffset: 0
                            toBuffer: dst->buffer
                   destinationOffset: 0
@@ -1693,15 +1686,16 @@ namespace RT64 {
     }
 
     void MetalCommandList::copyTexture(const RenderTexture *dstTexture, const RenderTexture *srcTexture) {
-        guaranteeBlitEncoder();
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
-        assert(blitEncoder != nil && "Cannot copy texture on nil MTLBlitCommandEncoder!");
 
+        endActiveRenderEncoder();
+        checkActiveBlitEncoder();
+        
         const auto dst = static_cast<const MetalTexture *>(dstTexture);
         const auto src = static_cast<const MetalTexture *>(srcTexture);
 
-        [blitEncoder copyFromTexture: src->mtlTexture
+        [activeBlitEncoder copyFromTexture: src->mtlTexture
                            toTexture: dst->mtlTexture];
     }
 
@@ -1865,6 +1859,20 @@ namespace RT64 {
         if (activeClearRenderEncoder != nil) {
             [activeClearRenderEncoder endEncoding];
             activeClearRenderEncoder = nil;
+        }
+    }
+
+    void MetalCommandList::checkActiveBlitEncoder() {
+        if (activeBlitEncoder == nil) {
+            auto blitDescriptor = [MTLBlitPassDescriptor new];
+            activeBlitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
+        }
+    }
+
+    void MetalCommandList::endActiveBlitEncoder() {
+        if (activeBlitEncoder != nil) {
+            [activeBlitEncoder endEncoding];
+            activeBlitEncoder = nil;
         }
     }
 
