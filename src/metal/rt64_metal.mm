@@ -1904,8 +1904,9 @@ namespace RT64 {
         assert(commandListType != RenderCommandListType::UNKNOWN);
 
         this->device = device;
-        this->buffer = [device->queue commandBuffer];
-        this->clearBuffer = [device->queue commandBuffer];
+        this->queue = [device->device newCommandQueue];
+        this->buffer = [queue commandBuffer];
+        this->clearBuffer = [queue commandBuffer];
     }
 
     MetalCommandQueue::~MetalCommandQueue() {
@@ -1943,7 +1944,6 @@ namespace RT64 {
         assert(renderInterface != nullptr);
         this->renderInterface = renderInterface;
         this->device = renderInterface->device;
-        this->queue = [device newCommandQueue];
 
         // Fill capabilities.
         // TODO: Let's add ray tracing as a second step

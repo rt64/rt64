@@ -249,8 +249,8 @@ namespace RT64 {
 #ifdef __OBJC__
         id<MTLCommandBuffer> buffer = nil;
         id<MTLCommandBuffer> clearBuffer = nil;
+        id<MTLCommandQueue> queue;
 #endif
-        MetalCommandQueue *queue = nullptr;
         MetalDevice *device = nullptr;
 
         MetalCommandQueue(MetalDevice *device, RenderCommandListType type);
@@ -421,7 +421,6 @@ namespace RT64 {
     struct MetalDevice : RenderDevice {
 #ifdef __OBJC__
         id<MTLDevice> device;
-        id<MTLCommandQueue> queue;
 #endif
         MetalInterface *renderInterface = nullptr;
         RenderDeviceCapabilities capabilities;
