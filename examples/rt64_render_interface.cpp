@@ -40,6 +40,13 @@
 #endif
 
 namespace RT64 {
+    static const uint32_t BufferCount = 2;
+    static const RenderFormat SwapchainFormat = RenderFormat::B8G8R8A8_UNORM;
+    static const uint32_t MSAACount = 4;
+    static const RenderFormat ColorFormat = RenderFormat::R8G8B8A8_UNORM;
+    static const RenderFormat DepthFormat = RenderFormat::D32_FLOAT;
+    uint32_t swapChainTextureIndex = 0;
+
     struct CheckeredTextureGenerator {
         static std::vector<uint8_t> generateCheckeredData(uint32_t width, uint32_t height) {
             std::vector<uint8_t> textureData(width * height * 4);
@@ -61,16 +68,103 @@ namespace RT64 {
             return textureData;
         }
     };
-    
-    struct TestBase {
-        static const uint32_t BufferCount = 2;
-        static const RenderFormat SwapchainFormat = RenderFormat::B8G8R8A8_UNORM;
-        static const uint32_t MSAACount = 4;
-        static const RenderFormat ColorFormat = RenderFormat::R8G8B8A8_UNORM;
-        static const RenderFormat DepthFormat = RenderFormat::D32_FLOAT;
-        uint32_t swapChainTextureIndex = 0;
+
+    struct RasterDescriptorSet : RenderDescriptorSetBase {
+        uint32_t gSampler;
+        uint32_t gTextures;
         
-        const RenderInterface* renderInterface = nullptr;
+        std::unique_ptr<RenderSampler> linearSampler;
+        
+        RasterDescriptorSet(RenderDevice *device, uint32_t textureArraySize) {
+            linearSampler = device->createSampler(RenderSamplerDesc());
+
+            const uint32_t TextureArrayUpperRange = 512;
+            builder.begin();
+            gSampler = builder.addImmutableSampler(1, linearSampler.get());
+            gTextures = builder.addTexture(2, TextureArrayUpperRange);
+            builder.end(true, textureArraySize);
+
+            create(device);
+        }
+    };
+
+    struct ComputeDescriptorFirstSet : RenderDescriptorSetBase {
+        uint32_t gBlueNoiseTexture;
+        uint32_t gSampler;
+        uint32_t gTarget;
+
+        std::unique_ptr<RenderSampler> linearSampler;
+
+        ComputeDescriptorFirstSet(RenderDevice *device) {
+            linearSampler = device->createSampler(RenderSamplerDesc());
+
+            builder.begin();
+            gBlueNoiseTexture = builder.addTexture(1);
+            gSampler = builder.addImmutableSampler(2, linearSampler.get());
+            builder.end();
+
+            create(device);
+        }
+    };
+
+    struct ComputeDescriptorSecondSet : RenderDescriptorSetBase {
+        uint32_t gTarget;
+
+        ComputeDescriptorSecondSet(RenderDevice *device) {
+            builder.begin();
+            gTarget = builder.addReadWriteTexture(16);
+            builder.end();
+
+            create(device);
+        }
+    };
+
+    struct RaytracingDescriptorSet : RenderDescriptorSetBase {
+        uint32_t gBVH;
+        uint32_t gOutput;
+        uint32_t gBufferParams;
+
+        RaytracingDescriptorSet(RenderDevice *device) {
+            builder.begin();
+            gBVH = builder.addAccelerationStructure(0);
+            gOutput = builder.addReadWriteTexture(1);
+            gBufferParams = builder.addStructuredBuffer(2);
+            builder.end();
+
+            create(device);
+        }
+    };
+
+    struct RasterPushConstant {
+        float colorAdd[4] = {};
+        uint32_t textureIndex = 0;
+    };
+
+    struct ComputePushConstant {
+        float Multiply[4] = {};
+        uint32_t Resolution[2] = {};
+    };
+
+    enum class ShaderType {
+        VERTEX,
+        PIXEL,
+        COMPUTE,
+#ifndef __APPLE__
+        RAY_TRACE,
+#endif
+        POST_VERTEX,
+        POST_PIXEL
+    };
+
+    struct ShaderData {
+        const void* blob;
+        uint64_t size;
+        RenderShaderFormat format;
+    };
+
+    struct TestContext {
+        const RenderInterface *interface = nullptr;
+        RenderWindow window;
         std::unique_ptr<RenderDevice> device;
         std::unique_ptr<RenderCommandQueue> commandQueue;
         std::unique_ptr<RenderCommandList> commandList;
@@ -78,420 +172,588 @@ namespace RT64 {
         std::unique_ptr<RenderCommandSemaphore> drawSemaphore;
         std::unique_ptr<RenderCommandFence> commandFence;
         std::unique_ptr<RenderSwapChain> swapChain;
-        std::vector<std::unique_ptr<RenderFramebuffer>> swapFramebuffers;
-
-        virtual void initialize(RenderInterface *renderInterface, RenderWindow window) {
-            this->renderInterface = renderInterface;
-            device = renderInterface->createDevice();
-            commandQueue = device->createCommandQueue(RenderCommandListType::DIRECT);
-            commandList = commandQueue->createCommandList(RenderCommandListType::DIRECT);
-            acquireSemaphore = device->createCommandSemaphore();
-            drawSemaphore = device->createCommandSemaphore();
-            commandFence = device->createCommandFence();
-            swapChain = commandQueue->createSwapChain(window, BufferCount, SwapchainFormat);
-            resize();
-        }
-
-        virtual void resize() {
-            if (!swapChain) return;
-            swapFramebuffers.clear();
-            swapChain->resize();
-            swapFramebuffers.resize(swapChain->getTextureCount());
-            for (uint32_t i = 0; i < swapChain->getTextureCount(); i++) {
-                const RenderTexture* curTex = swapChain->getTexture(i);
-                swapFramebuffers[i] = device->createFramebuffer(RenderFramebufferDesc{&curTex, 1});
-            }
-        }
-
-        virtual void draw_begin() {
-            // Begin command list
-            commandList->begin();
-        }
-        
-        virtual void draw_impl() = 0;
-        
-        virtual void draw_end() {
-            // End and submit command list
-            commandList->end();
-
-            const RenderCommandList* cmdList = commandList.get();
-            RenderCommandSemaphore* waitSemaphore = acquireSemaphore.get();
-            RenderCommandSemaphore* signalSemaphore = drawSemaphore.get();
-            
-            commandQueue->executeCommandLists(&cmdList, 1, &waitSemaphore, 1, &signalSemaphore, 1, commandFence.get());
-            swapChain->present(swapChainTextureIndex, &signalSemaphore, 1);
-            commandQueue->waitForCommandFence(commandFence.get());
-        }
-        
-        void execute() {
-            draw_begin();
-            draw_impl();
-            draw_end();
-        }
-        
-        virtual void shutdown() {
-            TestBase::shutdown();
-            swapFramebuffers.clear();
-            commandList.reset();
-            drawSemaphore.reset();
-            acquireSemaphore.reset();
-            commandFence.reset();
-            swapChain.reset();
-            commandQueue.reset();
-            device.reset();
-        }
-    };
-
-    struct ClearTest : TestBase {
-        void draw_impl() override {
-            swapChain->acquireTexture(acquireSemaphore.get(), &swapChainTextureIndex);
-            RenderTexture* swapChainTexture = swapChain->getTexture(swapChainTextureIndex);
-            RenderFramebuffer* swapFramebuffer = swapFramebuffers[swapChainTextureIndex].get();
-
-            // Set viewport and scissor
-            const uint32_t width = swapChain->getWidth();
-            const uint32_t height = swapChain->getHeight();
-            const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
-            const RenderRect scissor(0, 0, width, height);
-            commandList->setViewports(viewport);
-            commandList->setScissors(scissor);
-
-            // Transition texture to color write layout and clear
-            commandList->barriers(RenderBarrierStage::GRAPHICS, 
-                RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
-            commandList->setFramebuffer(swapFramebuffer);
-            
-            // Clear full screen
-            commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f)); // Clear to blue
-            
-            // Clear with rects
-            std::vector<RenderRect> clearRects = {
-                {0, 0, 100, 100},
-                {200, 200, 300, 300},
-                {400, 400, 500, 500}
-            };
-            commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearRects.data(), clearRects.size()); // Clear to green
-
-            // Transition texture to present layout
-            commandList->barriers(RenderBarrierStage::NONE, 
-                RenderTextureBarrier(swapChainTexture, RenderTextureLayout::PRESENT));
-        }
-    };
-
-    struct RasterTest : ClearTest {
-         static const uint32_t VertexCount = 3;
-         static const uint32_t FloatsPerVertex = 4;
-         constexpr static const float Vertices[VertexCount * FloatsPerVertex] = {
-             -0.5f, -0.25f, 0.0f, 0.0f,
-             0.5f, -0.25f, 1.0f, 0.0f,
-             0.25f, 0.25f, 0.0f, 1.0f
-         };
-         
-         constexpr static const uint32_t Indices[3] = { 0, 1, 2 };
-         
-         struct RasterDescriptorSet : RenderDescriptorSetBase {
-             uint32_t gSampler;
-             uint32_t gTextures;
-             
-             std::unique_ptr<RenderSampler> linearSampler;
-             
-             RasterDescriptorSet(RenderDevice *device, uint32_t textureArraySize) {
-                 linearSampler = device->createSampler(RenderSamplerDesc());
-                 
-                 const uint32_t TextureArrayUpperRange = 512;
-                 builder.begin();
-                 gSampler = builder.addImmutableSampler(1, linearSampler.get());
-                 gTextures = builder.addTexture(2, TextureArrayUpperRange);
-                 builder.end(true, textureArraySize);
-                 
-                 create(device);
-             }
-         };
-         
-         struct RasterPushConstant {
-             float colorAdd[4] = {};
-             uint32_t textureIndex = 0;
-         };
-         
         std::unique_ptr<RenderFramebuffer> framebuffer;
+        std::vector<std::unique_ptr<RenderFramebuffer>> swapFramebuffers;
+        std::unique_ptr<RenderSampler> linearSampler;
         std::unique_ptr<RenderSampler> postSampler;
-        std::unique_ptr<RenderDescriptorSet> postSet;
         std::unique_ptr<RasterDescriptorSet> rasterSet;
+        std::unique_ptr<ComputeDescriptorFirstSet> computeFirstSet;
+        std::unique_ptr<ComputeDescriptorSecondSet> computeSecondSet;
+        std::unique_ptr<RaytracingDescriptorSet> rtSet;
+        std::unique_ptr<RenderDescriptorSet> postSet;
         std::unique_ptr<RenderPipelineLayout> rasterPipelineLayout;
+        std::unique_ptr<RenderPipelineLayout> computePipelineLayout;
+        std::unique_ptr<RenderPipelineLayout> rtPipelineLayout;
         std::unique_ptr<RenderPipelineLayout> postPipelineLayout;
-        RenderInputSlot inputSlot;
         std::unique_ptr<RenderPipeline> rasterPipeline;
+        std::unique_ptr<RenderPipeline> computePipeline;
+        std::unique_ptr<RenderPipeline> rtPipeline;
         std::unique_ptr<RenderPipeline> postPipeline;
         std::unique_ptr<RenderTexture> colorTargetMS;
         std::unique_ptr<RenderTexture> colorTargetResolved;
         std::unique_ptr<RenderTexture> depthTarget;
+        std::unique_ptr<RenderBuffer> uploadBuffer;
+        std::unique_ptr<RenderTexture> blueNoiseTexture;
         std::unique_ptr<RenderBuffer> vertexBuffer;
         std::unique_ptr<RenderBuffer> indexBuffer;
+        std::unique_ptr<RenderBuffer> rtParamsBuffer;
+        std::unique_ptr<RenderBuffer> rtVertexBuffer;
+        std::unique_ptr<RenderBuffer> rtScratchBuffer;
+        std::unique_ptr<RenderBuffer> rtInstancesBuffer;
+        std::unique_ptr<RenderBuffer> rtBottomLevelASBuffer;
+        std::unique_ptr<RenderAccelerationStructure> rtBottomLevelAS;
+        std::unique_ptr<RenderBuffer> rtTopLevelASBuffer;
+        std::unique_ptr<RenderAccelerationStructure> rtTopLevelAS;
+        std::unique_ptr<RenderBuffer> rtShaderBindingTableBuffer;
+        RenderShaderBindingTableInfo rtShaderBindingTableInfo;
         RenderVertexBufferView vertexBufferView;
         RenderIndexBufferView indexBufferView;
-         
-        void initialize(RenderInterface *renderInterface, RenderWindow window) override {
-            TestBase::initialize(renderInterface, window);
-            
-            const uint32_t textureArraySize = 3;
-            rasterSet = std::make_unique<RasterDescriptorSet>(device.get(), 3);
-            
-            RenderPipelineLayoutBuilder layoutBuilder;
-            layoutBuilder.begin(false, true);
-            layoutBuilder.addPushConstant(0, 0, sizeof(RasterPushConstant), RenderShaderStageFlag::PIXEL);
-            layoutBuilder.addDescriptorSet(rasterSet->builder);
-            layoutBuilder.end();
-            
-            rasterPipelineLayout = layoutBuilder.create(device.get());
-            
-            // Pick shader format depending on the render interface's requirements.
-            const RenderInterfaceCapabilities &interfaceCapabilities = renderInterface->getCapabilities();
-            const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
-            const void *PSBlob = nullptr;
-            const void *VSBlob = nullptr;
-            const void *CSBlob = nullptr;
-            const void *RTBlob = nullptr;
-            const void *PostPSBlob = nullptr;
-            const void *PostVSBlob = nullptr;
-            uint64_t PSBlobSize = 0;
-            uint64_t VSBlobSize = 0;
-            uint64_t CSBlobSize = 0;
-            uint64_t RTBlobSize = 0;
-            uint64_t PostPSBlobSize = 0;
-            uint64_t PostVSBlobSize = 0;
-            switch (shaderFormat) {
-#           ifdef _WIN64
-                case RenderShaderFormat::DXIL:
-                    PSBlob = RenderInterfaceTestPSBlobDXIL;
-                    PSBlobSize = sizeof(RenderInterfaceTestPSBlobDXIL);
-                    VSBlob = RenderInterfaceTestVSBlobDXIL;
-                    VSBlobSize = sizeof(RenderInterfaceTestVSBlobDXIL);
-                    CSBlob = RenderInterfaceTestCSBlobDXIL;
-                    CSBlobSize = sizeof(RenderInterfaceTestCSBlobDXIL);
-                    RTBlob = RenderInterfaceTestRTBlobDXIL;
-                    RTBlobSize = sizeof(RenderInterfaceTestRTBlobDXIL);
-                    PostPSBlob = RenderInterfaceTestPostPSBlobDXIL;
-                    PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobDXIL);
-                    PostVSBlob = RenderInterfaceTestPostVSBlobDXIL;
-                    PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobDXIL);
-                    break;
-#           endif
-                case RenderShaderFormat::SPIRV:
-                    PSBlob = RenderInterfaceTestPSBlobSPIRV;
-                    PSBlobSize = sizeof(RenderInterfaceTestPSBlobSPIRV);
-                    VSBlob = RenderInterfaceTestVSBlobSPIRV;
-                    VSBlobSize = sizeof(RenderInterfaceTestVSBlobSPIRV);
-                    CSBlob = RenderInterfaceTestCSBlobSPIRV;
-                    CSBlobSize = sizeof(RenderInterfaceTestCSBlobSPIRV);
-#           ifndef __APPLE__
-                    RTBlob = RenderInterfaceTestRTBlobSPIRV;
-                    RTBlobSize = sizeof(RenderInterfaceTestRTBlobSPIRV);
-#           endif
-                    PostPSBlob = RenderInterfaceTestPostPSBlobSPIRV;
-                    PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobSPIRV);
-                    PostVSBlob = RenderInterfaceTestPostVSBlobSPIRV;
-                    PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobSPIRV);
-                    break;
-#           ifdef __APPLE__
-                case RenderShaderFormat::METAL:
-                    PSBlob = RenderInterfaceTestPSBlobMSL;
-                    PSBlobSize = sizeof(RenderInterfaceTestPSBlobMSL);
-                    VSBlob = RenderInterfaceTestVSBlobMSL;
-                    VSBlobSize = sizeof(RenderInterfaceTestVSBlobMSL);
-                    CSBlob = RenderInterfaceTestCSBlobMSL;
-                    CSBlobSize = sizeof(RenderInterfaceTestCSBlobMSL);
-                    // TODO: Enable when RT is added to Metal.
-                    //            RTBlob = RenderInterfaceTestRTBlobMSL;
-                    //            RTBlobSize = sizeof(RenderInterfaceTestRTBlobMSL);
-                    PostPSBlob = RenderInterfaceTestPostPSBlobMSL;
-                    PostPSBlobSize = sizeof(RenderInterfaceTestPostPSBlobMSL);
-                    PostVSBlob = RenderInterfaceTestPostVSBlobMSL;
-                    PostVSBlobSize = sizeof(RenderInterfaceTestPostVSBlobMSL);
-                    break;
-#           endif
-                default:
-                    assert(false && "Unknown shader format.");
-                    break;
-            }
-            
-            inputSlot = RenderInputSlot(0, sizeof(float) * FloatsPerVertex);
-            
-            std::vector<RenderInputElement> inputElements;
-            inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
-            inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
-            
-            std::unique_ptr<RenderShader> pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
-            std::unique_ptr<RenderShader> vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
-            
-            RenderGraphicsPipelineDesc graphicsDesc;
-            graphicsDesc.inputSlots = &inputSlot;
-            graphicsDesc.inputSlotsCount = 1;
-            graphicsDesc.inputElements = inputElements.data();
-            graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
-            graphicsDesc.pipelineLayout = rasterPipelineLayout.get();
-            graphicsDesc.pixelShader = pixelShader.get();
-            graphicsDesc.vertexShader = vertexShader.get();
-            graphicsDesc.renderTargetFormat[0] = ColorFormat;
-            graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-            graphicsDesc.depthTargetFormat = DepthFormat;
-            graphicsDesc.renderTargetCount = 1;
-            graphicsDesc.multisampling.sampleCount = MSAACount;
-            rasterPipeline = device->createGraphicsPipeline(graphicsDesc);
-            
-            postSampler = device->createSampler(RenderSamplerDesc());
-            const RenderSampler *postSamplerPtr = postSampler.get();
-            
-            // Create the post processing pipeline
-            std::vector<RenderDescriptorRange> postDescriptorRanges = {
-                RenderDescriptorRange(RenderDescriptorRangeType::TEXTURE, 1, 1),
-                RenderDescriptorRange(RenderDescriptorRangeType::SAMPLER, 2, 1, &postSamplerPtr)
-            };
-            
-            RenderDescriptorSetDesc postDescriptorSetDesc(postDescriptorRanges.data(), uint32_t(postDescriptorRanges.size()));
-            postSet = device->createDescriptorSet(postDescriptorSetDesc);
-            postPipelineLayout = device->createPipelineLayout(RenderPipelineLayoutDesc(nullptr, 0, &postDescriptorSetDesc, 1, false, true));
-            
-            inputElements.clear();
-            inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
-            
-            std::unique_ptr<RenderShader> postPixelShader = device->createShader(PostPSBlob, PostPSBlobSize, "PSMain", shaderFormat);
-            std::unique_ptr<RenderShader> postVertexShader = device->createShader(PostVSBlob, PostVSBlobSize, "VSMain", shaderFormat);
-            
-            RenderGraphicsPipelineDesc postDesc;
-            postDesc.inputSlots = nullptr;
-            postDesc.inputSlotsCount = 0;
-            postDesc.inputElements = nullptr;
-            postDesc.inputElementsCount = 0;
-            postDesc.pipelineLayout = postPipelineLayout.get();
-            postDesc.pixelShader = postPixelShader.get();
-            postDesc.vertexShader = postVertexShader.get();
-            postDesc.renderTargetFormat[0] = SwapchainFormat;
-            postDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-            postDesc.renderTargetCount = 1;
-            postPipeline = device->createGraphicsPipeline(postDesc);
-            
-            // TEXTURE ENABLED WOULD GO HERE
-            
-            vertexBuffer = device->createBuffer(RenderBufferDesc::VertexBuffer(sizeof(Vertices), RenderHeapType::UPLOAD));
-            void *dstData = vertexBuffer->map();
-            memcpy(dstData, Vertices, sizeof(Vertices));
-            vertexBuffer->unmap();
-            vertexBufferView = RenderVertexBufferView(vertexBuffer.get(), sizeof(Vertices));
-            
-            indexBuffer = device->createBuffer(RenderBufferDesc::IndexBuffer(sizeof(Indices), RenderHeapType::UPLOAD));
-            dstData = indexBuffer->map();
-            memcpy(dstData, Indices, sizeof(Indices));
-            indexBuffer->unmap();
-            indexBufferView = RenderIndexBufferView(indexBuffer.get(), sizeof(Indices), RenderFormat::R32_UINT);
-        }
-        
-        void resize() override {
-            TestBase::resize();
-            
-            colorTargetMS = device->createTexture(RenderTextureDesc::ColorTarget(swapChain->getWidth(), swapChain->getHeight(), ColorFormat, RenderMultisampling(MSAACount), nullptr));
-            colorTargetResolved = device->createTexture(RenderTextureDesc::ColorTarget(swapChain->getWidth(), swapChain->getHeight(), ColorFormat, 1, nullptr, RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
-            depthTarget = device->createTexture(RenderTextureDesc::DepthTarget(swapChain->getWidth(), swapChain->getHeight(), DepthFormat, RenderMultisampling(MSAACount)));
-            
-            const RenderTexture *colorTargetPtr = colorTargetMS.get();
-            framebuffer = device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, depthTarget.get()));
-        }
-        
-        void draw_impl() override {
-            // Configure basic render parameters and viewport dimensions
-            const uint32_t SyncInterval = 1;
-            const uint32_t width = swapChain->getWidth();
-            const uint32_t height = swapChain->getHeight();
-            const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
-            const RenderRect scissor(0, 0, width, height);
-            
-            // Set up initial render state and clear buffers with background color (navy blue)
-            commandList->setViewports(viewport);
-            commandList->setScissors(scissor);
-            commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(colorTargetMS.get(), RenderTextureLayout::COLOR_WRITE));
-            commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(depthTarget.get(), RenderTextureLayout::DEPTH_WRITE));
-            commandList->setFramebuffer(framebuffer.get());
-            commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f));
-            commandList->clearDepth();
-            
-            // Configure raster stage push constants for color adjustment and texture mapping
-            RasterPushConstant pushConstant;
-            pushConstant.colorAdd[0] = 0.5f;  // Red channel adjustment
-            pushConstant.colorAdd[1] = 0.25f; // Green channel adjustment
-            pushConstant.colorAdd[2] = 0.0f;  // Blue channel adjustment
-            pushConstant.colorAdd[3] = 0.0f;  // Alpha channel adjustment
-            pushConstant.textureIndex = 2;
-            commandList->setPipeline(rasterPipeline.get());
-            commandList->setGraphicsPipelineLayout(rasterPipelineLayout.get());
-            commandList->setGraphicsPushConstants(0, &pushConstant);
-            
-            // Execute main geometry draw call with vertex and index buffers
-            commandList->setVertexBuffers(0, &vertexBufferView, 1, &inputSlot);
-            commandList->setIndexBuffer(&indexBufferView);
-            commandList->drawInstanced(3, 1, 0, 0);
-            commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(depthTarget.get(), RenderTextureLayout::DEPTH_READ));
-            
-            // Resolve multi-sampled color target to resolved texture
-            commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(colorTargetMS.get(), RenderTextureLayout::RESOLVE_SOURCE));
-            commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(colorTargetResolved.get(), RenderTextureLayout::RESOLVE_DEST));
-            commandList->resolveTexture(colorTargetResolved.get(), colorTargetMS.get());
-            
-            // Prepare swapchain for final output
-            uint32_t swapChainTextureIndex = 0;
-            swapChain->acquireTexture(acquireSemaphore.get(), &swapChainTextureIndex);
-            RenderTexture *swapChainTexture = swapChain->getTexture(swapChainTextureIndex);
-            RenderFramebuffer *swapFramebuffer = swapFramebuffers[swapChainTextureIndex].get();
-            commandList->setViewports(viewport);
-            commandList->setScissors(scissor);
-            commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
-            commandList->setFramebuffer(swapFramebuffer);
-            
-            // Apply post-processing effects and prepare for presentation
-            commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(colorTargetResolved.get(), RenderTextureLayout::SHADER_READ));
-            commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.0f));
-            commandList->setPipeline(postPipeline.get());
-            commandList->setGraphicsPipelineLayout(postPipelineLayout.get());
-            postSet->setTexture(0, colorTargetResolved.get(), RenderTextureLayout::SHADER_READ);
-            commandList->setGraphicsDescriptorSet(postSet.get(), 0);
-            commandList->drawInstanced(3, 1, 0, 0);
-            
-            // Transition swapchain texture to presentation layout
-            commandList->barriers(RenderBarrierStage::NONE, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::PRESENT));
-        }
-        
-        void shutdown() override {
-            ClearTest::shutdown();
-            colorTargetMS.reset(nullptr);
-            colorTargetResolved.reset(nullptr);
-            framebuffer.reset(nullptr);
-            vertexBuffer.reset(nullptr);
-            postPipeline.reset(nullptr);
-            rasterPipelineLayout.reset(nullptr);
-            rasterPipelineLayout.reset(nullptr);
-            postPipelineLayout.reset(nullptr);
-            rasterSet.reset(nullptr);
-            postSet.reset(nullptr);
-            postSampler.reset(nullptr);
-            framebuffer.reset(nullptr);
-        }
-     };
-
-    struct TextureTest : RasterTest {
-        void draw_impl() override {
-            // TODO: Build this
+        RenderInputSlot inputSlot;
+    };
+    
+    struct TestBase {
+        virtual void initialize(TestContext& ctx) = 0;
+        virtual void resize(TestContext& ctx) = 0;
+        virtual void draw(TestContext& ctx) = 0;
+        virtual void shutdown(TestContext& ctx) {
+            ctx.rtParamsBuffer.reset(nullptr);
+            ctx.rtVertexBuffer.reset(nullptr);
+            ctx.rtScratchBuffer.reset(nullptr);
+            ctx.rtInstancesBuffer.reset(nullptr);
+            ctx.rtBottomLevelASBuffer.reset(nullptr);
+            ctx.rtTopLevelASBuffer.reset(nullptr);
+            ctx.rtShaderBindingTableBuffer.reset(nullptr);
+            ctx.uploadBuffer.reset(nullptr);
+            ctx.blueNoiseTexture.reset(nullptr);
+            ctx.vertexBuffer.reset(nullptr);
+            ctx.indexBuffer.reset(nullptr);
+            ctx.rasterPipeline.reset(nullptr);
+            ctx.computePipeline.reset(nullptr);
+            ctx.rtPipeline.reset(nullptr);
+            ctx.postPipeline.reset(nullptr);
+            ctx.rasterPipelineLayout.reset(nullptr);
+            ctx.computePipelineLayout.reset(nullptr);
+            ctx.rtPipelineLayout.reset(nullptr);
+            ctx.postPipelineLayout.reset(nullptr);
+            ctx.rtSet.reset(nullptr);
+            ctx.rasterSet.reset(nullptr);
+            ctx.computeFirstSet.reset(nullptr);
+            ctx.computeSecondSet.reset(nullptr);
+            ctx.postSet.reset(nullptr);
+            ctx.linearSampler.reset(nullptr);
+            ctx.postSampler.reset(nullptr);
+            ctx.colorTargetMS.reset(nullptr);
+            ctx.colorTargetResolved.reset(nullptr);
+            ctx.framebuffer.reset(nullptr);
+            ctx.swapFramebuffers.clear();
+            ctx.commandList.reset(nullptr);
+            ctx.drawSemaphore.reset(nullptr);
+            ctx.acquireSemaphore.reset(nullptr);
+            ctx.commandFence.reset(nullptr);
+            ctx.swapChain.reset(nullptr);
+            ctx.commandQueue.reset(nullptr);
+            ctx.device.reset(nullptr);
         }
     };
 
-     struct ComputeTest : RasterTest {
-         void draw_impl() override {
-             // TODO: Build this
-         }
-     };
+    // Common utilities
+    static ShaderData getShaderData(RenderShaderFormat format, ShaderType type) {
+        ShaderData data = {};
+        data.format = format;
+        
+        switch (format) {
+#       ifdef _WIN64
+            case RenderShaderFormat::DXIL:
+                switch (type) {
+                    case ShaderType::VERTEX:
+                        data.blob = RenderInterfaceTestVSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestVSBlobDXIL);
+                        break;
+                    case ShaderType::PIXEL:
+                        data.blob = RenderInterfaceTestPSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestPSBlobDXIL);
+                        break;
+                    case ShaderType::COMPUTE:
+                        data.blob = RenderInterfaceTestCSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestCSBlobDXIL);
+                        break;
+                    case ShaderType::RAY_TRACE:
+                        data.blob = RenderInterfaceTestRTBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestRTBlobDXIL);
+                        break;
+                    case ShaderType::POST_VERTEX:
+                        data.blob = RenderInterfaceTestPostVSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestPostVSBlobDXIL);
+                        break;
+                    case ShaderType::POST_PIXEL:
+                        data.blob = RenderInterfaceTestPostPSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestPostPSBlobDXIL);
+                        break;
+                }
+                break;
+#       endif
+            case RenderShaderFormat::SPIRV:
+                switch (type) {
+                    case ShaderType::VERTEX:
+                        data.blob = RenderInterfaceTestVSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestVSBlobSPIRV);
+                        break;
+                    case ShaderType::PIXEL:
+                        data.blob = RenderInterfaceTestPSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestPSBlobSPIRV);
+                        break;
+                    case ShaderType::COMPUTE:
+                        data.blob = RenderInterfaceTestCSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestCSBlobSPIRV);
+                        break;
+#               ifndef __APPLE__
+                    case ShaderType::RAY_TRACE:
+                        data.blob = RenderInterfaceTestRTBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestRTBlobSPIRV);
+                        break;
+#               endif
+                    case ShaderType::POST_VERTEX:
+                        data.blob = RenderInterfaceTestPostVSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestPostVSBlobSPIRV);
+                        break;
+                    case ShaderType::POST_PIXEL:
+                        data.blob = RenderInterfaceTestPostPSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestPostPSBlobSPIRV);
+                        break;
+                }
+                break;
+#       ifdef __APPLE__
+            case RenderShaderFormat::METAL:
+                switch (type) {
+                    case ShaderType::VERTEX:
+                        data.blob = RenderInterfaceTestVSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestVSBlobMSL);
+                        break;
+                    case ShaderType::PIXEL:
+                        data.blob = RenderInterfaceTestPSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestPSBlobMSL);
+                        break;
+                    case ShaderType::COMPUTE:
+                        data.blob = RenderInterfaceTestCSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestCSBlobMSL);
+                        break;
+                    case ShaderType::POST_VERTEX:
+                        data.blob = RenderInterfaceTestPostVSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestPostVSBlobMSL);
+                        break;
+                    case ShaderType::POST_PIXEL:
+                        data.blob = RenderInterfaceTestPostPSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestPostPSBlobMSL);
+                        break;
+                }
+                break;
+#       endif
+            default:
+                assert(false && "Unknown shader format.");
+        }
 
-     struct RaytracingTest : TestBase {
-         void draw_impl() override {
-             // TODO: Build this
-         }
-     };
+        return data;
+    }
+
+    static void createContext(TestContext& ctx, RenderInterface* interface, RenderWindow window) {
+        ctx.interface = interface;
+        ctx.window = window;
+        ctx.device = interface->createDevice();
+        ctx.commandQueue = ctx.device->createCommandQueue(RenderCommandListType::DIRECT);
+        ctx.commandList = ctx.commandQueue->createCommandList(RenderCommandListType::DIRECT);
+        ctx.acquireSemaphore = ctx.device->createCommandSemaphore();
+        ctx.drawSemaphore = ctx.device->createCommandSemaphore();
+        ctx.commandFence = ctx.device->createCommandFence();
+        ctx.swapChain = ctx.commandQueue->createSwapChain(window, BufferCount, SwapchainFormat);
+    }
+
+    static void createSwapChain(TestContext& ctx) {
+        ctx.swapFramebuffers.clear();
+        ctx.swapChain->resize();
+        ctx.swapFramebuffers.resize(ctx.swapChain->getTextureCount());
+        for (uint32_t i = 0; i < ctx.swapChain->getTextureCount(); i++) {
+            const RenderTexture* curTex = ctx.swapChain->getTexture(i);
+            ctx.swapFramebuffers[i] = ctx.device->createFramebuffer(RenderFramebufferDesc{&curTex, 1});
+        }
+    }
+
+    static void createTargets(TestContext& ctx) {
+        ctx.colorTargetMS = ctx.device->createTexture(RenderTextureDesc::ColorTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), ColorFormat, RenderMultisampling(MSAACount), nullptr));
+        ctx.colorTargetResolved = ctx.device->createTexture(RenderTextureDesc::ColorTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), ColorFormat, 1, nullptr, RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
+        ctx.depthTarget = ctx.device->createTexture(RenderTextureDesc::DepthTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), DepthFormat, RenderMultisampling(MSAACount)));
+        
+        const RenderTexture *colorTargetPtr = ctx.colorTargetMS.get();
+        ctx.framebuffer = ctx.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, ctx.depthTarget.get()));
+    }
+
+    static void createRasterShader(TestContext& ctx) {
+        const uint32_t textureArraySize = 3;
+        ctx.rasterSet = std::make_unique<RasterDescriptorSet>(ctx.device.get(), 3);
+        
+        RenderPipelineLayoutBuilder layoutBuilder;
+        layoutBuilder.begin(false, true);
+        layoutBuilder.addPushConstant(0, 0, sizeof(RasterPushConstant), RenderShaderStageFlag::PIXEL);
+        layoutBuilder.addDescriptorSet(ctx.rasterSet->builder);
+        layoutBuilder.end();
+        
+        ctx.rasterPipelineLayout = layoutBuilder.create(ctx.device.get());
+        
+        // Pick shader format depending on the render interface's requirements.
+        const RenderInterfaceCapabilities &interfaceCapabilities = ctx.interface->getCapabilities();
+        const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
+        
+        ShaderData psData = getShaderData(shaderFormat, ShaderType::PIXEL);
+        ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
+        ShaderData postPsData = getShaderData(shaderFormat, ShaderType::POST_PIXEL);
+        ShaderData postVsData = getShaderData(shaderFormat, ShaderType::POST_VERTEX);
+        
+        const uint32_t FloatsPerVertex = 4;
+        
+        ctx.inputSlot = RenderInputSlot(0, sizeof(float) * FloatsPerVertex);
+        
+        std::vector<RenderInputElement> inputElements;
+        inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
+        inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
+        
+        std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
+        std::unique_ptr<RenderShader> vertexShader = ctx.device->createShader(vsData.blob, vsData.size, "VSMain", shaderFormat);
+        
+        RenderGraphicsPipelineDesc graphicsDesc;
+        graphicsDesc.inputSlots = &ctx.inputSlot;
+        graphicsDesc.inputSlotsCount = 1;
+        graphicsDesc.inputElements = inputElements.data();
+        graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
+        graphicsDesc.pipelineLayout = ctx.rasterPipelineLayout.get();
+        graphicsDesc.pixelShader = pixelShader.get();
+        graphicsDesc.vertexShader = vertexShader.get();
+        graphicsDesc.renderTargetFormat[0] = ColorFormat;
+        graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+        graphicsDesc.depthTargetFormat = DepthFormat;
+        graphicsDesc.renderTargetCount = 1;
+        graphicsDesc.multisampling.sampleCount = MSAACount;
+        ctx.rasterPipeline = ctx.device->createGraphicsPipeline(graphicsDesc);
+        
+        ctx.postSampler = ctx.device->createSampler(RenderSamplerDesc());
+        const RenderSampler *postSamplerPtr = ctx.postSampler.get();
+        
+        // Create the post processing pipeline
+        std::vector<RenderDescriptorRange> postDescriptorRanges = {
+            RenderDescriptorRange(RenderDescriptorRangeType::TEXTURE, 1, 1),
+            RenderDescriptorRange(RenderDescriptorRangeType::SAMPLER, 2, 1, &postSamplerPtr)
+        };
+        
+        RenderDescriptorSetDesc postDescriptorSetDesc(postDescriptorRanges.data(), uint32_t(postDescriptorRanges.size()));
+        ctx.postSet = ctx.device->createDescriptorSet(postDescriptorSetDesc);
+        ctx.postPipelineLayout = ctx.device->createPipelineLayout(RenderPipelineLayoutDesc(nullptr, 0, &postDescriptorSetDesc, 1, false, true));
+        
+        inputElements.clear();
+        inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
+        
+        std::unique_ptr<RenderShader> postPixelShader = ctx.device->createShader(postPsData.blob, postPsData.size, "PSMain", postPsData.format);
+        std::unique_ptr<RenderShader> postVertexShader = ctx.device->createShader(postVsData.blob, postVsData.size, "VSMain", postVsData.format);
+        
+        RenderGraphicsPipelineDesc postDesc;
+        postDesc.inputSlots = nullptr;
+        postDesc.inputSlotsCount = 0;
+        postDesc.inputElements = nullptr;
+        postDesc.inputElementsCount = 0;
+        postDesc.pipelineLayout = ctx.postPipelineLayout.get();
+        postDesc.pixelShader = postPixelShader.get();
+        postDesc.vertexShader = postVertexShader.get();
+        postDesc.renderTargetFormat[0] = SwapchainFormat;
+        postDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+        postDesc.renderTargetCount = 1;
+        ctx.postPipeline = ctx.device->createGraphicsPipeline(postDesc);
+    }
+
+    static void uploadTexture(TestContext& ctx) {
+        // Upload a texture.
+        const uint32_t Width = 512;
+        const uint32_t Height = 512;
+        const uint32_t RowLength = Width;
+        const RenderFormat Format = RenderFormat::R8G8B8A8_UNORM;
+        const uint32_t BufferSize = RowLength * Height * RenderFormatSize(Format);
+        ctx.uploadBuffer = ctx.device->createBuffer(RenderBufferDesc::UploadBuffer(BufferSize));
+        ctx.blueNoiseTexture = ctx.device->createTexture(RenderTextureDesc::Texture2D(Width, Height, 1, Format));
+        ctx.rasterSet->setTexture(ctx.rasterSet->gTextures + 2, ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
+        
+        // Copy to upload buffer.
+        void *bufferData = ctx.uploadBuffer->map();
+        auto noiseData = CheckeredTextureGenerator::generateCheckeredData(Width, Height);
+        memcpy(bufferData, noiseData.data(), BufferSize);
+        ctx.uploadBuffer->unmap();
+        
+        // Run command list to copy the upload buffer to the texture.
+        ctx.commandList->begin();
+        ctx.commandList->barriers(RenderBarrierStage::COPY,
+                                   RenderBufferBarrier(ctx.uploadBuffer.get(), RenderBufferAccess::READ),
+                                   RenderTextureBarrier(ctx.blueNoiseTexture.get(), RenderTextureLayout::COPY_DEST)
+                                   );
+        
+        ctx.commandList->copyTextureRegion(
+                                            RenderTextureCopyLocation::Subresource(ctx.blueNoiseTexture.get()),
+                                            RenderTextureCopyLocation::PlacedFootprint(ctx.uploadBuffer.get(), Format, Width, Height, 1, RowLength));
+        
+        ctx.commandList->barriers(RenderBarrierStage::GRAPHICS_AND_COMPUTE, RenderTextureBarrier(ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ));
+        ctx.commandList->end();
+        ctx.commandQueue->executeCommandLists(ctx.commandList.get(), ctx.commandFence.get());
+        ctx.commandQueue->waitForCommandFence(ctx.commandFence.get());
+    }
+
+    static void createVertexBuffer(TestContext& ctx) {
+        const uint32_t VertexCount = 3;
+        const uint32_t FloatsPerVertex = 4;
+        const float Vertices[VertexCount * FloatsPerVertex] = {
+            -0.5f, -0.25f, 0.0f, 0.0f,
+            0.5f, -0.25f, 1.0f, 0.0f,
+            0.25f, 0.25f, 0.0f, 1.0f
+        };
+        
+        const uint32_t Indices[3] = {
+            0, 1, 2
+        };
+        
+        ctx.vertexBuffer = ctx.device->createBuffer(RenderBufferDesc::VertexBuffer(sizeof(Vertices), RenderHeapType::UPLOAD));
+        void *dstData = ctx.vertexBuffer->map();
+        memcpy(dstData, Vertices, sizeof(Vertices));
+        ctx.vertexBuffer->unmap();
+        ctx.vertexBufferView = RenderVertexBufferView(ctx.vertexBuffer.get(), sizeof(Vertices));
+        
+        ctx.indexBuffer = ctx.device->createBuffer(RenderBufferDesc::IndexBuffer(sizeof(Indices), RenderHeapType::UPLOAD));
+        dstData = ctx.indexBuffer->map();
+        memcpy(dstData, Indices, sizeof(Indices));
+        ctx.indexBuffer->unmap();
+        ctx.indexBufferView = RenderIndexBufferView(ctx.indexBuffer.get(), sizeof(Indices), RenderFormat::R32_UINT);
+    }
+
+    static void createComputePipeline(TestContext& ctx) {
+        ctx.computeFirstSet = std::make_unique<ComputeDescriptorFirstSet>(ctx.device.get());
+        ctx.computeSecondSet = std::make_unique<ComputeDescriptorSecondSet>(ctx.device.get());
+        ctx.computeFirstSet->setTexture(ctx.computeFirstSet->gBlueNoiseTexture, ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
+        
+        RenderPipelineLayoutBuilder layoutBuilder;
+        layoutBuilder.begin();
+        layoutBuilder.addPushConstant(0, 0, sizeof(ComputePushConstant), RenderShaderStageFlag::COMPUTE);
+        layoutBuilder.addDescriptorSet(ctx.computeFirstSet->builder);
+        layoutBuilder.addDescriptorSet(ctx.computeSecondSet->builder);
+        layoutBuilder.end();
+        
+        ctx.computePipelineLayout = layoutBuilder.create(ctx.device.get());
+        
+        ShaderData computeData = getShaderData(ctx.interface->getCapabilities().shaderFormat, ShaderType::COMPUTE);
+        std::unique_ptr<RenderShader> computeShader = ctx.device->createShader(computeData.blob, computeData.size, "CSMain", computeData.format);
+        RenderComputePipelineDesc computeDesc;
+        computeDesc.computeShader = computeShader.get();
+        computeDesc.pipelineLayout = ctx.computePipelineLayout.get();
+        ctx.computePipeline = ctx.device->createComputePipeline(computeDesc);
+    }
+
+    static void presentSwapChain(TestContext& ctx) {
+        const RenderCommandList* cmdList = ctx.commandList.get();
+        RenderCommandSemaphore* waitSemaphore = ctx.acquireSemaphore.get();
+        RenderCommandSemaphore* signalSemaphore = ctx.drawSemaphore.get();
+        
+        ctx.commandQueue->executeCommandLists(&cmdList, 1, &waitSemaphore, 1, &signalSemaphore, 1, ctx.commandFence.get());
+        ctx.swapChain->present(swapChainTextureIndex, &signalSemaphore, 1);
+        ctx.commandQueue->waitForCommandFence(ctx.commandFence.get());
+    }
+
+    static void initializeRenderTargets(TestContext& ctx) {
+        const uint32_t width = ctx.swapChain->getWidth();
+        const uint32_t height = ctx.swapChain->getHeight();
+        const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
+        const RenderRect scissor(0, 0, width, height);
+        
+        ctx.commandList->setViewports(viewport);
+        ctx.commandList->setScissors(scissor);
+        ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.colorTargetMS.get(), RenderTextureLayout::COLOR_WRITE));
+        ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_WRITE));
+        ctx.commandList->setFramebuffer(ctx.framebuffer.get());
+        
+        // Clear full screen
+        ctx.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f)); // Clear to blue
+        
+        // Clear with rects
+        std::vector<RenderRect> clearRects = {
+            {0, 0, 100, 100},
+            {200, 200, 300, 300},
+            {400, 400, 500, 500}
+        };
+        ctx.commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearRects.data(), clearRects.size()); // Clear to green
+        
+        // Clear depth buffer
+        ctx.commandList->clearDepth();
+    }
+
+    static void resolveMultisampledTexture(TestContext& ctx) {
+        ctx.commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(ctx.colorTargetMS.get(), RenderTextureLayout::RESOLVE_SOURCE));
+        ctx.commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(ctx.colorTargetResolved.get(), RenderTextureLayout::RESOLVE_DEST));
+        ctx.commandList->resolveTexture(ctx.colorTargetResolved.get(), ctx.colorTargetMS.get());
+    }
+
+    static void applyPostProcessToSwapChain(TestContext& ctx) {
+        const uint32_t width = ctx.swapChain->getWidth();
+        const uint32_t height = ctx.swapChain->getHeight();
+        const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
+        const RenderRect scissor(0, 0, width, height);
+        
+        uint32_t swapChainTextureIndex = 0;
+        ctx.swapChain->acquireTexture(ctx.acquireSemaphore.get(), &swapChainTextureIndex);
+        RenderTexture *swapChainTexture = ctx.swapChain->getTexture(swapChainTextureIndex);
+        RenderFramebuffer *swapFramebuffer = ctx.swapFramebuffers[swapChainTextureIndex].get();
+        ctx.commandList->setViewports(viewport);
+        ctx.commandList->setScissors(scissor);
+        ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
+        ctx.commandList->setFramebuffer(swapFramebuffer);
+        
+        ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.colorTargetResolved.get(), RenderTextureLayout::SHADER_READ));
+        ctx.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.0f));
+        ctx.commandList->setPipeline(ctx.postPipeline.get());
+        ctx.commandList->setGraphicsPipelineLayout(ctx.postPipelineLayout.get());
+        ctx.postSet->setTexture(0, ctx.colorTargetResolved.get(), RenderTextureLayout::SHADER_READ);
+        ctx.commandList->setGraphicsDescriptorSet(ctx.postSet.get(), 0);
+        ctx.commandList->drawInstanced(3, 1, 0, 0);
+        ctx.commandList->barriers(RenderBarrierStage::NONE, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::PRESENT));
+    }
+
+    static void setupRasterPipeline(TestContext& ctx) {
+        RasterPushConstant pushConstant;
+        pushConstant.colorAdd[0] = 0.5f;
+        pushConstant.colorAdd[1] = 0.25f;
+        pushConstant.colorAdd[2] = 0.0f;
+        pushConstant.colorAdd[3] = 0.0f;
+        pushConstant.textureIndex = 2;
+        ctx.commandList->setPipeline(ctx.rasterPipeline.get());
+        ctx.commandList->setGraphicsPipelineLayout(ctx.rasterPipelineLayout.get());
+        ctx.commandList->setGraphicsPushConstants(0, &pushConstant);
+    }
+
+    static void drawRasterShader(TestContext& ctx) {
+        ctx.commandList->setVertexBuffers(0, &ctx.vertexBufferView, 1, &ctx.inputSlot);
+        ctx.commandList->setIndexBuffer(&ctx.indexBufferView);
+        ctx.commandList->drawInstanced(3, 1, 0, 0);
+        ctx.commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_READ));
+    }
+
+    static void dispatchCompute(TestContext& ctx) {
+        const uint32_t GroupCount = 8;
+        const uint32_t width = ctx.swapChain->getWidth();
+        const uint32_t height = ctx.swapChain->getHeight();
+        
+        ComputePushConstant pushCostant;
+        pushCostant.Resolution[0] = width;
+        pushCostant.Resolution[1] = height;
+        pushCostant.Multiply[0] = 0.5f;
+        pushCostant.Multiply[1] = 0.5f;
+        pushCostant.Multiply[2] = 1.0f;
+        pushCostant.Multiply[3] = 1.0f;
+        ctx.commandList->setPipeline(ctx.computePipeline.get());
+        ctx.commandList->setComputePipelineLayout(ctx.computePipelineLayout.get());
+        ctx.commandList->setComputePushConstants(0, &pushCostant);
+        ctx.commandList->setComputeDescriptorSet(ctx.computeFirstSet->get(), 0);
+        ctx.commandList->setComputeDescriptorSet(ctx.computeSecondSet->get(), 1);
+        ctx.commandList->dispatch((width + GroupCount - 1) / GroupCount, (height + GroupCount - 1) / GroupCount, 1);
+    }
+
+    struct ClearTest : public TestBase {
+        void initialize(TestContext& ctx) override {
+            resize(ctx);
+        }
+
+        void resize(TestContext& ctx) override {
+            createSwapChain(ctx);
+            createTargets(ctx);
+        }
+
+        void draw(TestContext& ctx) override {
+            ctx.commandList->begin();
+            initializeRenderTargets(ctx);
+            resolveMultisampledTexture(ctx);
+            applyPostProcessToSwapChain(ctx);
+            ctx.commandList->end();
+            presentSwapChain(ctx);
+        }
+    };
+
+    struct RasterTest : public TestBase {
+        void initialize(TestContext& ctx) override {
+            createRasterShader(ctx);
+            createVertexBuffer(ctx);
+            resize(ctx);
+        }
+        
+        void resize(TestContext& ctx) override {
+            createSwapChain(ctx);
+            createTargets(ctx);
+        }
+
+        void draw(TestContext& ctx) override {
+            ctx.commandList->begin();
+            initializeRenderTargets(ctx);
+            setupRasterPipeline(ctx);
+            drawRasterShader(ctx);
+            resolveMultisampledTexture(ctx);
+            applyPostProcessToSwapChain(ctx);
+            ctx.commandList->end();
+            presentSwapChain(ctx);
+        }
+    };
+
+    struct TextureTest : public TestBase {
+        void initialize(TestContext& ctx) override {
+            createRasterShader(ctx);
+            uploadTexture(ctx);
+            createVertexBuffer(ctx);
+            resize(ctx);
+        }
+        
+        void resize(TestContext& ctx) override {
+            createSwapChain(ctx);
+            createTargets(ctx);
+        }
+
+        void draw(TestContext& ctx) override {
+            ctx.commandList->begin();
+            initializeRenderTargets(ctx);
+            setupRasterPipeline(ctx);
+            ctx.commandList->setGraphicsDescriptorSet(ctx.rasterSet->get(), 0);
+            drawRasterShader(ctx);
+            resolveMultisampledTexture(ctx);
+            applyPostProcessToSwapChain(ctx);
+            ctx.commandList->end();
+            presentSwapChain(ctx);
+        }
+    };
+
+    struct ComputeTest : public TestBase {
+        void initialize(TestContext& ctx) override {
+            createRasterShader(ctx);
+            uploadTexture(ctx);
+            createVertexBuffer(ctx);
+            createComputePipeline(ctx);
+            resize(ctx);
+        }
+        
+        void resize(TestContext& ctx) override {
+            createSwapChain(ctx);
+            createTargets(ctx);
+            ctx.computeSecondSet->setTexture(ctx.computeSecondSet->gTarget, ctx.colorTargetResolved.get(), RenderTextureLayout::GENERAL);
+        }
+
+        void draw(TestContext& ctx) override {
+            ctx.commandList->begin();
+            initializeRenderTargets(ctx);
+            setupRasterPipeline(ctx);
+            ctx.commandList->setGraphicsDescriptorSet(ctx.rasterSet->get(), 0);
+            drawRasterShader(ctx);
+            resolveMultisampledTexture(ctx);
+            ctx.commandList->barriers(RenderBarrierStage::COMPUTE, RenderTextureBarrier(ctx.colorTargetResolved.get(), RenderTextureLayout::GENERAL));
+            dispatchCompute(ctx);
+            applyPostProcessToSwapChain(ctx);
+            ctx.commandList->end();
+            presentSwapChain(ctx);
+        }
+    };
 
     // Test registration and management
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
@@ -504,9 +766,6 @@ namespace RT64 {
         g_Tests.push_back([]() { return std::make_unique<RasterTest>(); });
         g_Tests.push_back([]() { return std::make_unique<TextureTest>(); });
         g_Tests.push_back([]() { return std::make_unique<ComputeTest>(); });
-#ifndef __APPLE__
-        g_Tests.push_back([]() { return std::make_unique<RaytracingTest>(); });
-#endif
     }
 
     // Update platform specific code to use the new test framework
@@ -660,9 +919,12 @@ namespace RT64 {
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
+        
+        TestContext g_TestContext;
+        createContext(g_TestContext, renderInterface, { wmInfo.info.cocoa.window, SDL_Metal_GetLayer(view) });
 
         g_CurrentTest = g_Tests[g_CurrentTestIndex]();
-        g_CurrentTest->initialize(renderInterface, { wmInfo.info.cocoa.window, SDL_Metal_GetLayer(view) });
+        g_CurrentTest->initialize(g_TestContext);
 
         std::chrono::system_clock::time_point prev_frame = std::chrono::system_clock::now();
         bool running = true;
@@ -675,7 +937,7 @@ namespace RT64 {
                         break;
                     case SDL_WINDOWEVENT:
                         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                            g_CurrentTest->resize();
+                            g_CurrentTest->resize(g_TestContext);
                         }
                         break;
                 }
@@ -686,11 +948,11 @@ namespace RT64 {
             auto now_time = std::chrono::system_clock::now();
             if (now_time - prev_frame > 16666us) {
                 prev_frame = now_time;
-                g_CurrentTest->execute();
+                g_CurrentTest->draw(g_TestContext);
             }
         }
 
-        g_CurrentTest->shutdown();
+        g_CurrentTest->shutdown(g_TestContext);
         SDL_Metal_DestroyView(view);
         SDL_DestroyWindow(window);
         SDL_Quit();
