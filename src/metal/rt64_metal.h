@@ -129,6 +129,7 @@ namespace RT64 {
 
     struct MetalFramebuffer : RenderFramebuffer {
         MetalDevice *device = nullptr;
+        id<MTLRenderCommandEncoder> renderEncoder = nil;
         bool depthAttachmentReadOnly = false;
         uint32_t width = 0;
         uint32_t height = 0;
@@ -143,15 +144,14 @@ namespace RT64 {
 
     struct MetalCommandList : RenderCommandList {
 #ifdef __OBJC__
-        id<MTLRenderCommandEncoder> renderEncoder = nil;
+        id<MTLRenderCommandEncoder> activeRenderEncoder = nil;
+        id<MTLRenderCommandEncoder> activeClearRenderEncoder = nil;
+        
+        
+        
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         id<MTLBlitCommandEncoder> blitEncoder = nil;
         MTLCaptureManager *captureManager = nil;
-
-        MTLRenderPassDescriptor *renderDescriptor = nil;
-        
-        id <MTLRenderPipelineState> clearPipelineState = nil;
-        MTLRenderPassDescriptor *clearRenderDescriptor = nil;
 
         MTLPrimitiveType currentPrimitiveType = MTLPrimitiveTypeTriangle;
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
@@ -169,26 +169,6 @@ namespace RT64 {
         id<MTLBuffer> computePushConstantsBuffer = nil;
 
         std::map<id<MTLTexture>, id<MTLTexture>> resolveTo;
-
-        struct DrawCall {
-            enum class Type {
-                Draw,
-                DrawIndexed
-            };
-            Type type;
-            MTLPrimitiveType primitiveType = MTLPrimitiveTypeTriangle;
-            uint32_t startVertexLocation = 0;
-            uint32_t vertexCountPerInstance = 0;
-            uint32_t instanceCount = 0;
-            uint32_t startInstanceLocation = 0;
-
-            uint32_t indexCountPerInstance = 0;
-            MTLIndexType indexType = MTLIndexTypeUInt32;
-            id<MTLBuffer> indexBuffer = nil;
-            int32_t baseVertexLocation = 0;
-            uint32_t startIndexLocation = 0;
-        };
-        std::vector<DrawCall> deferredDrawCalls;
         
         void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor);
 #endif
@@ -215,7 +195,6 @@ namespace RT64 {
         void end() override;
         void endEncoder(bool clearDescs);
         void guaranteeRenderDescriptor(bool forClearColor);
-        void guaranteeRenderEncoder();
         void guaranteeComputeEncoder();
         void guaranteeBlitEncoder();
         void clearDrawCalls();
@@ -250,8 +229,10 @@ namespace RT64 {
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
-        
-        void setupClearPipeline();
+        void checkActiveRenderEncoder();
+        void endActiveRenderEncoder();
+        void checkActiveClearRenderEncoder();
+        void endActiveClearRenderEncoder();
     };
 
     struct MetalCommandFence : RenderCommandFence {
@@ -267,6 +248,7 @@ namespace RT64 {
     struct MetalCommandQueue : RenderCommandQueue {
 #ifdef __OBJC__
         id<MTLCommandBuffer> buffer = nil;
+        id<MTLCommandBuffer> clearBuffer = nil;
 #endif
         MetalCommandQueue *queue = nullptr;
         MetalDevice *device = nullptr;

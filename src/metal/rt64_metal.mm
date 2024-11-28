@@ -1232,18 +1232,9 @@ namespace RT64 {
     void MetalCommandList::begin() { }
 
     void MetalCommandList::end() {
-        endEncoder(true);
-    }
-
-    void MetalCommandList::endEncoder(bool clearDescs) {
-        clearDrawCalls();
-        if (renderEncoder != nil) {
-            [renderEncoder endEncoding];
-            if (clearDescs) {
-                renderDescriptor = nil;
-            }
-        }
-
+        endActiveClearRenderEncoder();
+        endActiveRenderEncoder();
+        
         if (computeEncoder != nil) {
             [computeEncoder endEncoding];
         }
@@ -1252,53 +1243,9 @@ namespace RT64 {
             [blitEncoder endEncoding];
         }
 
-        renderEncoder = nil;
+        targetFramebuffer = nullptr;
         computeEncoder = nil;
         blitEncoder = nil;
-    }
-
-    void MetalCommandList::clearDrawCalls() {
-        if (!deferredDrawCalls.empty()) {
-            guaranteeRenderEncoder();
-        }
-        for (auto &drawCall : deferredDrawCalls) {
-            if (drawCall.type == DrawCall::Type::Draw) {
-                [renderEncoder drawPrimitives: drawCall.primitiveType
-                                  vertexStart: drawCall.startVertexLocation
-                                  vertexCount: drawCall.vertexCountPerInstance
-                                instanceCount: drawCall.instanceCount
-                                 baseInstance: drawCall.startInstanceLocation];
-            } else if (drawCall.type == DrawCall::Type::DrawIndexed) {
-                [renderEncoder drawIndexedPrimitives: drawCall.primitiveType
-                                          indexCount: drawCall.indexCountPerInstance
-                                           indexType: drawCall.indexType
-                                         indexBuffer: drawCall.indexBuffer
-                                   indexBufferOffset: drawCall.startIndexLocation
-                                       instanceCount: drawCall.instanceCount
-                                          baseVertex: drawCall.baseVertexLocation
-                                        baseInstance: drawCall.startInstanceLocation];
-            }
-        }
-
-        deferredDrawCalls.clear();
-    }
-
-    void MetalCommandList::guaranteeRenderDescriptor(bool forClearColor) {
-        if (forClearColor) {
-            if (clearRenderDescriptor == nil) {
-                clearRenderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-                configureRenderDescriptor(clearRenderDescriptor);
-            }
-        } else {
-            if (renderDescriptor == nil) {
-                renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-                configureRenderDescriptor(renderDescriptor);
-                
-                if (activeRenderState->samplePositions != nullptr) {
-                    [renderDescriptor setSamplePositions:activeRenderState->samplePositions count:activeRenderState->sampleCount];
-                }
-            }
-        }
     }
 
     void MetalCommandList::configureRenderDescriptor(MTLRenderPassDescriptor* renderDescriptor) {
@@ -1345,63 +1292,8 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::guaranteeRenderEncoder() {
-        if (renderEncoder == nil) {
-            guaranteeRenderDescriptor(false);
-            renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
-
-            [renderEncoder setRenderPipelineState: activeRenderState->renderPipelineState];
-            [renderEncoder setDepthStencilState: activeRenderState->depthStencilState];
-            [renderEncoder setDepthClipMode: activeRenderState->depthClipMode];
-            [renderEncoder setCullMode: activeRenderState->cullMode];
-            [renderEncoder setFrontFacingWinding: activeRenderState->winding];
-
-            [renderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
-            [renderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
-
-            for (uint32_t i = 0; i < viewCount; i++) {
-                [renderEncoder setVertexBuffer: vertexBuffers[i]
-                                        offset: vertexBufferOffsets[i]
-                                       atIndex: vertexBufferIndices[i]];
-            }
-
-            // Encode Descriptor set layouts and mark resources
-            for (uint32_t i = 0; i < activeGraphicsPipelineLayout->setCount; i++) {
-                const auto *setLayout = activeGraphicsPipelineLayout->setLayoutHandles[i];
-
-                if (indicesToRenderDescriptorSets.count(i) != 0) {
-                    const auto *descriptorSet = indicesToRenderDescriptorSets[i];
-                    // Mark resources in the argument buffer as resident
-                    for (const auto& pair : descriptorSet->indicesToTextures) {
-                        uint32_t index = pair.first;
-                        auto *texture = pair.second;
-                        if (texture != nil) {
-                            [renderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment|MTLRenderStageVertex];
-
-                            uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                            [setLayout->argumentEncoder setTexture:texture atIndex: adjustedIndex];
-                        }
-                    }
-
-                    // TODO: Mark and bind buffers
-                }
-
-                [renderEncoder setFragmentBuffer:setLayout->descriptorBuffer offset:0 atIndex:i];
-            }
-
-            if (graphicsPushConstantsBuffer != nil) {
-                uint32_t pushConstantsIndex = activeGraphicsPipelineLayout->setCount;
-                [renderEncoder setFragmentBuffer: graphicsPushConstantsBuffer
-                                          offset: 0
-                                         atIndex: pushConstantsIndex];
-            }
-        }
-    }
-
     void MetalCommandList::guaranteeComputeEncoder() {
         if (computeEncoder == nil) {
-            endEncoder(false);
-
             auto computeDescriptor = [MTLComputePassDescriptor new];
             computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
         }
@@ -1409,8 +1301,6 @@ namespace RT64 {
 
     void MetalCommandList::guaranteeBlitEncoder() {
         if (blitEncoder == nil) {
-            endEncoder(false);
-
             auto blitDescriptor = [MTLBlitPassDescriptor new];
             blitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
         }
@@ -1433,46 +1323,26 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
-//        guaranteeRenderEncoder();
-//        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
-
-//        [renderEncoder drawPrimitives: currentPrimitiveType
-//                          vertexStart: startVertexLocation
-//                          vertexCount: vertexCountPerInstance
-//                        instanceCount: instanceCount
-//                         baseInstance: startInstanceLocation];
-
-        deferredDrawCalls.emplace_back(DrawCall{
-            .type = DrawCall::Type::Draw,
-            .startVertexLocation = startVertexLocation,
-            .vertexCountPerInstance = vertexCountPerInstance,
-            .instanceCount = instanceCount,
-            .startInstanceLocation = startInstanceLocation
-        });
+        checkActiveRenderEncoder();
+        
+        [activeRenderEncoder drawPrimitives: currentPrimitiveType
+                          vertexStart: startVertexLocation
+                          vertexCount: vertexCountPerInstance
+                        instanceCount: instanceCount
+                         baseInstance: startInstanceLocation];
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
-//        guaranteeRenderEncoder();
-//        assert(renderEncoder != nil && "Cannot encode draw on nil MTLRenderCommandEncoder!");
+        checkActiveRenderEncoder();
 
-//        [renderEncoder drawIndexedPrimitives: currentPrimitiveType
-//                                  indexCount: indexCountPerInstance
-//                                   indexType: currentIndexType
-//                                 indexBuffer: indexBuffer
-//                           indexBufferOffset: startIndexLocation
-//                               instanceCount: instanceCount
-//                                  baseVertex: baseVertexLocation
-//                                baseInstance: startInstanceLocation];
-
-        deferredDrawCalls.emplace_back(DrawCall{
-            .type = DrawCall::Type::DrawIndexed,
-            .instanceCount = instanceCount,
-            .startInstanceLocation = startInstanceLocation,
-            .indexCountPerInstance = indexCountPerInstance,
-            .indexBuffer = indexBuffer,
-            .baseVertexLocation = baseVertexLocation,
-            .startIndexLocation = startIndexLocation,
-        });
+        [activeRenderEncoder drawIndexedPrimitives: currentPrimitiveType
+                                  indexCount: indexCountPerInstance
+                                   indexType: currentIndexType
+                                 indexBuffer: indexBuffer
+                           indexBufferOffset: startIndexLocation
+                               instanceCount: instanceCount
+                                  baseVertex: baseVertexLocation
+                                baseInstance: startInstanceLocation];
     }
 
     void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {
@@ -1613,7 +1483,9 @@ namespace RT64 {
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
-        endEncoder(true);
+        endActiveClearRenderEncoder();
+        endActiveRenderEncoder();
+
         // Need to clear explicitly to remove from new descriptor
         depthClearValue = -1.0;
         if (framebuffer != nullptr) {
@@ -1624,20 +1496,18 @@ namespace RT64 {
     }
 
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
-        setupClearPipeline();
-        guaranteeRenderDescriptor(true);
-        assert(clearRenderDescriptor != nil && "Cannot encode clear on nil MTLRenderPassDescriptor!");
-        assert(clearPipelineState != nil && "Cannot encode clear without a valid pipeline state!");
-
-        id <MTLRenderCommandEncoder> renderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: clearRenderDescriptor];
-        [renderEncoder setRenderPipelineState: clearPipelineState];
+        assert(targetFramebuffer != nullptr);
+        assert(attachmentIndex < targetFramebuffer->colorAttachments.size());
+        assert((clearRectsCount == 0) || (clearRects != nullptr));
+        
+        checkActiveClearRenderEncoder();
         
         // Convert clear color
         float clearColor[4] = {
             colorValue.r, colorValue.g, colorValue.b, colorValue.a
         };
 
-        [renderEncoder setFragmentBytes:clearColor
+        [activeClearRenderEncoder setFragmentBytes:clearColor
                                length:sizeof(float) * 4
                               atIndex:0];
         
@@ -1654,8 +1524,8 @@ namespace RT64 {
                 -(double)targetFramebuffer->height, // Negative height for Y inversion
                 0.0, 1.0
             };
-            [renderEncoder setViewport:viewport];
-            [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+            [activeClearRenderEncoder setViewport:viewport];
+            [activeClearRenderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
                               vertexStart:0
                               vertexCount:3];
         } else {
@@ -1687,85 +1557,12 @@ namespace RT64 {
                     (NSUInteger)height
                 };
                 
-                [renderEncoder setViewport:viewport];
-                [renderEncoder setScissorRect:scissor];
-                [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                [activeClearRenderEncoder setViewport:viewport];
+                [activeClearRenderEncoder setScissorRect:scissor];
+                [activeClearRenderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
                                   vertexStart:0
                                   vertexCount:3];
             }
-        }
-        
-        [renderEncoder endEncoding];
-        clearRenderDescriptor = nil;
-    }
-
-    void MetalCommandList::setupClearPipeline() {
-        // Verify we have a valid framebuffer
-        if (!targetFramebuffer || targetFramebuffer->colorAttachments.empty()) {
-            NSLog(@"Cannot setup clear pipeline without valid framebuffer");
-            return;
-        }
-
-        MTLRenderPipelineDescriptor *pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
-        
-        // Set up shader functions
-        NSString *shaderSource = @"#include <metal_stdlib>\n"
-                                "using namespace metal;\n"
-                                "\n"
-                                "vertex float4 clearVert(uint vid [[vertex_id]]) {\n"
-                                "    const float2 positions[] = {\n"
-                                "        float2(-1, -1),\n"
-                                "        float2(3, -1),\n"
-                                "        float2(-1, 3)\n"
-                                "    };\n"
-                                "    return float4(positions[vid], 0, 1);\n"
-                                "}\n"
-                                "\n"
-                                "fragment float4 clearFrag(constant float4& clearColor [[buffer(0)]]) {\n"
-                                "    return clearColor;\n"
-                                "}\n";
-
-        NSError *error = nil;
-        MTLCompileOptions *options = [[MTLCompileOptions alloc] init];
-        id<MTLLibrary> library = [device->device newLibraryWithSource:shaderSource
-                                                    options:options
-                                                      error:&error];
-        if (!library) {
-            NSLog(@"Failed to create library: %@", error);
-            return;
-        }
-            
-        pipelineDesc.vertexFunction = [library newFunctionWithName:@"clearVert"];
-        pipelineDesc.fragmentFunction = [library newFunctionWithName:@"clearFrag"];
-        
-        NSUInteger sampleCount = targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount;
-        pipelineDesc.rasterSampleCount = sampleCount;
-        
-        // Configure attachments
-        colorAttachmentsCount = targetFramebuffer->colorAttachments.size();
-        for (uint32_t i = 0; i < colorAttachmentsCount; i++) {
-            MTLPixelFormat format;
-            // Handle swapchain case specially
-            if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
-                MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
-                format = swapChain->drawable.texture.pixelFormat;
-            } else {
-                format = toMTL(targetFramebuffer->colorAttachments[i]->desc.format);
-            }
-            
-            pipelineDesc.colorAttachments[i].pixelFormat = format;
-            pipelineDesc.colorAttachments[i].blendingEnabled = NO;
-        }
-        
-        // Set depth format if there's a depth attachment
-        if (targetFramebuffer->depthAttachment != nullptr) {
-            pipelineDesc.depthAttachmentPixelFormat = targetFramebuffer->depthAttachment->mtlTexture.pixelFormat;
-        }
-
-        clearPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
-        if (!clearPipelineState) {
-            NSLog(@"Failed to create pipeline state: %@", error);
-            return;
         }
     }
 
@@ -1930,6 +1727,147 @@ namespace RT64 {
         // TODO: Unimplemented.
     }
 
+    void MetalCommandList::checkActiveRenderEncoder() {
+        assert(targetFramebuffer != nullptr);
+        
+        if (activeRenderEncoder == nil) {
+            MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+            configureRenderDescriptor(renderDescriptor);
+            
+            activeRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+            [activeRenderEncoder setRenderPipelineState: activeRenderState->renderPipelineState];
+            [activeRenderEncoder setDepthStencilState: activeRenderState->depthStencilState];
+            [activeRenderEncoder setDepthClipMode: activeRenderState->depthClipMode];
+            [activeRenderEncoder setCullMode: activeRenderState->cullMode];
+            [activeRenderEncoder setFrontFacingWinding: activeRenderState->winding];
+
+            [activeRenderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
+            [activeRenderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
+
+            for (uint32_t i = 0; i < viewCount; i++) {
+                [activeRenderEncoder setVertexBuffer: vertexBuffers[i]
+                                        offset: vertexBufferOffsets[i]
+                                       atIndex: vertexBufferIndices[i]];
+            }
+
+            // Encode Descriptor set layouts and mark resources
+            for (uint32_t i = 0; i < activeGraphicsPipelineLayout->setCount; i++) {
+                const auto *setLayout = activeGraphicsPipelineLayout->setLayoutHandles[i];
+
+                if (indicesToRenderDescriptorSets.count(i) != 0) {
+                    const auto *descriptorSet = indicesToRenderDescriptorSets[i];
+                    // Mark resources in the argument buffer as resident
+                    for (const auto& pair : descriptorSet->indicesToTextures) {
+                        uint32_t index = pair.first;
+                        auto *texture = pair.second;
+                        if (texture != nil) {
+                            [activeRenderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment|MTLRenderStageVertex];
+
+                            uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                            [setLayout->argumentEncoder setTexture:texture atIndex: adjustedIndex];
+                        }
+                    }
+
+                    // TODO: Mark and bind buffers
+                }
+
+                [activeRenderEncoder setFragmentBuffer:setLayout->descriptorBuffer offset:0 atIndex:i];
+            }
+
+            if (graphicsPushConstantsBuffer != nil) {
+                uint32_t pushConstantsIndex = activeGraphicsPipelineLayout->setCount;
+                [activeRenderEncoder setFragmentBuffer: graphicsPushConstantsBuffer
+                                          offset: 0
+                                         atIndex: pushConstantsIndex];
+            }
+        }
+    }
+
+    void MetalCommandList::endActiveRenderEncoder() {
+        if (activeRenderEncoder != nil) {
+            [activeRenderEncoder endEncoding];
+            activeRenderEncoder = nil;
+        }
+    }
+
+    void MetalCommandList::checkActiveClearRenderEncoder() {
+        assert(targetFramebuffer != nullptr);
+        
+        if (activeClearRenderEncoder == nil) {
+            MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+            configureRenderDescriptor(renderDescriptor);
+            
+            MTLRenderPipelineDescriptor *pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
+            
+            // Set up shader functions
+            NSString *shaderSource = @"#include <metal_stdlib>\n"
+                                    "using namespace metal;\n"
+                                    "\n"
+                                    "vertex float4 clearVert(uint vid [[vertex_id]]) {\n"
+                                    "    const float2 positions[] = {\n"
+                                    "        float2(-1, -1),\n"
+                                    "        float2(3, -1),\n"
+                                    "        float2(-1, 3)\n"
+                                    "    };\n"
+                                    "    return float4(positions[vid], 0, 1);\n"
+                                    "}\n"
+                                    "\n"
+                                    "fragment float4 clearFrag(constant float4& clearColor [[buffer(0)]]) {\n"
+                                    "    return clearColor;\n"
+                                    "}\n";
+
+            NSError *error = nil;
+            MTLCompileOptions *options = [[MTLCompileOptions alloc] init];
+            id<MTLLibrary> library = [device->device newLibraryWithSource:shaderSource
+                                                        options:options
+                                                          error:&error];
+            if (!library) {
+                NSLog(@"Failed to create library: %@", error);
+                return;
+            }
+                
+            pipelineDesc.vertexFunction = [library newFunctionWithName:@"clearVert"];
+            pipelineDesc.fragmentFunction = [library newFunctionWithName:@"clearFrag"];
+            
+            NSUInteger sampleCount = targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount;
+            pipelineDesc.rasterSampleCount = sampleCount;
+            
+            // Configure attachments
+            colorAttachmentsCount = targetFramebuffer->colorAttachments.size();
+            for (uint32_t i = 0; i < colorAttachmentsCount; i++) {
+                MTLPixelFormat format;
+                // Handle swapchain case specially
+                if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
+                    MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
+                    format = swapChain->drawable.texture.pixelFormat;
+                } else {
+                    format = toMTL(targetFramebuffer->colorAttachments[i]->desc.format);
+                }
+                
+                pipelineDesc.colorAttachments[i].pixelFormat = format;
+                pipelineDesc.colorAttachments[i].blendingEnabled = NO;
+            }
+            
+            // Set depth format if there's a depth attachment
+            if (targetFramebuffer->depthAttachment != nullptr) {
+                pipelineDesc.depthAttachmentPixelFormat = targetFramebuffer->depthAttachment->mtlTexture.pixelFormat;
+            }
+
+            id <MTLRenderPipelineState> clearPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
+            assert(clearPipelineState != nil && "Failed to create clear pipeline state");
+            
+            activeClearRenderEncoder = [queue->clearBuffer renderCommandEncoderWithDescriptor: renderDescriptor];
+            [activeClearRenderEncoder setRenderPipelineState: clearPipelineState];
+        }
+    }
+
+    void MetalCommandList::endActiveClearRenderEncoder() {
+        if (activeClearRenderEncoder != nil) {
+            [activeClearRenderEncoder endEncoding];
+            activeClearRenderEncoder = nil;
+        }
+    }
+
     void MetalCommandList::setDescriptorSet(RT64::RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
         auto *interfaceDescriptorSet = static_cast<MetalDescriptorSet *>(descriptorSet);
         if (setCompute) {
@@ -1967,6 +1905,7 @@ namespace RT64 {
 
         this->device = device;
         this->buffer = [device->queue commandBuffer];
+        this->clearBuffer = [device->queue commandBuffer];
     }
 
     MetalCommandQueue::~MetalCommandQueue() {
@@ -1985,10 +1924,13 @@ namespace RT64 {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
 
+        [clearBuffer enqueue];
+        [clearBuffer commit];
         [buffer enqueue];
         [buffer commit];
 
         this->buffer = [buffer.commandQueue commandBuffer];
+        this->clearBuffer = [clearBuffer.commandQueue commandBuffer];
     }
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
