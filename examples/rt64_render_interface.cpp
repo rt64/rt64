@@ -45,7 +45,6 @@ namespace RT64 {
     static const uint32_t MSAACount = 4;
     static const RenderFormat ColorFormat = RenderFormat::R8G8B8A8_UNORM;
     static const RenderFormat DepthFormat = RenderFormat::D32_FLOAT;
-    uint32_t swapChainTextureIndex = 0;
 
     struct CheckeredTextureGenerator {
         static std::vector<uint8_t> generateCheckeredData(uint32_t width, uint32_t height) {
@@ -165,6 +164,7 @@ namespace RT64 {
     struct TestContext {
         const RenderInterface *interface = nullptr;
         RenderWindow window;
+        uint32_t swapChainTextureIndex = 0;
         std::unique_ptr<RenderDevice> device;
         std::unique_ptr<RenderCommandQueue> commandQueue;
         std::unique_ptr<RenderCommandList> commandList;
@@ -554,7 +554,7 @@ namespace RT64 {
         RenderCommandSemaphore* signalSemaphore = ctx.drawSemaphore.get();
         
         ctx.commandQueue->executeCommandLists(&cmdList, 1, &waitSemaphore, 1, &signalSemaphore, 1, ctx.commandFence.get());
-        ctx.swapChain->present(swapChainTextureIndex, &signalSemaphore, 1);
+        ctx.swapChain->present(ctx.swapChainTextureIndex, &signalSemaphore, 1);
         ctx.commandQueue->waitForCommandFence(ctx.commandFence.get());
     }
 
@@ -597,10 +597,9 @@ namespace RT64 {
         const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
         const RenderRect scissor(0, 0, width, height);
         
-        uint32_t swapChainTextureIndex = 0;
-        ctx.swapChain->acquireTexture(ctx.acquireSemaphore.get(), &swapChainTextureIndex);
-        RenderTexture *swapChainTexture = ctx.swapChain->getTexture(swapChainTextureIndex);
-        RenderFramebuffer *swapFramebuffer = ctx.swapFramebuffers[swapChainTextureIndex].get();
+        ctx.swapChain->acquireTexture(ctx.acquireSemaphore.get(), &ctx.swapChainTextureIndex);
+        RenderTexture *swapChainTexture = ctx.swapChain->getTexture(ctx.swapChainTextureIndex);
+        RenderFramebuffer *swapFramebuffer = ctx.swapFramebuffers[ctx.swapChainTextureIndex].get();
         ctx.commandList->setViewports(viewport);
         ctx.commandList->setScissors(scissor);
         ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
