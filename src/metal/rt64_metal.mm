@@ -1558,7 +1558,6 @@ namespace RT64 {
         assert(dstBuffer.ref != nullptr);
         assert(srcBuffer.ref != nullptr);
         
-        endActiveRenderEncoder();
         checkActiveBlitEncoder();
 
         const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
@@ -1578,7 +1577,6 @@ namespace RT64 {
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
         
-        endActiveRenderEncoder();
         checkActiveBlitEncoder();
 
         const auto dstTexture = static_cast<const MetalTexture *>(dstLocation.texture);
@@ -1663,7 +1661,6 @@ namespace RT64 {
         assert(dstBuffer != nullptr);
         assert(srcBuffer != nullptr);
         
-        endActiveRenderEncoder();
         checkActiveBlitEncoder();
 
         const auto dst = static_cast<const MetalBuffer *>(dstBuffer);
@@ -1680,7 +1677,6 @@ namespace RT64 {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
 
-        endActiveRenderEncoder();
         checkActiveBlitEncoder();
         
         const auto dst = static_cast<const MetalTexture *>(dstTexture);
@@ -1698,7 +1694,6 @@ namespace RT64 {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
 
-        endActiveRenderEncoder();
         checkActiveResolveComputeEncoder();
 
         const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
@@ -1753,8 +1748,28 @@ namespace RT64 {
         // TODO: Unimplemented.
     }
 
+    void MetalCommandList::endOtherEncoders(EncoderType type) {
+        // clear all active encoder types except the one passed in
+        if (type != EncoderType::Clear) {
+            endActiveClearRenderEncoder();
+        }
+        if (type != EncoderType::Render) {
+            endActiveRenderEncoder();
+        }
+        if (type != EncoderType::Compute) {
+            endActiveResolveComputeEncoder();
+        }
+        if (type != EncoderType::Blit) {
+            endActiveBlitEncoder();
+        }
+        if (type != EncoderType::Resolve) {
+            endActiveResolveComputeEncoder();
+        }
+    }
+
     void MetalCommandList::checkActiveRenderEncoder() {
         assert(targetFramebuffer != nullptr);
+        endOtherEncoders(EncoderType::Render);
         
         if (activeRenderEncoder == nil) {
             MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
@@ -1819,6 +1834,7 @@ namespace RT64 {
 
     void MetalCommandList::checkActiveClearRenderEncoder() {
         assert(targetFramebuffer != nullptr);
+        endOtherEncoders(EncoderType::Clear);
         
         if (activeClearRenderEncoder == nil) {
             MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
@@ -1884,7 +1900,7 @@ namespace RT64 {
             id <MTLRenderPipelineState> clearPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
             assert(clearPipelineState != nil && "Failed to create clear pipeline state");
             
-            activeClearRenderEncoder = [queue->clearBuffer renderCommandEncoderWithDescriptor: renderDescriptor];
+            activeClearRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
             [activeClearRenderEncoder setLabel:@"Active Clear Render Encoder"];
             [activeClearRenderEncoder setRenderPipelineState: clearPipelineState];
         }
@@ -1899,6 +1915,8 @@ namespace RT64 {
 
     void MetalCommandList::checkActiveBlitEncoder() {
         if (activeBlitEncoder == nil) {
+            endOtherEncoders(EncoderType::Blit);
+
             auto blitDescriptor = [MTLBlitPassDescriptor new];
             activeBlitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
             [activeBlitEncoder setLabel:@"Active Blit Encoder"];
@@ -1913,9 +1931,10 @@ namespace RT64 {
     }
 
     void MetalCommandList::checkActiveResolveComputeEncoder() {
+        assert(targetFramebuffer != nullptr);
+        endOtherEncoders(EncoderType::Resolve);
+        
         if (activeResolveComputeEncoder == nil) {
-            assert(targetFramebuffer != nullptr);
-            
             if (msaaResolvePipelineState == nil) {
                 NSString *shaderSource = @"#include <metal_stdlib>\n"
                 "using namespace metal;\n"
@@ -1956,7 +1975,7 @@ namespace RT64 {
                 assert(msaaResolvePipelineState != nil && "Failed to create MSAA resolve pipeline state");
             }
             
-            activeResolveComputeEncoder = [queue->resolveBuffer computeCommandEncoder];
+            activeResolveComputeEncoder = [queue->buffer computeCommandEncoder];
             [activeResolveComputeEncoder setLabel:@"MSAA Active Resolve Encoder"];
             [activeResolveComputeEncoder setComputePipelineState:msaaResolvePipelineState];
         }
@@ -2007,7 +2026,6 @@ namespace RT64 {
         this->device = device;
         this->queue = [device->device newCommandQueue];
         this->buffer = [queue commandBuffer];
-        this->clearBuffer = [queue commandBuffer];
     }
 
     MetalCommandQueue::~MetalCommandQueue() {
@@ -2025,17 +2043,11 @@ namespace RT64 {
     void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
-
-        [clearBuffer enqueue];
-        [clearBuffer commit];
-        [resolveBuffer enqueue];
-        [resolveBuffer commit];
+        
         [buffer enqueue];
         [buffer commit];
 
         this->buffer = [queue commandBuffer];
-        this->clearBuffer = [queue commandBuffer];
-        this->resolveBuffer = [queue commandBuffer];
     }
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {

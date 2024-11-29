@@ -35,6 +35,14 @@ namespace RT64 {
     struct MetalTexture;
     struct MetalSampler;
 
+    enum class EncoderType {
+        Clear,
+        Render,
+        Compute,
+        Blit,
+        Resolve
+    };
+
     struct MetalRenderState {
 #ifdef __OBJC__
         id<MTLRenderPipelineState> renderPipelineState = nil;
@@ -227,6 +235,7 @@ namespace RT64 {
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
+        void endOtherEncoders(EncoderType type);
         void checkActiveRenderEncoder();
         void endActiveRenderEncoder();
         void checkActiveClearRenderEncoder();
@@ -250,8 +259,6 @@ namespace RT64 {
     struct MetalCommandQueue : RenderCommandQueue {
 #ifdef __OBJC__
         id<MTLCommandBuffer> buffer = nil;
-        id<MTLCommandBuffer> clearBuffer = nil;
-        id<MTLCommandBuffer> resolveBuffer = nil;
         id<MTLCommandQueue> queue;
 #endif
         MetalDevice *device = nullptr;
