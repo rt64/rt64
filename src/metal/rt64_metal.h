@@ -147,6 +147,9 @@ namespace RT64 {
         id<MTLRenderCommandEncoder> activeRenderEncoder = nil;
         id<MTLRenderCommandEncoder> activeClearRenderEncoder = nil;
         id<MTLBlitCommandEncoder> activeBlitEncoder = nil;
+        
+        id<MTLComputePipelineState> msaaResolvePipelineState = nil;
+        id<MTLComputeCommandEncoder> activeResolveComputeEncoder = nil;
     
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         MTLCaptureManager *captureManager = nil;
@@ -165,8 +168,6 @@ namespace RT64 {
 
         id<MTLBuffer> graphicsPushConstantsBuffer = nil;
         id<MTLBuffer> computePushConstantsBuffer = nil;
-
-        std::map<id<MTLTexture>, id<MTLTexture>> resolveTo;
         
         void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor);
 #endif
@@ -232,6 +233,8 @@ namespace RT64 {
         void endActiveClearRenderEncoder();
         void checkActiveBlitEncoder();
         void endActiveBlitEncoder();
+        void checkActiveResolveComputeEncoder();
+        void endActiveResolveComputeEncoder();
     };
 
     struct MetalCommandFence : RenderCommandFence {
@@ -248,6 +251,7 @@ namespace RT64 {
 #ifdef __OBJC__
         id<MTLCommandBuffer> buffer = nil;
         id<MTLCommandBuffer> clearBuffer = nil;
+        id<MTLCommandBuffer> resolveBuffer = nil;
         id<MTLCommandQueue> queue;
 #endif
         MetalDevice *device = nullptr;

@@ -1234,6 +1234,7 @@ namespace RT64 {
     void MetalCommandList::end() {
         endActiveClearRenderEncoder();
         endActiveRenderEncoder();
+        endActiveResolveComputeEncoder();
         endActiveBlitEncoder();
         
         if (computeEncoder != nil) {
@@ -1263,11 +1264,6 @@ namespace RT64 {
                 colorAttachment.loadAction = MTLLoadActionLoad;
                 colorAttachment.storeAction = MTLStoreActionStore;
             }
-            
-            if (resolveTo.count(colorAttachment.texture) != 0) {
-                colorAttachment.resolveTexture = resolveTo[colorAttachment.texture];
-                colorAttachment.storeAction = MTLStoreActionMultisampleResolve;
-            }
         }
         
         if (targetFramebuffer->depthAttachment != nullptr) {
@@ -1275,11 +1271,6 @@ namespace RT64 {
             depthAttachment.texture = targetFramebuffer->depthAttachment->mtlTexture;
             depthAttachment.loadAction = MTLLoadActionLoad;
             depthAttachment.storeAction = MTLStoreActionStore;
-            
-            if (resolveTo.count(depthAttachment.texture) != 0) {
-                depthAttachment.resolveTexture = resolveTo[depthAttachment.texture];
-                depthAttachment.storeAction = MTLStoreActionMultisampleResolve;
-            }
             
             if (depthClearValue >= 0.0) {
                 depthAttachment.loadAction = MTLLoadActionClear;
@@ -1700,17 +1691,58 @@ namespace RT64 {
     }
 
     void MetalCommandList::resolveTexture(const RT64::RenderTexture *dstTexture, const RT64::RenderTexture *srcTexture) {
-        assert(dstTexture != nullptr);
-        assert(srcTexture != nullptr);
-
-        const auto *interfaceDstTexture = static_cast<const MetalTexture *>(dstTexture);
-        const auto *interfaceSrcTexture = static_cast<const MetalTexture *>(srcTexture);
-
-        resolveTo[interfaceSrcTexture->mtlTexture] = interfaceDstTexture->mtlTexture;
+        resolveTextureRegion(dstTexture, 0, 0, srcTexture, nullptr);
     }
 
     void MetalCommandList::resolveTextureRegion(const RT64::RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RT64::RenderTexture *srcTexture, const RT64::RenderRect *srcRect) {
-        // TODO: Unimplemented.
+        assert(dstTexture != nullptr);
+        assert(srcTexture != nullptr);
+
+        endActiveRenderEncoder();
+        checkActiveResolveComputeEncoder();
+
+        const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
+        const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
+        
+        // Calculate source region
+        uint32_t srcX = 0;
+        uint32_t srcY = 0;
+        uint32_t width = src->mtlTexture.width;
+        uint32_t height = src->mtlTexture.height;
+        
+        if (srcRect != nullptr) {
+            srcX = srcRect->left;
+            srcY = srcRect->top;
+            width = srcRect->right - srcRect->left;
+            height = srcRect->bottom - srcRect->top;
+        }
+        
+        // Setup resolve parameters
+        struct ResolveParams {
+            uint32_t dstOffsetX;
+            uint32_t dstOffsetY;
+            uint32_t srcOffsetX;
+            uint32_t srcOffsetY;
+            uint32_t resolveSizeX;
+            uint32_t resolveSizeY;
+        } params = {
+            dstX, dstY,
+            srcX, srcY,
+            width, height
+        };
+        
+        [activeResolveComputeEncoder setTexture:src->mtlTexture atIndex:0];
+        [activeResolveComputeEncoder setTexture:dst->mtlTexture atIndex:1];
+        [activeResolveComputeEncoder setBytes:&params length:sizeof(params) atIndex:0];
+        
+        MTLSize threadGroupSize = MTLSizeMake(8, 8, 1);
+        MTLSize gridSize = MTLSizeMake(
+                                       (width + threadGroupSize.width - 1) / threadGroupSize.width,
+                                       (height + threadGroupSize.height - 1) / threadGroupSize.height,
+                                       1
+                                       );
+        
+        [activeResolveComputeEncoder dispatchThreadgroups:gridSize threadsPerThreadgroup:threadGroupSize];
     }
 
     void MetalCommandList::buildBottomLevelAS(const RT64::RenderAccelerationStructure *dstAccelerationStructure, RT64::RenderBufferReference scratchBuffer, const RT64::RenderBottomLevelASBuildInfo &buildInfo) {
@@ -1729,6 +1761,7 @@ namespace RT64 {
             configureRenderDescriptor(renderDescriptor);
             
             activeRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+            [activeRenderEncoder setLabel:@"Active Render Encoder"];
             [activeRenderEncoder setRenderPipelineState: activeRenderState->renderPipelineState];
             [activeRenderEncoder setDepthStencilState: activeRenderState->depthStencilState];
             [activeRenderEncoder setDepthClipMode: activeRenderState->depthClipMode];
@@ -1794,6 +1827,7 @@ namespace RT64 {
             MTLRenderPipelineDescriptor *pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
             
             // Set up shader functions
+            // TODO: cache the clear shader to not recompile every time
             NSString *shaderSource = @"#include <metal_stdlib>\n"
                                     "using namespace metal;\n"
                                     "\n"
@@ -1851,6 +1885,7 @@ namespace RT64 {
             assert(clearPipelineState != nil && "Failed to create clear pipeline state");
             
             activeClearRenderEncoder = [queue->clearBuffer renderCommandEncoderWithDescriptor: renderDescriptor];
+            [activeClearRenderEncoder setLabel:@"Active Clear Render Encoder"];
             [activeClearRenderEncoder setRenderPipelineState: clearPipelineState];
         }
     }
@@ -1866,6 +1901,7 @@ namespace RT64 {
         if (activeBlitEncoder == nil) {
             auto blitDescriptor = [MTLBlitPassDescriptor new];
             activeBlitEncoder = [queue->buffer blitCommandEncoderWithDescriptor: blitDescriptor];
+            [activeBlitEncoder setLabel:@"Active Blit Encoder"];
         }
     }
 
@@ -1873,6 +1909,63 @@ namespace RT64 {
         if (activeBlitEncoder != nil) {
             [activeBlitEncoder endEncoding];
             activeBlitEncoder = nil;
+        }
+    }
+
+    void MetalCommandList::checkActiveResolveComputeEncoder() {
+        if (activeResolveComputeEncoder == nil) {
+            assert(targetFramebuffer != nullptr);
+            
+            if (msaaResolvePipelineState == nil) {
+                NSString *shaderSource = @"#include <metal_stdlib>\n"
+                "using namespace metal;\n"
+                "struct ResolveParams {\n"
+                "    uint2 dstOffset;\n"
+                "    uint2 srcOffset;\n"
+                "    uint2 resolveSize;\n"
+                "};\n"
+                "kernel void msaaResolve(\n"
+                "    texture2d_ms<float> source [[texture(0)]],\n"
+                "    texture2d<float, access::write> destination [[texture(1)]],\n"
+                "    constant ResolveParams& params [[buffer(0)]],\n"
+                "    uint2 gid [[thread_position_in_grid]])\n"
+                "{\n"
+                "    if (gid.x >= params.resolveSize.x || gid.y >= params.resolveSize.y) return;\n"
+                "    uint2 dstPos = gid + params.dstOffset;\n"
+                "    uint2 srcPos = gid + params.srcOffset;\n"
+                "    float4 color = float4(0);\n"
+                "    for (uint s = 0; s < source.get_num_samples(); s++) {\n"
+                "        color += source.read(srcPos, s);\n"
+                "    }\n"
+                "    color /= float(source.get_num_samples());\n"
+                "    destination.write(color, dstPos);\n"
+                "}\n";
+
+                NSError *error = nil;
+                MTLCompileOptions *options = [[MTLCompileOptions alloc] init];
+                options.languageVersion = MTLLanguageVersion2_0;
+                
+                id<MTLLibrary> library = [device->device newLibraryWithSource:shaderSource options:options error:&error];
+                assert(library != nil && "Failed to create library");
+                
+                id<MTLFunction> resolveFunction = [library newFunctionWithName:@"msaaResolve"];
+                assert(resolveFunction != nil && "Failed to create resolve function");
+                
+                error = nil;
+                msaaResolvePipelineState = [device->device newComputePipelineStateWithFunction:resolveFunction error:&error];
+                assert(msaaResolvePipelineState != nil && "Failed to create MSAA resolve pipeline state");
+            }
+            
+            activeResolveComputeEncoder = [queue->resolveBuffer computeCommandEncoder];
+            [activeResolveComputeEncoder setLabel:@"MSAA Active Resolve Encoder"];
+            [activeResolveComputeEncoder setComputePipelineState:msaaResolvePipelineState];
+        }
+    }
+
+    void MetalCommandList::endActiveResolveComputeEncoder() {
+        if (activeResolveComputeEncoder != nil) {
+            [activeResolveComputeEncoder endEncoding];
+            activeResolveComputeEncoder = nil;
         }
     }
 
@@ -1935,11 +2028,14 @@ namespace RT64 {
 
         [clearBuffer enqueue];
         [clearBuffer commit];
+        [resolveBuffer enqueue];
+        [resolveBuffer commit];
         [buffer enqueue];
         [buffer commit];
 
-        this->buffer = [buffer.commandQueue commandBuffer];
-        this->clearBuffer = [clearBuffer.commandQueue commandBuffer];
+        this->buffer = [queue commandBuffer];
+        this->clearBuffer = [queue commandBuffer];
+        this->resolveBuffer = [queue commandBuffer];
     }
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
