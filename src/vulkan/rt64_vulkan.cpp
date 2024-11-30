@@ -1957,7 +1957,7 @@ namespace RT64 {
         surfaceCreateInfo.dpy = renderWindow.display;
         surfaceCreateInfo.window = renderWindow.window;
 
-        VulkanInterface *renderIntferface = commandQueue->device->renderInterface;
+        VulkanInterface *renderInterface = commandQueue->device->renderInterface;
         res = vkCreateXlibSurfaceKHR(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateXlibSurfaceKHR failed with error code 0x%X.\n", res);
