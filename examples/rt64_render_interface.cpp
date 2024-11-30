@@ -162,7 +162,7 @@ namespace RT64 {
     };
 
     struct TestContext {
-        const RenderInterface *interface = nullptr;
+        const RenderInterface *renderInterface = nullptr;
         RenderWindow window;
         uint32_t swapChainTextureIndex = 0;
         std::unique_ptr<RenderDevice> device;
@@ -355,10 +355,10 @@ namespace RT64 {
         return data;
     }
 
-    static void createContext(TestContext& ctx, RenderInterface* interface, RenderWindow window) {
-        ctx.interface = interface;
+    static void createContext(TestContext& ctx, RenderInterface* renderInterface, RenderWindow window) {
+        ctx.renderInterface = renderInterface;
         ctx.window = window;
-        ctx.device = interface->createDevice();
+        ctx.device = renderInterface->createDevice();
         ctx.commandQueue = ctx.device->createCommandQueue(RenderCommandListType::DIRECT);
         ctx.commandList = ctx.commandQueue->createCommandList(RenderCommandListType::DIRECT);
         ctx.acquireSemaphore = ctx.device->createCommandSemaphore();
@@ -399,13 +399,11 @@ namespace RT64 {
         ctx.rasterPipelineLayout = layoutBuilder.create(ctx.device.get());
         
         // Pick shader format depending on the render interface's requirements.
-        const RenderInterfaceCapabilities &interfaceCapabilities = ctx.interface->getCapabilities();
+        const RenderInterfaceCapabilities &interfaceCapabilities = ctx.renderInterface->getCapabilities();
         const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
         
         ShaderData psData = getShaderData(shaderFormat, ShaderType::PIXEL);
         ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
-        ShaderData postPsData = getShaderData(shaderFormat, ShaderType::POST_PIXEL);
-        ShaderData postVsData = getShaderData(shaderFormat, ShaderType::POST_VERTEX);
         
         const uint32_t FloatsPerVertex = 4;
         
@@ -432,26 +430,34 @@ namespace RT64 {
         graphicsDesc.renderTargetCount = 1;
         graphicsDesc.multisampling.sampleCount = MSAACount;
         ctx.rasterPipeline = ctx.device->createGraphicsPipeline(graphicsDesc);
-        
+    }
+
+    static void createPostPipeline(TestContext &ctx) {
         ctx.postSampler = ctx.device->createSampler(RenderSamplerDesc());
         const RenderSampler *postSamplerPtr = ctx.postSampler.get();
-        
-        // Create the post processing pipeline
         std::vector<RenderDescriptorRange> postDescriptorRanges = {
-            RenderDescriptorRange(RenderDescriptorRangeType::TEXTURE, 1, 1),
-            RenderDescriptorRange(RenderDescriptorRangeType::SAMPLER, 2, 1, &postSamplerPtr)
+           RenderDescriptorRange(RenderDescriptorRangeType::TEXTURE, 1, 1),
+           RenderDescriptorRange(RenderDescriptorRangeType::SAMPLER, 2, 1, &postSamplerPtr)
         };
-        
+
         RenderDescriptorSetDesc postDescriptorSetDesc(postDescriptorRanges.data(), uint32_t(postDescriptorRanges.size()));
         ctx.postSet = ctx.device->createDescriptorSet(postDescriptorSetDesc);
         ctx.postPipelineLayout = ctx.device->createPipelineLayout(RenderPipelineLayoutDesc(nullptr, 0, &postDescriptorSetDesc, 1, false, true));
-        
+
+        std::vector<RenderInputElement> inputElements;
         inputElements.clear();
         inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
-        
+
+        // Pick shader format depending on the render interface's requirements.
+        const RenderInterfaceCapabilities &interfaceCapabilities = ctx.renderInterface->getCapabilities();
+        const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
+
+        ShaderData postPsData = getShaderData(shaderFormat, ShaderType::POST_PIXEL);
+        ShaderData postVsData = getShaderData(shaderFormat, ShaderType::POST_VERTEX);
+
         std::unique_ptr<RenderShader> postPixelShader = ctx.device->createShader(postPsData.blob, postPsData.size, "PSMain", postPsData.format);
         std::unique_ptr<RenderShader> postVertexShader = ctx.device->createShader(postVsData.blob, postVsData.size, "VSMain", postVsData.format);
-        
+
         RenderGraphicsPipelineDesc postDesc;
         postDesc.inputSlots = nullptr;
         postDesc.inputSlotsCount = 0;
@@ -540,7 +546,7 @@ namespace RT64 {
         
         ctx.computePipelineLayout = layoutBuilder.create(ctx.device.get());
         
-        ShaderData computeData = getShaderData(ctx.interface->getCapabilities().shaderFormat, ShaderType::COMPUTE);
+        ShaderData computeData = getShaderData(ctx.renderInterface->getCapabilities().shaderFormat, ShaderType::COMPUTE);
         std::unique_ptr<RenderShader> computeShader = ctx.device->createShader(computeData.blob, computeData.size, "CSMain", computeData.format);
         RenderComputePipelineDesc computeDesc;
         computeDesc.computeShader = computeShader.get();
@@ -656,6 +662,7 @@ namespace RT64 {
 
     struct ClearTest : public TestBase {
         void initialize(TestContext& ctx) override {
+            createPostPipeline(ctx);
             resize(ctx);
         }
 
@@ -677,6 +684,7 @@ namespace RT64 {
     struct RasterTest : public TestBase {
         void initialize(TestContext& ctx) override {
             createRasterShader(ctx);
+            createPostPipeline(ctx);
             createVertexBuffer(ctx);
             resize(ctx);
         }
@@ -701,6 +709,7 @@ namespace RT64 {
     struct TextureTest : public TestBase {
         void initialize(TestContext& ctx) override {
             createRasterShader(ctx);
+            createPostPipeline(ctx);
             uploadTexture(ctx);
             createVertexBuffer(ctx);
             resize(ctx);
@@ -727,6 +736,7 @@ namespace RT64 {
     struct ComputeTest : public TestBase {
         void initialize(TestContext& ctx) override {
             createRasterShader(ctx);
+            createPostPipeline(ctx);
             uploadTexture(ctx);
             createVertexBuffer(ctx);
             createComputePipeline(ctx);
@@ -758,7 +768,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 2;
+    static uint32_t g_CurrentTestIndex = 0;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
@@ -769,16 +779,24 @@ namespace RT64 {
 
     // Update platform specific code to use the new test framework
 #if defined(_WIN64)
+    TestContext g_TestContext;
+
     static LRESULT CALLBACK TestWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
         switch (message) {
         case WM_CLOSE:
             PostQuitMessage(0);
             break;
         case WM_SIZE:
-            if (g_CurrentTest) g_CurrentTest->resize();
+            if (g_CurrentTest != nullptr) {
+                g_CurrentTest->resize(g_TestContext);
+            }
+
             return 0;
         case WM_PAINT:
-            if (g_CurrentTest) g_CurrentTest->execute();
+            if (g_CurrentTest != nullptr) {
+                g_CurrentTest->draw(g_TestContext);
+            }
+
             return 0;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
@@ -813,9 +831,11 @@ namespace RT64 {
     void RenderInterfaceTest(RenderInterface *renderInterface) {
         RegisterTests();
         HWND hwnd = TestCreateWindow();
+
+        createContext(g_TestContext, renderInterface, hwnd);
         
         g_CurrentTest = g_Tests[g_CurrentTestIndex]();
-        g_CurrentTest->initialize(renderInterface, hwnd);
+        g_CurrentTest->initialize(g_TestContext);
 
         MSG msg = {};
         while (msg.message != WM_QUIT) {
@@ -825,7 +845,7 @@ namespace RT64 {
             }
         }
 
-        g_CurrentTest->shutdown();
+        g_CurrentTest->shutdown(g_TestContext);
         DestroyWindow(hwnd);
     }
 #elif defined(__ANDROID__)
