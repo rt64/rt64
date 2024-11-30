@@ -14,14 +14,16 @@
 #include <random>
 
 #ifdef _WIN64
-#include "shaders/RenderInterfaceTestPS.hlsl.dxil.h"
+#include "shaders/RenderInterfaceTestColorPS.hlsl.dxil.h"
+#include "shaders/RenderInterfaceTestTexturePS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestRT.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestVS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestCS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestPostPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.dxil.h"
 #endif
-#include "shaders/RenderInterfaceTestPS.hlsl.spirv.h"
+#include "shaders/RenderInterfaceTestColorPS.hlsl.spirv.h"
+#include "shaders/RenderInterfaceTestTexturePS.hlsl.spirv.h"
 #ifndef __APPLE__
 #include "shaders/RenderInterfaceTestRT.hlsl.spirv.h"
 #endif
@@ -30,7 +32,8 @@
 #include "shaders/RenderInterfaceTestPostPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
 #ifdef __APPLE__
-#include "shaders/RenderInterfaceTestPS.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestColorPS.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestTexturePS.hlsl.metal.h"
 // TODO: Enable when RT is added to Metal.
 //#include "shaders/RenderInterfaceTestRT.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestVS.hlsl.metal.h"
@@ -68,16 +71,16 @@ namespace RT64 {
         }
     };
 
-    struct RasterDescriptorSet : RenderDescriptorSetBase {
+    struct RasterTextureDescriptorSet : RenderDescriptorSetBase {
         uint32_t gSampler;
         uint32_t gTextures;
         
         std::unique_ptr<RenderSampler> linearSampler;
         
-        RasterDescriptorSet(RenderDevice *device, uint32_t textureArraySize) {
+        RasterTextureDescriptorSet(RenderDevice *device, uint32_t textureArraySize) {
             linearSampler = device->createSampler(RenderSamplerDesc());
 
-            const uint32_t TextureArrayUpperRange = 512;
+            const uint32_t TextureArrayUpperRange = 8192;
             builder.begin();
             gSampler = builder.addImmutableSampler(1, linearSampler.get());
             gTextures = builder.addTexture(2, TextureArrayUpperRange);
@@ -146,7 +149,8 @@ namespace RT64 {
 
     enum class ShaderType {
         VERTEX,
-        PIXEL,
+        COLOR_PIXEL,
+        TEXTURE_PIXEL,
         COMPUTE,
 #ifndef __APPLE__
         RAY_TRACE,
@@ -176,16 +180,18 @@ namespace RT64 {
         std::vector<std::unique_ptr<RenderFramebuffer>> swapFramebuffers;
         std::unique_ptr<RenderSampler> linearSampler;
         std::unique_ptr<RenderSampler> postSampler;
-        std::unique_ptr<RasterDescriptorSet> rasterSet;
+        std::unique_ptr<RasterTextureDescriptorSet> rasterTextureSet;
         std::unique_ptr<ComputeDescriptorFirstSet> computeFirstSet;
         std::unique_ptr<ComputeDescriptorSecondSet> computeSecondSet;
         std::unique_ptr<RaytracingDescriptorSet> rtSet;
         std::unique_ptr<RenderDescriptorSet> postSet;
-        std::unique_ptr<RenderPipelineLayout> rasterPipelineLayout;
+        std::unique_ptr<RenderPipelineLayout> rasterColorPipelineLayout;
+        std::unique_ptr<RenderPipelineLayout> rasterTexturePipelineLayout;
         std::unique_ptr<RenderPipelineLayout> computePipelineLayout;
         std::unique_ptr<RenderPipelineLayout> rtPipelineLayout;
         std::unique_ptr<RenderPipelineLayout> postPipelineLayout;
-        std::unique_ptr<RenderPipeline> rasterPipeline;
+        std::unique_ptr<RenderPipeline> rasterColorPipeline;
+        std::unique_ptr<RenderPipeline> rasterTexturePipeline;
         std::unique_ptr<RenderPipeline> computePipeline;
         std::unique_ptr<RenderPipeline> rtPipeline;
         std::unique_ptr<RenderPipeline> postPipeline;
@@ -227,16 +233,18 @@ namespace RT64 {
             ctx.blueNoiseTexture.reset(nullptr);
             ctx.vertexBuffer.reset(nullptr);
             ctx.indexBuffer.reset(nullptr);
-            ctx.rasterPipeline.reset(nullptr);
+            ctx.rasterColorPipeline.reset(nullptr);
+            ctx.rasterTexturePipeline.reset(nullptr);
             ctx.computePipeline.reset(nullptr);
             ctx.rtPipeline.reset(nullptr);
             ctx.postPipeline.reset(nullptr);
-            ctx.rasterPipelineLayout.reset(nullptr);
+            ctx.rasterColorPipelineLayout.reset(nullptr);
+            ctx.rasterTexturePipelineLayout.reset(nullptr);
             ctx.computePipelineLayout.reset(nullptr);
             ctx.rtPipelineLayout.reset(nullptr);
             ctx.postPipelineLayout.reset(nullptr);
             ctx.rtSet.reset(nullptr);
-            ctx.rasterSet.reset(nullptr);
+            ctx.rasterTextureSet.reset(nullptr);
             ctx.computeFirstSet.reset(nullptr);
             ctx.computeSecondSet.reset(nullptr);
             ctx.postSet.reset(nullptr);
@@ -269,9 +277,13 @@ namespace RT64 {
                         data.blob = RenderInterfaceTestVSBlobDXIL;
                         data.size = sizeof(RenderInterfaceTestVSBlobDXIL);
                         break;
-                    case ShaderType::PIXEL:
-                        data.blob = RenderInterfaceTestPSBlobDXIL;
-                        data.size = sizeof(RenderInterfaceTestPSBlobDXIL);
+                    case ShaderType::COLOR_PIXEL:
+                        data.blob = RenderInterfaceTestColorPSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestColorPSBlobDXIL);
+                        break;
+                    case ShaderType::TEXTURE_PIXEL:
+                        data.blob = RenderInterfaceTestTexturePSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestTexturePSBlobDXIL);
                         break;
                     case ShaderType::COMPUTE:
                         data.blob = RenderInterfaceTestCSBlobDXIL;
@@ -298,9 +310,13 @@ namespace RT64 {
                         data.blob = RenderInterfaceTestVSBlobSPIRV;
                         data.size = sizeof(RenderInterfaceTestVSBlobSPIRV);
                         break;
-                    case ShaderType::PIXEL:
-                        data.blob = RenderInterfaceTestPSBlobSPIRV;
-                        data.size = sizeof(RenderInterfaceTestPSBlobSPIRV);
+                    case ShaderType::COLOR_PIXEL:
+                        data.blob = RenderInterfaceTestColorPSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestColorPSBlobSPIRV);
+                        break;
+                    case ShaderType::TEXTURE_PIXEL:
+                        data.blob = RenderInterfaceTestTexturePSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestTexturePSBlobSPIRV);
                         break;
                     case ShaderType::COMPUTE:
                         data.blob = RenderInterfaceTestCSBlobSPIRV;
@@ -329,9 +345,13 @@ namespace RT64 {
                         data.blob = RenderInterfaceTestVSBlobMSL;
                         data.size = sizeof(RenderInterfaceTestVSBlobMSL);
                         break;
-                    case ShaderType::PIXEL:
-                        data.blob = RenderInterfaceTestPSBlobMSL;
-                        data.size = sizeof(RenderInterfaceTestPSBlobMSL);
+                    case ShaderType::COLOR_PIXEL:
+                        data.blob = RenderInterfaceTestColorPSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestColorPSBlobMSL);
+                        break;
+                    case ShaderType::TEXTURE_PIXEL:
+                        data.blob = RenderInterfaceTestTexturePSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestTexturePSBlobMSL);
                         break;
                     case ShaderType::COMPUTE:
                         data.blob = RenderInterfaceTestCSBlobMSL;
@@ -386,23 +406,64 @@ namespace RT64 {
         ctx.framebuffer = ctx.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, ctx.depthTarget.get()));
     }
 
-    static void createRasterShader(TestContext& ctx) {
+    static void createRasterColorShader(TestContext &ctx) {
+        RenderPipelineLayoutBuilder layoutBuilder;
+        layoutBuilder.begin(false, true);
+        layoutBuilder.end();
+
+        ctx.rasterColorPipelineLayout = layoutBuilder.create(ctx.device.get());
+
+        // Pick shader format depending on the render interface's requirements.
+        const RenderInterfaceCapabilities &interfaceCapabilities = ctx.renderInterface->getCapabilities();
+        const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
+
+        ShaderData psData = getShaderData(shaderFormat, ShaderType::COLOR_PIXEL);
+        ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
+
+        const uint32_t FloatsPerVertex = 4;
+
+        ctx.inputSlot = RenderInputSlot(0, sizeof(float) * FloatsPerVertex);
+
+        std::vector<RenderInputElement> inputElements;
+        inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
+        inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
+
+        std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
+        std::unique_ptr<RenderShader> vertexShader = ctx.device->createShader(vsData.blob, vsData.size, "VSMain", shaderFormat);
+
+        RenderGraphicsPipelineDesc graphicsDesc;
+        graphicsDesc.inputSlots = &ctx.inputSlot;
+        graphicsDesc.inputSlotsCount = 1;
+        graphicsDesc.inputElements = inputElements.data();
+        graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
+        graphicsDesc.pipelineLayout = ctx.rasterColorPipelineLayout.get();
+        graphicsDesc.pixelShader = pixelShader.get();
+        graphicsDesc.vertexShader = vertexShader.get();
+        graphicsDesc.renderTargetFormat[0] = ColorFormat;
+        graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+        graphicsDesc.depthTargetFormat = DepthFormat;
+        graphicsDesc.renderTargetCount = 1;
+        graphicsDesc.multisampling.sampleCount = MSAACount;
+        ctx.rasterColorPipeline = ctx.device->createGraphicsPipeline(graphicsDesc);
+    }
+
+    static void createRasterTextureShader(TestContext& ctx) {
         const uint32_t textureArraySize = 3;
-        ctx.rasterSet = std::make_unique<RasterDescriptorSet>(ctx.device.get(), 3);
+        ctx.rasterTextureSet = std::make_unique<RasterTextureDescriptorSet>(ctx.device.get(), 3);
         
         RenderPipelineLayoutBuilder layoutBuilder;
         layoutBuilder.begin(false, true);
         layoutBuilder.addPushConstant(0, 0, sizeof(RasterPushConstant), RenderShaderStageFlag::PIXEL);
-        layoutBuilder.addDescriptorSet(ctx.rasterSet->builder);
+        layoutBuilder.addDescriptorSet(ctx.rasterTextureSet->builder);
         layoutBuilder.end();
         
-        ctx.rasterPipelineLayout = layoutBuilder.create(ctx.device.get());
+        ctx.rasterTexturePipelineLayout = layoutBuilder.create(ctx.device.get());
         
         // Pick shader format depending on the render interface's requirements.
         const RenderInterfaceCapabilities &interfaceCapabilities = ctx.renderInterface->getCapabilities();
         const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
         
-        ShaderData psData = getShaderData(shaderFormat, ShaderType::PIXEL);
+        ShaderData psData = getShaderData(shaderFormat, ShaderType::TEXTURE_PIXEL);
         ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
         
         const uint32_t FloatsPerVertex = 4;
@@ -421,7 +482,7 @@ namespace RT64 {
         graphicsDesc.inputSlotsCount = 1;
         graphicsDesc.inputElements = inputElements.data();
         graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
-        graphicsDesc.pipelineLayout = ctx.rasterPipelineLayout.get();
+        graphicsDesc.pipelineLayout = ctx.rasterTexturePipelineLayout.get();
         graphicsDesc.pixelShader = pixelShader.get();
         graphicsDesc.vertexShader = vertexShader.get();
         graphicsDesc.renderTargetFormat[0] = ColorFormat;
@@ -429,7 +490,7 @@ namespace RT64 {
         graphicsDesc.depthTargetFormat = DepthFormat;
         graphicsDesc.renderTargetCount = 1;
         graphicsDesc.multisampling.sampleCount = MSAACount;
-        ctx.rasterPipeline = ctx.device->createGraphicsPipeline(graphicsDesc);
+        ctx.rasterTexturePipeline = ctx.device->createGraphicsPipeline(graphicsDesc);
     }
 
     static void createPostPipeline(TestContext &ctx) {
@@ -481,7 +542,7 @@ namespace RT64 {
         const uint32_t BufferSize = RowLength * Height * RenderFormatSize(Format);
         ctx.uploadBuffer = ctx.device->createBuffer(RenderBufferDesc::UploadBuffer(BufferSize));
         ctx.blueNoiseTexture = ctx.device->createTexture(RenderTextureDesc::Texture2D(Width, Height, 1, Format));
-        ctx.rasterSet->setTexture(ctx.rasterSet->gTextures + 2, ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
+        ctx.rasterTextureSet->setTexture(ctx.rasterTextureSet->gTextures + 2, ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
         
         // Copy to upload buffer.
         void *bufferData = ctx.uploadBuffer->map();
@@ -621,23 +682,27 @@ namespace RT64 {
         ctx.commandList->barriers(RenderBarrierStage::NONE, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::PRESENT));
     }
 
-    static void setupRasterPipeline(TestContext& ctx) {
+    static void setupRasterColorPipeline(TestContext& ctx) {
+        ctx.commandList->setPipeline(ctx.rasterColorPipeline.get());
+        ctx.commandList->setGraphicsPipelineLayout(ctx.rasterColorPipelineLayout.get());
+    }
+
+    static void setupRasterTexturePipeline(TestContext &ctx) {
         RasterPushConstant pushConstant;
         pushConstant.colorAdd[0] = 0.5f;
         pushConstant.colorAdd[1] = 0.25f;
         pushConstant.colorAdd[2] = 0.0f;
         pushConstant.colorAdd[3] = 0.0f;
         pushConstant.textureIndex = 2;
-        ctx.commandList->setPipeline(ctx.rasterPipeline.get());
-        ctx.commandList->setGraphicsPipelineLayout(ctx.rasterPipelineLayout.get());
+        ctx.commandList->setPipeline(ctx.rasterTexturePipeline.get());
+        ctx.commandList->setGraphicsPipelineLayout(ctx.rasterTexturePipelineLayout.get());
         ctx.commandList->setGraphicsPushConstants(0, &pushConstant);
     }
 
-    static void drawRasterShader(TestContext& ctx) {
+    static void drawRasterTriangle(TestContext& ctx) {
         ctx.commandList->setVertexBuffers(0, &ctx.vertexBufferView, 1, &ctx.inputSlot);
         ctx.commandList->setIndexBuffer(&ctx.indexBufferView);
         ctx.commandList->drawInstanced(3, 1, 0, 0);
-        ctx.commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_READ));
     }
 
     static void dispatchCompute(TestContext& ctx) {
@@ -683,7 +748,7 @@ namespace RT64 {
 
     struct RasterTest : public TestBase {
         void initialize(TestContext& ctx) override {
-            createRasterShader(ctx);
+            createRasterColorShader(ctx);
             createPostPipeline(ctx);
             createVertexBuffer(ctx);
             resize(ctx);
@@ -697,8 +762,8 @@ namespace RT64 {
         void draw(TestContext& ctx) override {
             ctx.commandList->begin();
             initializeRenderTargets(ctx);
-            setupRasterPipeline(ctx);
-            drawRasterShader(ctx);
+            setupRasterColorPipeline(ctx);
+            drawRasterTriangle(ctx);
             resolveMultisampledTexture(ctx);
             applyPostProcessToSwapChain(ctx);
             ctx.commandList->end();
@@ -708,7 +773,7 @@ namespace RT64 {
 
     struct TextureTest : public TestBase {
         void initialize(TestContext& ctx) override {
-            createRasterShader(ctx);
+            createRasterTextureShader(ctx);
             createPostPipeline(ctx);
             uploadTexture(ctx);
             createVertexBuffer(ctx);
@@ -723,9 +788,9 @@ namespace RT64 {
         void draw(TestContext& ctx) override {
             ctx.commandList->begin();
             initializeRenderTargets(ctx);
-            setupRasterPipeline(ctx);
-            ctx.commandList->setGraphicsDescriptorSet(ctx.rasterSet->get(), 0);
-            drawRasterShader(ctx);
+            setupRasterTexturePipeline(ctx);
+            ctx.commandList->setGraphicsDescriptorSet(ctx.rasterTextureSet->get(), 0);
+            drawRasterTriangle(ctx);
             resolveMultisampledTexture(ctx);
             applyPostProcessToSwapChain(ctx);
             ctx.commandList->end();
@@ -735,7 +800,7 @@ namespace RT64 {
 
     struct ComputeTest : public TestBase {
         void initialize(TestContext& ctx) override {
-            createRasterShader(ctx);
+            createRasterTextureShader(ctx);
             createPostPipeline(ctx);
             uploadTexture(ctx);
             createVertexBuffer(ctx);
@@ -752,9 +817,9 @@ namespace RT64 {
         void draw(TestContext& ctx) override {
             ctx.commandList->begin();
             initializeRenderTargets(ctx);
-            setupRasterPipeline(ctx);
-            ctx.commandList->setGraphicsDescriptorSet(ctx.rasterSet->get(), 0);
-            drawRasterShader(ctx);
+            setupRasterTexturePipeline(ctx);
+            ctx.commandList->setGraphicsDescriptorSet(ctx.rasterTextureSet->get(), 0);
+            drawRasterTriangle(ctx);
             resolveMultisampledTexture(ctx);
             ctx.commandList->barriers(RenderBarrierStage::COMPUTE, RenderTextureBarrier(ctx.colorTargetResolved.get(), RenderTextureLayout::GENERAL));
             dispatchCompute(ctx);
@@ -768,7 +833,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 0;
+    static uint32_t g_CurrentTestIndex = 3;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
