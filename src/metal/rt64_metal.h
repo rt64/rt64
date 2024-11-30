@@ -43,6 +43,13 @@ namespace RT64 {
         Resolve
     };
 
+    static struct {
+#ifdef __OBJC__
+        id<MTLComputePipelineState> msaaResolvePipelineState = nil;
+        id<MTLLibrary> clearColorLibrary = nil;
+#endif
+    } MetalContext;
+
     struct MetalRenderState {
 #ifdef __OBJC__
         id<MTLRenderPipelineState> renderPipelineState = nil;
@@ -156,7 +163,6 @@ namespace RT64 {
         id<MTLRenderCommandEncoder> activeClearRenderEncoder = nil;
         id<MTLBlitCommandEncoder> activeBlitEncoder = nil;
         
-        id<MTLComputePipelineState> msaaResolvePipelineState = nil;
         id<MTLComputeCommandEncoder> activeResolveComputeEncoder = nil;
     
         id<MTLComputeCommandEncoder> computeEncoder = nil;
@@ -474,5 +480,8 @@ namespace RT64 {
         std::unique_ptr<RenderDevice> createDevice() override;
         const RenderInterfaceCapabilities &getCapabilities() const override;
         bool isValid() const;
+        
+        void createResolvePipelineState();
+        void createClearColorShaderLibrary();
     };
 };
