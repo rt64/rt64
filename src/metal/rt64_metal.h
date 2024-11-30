@@ -36,12 +36,13 @@ namespace RT64 {
     struct MetalSampler;
 
     enum class EncoderType {
-        ClearColor,
-        ClearDepth,
         Render,
         Compute,
         Blit,
-        Resolve
+    };
+
+    enum class RenderEncoderMode {
+        None, Render, ClearColor, ClearDepth
     };
 
     static struct {
@@ -162,10 +163,10 @@ namespace RT64 {
     struct MetalCommandList : RenderCommandList {
 #ifdef __OBJC__
         id<MTLRenderCommandEncoder> activeRenderEncoder = nil;
-        id<MTLRenderCommandEncoder> activeClearColorRenderEncoder = nil;
-        id<MTLRenderCommandEncoder> activeClearDepthRenderEncoder = nil;
+        RenderEncoderMode activeRenderEncoderMode = RenderEncoderMode::None;
+        
         id<MTLBlitCommandEncoder> activeBlitEncoder = nil;
-        id<MTLComputeCommandEncoder> activeResolveComputeEncoder = nil;
+        id<MTLComputeCommandEncoder> activeComputeEncoder = nil;
     
         id<MTLComputeCommandEncoder> computeEncoder = nil;
         MTLCaptureManager *captureManager = nil;
@@ -185,7 +186,7 @@ namespace RT64 {
         id<MTLBuffer> graphicsPushConstantsBuffer = nil;
         id<MTLBuffer> computePushConstantsBuffer = nil;
         
-        void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor, EncoderType encoderType);
+        void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor);
 #endif
 
         MetalDevice *device = nullptr;
@@ -242,15 +243,13 @@ namespace RT64 {
         void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
         void endOtherEncoders(EncoderType type);
         void checkActiveRenderEncoder();
-        void endActiveRenderEncoder();
         void checkActiveClearColorRenderEncoder();
-        void endActiveClearColorRenderEncoder();
+        void checkActiveClearDepthRenderEncoder();
+        void endActiveRenderEncoder();
         void checkActiveBlitEncoder();
         void endActiveBlitEncoder();
-        void checkActiveResolveTextureComputeEncoder();
-        void endActiveResolveTextureComputeEncoder();
-        void checkActiveClearDepthRenderEncoder();
-        void endActiveClearDepthRenderEncoder();
+        void checkActiveComputeEncoder();
+        void endActiveComputeEncoder();
     };
 
     struct MetalCommandFence : RenderCommandFence {

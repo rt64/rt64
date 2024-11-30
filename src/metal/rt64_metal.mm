@@ -1230,11 +1230,9 @@ namespace RT64 {
     void MetalCommandList::begin() { }
 
     void MetalCommandList::end() {
-        endActiveClearColorRenderEncoder();
         endActiveRenderEncoder();
-        endActiveResolveTextureComputeEncoder();
+        endActiveComputeEncoder();
         endActiveBlitEncoder();
-        endActiveClearDepthRenderEncoder();
         
         if (computeEncoder != nil) {
             [computeEncoder endEncoding];
@@ -1244,35 +1242,31 @@ namespace RT64 {
         computeEncoder = nil;
     }
 
-    void MetalCommandList::configureRenderDescriptor(MTLRenderPassDescriptor* renderDescriptor, EncoderType encoderType) {
+    void MetalCommandList::configureRenderDescriptor(MTLRenderPassDescriptor* renderDescriptor) {
         assert(targetFramebuffer != nullptr && "Cannot encode render commands without a target framebuffer");
         
-        if (encoderType != EncoderType::ClearDepth) {
-            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-                auto *colorAttachment = renderDescriptor.colorAttachments[i];
-                // If framebuffer was created using a swap chain, use the drawable's texture
-                if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
-                    assert(targetFramebuffer->colorAttachments.size() == 1 && "Swap chain framebuffers must have exactly one color attachment.");
-                    
-                    MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
-                    colorAttachment.texture = swapChain->drawable.texture;
-                    colorAttachment.loadAction = MTLLoadActionLoad;
-                    colorAttachment.storeAction = MTLStoreActionStore;
-                } else {
-                    colorAttachment.texture = targetFramebuffer->colorAttachments[i]->mtlTexture;
-                    colorAttachment.loadAction = MTLLoadActionLoad;
-                    colorAttachment.storeAction = MTLStoreActionStore;
-                }
+        for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+            auto *colorAttachment = renderDescriptor.colorAttachments[i];
+            // If framebuffer was created using a swap chain, use the drawable's texture
+            if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
+                assert(targetFramebuffer->colorAttachments.size() == 1 && "Swap chain framebuffers must have exactly one color attachment.");
+                
+                MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
+                colorAttachment.texture = swapChain->drawable.texture;
+                colorAttachment.loadAction = MTLLoadActionLoad;
+                colorAttachment.storeAction = MTLStoreActionStore;
+            } else {
+                colorAttachment.texture = targetFramebuffer->colorAttachments[i]->mtlTexture;
+                colorAttachment.loadAction = MTLLoadActionLoad;
+                colorAttachment.storeAction = MTLStoreActionStore;
             }
         }
         
-        if (encoderType != EncoderType::ClearColor) {
-            if (targetFramebuffer->depthAttachment != nullptr) {
-                auto *depthAttachment = renderDescriptor.depthAttachment;
-                depthAttachment.texture = targetFramebuffer->depthAttachment->mtlTexture;
-                depthAttachment.loadAction = MTLLoadActionLoad;
-                depthAttachment.storeAction = MTLStoreActionStore;
-            }
+        if (targetFramebuffer->depthAttachment != nullptr) {
+            auto *depthAttachment = renderDescriptor.depthAttachment;
+            depthAttachment.texture = targetFramebuffer->depthAttachment->mtlTexture;
+            depthAttachment.loadAction = MTLLoadActionLoad;
+            depthAttachment.storeAction = MTLStoreActionStore;
         }
     }
 
@@ -1461,7 +1455,6 @@ namespace RT64 {
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
-        endActiveClearColorRenderEncoder();
         endActiveRenderEncoder();
         
         if (framebuffer != nullptr) {
@@ -1518,22 +1511,27 @@ namespace RT64 {
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(attachmentIndex < targetFramebuffer->colorAttachments.size());
-        
+
+        [activeRenderEncoder pushDebugGroup: @"Clear Color"];
         checkActiveClearColorRenderEncoder();
         
         float clearColor[4] = { colorValue.r, colorValue.g, colorValue.b, colorValue.a };
-        [activeClearColorRenderEncoder setFragmentBytes:clearColor length:sizeof(float) * 4 atIndex:0];
-        encodeCommonClear(activeClearColorRenderEncoder, clearRects, clearRectsCount);
+
+        [activeRenderEncoder setFragmentBytes:clearColor length:sizeof(float) * 4 atIndex:0];
+        encodeCommonClear(activeRenderEncoder, clearRects, clearRectsCount);
+        [activeRenderEncoder popDebugGroup];
     }
 
     void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(targetFramebuffer->depthAttachment != nullptr);
         
+        [activeRenderEncoder pushDebugGroup: @"Clear Depth"];
         checkActiveClearDepthRenderEncoder();
         
-        [activeClearDepthRenderEncoder setFragmentBytes:&depthValue length:sizeof(float) atIndex:0];
-        encodeCommonClear(activeClearDepthRenderEncoder, clearRects, clearRectsCount);
+        [activeRenderEncoder setFragmentBytes:&depthValue length:sizeof(float) atIndex:0];
+        encodeCommonClear(activeRenderEncoder, clearRects, clearRectsCount);
+        [activeRenderEncoder popDebugGroup];
     }
 
     void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
@@ -1676,7 +1674,7 @@ namespace RT64 {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
         
-        checkActiveResolveTextureComputeEncoder();
+        checkActiveComputeEncoder();
         
         const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
         const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
@@ -1708,9 +1706,10 @@ namespace RT64 {
             width, height
         };
         
-        [activeResolveComputeEncoder setTexture:src->mtlTexture atIndex:0];
-        [activeResolveComputeEncoder setTexture:dst->mtlTexture atIndex:1];
-        [activeResolveComputeEncoder setBytes:&params length:sizeof(params) atIndex:0];
+        [activeComputeEncoder setComputePipelineState: MetalContext.resolveTexturePipelineState];
+        [activeComputeEncoder setTexture:src->mtlTexture atIndex:0];
+        [activeComputeEncoder setTexture:dst->mtlTexture atIndex:1];
+        [activeComputeEncoder setBytes:&params length:sizeof(params) atIndex:0];
         
         MTLSize threadGroupSize = MTLSizeMake(8, 8, 1);
         MTLSize gridSize = MTLSizeMake(
@@ -1719,7 +1718,7 @@ namespace RT64 {
                                        1
                                        );
         
-        [activeResolveComputeEncoder dispatchThreadgroups:gridSize threadsPerThreadgroup:threadGroupSize];
+        [activeComputeEncoder dispatchThreadgroups:gridSize threadsPerThreadgroup:threadGroupSize];
     }
 
     void MetalCommandList::buildBottomLevelAS(const RT64::RenderAccelerationStructure *dstAccelerationStructure, RT64::RenderBufferReference scratchBuffer, const RT64::RenderBottomLevelASBuildInfo &buildInfo) {
@@ -1731,23 +1730,14 @@ namespace RT64 {
     }
 
     void MetalCommandList::endOtherEncoders(EncoderType type) {
-        if (type != EncoderType::ClearColor) {
-            endActiveClearColorRenderEncoder();
-        }
-        if (type != EncoderType::ClearDepth) {
-            endActiveClearDepthRenderEncoder();
-        }
         if (type != EncoderType::Render) {
             endActiveRenderEncoder();
         }
         if (type != EncoderType::Compute) {
-            endActiveResolveTextureComputeEncoder();
+            endActiveComputeEncoder();
         }
         if (type != EncoderType::Blit) {
             endActiveBlitEncoder();
-        }
-        if (type != EncoderType::Resolve) {
-            endActiveResolveTextureComputeEncoder();
         }
     }
 
@@ -1755,12 +1745,17 @@ namespace RT64 {
         assert(targetFramebuffer != nullptr);
         endOtherEncoders(EncoderType::Render);
         
-        if (activeRenderEncoder == nil) {
-            MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-            configureRenderDescriptor(renderDescriptor, EncoderType::Render);
+        if (activeRenderEncoder == nil || activeRenderEncoderMode != RenderEncoderMode::Render) {
+            activeRenderEncoderMode = RenderEncoderMode::Render;
             
-            activeRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
-            [activeRenderEncoder setLabel:@"Active Render Encoder"];
+            MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+            configureRenderDescriptor(renderDescriptor);
+            
+            if (activeRenderEncoder == nil) {
+                activeRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+                [activeRenderEncoder setLabel:@"Active Render Encoder"];
+            }
+
             [activeRenderEncoder setRenderPipelineState: activeRenderState->renderPipelineState];
             [activeRenderEncoder setDepthStencilState: activeRenderState->depthStencilState];
             [activeRenderEncoder setDepthClipMode: activeRenderState->depthClipMode];
@@ -1807,20 +1802,20 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::endActiveRenderEncoder() {
-        if (activeRenderEncoder != nil) {
-            [activeRenderEncoder endEncoding];
-            activeRenderEncoder = nil;
-        }
-    }
-
     void MetalCommandList::checkActiveClearColorRenderEncoder() {
         assert(targetFramebuffer != nullptr);
-        endOtherEncoders(EncoderType::ClearColor);
+        endOtherEncoders(EncoderType::Render);
         
-        if (activeClearColorRenderEncoder == nil) {
+        if (activeRenderEncoder == nil || activeRenderEncoderMode != RenderEncoderMode::ClearColor) {
+            activeRenderEncoderMode = RenderEncoderMode::ClearColor;
+
             MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-            configureRenderDescriptor(renderDescriptor, EncoderType::ClearColor);
+            configureRenderDescriptor(renderDescriptor);
+            
+            if (activeRenderEncoder == nil) {
+                activeRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
+                [activeRenderEncoder setLabel:@"Active Render Encoder"];
+            }
             
             MTLRenderPipelineDescriptor *pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
             
@@ -1845,20 +1840,81 @@ namespace RT64 {
                 pipelineDesc.colorAttachments[i].blendingEnabled = NO;
             }
             
+            if (targetFramebuffer->depthAttachment != nullptr) {
+                pipelineDesc.depthAttachmentPixelFormat = targetFramebuffer->depthAttachment->mtlTexture.pixelFormat;
+            }
+            
             NSError *error = nil;
             id <MTLRenderPipelineState> clearPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
             assert(clearPipelineState != nil && "Failed to create clear pipeline state");
             
-            activeClearColorRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor: renderDescriptor];
-            [activeClearColorRenderEncoder setLabel:@"Active Clear Color Encoder"];
-            [activeClearColorRenderEncoder setRenderPipelineState: clearPipelineState];
+            [activeRenderEncoder setRenderPipelineState: clearPipelineState];
         }
     }
 
-    void MetalCommandList::endActiveClearColorRenderEncoder() {
-        if (activeClearColorRenderEncoder != nil) {
-            [activeClearColorRenderEncoder endEncoding];
-            activeClearColorRenderEncoder = nil;
+    void MetalCommandList::checkActiveClearDepthRenderEncoder() {
+        assert(targetFramebuffer != nullptr);
+        endOtherEncoders(EncoderType::Render);
+        
+        if (activeRenderEncoder == nil || activeRenderEncoderMode != RenderEncoderMode::Render) {
+            activeRenderEncoderMode = RenderEncoderMode::ClearDepth;
+
+            MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+            configureRenderDescriptor(renderDescriptor);
+            
+            if (activeRenderEncoder == nil) {
+                activeRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor:renderDescriptor];
+                [activeRenderEncoder setLabel:@"Active Render Encoder"];
+            }
+            
+            MTLRenderPipelineDescriptor *pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
+            pipelineDesc.vertexFunction = [MetalContext.clearDepthShaderLibrary newFunctionWithName:@"clearDepthVertex"];
+            pipelineDesc.fragmentFunction = [MetalContext.clearDepthShaderLibrary newFunctionWithName:@"clearDepthFragment"];
+            
+            NSUInteger sampleCount = targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount;
+            pipelineDesc.rasterSampleCount = sampleCount;
+            
+            // Configure attachments
+            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+                MTLPixelFormat format;
+                // Handle swapchain case specially
+                if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
+                    MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
+                    format = swapChain->drawable.texture.pixelFormat;
+                } else {
+                    format = toMTL(targetFramebuffer->colorAttachments[i]->desc.format);
+                }
+                
+                pipelineDesc.colorAttachments[i].pixelFormat = format;
+                pipelineDesc.colorAttachments[i].blendingEnabled = NO;
+            }
+            
+            if (targetFramebuffer->depthAttachment != nullptr) {
+                pipelineDesc.depthAttachmentPixelFormat = targetFramebuffer->depthAttachment->mtlTexture.pixelFormat;
+            }
+            
+            NSError *error = nil;
+            id<MTLRenderPipelineState> clearDepthPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
+            if (error != nil) {
+                NSLog(@"Failed to create clear depth pipeline state: %@", error);
+            }
+            assert(clearDepthPipelineState != nil && "Failed to create clear depth pipeline state");
+            
+            MTLDepthStencilDescriptor *depthDescriptor = [[MTLDepthStencilDescriptor alloc] init];
+            depthDescriptor.depthWriteEnabled = YES;
+            depthDescriptor.depthCompareFunction = MTLCompareFunctionAlways;
+            id<MTLDepthStencilState> depthStencilState = [device->device newDepthStencilStateWithDescriptor:depthDescriptor];
+
+            [activeRenderEncoder setRenderPipelineState:clearDepthPipelineState];
+            [activeRenderEncoder setDepthStencilState:depthStencilState];
+        }
+    }
+
+
+    void MetalCommandList::endActiveRenderEncoder() {
+        if (activeRenderEncoder != nil) {
+            [activeRenderEncoder endEncoding];
+            activeRenderEncoder = nil;
         }
     }
 
@@ -1879,65 +1935,22 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::checkActiveResolveTextureComputeEncoder() {
+    void MetalCommandList::checkActiveComputeEncoder() {
         assert(targetFramebuffer != nullptr);
-        endOtherEncoders(EncoderType::Resolve);
+        endOtherEncoders(EncoderType::Compute);
         
-        if (activeResolveComputeEncoder == nil) {
-            activeResolveComputeEncoder = [queue->buffer computeCommandEncoder];
-            [activeResolveComputeEncoder setLabel:@"Active Resolve Texture Encoder"];
-            [activeResolveComputeEncoder setComputePipelineState: MetalContext.resolveTexturePipelineState];
+        if (activeComputeEncoder == nil) {
+            activeComputeEncoder = [queue->buffer computeCommandEncoder];
+            [activeComputeEncoder setLabel:@"Active Resolve Texture Encoder"];
         }
     }
 
-    void MetalCommandList::endActiveResolveTextureComputeEncoder() {
-        if (activeResolveComputeEncoder != nil) {
-            [activeResolveComputeEncoder endEncoding];
-            activeResolveComputeEncoder = nil;
+    void MetalCommandList::endActiveComputeEncoder() {
+        if (activeComputeEncoder != nil) {
+            [activeComputeEncoder endEncoding];
+            activeComputeEncoder = nil;
         }
     }
-
-    void MetalCommandList::checkActiveClearDepthRenderEncoder() {
-        assert(targetFramebuffer != nullptr);
-        endOtherEncoders(EncoderType::ClearDepth);
-        
-        if (activeClearDepthRenderEncoder == nil) {
-            MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-            configureRenderDescriptor(renderDescriptor, EncoderType::ClearDepth);
-            
-            MTLRenderPipelineDescriptor *pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
-            pipelineDesc.vertexFunction = [MetalContext.clearDepthShaderLibrary newFunctionWithName:@"clearDepthVertex"];
-            pipelineDesc.fragmentFunction = [MetalContext.clearDepthShaderLibrary newFunctionWithName:@"clearDepthFragment"];
-            
-            pipelineDesc.depthAttachmentPixelFormat = targetFramebuffer->depthAttachment->mtlTexture.pixelFormat;
-            pipelineDesc.rasterSampleCount = targetFramebuffer->depthAttachment->desc.multisampling.sampleCount;
-            
-            NSError *error = nil;
-            id<MTLRenderPipelineState> clearDepthPipelineState = [device->device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
-            if (error != nil) {
-                NSLog(@"Failed to create clear depth pipeline state: %@", error);
-            }
-            assert(clearDepthPipelineState != nil && "Failed to create clear depth pipeline state");
-            
-            MTLDepthStencilDescriptor *depthDescriptor = [[MTLDepthStencilDescriptor alloc] init];
-            depthDescriptor.depthWriteEnabled = YES;
-            depthDescriptor.depthCompareFunction = MTLCompareFunctionAlways;
-            id<MTLDepthStencilState> depthStencilState = [device->device newDepthStencilStateWithDescriptor:depthDescriptor];
-            
-            activeClearDepthRenderEncoder = [queue->buffer renderCommandEncoderWithDescriptor:renderDescriptor];
-            [activeClearDepthRenderEncoder setLabel:@"Active Clear Depth Encoder"];
-            [activeClearDepthRenderEncoder setRenderPipelineState:clearDepthPipelineState];
-            [activeClearDepthRenderEncoder setDepthStencilState:depthStencilState];
-        }
-    }
-
-    void MetalCommandList::endActiveClearDepthRenderEncoder() {
-        if (activeClearDepthRenderEncoder != nil) {
-            [activeClearDepthRenderEncoder endEncoding];
-            activeClearDepthRenderEncoder = nil;
-        }
-    }
-
     void MetalCommandList::setDescriptorSet(RT64::RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
         auto *interfaceDescriptorSet = static_cast<MetalDescriptorSet *>(descriptorSet);
         if (setCompute) {
