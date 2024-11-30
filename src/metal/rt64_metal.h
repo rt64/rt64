@@ -36,7 +36,8 @@ namespace RT64 {
     struct MetalSampler;
 
     enum class EncoderType {
-        Clear,
+        ClearColor,
+        ClearDepth,
         Render,
         Compute,
         Blit,
@@ -45,8 +46,9 @@ namespace RT64 {
 
     static struct {
 #ifdef __OBJC__
-        id<MTLComputePipelineState> msaaResolvePipelineState = nil;
-        id<MTLLibrary> clearColorLibrary = nil;
+        id<MTLComputePipelineState> resolveTexturePipelineState = nil;
+        id<MTLLibrary> clearColorShaderLibrary = nil;
+        id<MTLLibrary> clearDepthShaderLibrary = nil;
 #endif
     } MetalContext;
 
@@ -160,9 +162,9 @@ namespace RT64 {
     struct MetalCommandList : RenderCommandList {
 #ifdef __OBJC__
         id<MTLRenderCommandEncoder> activeRenderEncoder = nil;
-        id<MTLRenderCommandEncoder> activeClearRenderEncoder = nil;
+        id<MTLRenderCommandEncoder> activeClearColorRenderEncoder = nil;
+        id<MTLRenderCommandEncoder> activeClearDepthRenderEncoder = nil;
         id<MTLBlitCommandEncoder> activeBlitEncoder = nil;
-        
         id<MTLComputeCommandEncoder> activeResolveComputeEncoder = nil;
     
         id<MTLComputeCommandEncoder> computeEncoder = nil;
@@ -183,7 +185,7 @@ namespace RT64 {
         id<MTLBuffer> graphicsPushConstantsBuffer = nil;
         id<MTLBuffer> computePushConstantsBuffer = nil;
         
-        void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor);
+        void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor, EncoderType encoderType);
 #endif
 
         MetalDevice *device = nullptr;
@@ -197,10 +199,6 @@ namespace RT64 {
 
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
-
-        float depthClearValue = -1.0f;
-
-        uint32_t colorAttachmentsCount = 0;
 
         MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
@@ -230,6 +228,7 @@ namespace RT64 {
         void setViewports(const RenderViewport *viewports, uint32_t count) override;
         void setScissors(const RenderRect *scissorRects, uint32_t count) override;
         void setFramebuffer(const RenderFramebuffer *framebuffer) override;
+        void encodeCommonClear(id<MTLRenderCommandEncoder> encoder, const RenderRect *clearRects, uint32_t clearRectsCount);
         void clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) override;
         void clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) override;
         void copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) override;
@@ -244,12 +243,14 @@ namespace RT64 {
         void endOtherEncoders(EncoderType type);
         void checkActiveRenderEncoder();
         void endActiveRenderEncoder();
-        void checkActiveClearRenderEncoder();
-        void endActiveClearRenderEncoder();
+        void checkActiveClearColorRenderEncoder();
+        void endActiveClearColorRenderEncoder();
         void checkActiveBlitEncoder();
         void endActiveBlitEncoder();
-        void checkActiveResolveComputeEncoder();
-        void endActiveResolveComputeEncoder();
+        void checkActiveResolveTextureComputeEncoder();
+        void endActiveResolveTextureComputeEncoder();
+        void checkActiveClearDepthRenderEncoder();
+        void endActiveClearDepthRenderEncoder();
     };
 
     struct MetalCommandFence : RenderCommandFence {
@@ -483,5 +484,6 @@ namespace RT64 {
         
         void createResolvePipelineState();
         void createClearColorShaderLibrary();
+        void createClearDepthShaderLibrary();
     };
 };

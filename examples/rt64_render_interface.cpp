@@ -641,15 +641,23 @@ namespace RT64 {
         ctx.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f)); // Clear to blue
         
         // Clear with rects
-        std::vector<RenderRect> clearRects = {
+        std::vector<RenderRect> clearColorRects = {
             {0, 0, 100, 100},
             {200, 200, 300, 300},
             {400, 400, 500, 500}
         };
-        ctx.commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearRects.data(), clearRects.size()); // Clear to green
+        ctx.commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearColorRects.data(), clearColorRects.size()); // Clear to green
         
-        // Clear depth buffer
-        ctx.commandList->clearDepth();
+        // Clear full depth buffer
+        ctx.commandList->clearDepth();  // Clear to 1.0f
+        
+        // Clear depth buffer with rects
+        std::vector<RenderRect> clearDepthRects = {
+            {100, 100, 200, 200},
+            {300, 300, 400, 400},
+            {500, 500, 600, 600},
+        };
+        ctx.commandList->clearDepth(true, 0, clearDepthRects.data(), clearDepthRects.size());
     }
 
     static void resolveMultisampledTexture(TestContext& ctx) {
@@ -833,7 +841,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 3;
+    static uint32_t g_CurrentTestIndex = 1;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
