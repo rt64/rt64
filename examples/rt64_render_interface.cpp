@@ -755,8 +755,59 @@ namespace RT64 {
     };
 
     struct RasterTest : public TestBase {
+        std::unique_ptr<RenderPipeline> rasterColorPipelineBlend;
+
+        void createSecondRasterPipeline(TestContext& ctx) {
+            RenderPipelineLayoutBuilder layoutBuilder;
+            layoutBuilder.begin(false, true);
+            layoutBuilder.end();
+
+            std::unique_ptr<RenderPipelineLayout> layout = layoutBuilder.create(ctx.device.get());
+
+            const RenderShaderFormat shaderFormat = ctx.renderInterface->getCapabilities().shaderFormat;
+            ShaderData psData = getShaderData(shaderFormat, ShaderType::COLOR_PIXEL);
+            ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
+
+            std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
+            std::unique_ptr<RenderShader> vertexShader = ctx.device->createShader(vsData.blob, vsData.size, "VSMain", shaderFormat);
+
+            // Create input elements matching the first pipeline
+            std::vector<RenderInputElement> inputElements;
+            inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
+            inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
+
+            RenderGraphicsPipelineDesc graphicsDesc;
+            graphicsDesc.inputSlots = &ctx.inputSlot;
+            graphicsDesc.inputSlotsCount = 1;
+            graphicsDesc.inputElements = inputElements.data();
+            graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
+            graphicsDesc.pipelineLayout = layout.get();
+            graphicsDesc.pixelShader = pixelShader.get();
+            graphicsDesc.vertexShader = vertexShader.get();
+            graphicsDesc.renderTargetFormat[0] = ColorFormat;
+
+            // Set up proper blend state
+            RenderBlendDesc blendDesc;
+            blendDesc.blendEnabled = true;
+            blendDesc.srcBlend = RenderBlend::ONE;
+            blendDesc.dstBlend = RenderBlend::ONE;
+            blendDesc.blendOp = RenderBlendOperation::ADD;
+            blendDesc.srcBlendAlpha = RenderBlend::ONE;
+            blendDesc.dstBlendAlpha = RenderBlend::ONE;
+            blendDesc.blendOpAlpha = RenderBlendOperation::ADD;
+            blendDesc.renderTargetWriteMask = uint8_t(RenderColorWriteEnable::ALL);
+            
+            graphicsDesc.renderTargetBlend[0] = blendDesc;
+            graphicsDesc.depthTargetFormat = DepthFormat;
+            graphicsDesc.renderTargetCount = 1;
+            graphicsDesc.multisampling.sampleCount = MSAACount;
+
+            rasterColorPipelineBlend = ctx.device->createGraphicsPipeline(graphicsDesc);
+        }
+
         void initialize(TestContext& ctx) override {
             createRasterColorShader(ctx);
+            createSecondRasterPipeline(ctx);
             createPostPipeline(ctx);
             createVertexBuffer(ctx);
             resize(ctx);
@@ -770,8 +821,22 @@ namespace RT64 {
         void draw(TestContext& ctx) override {
             ctx.commandList->begin();
             initializeRenderTargets(ctx);
+
+            // Draw first triangle with normal pipeline
             setupRasterColorPipeline(ctx);
             drawRasterTriangle(ctx);
+
+            // Draw second triangle with blend pipeline
+            ctx.commandList->setPipeline(rasterColorPipelineBlend.get());
+            // Offset the viewport for the second triangle
+            const uint32_t width = ctx.swapChain->getWidth();
+            const uint32_t height = ctx.swapChain->getHeight();
+            const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));            
+            RenderViewport offsetViewport = viewport;
+            offsetViewport.x += 100.0f;  // Offset by 100 pixels
+            ctx.commandList->setViewports(offsetViewport);
+            drawRasterTriangle(ctx);
+
             resolveMultisampledTexture(ctx);
             applyPostProcessToSwapChain(ctx);
             ctx.commandList->end();
