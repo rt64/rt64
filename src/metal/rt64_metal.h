@@ -175,8 +175,16 @@ namespace RT64 {
         MTLIndexType currentIndexType = MTLIndexTypeUInt32;
         id<MTLBuffer> indexBuffer = nil;
 
+        uint32_t viewCount = 0;
+        std::vector<id<MTLBuffer>> vertexBuffers;
+        std::vector<uint32_t> vertexBufferOffsets;
+        std::vector<uint32_t> vertexBufferIndices;
+
         std::vector<MTLViewport> viewportVector;
         std::vector<MTLScissorRect> scissorVector;
+
+        id<MTLBuffer> graphicsPushConstantsBuffer = nil;
+        id<MTLBuffer> computePushConstantsBuffer = nil;
         
         void configureRenderDescriptor(MTLRenderPassDescriptor* descriptor);
 #endif
@@ -190,6 +198,7 @@ namespace RT64 {
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
         const MetalRenderState *activeRenderState = nullptr;
 
+        std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
 
         MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);

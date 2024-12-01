@@ -1332,7 +1332,6 @@ namespace RT64 {
             case MetalPipeline::Type::Graphics: {
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
                 activeRenderState = graphicsPipeline->renderState;
-                checkActiveRenderEncoder();
                 break;
             }
             default:
@@ -1364,6 +1363,8 @@ namespace RT64 {
         
         if (oldLayout != activeGraphicsPipelineLayout) {
             indicesToComputeDescriptorSets.clear();
+            indicesToRenderDescriptorSets.clear();
+            graphicsPushConstantsBuffer = nil;
         }
     }
 
@@ -1380,33 +1381,11 @@ namespace RT64 {
         auto bufferContents = (uint8_t *)[activeGraphicsPipelineLayout->pushConstantsBuffer contents];
         memcpy(bufferContents + startOffset, data, range.size);
         
-        if (activeGraphicsPipelineLayout->pushConstantsBuffer != nil) {
-            uint32_t pushConstantsIndex = activeGraphicsPipelineLayout->setCount;
-            [activeRenderEncoder setFragmentBuffer: activeGraphicsPipelineLayout->pushConstantsBuffer offset: 0 atIndex: pushConstantsIndex];
-        }
+        graphicsPushConstantsBuffer = activeGraphicsPipelineLayout->pushConstantsBuffer;
     }
 
     void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
-        for (uint32_t i = 0; i < activeGraphicsPipelineLayout->setCount; i++) {
-            const auto *setLayout = activeGraphicsPipelineLayout->setLayoutHandles[i];
-            
-            auto *interfaceDescriptorSet = static_cast<MetalDescriptorSet *>(descriptorSet);
-            // Mark resources in the argument buffer as resident
-            for (const auto& pair : interfaceDescriptorSet->indicesToTextures) {
-                uint32_t index = pair.first;
-                auto *texture = pair.second;
-                if (texture != nil) {
-                    [activeRenderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment|MTLRenderStageVertex];
-                    
-                    uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                    [setLayout->argumentEncoder setTexture:texture atIndex: adjustedIndex];
-                }
-            }
-            
-            // TODO: Mark and bind buffers
-            
-            [activeRenderEncoder setFragmentBuffer:setLayout->descriptorBuffer offset:0 atIndex:i];
-        }
+        setDescriptorSet(descriptorSet, setIndex, false);
     }
 
     void MetalCommandList::setRaytracingPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
@@ -1433,9 +1412,16 @@ namespace RT64 {
         if ((views != nullptr) && (viewCount > 0)) {
             assert(inputSlots != nullptr);
             
+            this->viewCount = viewCount;
+            vertexBuffers.clear();
+            vertexBufferOffsets.clear();
+            vertexBufferIndices.clear();
+            
             for (uint32_t i = 0; i < viewCount; i++) {
                 const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer *>(views[i].buffer.ref);
-                [activeRenderEncoder setVertexBuffer: interfaceBuffer->buffer offset: views[i].buffer.offset atIndex: startSlot + i];
+                vertexBuffers.emplace_back(interfaceBuffer->buffer);
+                vertexBufferOffsets.emplace_back(views[i].buffer.offset);
+                vertexBufferIndices.emplace_back(startSlot + i);
             }
         }
     }
@@ -1778,6 +1764,41 @@ namespace RT64 {
             
             [activeRenderEncoder setViewports: viewportVector.data() count: viewportVector.size()];
             [activeRenderEncoder setScissorRects: scissorVector.data() count: scissorVector.size()];
+            
+            for (uint32_t i = 0; i < viewCount; i++) {
+                [activeRenderEncoder setVertexBuffer: vertexBuffers[i]
+                                              offset: vertexBufferOffsets[i]
+                                             atIndex: vertexBufferIndices[i]];
+            }
+            
+            // Encode Descriptor set layouts and mark resources
+            for (uint32_t i = 0; i < activeGraphicsPipelineLayout->setCount; i++) {
+                const auto *setLayout = activeGraphicsPipelineLayout->setLayoutHandles[i];
+                
+                if (indicesToRenderDescriptorSets.count(i) != 0) {
+                    const auto *descriptorSet = indicesToRenderDescriptorSets[i];
+                    // Mark resources in the argument buffer as resident
+                    for (const auto& pair : descriptorSet->indicesToTextures) {
+                        uint32_t index = pair.first;
+                        auto *texture = pair.second;
+                        if (texture != nil) {
+                            [activeRenderEncoder useResource:texture usage:MTLResourceUsageRead stages:MTLRenderStageFragment|MTLRenderStageVertex];
+                            
+                            uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                            [setLayout->argumentEncoder setTexture:texture atIndex: adjustedIndex];
+                        }
+                    }
+                    
+                    // TODO: Mark and bind buffers
+                }
+                
+                [activeRenderEncoder setFragmentBuffer:setLayout->descriptorBuffer offset:0 atIndex:i];
+            }
+            
+            if (graphicsPushConstantsBuffer != nil) {
+                uint32_t pushConstantsIndex = activeGraphicsPipelineLayout->setCount;
+                [activeRenderEncoder setFragmentBuffer: graphicsPushConstantsBuffer offset: 0 atIndex: pushConstantsIndex];
+            }
         }
     }
 
@@ -1835,7 +1856,7 @@ namespace RT64 {
         assert(targetFramebuffer != nullptr);
         endOtherEncoders(EncoderType::Render);
         
-        if (activeRenderEncoder == nil || activeRenderEncoderMode != RenderEncoderMode::ClearDepth) {
+        if (activeRenderEncoder == nil || activeRenderEncoderMode != RenderEncoderMode::Render) {
             activeRenderEncoderMode = RenderEncoderMode::ClearDepth;
 
             MTLRenderPassDescriptor *renderDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
@@ -1934,6 +1955,8 @@ namespace RT64 {
         auto *interfaceDescriptorSet = static_cast<MetalDescriptorSet *>(descriptorSet);
         if (setCompute) {
             indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
+        } else {
+            indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
         }
     }
 
