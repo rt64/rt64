@@ -12,19 +12,19 @@ namespace RT64 {
 
     MTLDataType toMTL(RenderDescriptorRangeType type) {
         switch (type) {
-            case RenderDescriptorRangeType::FORMATTED_BUFFER:
             case RenderDescriptorRangeType::TEXTURE:
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+                return MTLDataTypeTexture;
+
+            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
+                return MTLDataTypePrimitiveAccelerationStructure;
+                
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
             case RenderDescriptorRangeType::STRUCTURED_BUFFER:
             case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
-            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
-                return MTLDataTypeTexture;
-                
             case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
             case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
             case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
-                return MTLDataTypePointer;
-                
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
                 return MTLDataTypePointer;
                 
@@ -832,8 +832,11 @@ namespace RT64 {
         descriptor.computeFunction = computeShader->function;
         descriptor.label = [NSString stringWithUTF8String: computeShader->entryPointName.c_str()];
         
+        // State variables, initialized here to be reused in encoder re-binding
+        state = new MetalComputeState();
+        
         NSError *error = nullptr;
-        this->state = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: &error];
+        this->state->computePipelineState = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: &error];
         
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newComputePipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
@@ -843,6 +846,7 @@ namespace RT64 {
 
     MetalComputePipeline::~MetalComputePipeline() {
         // TODO: Should be handled by ARC
+        delete state;
     }
 
     RenderPipelineProgram MetalComputePipeline::getProgram(const std::string &name) const {
@@ -912,27 +916,26 @@ namespace RT64 {
         descriptor.rasterSampleCount = desc.multisampling.sampleCount;
         
         // State variables, initialized here to be reused in encoder re-binding
-        renderState = new MetalRenderState();
+        state = new MetalRenderState();
         
         MTLDepthStencilDescriptor *depthStencilDescriptor = [MTLDepthStencilDescriptor new];
         depthStencilDescriptor.depthWriteEnabled = desc.depthWriteEnabled;
         depthStencilDescriptor.depthCompareFunction = desc.depthEnabled ? toMTL(desc.depthFunction) : MTLCompareFunctionAlways;
-        renderState->depthStencilState = [device->device newDepthStencilStateWithDescriptor: depthStencilDescriptor];
-        renderState->cullMode = toMTL(desc.cullMode);
-        renderState->depthClipMode = (desc.depthClipEnabled) ? MTLDepthClipModeClip : MTLDepthClipModeClamp;
-        renderState->winding = MTLWindingClockwise;
-        renderState->sampleCount = desc.multisampling.sampleCount;
+        state->depthStencilState = [device->device newDepthStencilStateWithDescriptor: depthStencilDescriptor];
+        state->cullMode = toMTL(desc.cullMode);
+        state->depthClipMode = (desc.depthClipEnabled) ? MTLDepthClipModeClip : MTLDepthClipModeClamp;
+        state->winding = MTLWindingClockwise;
+        state->sampleCount = desc.multisampling.sampleCount;
         if (desc.multisampling.sampleCount > 1) {
-            renderState->samplePositions = new MTLSamplePosition[desc.multisampling.sampleCount];
+            state->samplePositions = new MTLSamplePosition[desc.multisampling.sampleCount];
             for (uint32_t i = 0; i < desc.multisampling.sampleCount; i++) {
-                renderState->samplePositions[i].x = desc.multisampling.sampleLocations[i].x;
-                renderState->samplePositions[i].y = desc.multisampling.sampleLocations[i].y;
+                state->samplePositions[i].x = desc.multisampling.sampleLocations[i].x;
+                state->samplePositions[i].y = desc.multisampling.sampleLocations[i].y;
             }
         }
         
         NSError *error = nullptr;
-        this->state = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
-        renderState->renderPipelineState = state;
+        this->state->renderPipelineState = [device->device newRenderPipelineStateWithDescriptor: descriptor error: &error];
         
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newRenderPipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
@@ -942,6 +945,8 @@ namespace RT64 {
 
     MetalGraphicsPipeline::~MetalGraphicsPipeline() {
         // TODO: Should be handled by ARC
+        delete[] state->samplePositions;
+        delete state;
     }
 
     RenderPipelineProgram MetalGraphicsPipeline::getProgram(const std::string &name) const {
@@ -1235,13 +1240,9 @@ namespace RT64 {
         endActiveResolveTextureComputeEncoder();
         endActiveBlitEncoder();
         endActiveClearDepthRenderEncoder();
-        
-        if (computeEncoder != nil) {
-            [computeEncoder endEncoding];
-        }
+        endActiveComputeEncoder();
         
         targetFramebuffer = nullptr;
-        computeEncoder = nil;
     }
 
     void MetalCommandList::configureRenderDescriptor(MTLRenderPassDescriptor* renderDescriptor, EncoderType encoderType) {
@@ -1276,23 +1277,16 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::guaranteeComputeEncoder() {
-        if (computeEncoder == nil) {
-            auto computeDescriptor = [MTLComputePassDescriptor new];
-            computeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
-        }
-    }
-
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
         // TODO: Ignore for now, Metal should handle most of this itself.
     }
 
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
-        guaranteeComputeEncoder();
-        assert(computeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
+        checkActiveComputeEncoder();
+        assert(activeComputeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
         
-        [computeEncoder dispatchThreadgroups:MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
+        [activeComputeEncoder dispatchThreadgroups:MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
                        threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
     }
 
@@ -1329,16 +1323,15 @@ namespace RT64 {
         const auto *interfacePipeline = static_cast<const MetalPipeline *>(pipeline);
         switch (interfacePipeline->type) {
             case MetalPipeline::Type::Compute: {
-                guaranteeComputeEncoder();
+                endActiveComputeEncoder();
                 const auto *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
-                assert(computeEncoder != nil && "Cannot set pipeline state on nil MTLComputeCommandEncoder!");
-                [computeEncoder setComputePipelineState: computePipeline->state];
+                activeComputeState = computePipeline->state;
                 break;
             }
             case MetalPipeline::Type::Graphics: {
-                endActiveRenderEncoder();
+                endActiveComputeEncoder();
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
-                activeRenderState = graphicsPipeline->renderState;
+                activeRenderState = graphicsPipeline->state;
                 break;
             }
             default:
@@ -1349,13 +1342,30 @@ namespace RT64 {
 
     void MetalCommandList::setComputePipelineLayout(const RenderPipelineLayout *pipelineLayout) {
         assert(pipelineLayout != nullptr);
-        // TODO: Layouts
+
+        const auto oldLayout = activeComputePipelineLayout;
+        activeComputePipelineLayout = static_cast<const MetalPipelineLayout *>(pipelineLayout);
+        
+        if (oldLayout != activeComputePipelineLayout) {
+            indicesToComputeDescriptorSets.clear();
+            computePushConstantsBuffer = nil;
+        }
     }
 
     void MetalCommandList::setComputePushConstants(uint32_t rangeIndex, const void *data) {
-        assert(computeEncoder != nil && "Cannot set bytes on nil MTLComputeCommandEncoder!");
-        // [this->computeEncoder setBytes: data length: atIndex: rangeIndex];
-        // TODO: Push Constants
+        assert(activeComputePipelineLayout != nullptr);
+        assert(rangeIndex < activeComputePipelineLayout->pushConstantRanges.size());
+        
+        // TODO: make sure there's parity with Vulkan
+        const RenderPushConstantRange &range = activeComputePipelineLayout->pushConstantRanges[rangeIndex];
+        uint32_t startOffset = 0;
+        for (uint32_t i = 0; i < rangeIndex; i++) {
+            startOffset += activeComputePipelineLayout->pushConstantRanges[i].size;
+        }
+        auto bufferContents = (uint8_t *)[activeComputePipelineLayout->pushConstantsBuffer contents];
+        memcpy(bufferContents + startOffset, data, range.size);
+        
+        computePushConstantsBuffer = activeComputePipelineLayout->pushConstantsBuffer;
     }
 
     void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
@@ -1369,7 +1379,6 @@ namespace RT64 {
         activeGraphicsPipelineLayout = static_cast<const MetalPipelineLayout *>(pipelineLayout);
         
         if (oldLayout != activeGraphicsPipelineLayout) {
-            indicesToComputeDescriptorSets.clear();
             indicesToRenderDescriptorSets.clear();
             graphicsPushConstantsBuffer = nil;
         }
@@ -1742,13 +1751,63 @@ namespace RT64 {
             endActiveRenderEncoder();
         }
         if (type != EncoderType::Compute) {
-            endActiveResolveTextureComputeEncoder();
+            endActiveComputeEncoder();
         }
         if (type != EncoderType::Blit) {
             endActiveBlitEncoder();
         }
         if (type != EncoderType::Resolve) {
             endActiveResolveTextureComputeEncoder();
+        }
+    }
+
+    void MetalCommandList::checkActiveComputeEncoder() {
+        assert(targetFramebuffer != nullptr);
+        endOtherEncoders(EncoderType::Compute);
+        
+        if (activeComputeEncoder == nil) {
+            MTLComputePassDescriptor *computeDescriptor = [MTLComputePassDescriptor new];
+            activeComputeEncoder = [queue->buffer computeCommandEncoderWithDescriptor: computeDescriptor];
+            [activeComputeEncoder setLabel:@"Active Compute Encoder"];
+            [activeComputeEncoder setComputePipelineState: activeComputeState->computePipelineState];
+            
+            // Encode Descriptor set layouts and mark resources
+            for (uint32_t i = 0; i < activeComputePipelineLayout->setCount; i++) {
+                const auto *setLayout = activeComputePipelineLayout->setLayoutHandles[i];
+                
+                if (indicesToComputeDescriptorSets.count(i) != 0) {
+                    const auto *descriptorSet = indicesToComputeDescriptorSets[i];
+                    // Mark resources in the argument buffer as resident
+                    for (const auto& pair : descriptorSet->indicesToTextures) {
+                        uint32_t index = pair.first;
+                        auto *texture = pair.second;
+                        if (texture != nil) {
+                            [activeComputeEncoder useResource:texture usage:MTLResourceUsageRead];
+                            
+                            uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                            [setLayout->argumentEncoder setTexture:texture atIndex: adjustedIndex];
+                        }
+                    }
+                    
+                    // TODO: Mark and bind buffers
+                }
+                
+                [activeComputeEncoder setBuffer:setLayout->descriptorBuffer offset:0 atIndex:i];
+            }
+            
+            if (computePushConstantsBuffer != nil) {
+                uint32_t pushConstantsIndex = activeComputePipelineLayout->setCount;
+                [activeComputeEncoder setBuffer: computePushConstantsBuffer
+                                         offset: 0
+                                        atIndex: pushConstantsIndex];
+            }
+        }
+    }
+
+    void MetalCommandList::endActiveComputeEncoder() {
+        if (activeComputeEncoder != nil) {
+            [activeComputeEncoder endEncoding];
+            activeComputeEncoder = nil;
         }
     }
 

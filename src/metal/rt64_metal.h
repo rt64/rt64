@@ -52,6 +52,12 @@ namespace RT64 {
 #endif
     } MetalContext;
 
+    struct MetalComputeState {
+#ifdef __OBJC__
+        id<MTLComputePipelineState> computePipelineState = nil;
+#endif
+    };
+
     struct MetalRenderState {
 #ifdef __OBJC__
         id<MTLRenderPipelineState> renderPipelineState = nil;
@@ -161,6 +167,7 @@ namespace RT64 {
 
     struct MetalCommandList : RenderCommandList {
 #ifdef __OBJC__
+        id<MTLComputeCommandEncoder> activeComputeEncoder = nil;
         id<MTLRenderCommandEncoder> activeRenderEncoder = nil;
         id<MTLRenderCommandEncoder> activeClearColorRenderEncoder = nil;
         id<MTLRenderCommandEncoder> activeClearDepthRenderEncoder = nil;
@@ -196,6 +203,7 @@ namespace RT64 {
         const MetalPipelineLayout *activeGraphicsPipelineLayout = nullptr;
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
         const MetalRenderState *activeRenderState = nullptr;
+        const MetalComputeState *activeComputeState = nullptr;
 
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
@@ -241,6 +249,8 @@ namespace RT64 {
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
         void endOtherEncoders(EncoderType type);
+        void checkActiveComputeEncoder();
+        void endActiveComputeEncoder();
         void checkActiveRenderEncoder();
         void endActiveRenderEncoder();
         void checkActiveClearColorRenderEncoder();
@@ -391,21 +401,14 @@ namespace RT64 {
     };
 
     struct MetalComputePipeline : MetalPipeline {
-#ifdef __OBJC__
-        id<MTLComputePipelineState> state = nil;
-#endif
-
+        MetalComputeState *state;
         MetalComputePipeline(MetalDevice *device, const RenderComputePipelineDesc &desc);
         ~MetalComputePipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
     };
 
     struct MetalGraphicsPipeline : MetalPipeline {
-#ifdef __OBJC__
-        id<MTLRenderPipelineState> state = nil;
-#endif
-
-        MetalRenderState *renderState;
+        MetalRenderState *state;
         MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
