@@ -609,12 +609,7 @@ namespace RT64 {
         
         ShaderData computeData = getShaderData(ctx.renderInterface->getCapabilities().shaderFormat, ShaderType::COMPUTE);
         std::unique_ptr<RenderShader> computeShader = ctx.device->createShader(computeData.blob, computeData.size, "CSMain", computeData.format);
-        RenderComputePipelineDesc computeDesc;
-        computeDesc.computeShader = computeShader.get();
-        computeDesc.pipelineLayout = ctx.computePipelineLayout.get();
-        computeDesc.threadGroupSizeX = 8;
-        computeDesc.threadGroupSizeY = 8;
-        computeDesc.threadGroupSizeZ = 1;
+        RenderComputePipelineDesc computeDesc(ctx.computePipelineLayout.get(), computeShader.get(), 8, 8, 1);
         ctx.computePipeline = ctx.device->createComputePipeline(computeDesc);
     }
 

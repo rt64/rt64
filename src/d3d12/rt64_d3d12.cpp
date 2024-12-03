@@ -2623,6 +2623,8 @@ namespace RT64 {
 
     D3D12ComputePipeline::D3D12ComputePipeline(D3D12Device *device, const RenderComputePipelineDesc &desc) : D3D12Pipeline(device, Type::Compute) {
         assert(desc.pipelineLayout != nullptr);
+        assert(desc.computeShader != nullptr);
+        assert((desc.threadGroupSizeX > 0) && (desc.threadGroupSizeY > 0) && (desc.threadGroupSizeZ > 0));
 
         const D3D12PipelineLayout *rootSignature = static_cast<const D3D12PipelineLayout *>(desc.pipelineLayout);
         const D3D12Shader *computeShader = static_cast<const D3D12Shader *>(desc.computeShader);
