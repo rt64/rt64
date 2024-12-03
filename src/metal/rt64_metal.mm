@@ -1332,7 +1332,7 @@ namespace RT64 {
                 break;
             }
             case MetalPipeline::Type::Graphics: {
-                endActiveComputeEncoder();
+                endActiveRenderEncoder();
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
                 activeRenderState = graphicsPipeline->state;
                 break;
