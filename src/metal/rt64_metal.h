@@ -56,6 +56,10 @@ namespace RT64 {
 #ifdef __OBJC__
         id<MTLComputePipelineState> computePipelineState = nil;
 #endif
+        
+        uint32_t threadGroupSizeX = 0;
+        uint32_t threadGroupSizeY = 0;
+        uint32_t threadGroupSizeZ = 0;
     };
 
     struct MetalRenderState {

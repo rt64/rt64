@@ -837,6 +837,9 @@ namespace RT64 {
         
         NSError *error = nullptr;
         this->state->computePipelineState = [device->device newComputePipelineStateWithDescriptor: descriptor options: MTLPipelineOptionNone reflection: nil error: &error];
+        this->state->threadGroupSizeX = desc.threadGroupSizeX;
+        this->state->threadGroupSizeY = desc.threadGroupSizeY;
+        this->state->threadGroupSizeZ = desc.threadGroupSizeZ;
         
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newComputePipelineStateWithDescriptor: failed with error %s.\n", [error.localizedDescription cStringUsingEncoding: NSUTF8StringEncoding]);
@@ -1287,7 +1290,7 @@ namespace RT64 {
         assert(activeComputeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
         
         [activeComputeEncoder dispatchThreadgroups:MTLSizeMake(threadGroupCountX, threadGroupCountY, threadGroupCountZ)
-                       threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
+                             threadsPerThreadgroup:MTLSizeMake(activeComputeState->threadGroupSizeX, activeComputeState->threadGroupSizeY, activeComputeState->threadGroupSizeZ)];
     }
 
     void MetalCommandList::traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) {

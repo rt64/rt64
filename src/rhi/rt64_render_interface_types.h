@@ -1120,6 +1120,11 @@ namespace RT64 {
         const RenderShader *computeShader = nullptr;
         const RenderSpecConstant *specConstants = nullptr;
         uint32_t specConstantsCount = 0;
+        
+        // TODO: make dispatch not be aware of the groups and rename dispatch to dispatch_threads
+        uint32_t threadGroupSizeX = 0;
+        uint32_t threadGroupSizeY = 0;
+        uint32_t threadGroupSizeZ = 0;
 
         RenderComputePipelineDesc() = default;
 

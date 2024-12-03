@@ -612,6 +612,9 @@ namespace RT64 {
         RenderComputePipelineDesc computeDesc;
         computeDesc.computeShader = computeShader.get();
         computeDesc.pipelineLayout = ctx.computePipelineLayout.get();
+        computeDesc.threadGroupSizeX = 8;
+        computeDesc.threadGroupSizeY = 8;
+        computeDesc.threadGroupSizeZ = 1;
         ctx.computePipeline = ctx.device->createComputePipeline(computeDesc);
     }
 
