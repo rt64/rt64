@@ -431,12 +431,11 @@ add_subdirectory(src/tools/texture_packer)
 
 # Add any Apple-specific source files and libraries
 if (APPLE)
-    target_compile_options(rt64 PUBLIC "-fobjc-arc")
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.mm"
+        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"
         "${PROJECT_SOURCE_DIR}/src/common/rt64_apple.mm"
     )
-
+    target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
     target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
 endif()
 
