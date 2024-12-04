@@ -1074,6 +1074,7 @@ namespace RT64 {
     MetalSwapChain::~MetalSwapChain() {
         layer->release();
         delete proxyTexture;
+        delete commandQueue;
     }
 
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
@@ -1716,7 +1717,9 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Compute);
         
         if (activeComputeEncoder == nullptr) {
-            MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
+            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+
+            MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init()->autorelease();
             activeComputeEncoder = queue->buffer->computeCommandEncoder(computeDescriptor);
             activeComputeEncoder->setLabel(MTLSTR("Active Compute Encoder"));
             activeComputeEncoder->setComputePipelineState(activeComputeState->pipelineState);
@@ -1752,7 +1755,8 @@ namespace RT64 {
             
             
             // Release resources
-            computeDescriptor->release();
+            activeComputeEncoder->retain();
+            releasePool->release();
         }
     }
 
