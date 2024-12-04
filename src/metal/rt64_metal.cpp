@@ -1102,8 +1102,6 @@ namespace RT64 {
             return false;
         }
         
-        drawable->release();
-        drawable = nullptr;
         return true;
     }
 
@@ -1233,7 +1231,15 @@ namespace RT64 {
         this->queue = queue;
     }
 
-    MetalCommandList::~MetalCommandList() {}
+    MetalCommandList::~MetalCommandList() {
+        indexBuffer->release();
+        graphicsPushConstantsBuffer->release();
+        computePushConstantsBuffer->release();
+
+        for (auto buffer : vertexBuffers) {
+            buffer->release();
+        }
+    }
 
     void MetalCommandList::begin() { }
 
@@ -1924,9 +1930,12 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Resolve);
         
         if (activeResolveComputeEncoder == nullptr) {
+            auto computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
             activeResolveComputeEncoder = queue->buffer->computeCommandEncoder();
             activeResolveComputeEncoder->setLabel(MTLSTR("Active Resolve Texture Encoder"));
             activeResolveComputeEncoder->setComputePipelineState(MetalContext.resolveTexturePipelineState);
+            
+            computeDescriptor->release();
         }
     }
 
@@ -2103,7 +2112,7 @@ namespace RT64 {
     }
 
     MetalDevice::~MetalDevice() {
-        // TODO: Automatic reference counting should take care of this.
+        mtl->release();
     }
 
     std::unique_ptr<RenderDescriptorSet> MetalDevice::createDescriptorSet(const RenderDescriptorSetDesc &desc) {

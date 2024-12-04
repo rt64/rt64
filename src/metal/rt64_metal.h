@@ -138,7 +138,6 @@ namespace RT64 {
         MTL::ComputeCommandEncoder *activeResolveComputeEncoder = nullptr;
     
         MTL::ComputeCommandEncoder *computeEncoder = nullptr;
-        MTL::CaptureManager *captureManager = nullptr;
 
         MTL::PrimitiveType currentPrimitiveType = MTL::PrimitiveTypeTriangle;
         MTL::IndexType currentIndexType = MTL::IndexTypeUInt32;
