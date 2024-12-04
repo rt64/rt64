@@ -48,6 +48,9 @@ public:
 
     bool                     framebufferOnly() const;
     void                     setFramebufferOnly(bool framebufferOnly);
+    
+    bool                     displaySyncEnabled() const;
+    void                     setDisplaySyncEnabled(bool syncEnabled);
 
     CGSize                   drawableSize() const;
     void                     setDrawableSize(CGSize drawableSize);
@@ -105,6 +108,21 @@ _CA_INLINE void CA::MetalLayer::setFramebufferOnly(bool framebufferOnly)
 {
     return Object::sendMessage<void>(this, _CA_PRIVATE_SEL(setFramebufferOnly_),
         framebufferOnly);
+}
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+_CA_INLINE bool CA::MetalLayer::displaySyncEnabled() const
+{
+    return Object::sendMessage<bool>(this, _CA_PRIVATE_SEL(displaySyncEnabled));
+}
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+_CA_INLINE void CA::MetalLayer::setDisplaySyncEnabled(bool syncEnabled)
+{
+    return Object::sendMessage<void>(this, _CA_PRIVATE_SEL(setDisplaySyncEnabled_),
+        syncEnabled);
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------

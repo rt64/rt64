@@ -109,6 +109,8 @@ namespace Private
             "drawableSize");
         _CA_PRIVATE_DEF_SEL(framebufferOnly,
             "framebufferOnly");
+        _CA_PRIVATE_DEF_SEL(displaySyncEnabled,
+            "displaySyncEnabled");
         _CA_PRIVATE_DEF_SEL(layer,
             "layer");
         _CA_PRIVATE_DEF_SEL(nextDrawable,
@@ -121,6 +123,8 @@ namespace Private
             "setDrawableSize:");
         _CA_PRIVATE_DEF_SEL(setFramebufferOnly_,
             "setFramebufferOnly:");
+        _CA_PRIVATE_DEF_SEL(setDisplaySyncEnabled_,
+            "setDisplaySyncEnabled:");
         _CA_PRIVATE_DEF_SEL(setPixelFormat_,
             "setPixelFormat:");
         _CA_PRIVATE_DEF_SEL(texture,

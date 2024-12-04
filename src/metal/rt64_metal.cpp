@@ -1112,12 +1112,11 @@ namespace RT64 {
     }
 
     void MetalSwapChain::setVsyncEnabled(bool vsyncEnabled) {
-        // TODO: Unimplemented.
+        layer->setDisplaySyncEnabled(vsyncEnabled);
     }
 
     bool MetalSwapChain::isVsyncEnabled() const {
-        // TODO: Unimplemented.
-        return false;
+        return layer->displaySyncEnabled();
     }
 
     uint32_t MetalSwapChain::getWidth() const {
