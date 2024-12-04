@@ -7,6 +7,7 @@
 
 #include "rt64_metal.h"
 #include "common/rt64_apple.h"
+#include <algorithm>
 
 namespace RT64 {
     static size_t calculateAlignedSize(size_t size, size_t alignment = 16) {
@@ -474,7 +475,7 @@ namespace RT64 {
 
     MetalDescriptorSetLayout::MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
         assert(device != nullptr);
-        this->device = device;
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
         
         // Pre-allocate vectors with known size
         const uint32_t totalDescriptors = desc.descriptorRangesCount + (desc.lastRangeIsBoundless ? desc.boundlessRangeSize : 0);
@@ -562,6 +563,10 @@ namespace RT64 {
         for (size_t i = 0; i < staticSamplers.size(); i++) {
             argumentEncoder->setSamplerState(staticSamplers[i], samplerIndices[i]);
         }
+        
+        // Release resources
+        pArray->release();
+        releasePool->release();
     }
 
     MetalDescriptorSetLayout::~MetalDescriptorSetLayout() {
@@ -584,7 +589,6 @@ namespace RT64 {
     MetalBuffer::MetalBuffer(MetalDevice *device, MetalPool *pool, const RenderBufferDesc &desc) {
         assert(device != nullptr);
         
-        this->device = device;
         this->pool = pool;
         this->desc = desc;
         
@@ -639,7 +643,6 @@ namespace RT64 {
     MetalTexture::MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc) {
         assert(device != nullptr);
         
-        this->device = device;
         this->pool = pool;
         this->desc = desc;
         
@@ -666,6 +669,9 @@ namespace RT64 {
         } else {
             this->mtl = device->mtl->newTexture(descriptor);
         }
+        
+        // Release resources
+        descriptor->release();
     }
 
     MetalTexture::~MetalTexture() {
@@ -743,7 +749,6 @@ namespace RT64 {
         assert(size > 0);
         assert(format == RenderShaderFormat::METAL);
         
-        this->device = device;
         this->format = format;
         this->functionName = (entryPointName != nullptr) ? NS::String::string(entryPointName, NS::UTF8StringEncoding) : MTLSTR("");
         
@@ -769,9 +774,7 @@ namespace RT64 {
 
     MetalSampler::MetalSampler(MetalDevice *device, const RenderSamplerDesc &desc) {
         assert(device != nullptr);
-        
-        this->device = device;
-        
+                
         MTL::SamplerDescriptor *descriptor = MTL::SamplerDescriptor::alloc()->init();
         descriptor->setSupportArgumentBuffers(true);
         descriptor->setMinFilter(toMTL(desc.minFilter));
@@ -802,7 +805,6 @@ namespace RT64 {
         assert(device != nullptr);
         assert(type != Type::Unknown);
         
-        this->device = device;
         this->type = type;
     }
 
@@ -852,8 +854,9 @@ namespace RT64 {
 
     MetalGraphicsPipeline::MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc) : MetalPipeline(device, Type::Graphics) {
         assert(desc.pipelineLayout != nullptr);
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
         
-        MTL::RenderPipelineDescriptor *descriptor = MTL::RenderPipelineDescriptor::alloc()->init();
+        MTL::RenderPipelineDescriptor *descriptor = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
         descriptor->setInputPrimitiveTopology(toMTL(desc.primitiveTopology));
         descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
         
@@ -862,7 +865,7 @@ namespace RT64 {
         
         descriptor->setVertexFunction(metalShader->function);
         
-        MTL::VertexDescriptor *vertexDescriptor = MTL::VertexDescriptor::alloc()->init();
+        MTL::VertexDescriptor *vertexDescriptor = MTL::VertexDescriptor::alloc()->init()->autorelease();
         
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
             const RenderInputSlot &inputSlot = desc.inputSlots[i];
@@ -910,7 +913,7 @@ namespace RT64 {
         descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
         
         // State variables, initialized here to be reused in encoder re-binding
-        MTL::DepthStencilDescriptor *depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
+        MTL::DepthStencilDescriptor *depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init()->autorelease();
         depthStencilDescriptor->setDepthWriteEnabled(desc.depthWriteEnabled);
         depthStencilDescriptor->setDepthCompareFunction(desc.depthEnabled ? toMTL(desc.depthFunction) : MTL::CompareFunctionAlways);
 
@@ -936,9 +939,7 @@ namespace RT64 {
         }
         
         // Releae resources
-        vertexDescriptor->release();
-        depthStencilDescriptor->release();
-        descriptor->release();
+        releasePool->release();
     }
 
     MetalGraphicsPipeline::~MetalGraphicsPipeline() {
@@ -957,7 +958,6 @@ namespace RT64 {
 
     MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
         assert(device != nullptr);
-        this->device = device;
         
         entryCount = 0;
         
@@ -999,7 +999,6 @@ namespace RT64 {
         assert(device != nullptr);
         assert(entryCount > 0);
         
-        this->device = device;
         this->entryCount = entryCount;
     }
 
@@ -1013,7 +1012,7 @@ namespace RT64 {
 
     void MetalDescriptorSet::setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) {
         const MetalTexture *interfaceTexture = static_cast<const MetalTexture *>(texture);
-        const auto nativeResource = (interfaceTexture != nullptr) ? interfaceTexture->mtl : nil;
+        const auto nativeResource = (interfaceTexture != nullptr) ? interfaceTexture->mtl : nullptr;
         uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
         RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
         switch (descriptorType) {
@@ -1073,16 +1072,25 @@ namespace RT64 {
     }
 
     MetalSwapChain::~MetalSwapChain() {
-        drawable->release();
         layer->release();
         delete proxyTexture;
     }
 
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
-        assert(layer != nil && "Cannot present without a valid layer.");
-        assert(drawable != nil && "Cannot present without a valid drawable.");
+        assert(layer != nullptr && "Cannot present without a valid layer.");
+        assert(drawable != nullptr && "Cannot present without a valid drawable.");
         
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+        drawable->autorelease();
+        commandQueue->buffer->autorelease();
+        
+        commandQueue->buffer->enqueue();
         commandQueue->buffer->presentDrawable(drawable);
+        commandQueue->buffer->commit();
+        
+        releasePool->release();
+        
+        commandQueue->buffer = commandQueue->mtl->commandBuffer();
         return true;
     }
 
@@ -1093,7 +1101,8 @@ namespace RT64 {
             return false;
         }
         
-        drawable = nil;
+        drawable->release();
+        drawable = nullptr;
         return true;
     }
 
@@ -1126,15 +1135,17 @@ namespace RT64 {
 
     bool MetalSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
         assert(signalSemaphore != nullptr);
-        
+
         // Ignore textureIndex for Metal in both acquireTexture and getTexture.
         // Metal will always return the next available texture from the layer's pool.
         *textureIndex = 0;
         auto nextDrawable = layer->nextDrawable();
-        if (nextDrawable != nil) {
+        if (nextDrawable != nullptr) {
             drawable = nextDrawable;
             return true;
         }
+        
+        nextDrawable->release();
         return false;
     }
 
@@ -1165,8 +1176,9 @@ namespace RT64 {
 
     MetalFramebuffer::MetalFramebuffer(MetalDevice *device, const RenderFramebufferDesc &desc) {
         assert(device != nullptr);
-        
-        this->device = device;
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+
+        colorAttachments.reserve(desc.colorAttachmentsCount);
         depthAttachmentReadOnly = desc.depthAttachmentReadOnly;
         
         for (uint32_t i = 0; i < desc.colorAttachmentsCount; i++) {
@@ -1194,10 +1206,12 @@ namespace RT64 {
                 height = depthAttachment->desc.height;
             }
         }
+        
+        releasePool->release();
     }
 
     MetalFramebuffer::~MetalFramebuffer() {
-        // TODO: Should be handled by ARC
+        colorAttachments.clear();
     }
 
     uint32_t MetalFramebuffer::getWidth() const {
@@ -1218,9 +1232,7 @@ namespace RT64 {
         this->queue = queue;
     }
 
-    MetalCommandList::~MetalCommandList() {
-        // TODO: Should be handled by ARC
-    }
+    MetalCommandList::~MetalCommandList() {}
 
     void MetalCommandList::begin() { }
 
@@ -1237,7 +1249,7 @@ namespace RT64 {
 
     void MetalCommandList::configureRenderDescriptor(MTL::RenderPassDescriptor *renderDescriptor, EncoderType encoderType) {
         assert(targetFramebuffer != nullptr && "Cannot encode render commands without a target framebuffer");
-        
+                
         if (encoderType != EncoderType::ClearDepth) {
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
                 auto colorAttachment = renderDescriptor->colorAttachments()->object(i);
@@ -1246,7 +1258,7 @@ namespace RT64 {
                 if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
                     assert(targetFramebuffer->colorAttachments.size() == 1 && "Swap chain framebuffers must have exactly one color attachment.");
                     
-                    MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
+                    auto swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
                     colorAttachment->setTexture(swapChain->drawable->texture());
                     colorAttachment->setLoadAction(MTL::LoadActionLoad);
                     colorAttachment->setStoreAction(MTL::StoreActionStore);
@@ -1272,14 +1284,13 @@ namespace RT64 {
         }
     }
 
-
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
         // TODO: Ignore for now, Metal should handle most of this itself.
     }
 
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
         checkActiveComputeEncoder();
-        assert(activeComputeEncoder != nil && "Cannot encode dispatch on nil MTLComputeCommandEncoder!");
+        assert(activeComputeEncoder != nullptr && "Cannot encode dispatch on nullptr MTLComputeCommandEncoder!");
         
         
         auto threadGroupCount = MTL::Size::Make(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
@@ -1334,7 +1345,7 @@ namespace RT64 {
         
         if (oldLayout != activeComputePipelineLayout) {
             indicesToComputeDescriptorSets.clear();
-            computePushConstantsBuffer = nil;
+            computePushConstantsBuffer = nullptr;
         }
     }
 
@@ -1367,7 +1378,7 @@ namespace RT64 {
         
         if (oldLayout != activeGraphicsPipelineLayout) {
             indicesToRenderDescriptorSets.clear();
-            graphicsPushConstantsBuffer = nil;
+            graphicsPushConstantsBuffer = nullptr;
         }
     }
 
@@ -1477,11 +1488,21 @@ namespace RT64 {
                     continue;
                 }
                 
-                double width = rect.right - rect.left;
-                double height = rect.bottom - rect.top;
+                int32_t width = rect.right - rect.left;
+                int32_t height = rect.bottom - rect.top;
                 
-                MTL::Viewport viewport { static_cast<double>(rect.left), static_cast<double>(targetFramebuffer->height - rect.top), width, -height, 0, 1 };
-                MTL::ScissorRect scissor { static_cast<NS::UInteger>(rect.left), static_cast<NS::UInteger>(targetFramebuffer->height - rect.top - height), static_cast<NS::UInteger>(width), static_cast<NS::UInteger>(height) };
+                MTL::Viewport viewport { static_cast<double>(rect.left), static_cast<double>(targetFramebuffer->height - rect.top), static_cast<double>(width), static_cast<double>(-height), 0, 1 };
+                
+                // clamp to viewport size as metal does not support larger values than viewport size
+                MTL::ScissorRect scissor {
+                    static_cast<NS::UInteger>(std::max(0, std::min(rect.left, static_cast<int32_t>(targetFramebuffer->width)))),
+                    static_cast<NS::UInteger>(std::max(0, std::min(static_cast<int32_t>(targetFramebuffer->height - rect.top - height),
+                                                                  static_cast<int32_t>(targetFramebuffer->height)))),
+                    static_cast<NS::UInteger>(std::min(width, static_cast<int32_t>(targetFramebuffer->width - rect.left))),
+                    static_cast<NS::UInteger>(std::min(height, static_cast<int32_t>(targetFramebuffer->height -
+                                             std::max(0, std::min(static_cast<int32_t>(targetFramebuffer->height - rect.top - height),
+                                                                static_cast<int32_t>(targetFramebuffer->height))))))
+                };
                 
                 encoder->setViewport(viewport);
                 encoder->setScissorRect(scissor);
@@ -1694,7 +1715,7 @@ namespace RT64 {
         assert(targetFramebuffer != nullptr);
         endOtherEncoders(EncoderType::Compute);
         
-        if (activeComputeEncoder == nil) {
+        if (activeComputeEncoder == nullptr) {
             MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
             activeComputeEncoder = queue->buffer->computeCommandEncoder(computeDescriptor);
             activeComputeEncoder->setLabel(MTLSTR("Active Compute Encoder"));
@@ -1710,7 +1731,7 @@ namespace RT64 {
                     for (const auto& pair : descriptorSet->indicesToTextures) {
                         uint32_t index = pair.first;
                         auto *texture = pair.second;
-                        if (texture != nil) {
+                        if (texture != nullptr) {
                             activeComputeEncoder->useResource(texture, MTL::ResourceUsageRead);
                             
                             uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
@@ -1738,6 +1759,7 @@ namespace RT64 {
     void MetalCommandList::endActiveComputeEncoder() {
         if (activeComputeEncoder != nullptr) {
             activeComputeEncoder->endEncoding();
+            activeComputeEncoder->release();
             activeComputeEncoder = nullptr;
         }
     }
@@ -1747,6 +1769,8 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Render);
         
         if (activeRenderEncoder == nullptr) {
+            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+            
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::Render);
             
@@ -1775,7 +1799,7 @@ namespace RT64 {
                     for (const auto& pair : descriptorSet->indicesToTextures) {
                         uint32_t index = pair.first;
                         auto *texture = pair.second;
-                        if (texture != nil) {
+                        if (texture != nullptr) {
                             activeRenderEncoder->useResource(texture, MTL::ResourceUsageRead, MTL::RenderStageVertex | MTL::RenderStageFragment);
                             
                             uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
@@ -1789,19 +1813,21 @@ namespace RT64 {
                 activeRenderEncoder->setFragmentBuffer(setLayout->descriptorBuffer, 0, i);
             }
             
-            if (graphicsPushConstantsBuffer != nil) {
+            if (graphicsPushConstantsBuffer != nullptr) {
                 uint32_t pushConstantsIndex = activeGraphicsPipelineLayout->setCount;
                 activeRenderEncoder->setFragmentBuffer(graphicsPushConstantsBuffer, 0, pushConstantsIndex);
             }
             
             // Release resources
-            renderDescriptor->release();
+            activeRenderEncoder->retain();
+            releasePool->release();
         }
     }
 
     void MetalCommandList::endActiveRenderEncoder() {
         if (activeRenderEncoder != nullptr) {
             activeRenderEncoder->endEncoding();
+            activeRenderEncoder->release();
             activeRenderEncoder = nullptr;
         }
     }
@@ -1811,12 +1837,17 @@ namespace RT64 {
         endOtherEncoders(EncoderType::ClearColor);
         
         if (activeClearColorRenderEncoder == nullptr) {
+            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+            
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::ClearColor);
             
-            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-            pipelineDesc->setVertexFunction(MetalContext.clearColorShaderLibrary->newFunction(MTLSTR("clearVert")));
-            pipelineDesc->setFragmentFunction(MetalContext.clearColorShaderLibrary->newFunction(MTLSTR("clearFrag")));
+            auto clearVertFunction = MetalContext.clearColorShaderLibrary->newFunction(MTLSTR("clearVert"))->autorelease();
+            auto clearFragFunction = MetalContext.clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"))->autorelease();
+            
+            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
+            pipelineDesc->setVertexFunction(clearVertFunction);
+            pipelineDesc->setFragmentFunction(clearFragFunction);
             
             // TODO: Are we using the right color attachment?
             pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount);
@@ -1826,7 +1857,7 @@ namespace RT64 {
                 MTL::PixelFormat format;
                 // Handle swapchain case specially
                 if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
-                    MetalSwapChain *swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
+                    auto swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
                     format = swapChain->drawable->texture()->pixelFormat();
                 } else {
                     format = toMTL(targetFramebuffer->colorAttachments[i]->desc.format);
@@ -1838,9 +1869,9 @@ namespace RT64 {
             }
             
             NS::Error *error = nullptr;
-            auto clearPipelineState = device->mtl->newRenderPipelineState(pipelineDesc, &error);
+            auto clearPipelineState = device->mtl->newRenderPipelineState(pipelineDesc, &error)->autorelease();
             
-            if (error != nil) {
+            if (error != nullptr) {
                 fprintf(stderr, "Failed to create clear color pipeline state: %s\n", error->localizedDescription()->utf8String());
                 return;
             }
@@ -1850,15 +1881,15 @@ namespace RT64 {
             activeClearColorRenderEncoder->setRenderPipelineState(clearPipelineState);
             
             // Release resources
-            pipelineDesc->release();
-            renderDescriptor->release();
-            clearPipelineState->release();
+            activeClearColorRenderEncoder->retain();
+            releasePool->release();
         }
     }
 
     void MetalCommandList::endActiveClearColorRenderEncoder() {
         if (activeClearColorRenderEncoder != nullptr) {
             activeClearColorRenderEncoder->endEncoding();
+            activeClearColorRenderEncoder->release();
             activeClearColorRenderEncoder = nullptr;
         }
     }
@@ -1879,6 +1910,7 @@ namespace RT64 {
     void MetalCommandList::endActiveBlitEncoder() {
         if (activeBlitEncoder != nullptr) {
             activeBlitEncoder->endEncoding();
+            activeBlitEncoder->release();
             activeBlitEncoder = nullptr;
         }
     }
@@ -1897,6 +1929,7 @@ namespace RT64 {
     void MetalCommandList::endActiveResolveTextureComputeEncoder() {
         if (activeResolveComputeEncoder != nullptr) {
             activeResolveComputeEncoder->endEncoding();
+            activeResolveComputeEncoder->release();
             activeResolveComputeEncoder = nullptr;
         }
     }
@@ -1906,30 +1939,32 @@ namespace RT64 {
         endOtherEncoders(EncoderType::ClearDepth);
         
         if (activeClearDepthRenderEncoder == nullptr) {
+            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+            
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::ClearDepth);
 
-            auto clearDepthVertFunction = MetalContext.clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"));
-            auto clearDepthFragFunction = MetalContext.clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"));
+            auto clearDepthVertFunction = MetalContext.clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"))->autorelease();
+            auto clearDepthFragFunction = MetalContext.clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"))->autorelease();
 
-            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
+            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
             pipelineDesc->setVertexFunction(clearDepthVertFunction);
             pipelineDesc->setFragmentFunction(clearDepthFragFunction);
             pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
             pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
             
             NS::Error *error = nullptr;
-            auto clearDepthPipelineState = device->mtl->newRenderPipelineState(pipelineDesc, &error);
+            auto clearDepthPipelineState = device->mtl->newRenderPipelineState(pipelineDesc, &error)->autorelease();
             
             if (error != nullptr) {
                 fprintf(stderr, "Failed to create clear depth pipeline state: %s\n", error->localizedDescription()->utf8String());
                 return;
             }
             
-            MTL::DepthStencilDescriptor *depthDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
+            MTL::DepthStencilDescriptor *depthDescriptor = MTL::DepthStencilDescriptor::alloc()->init()->autorelease();
             depthDescriptor->setDepthWriteEnabled(true);
             depthDescriptor->setDepthCompareFunction(MTL::CompareFunctionAlways);
-            auto depthStencilState = device->mtl->newDepthStencilState(depthDescriptor);
+            auto depthStencilState = device->mtl->newDepthStencilState(depthDescriptor)->autorelease();
 
             activeClearDepthRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
             activeClearDepthRenderEncoder->setLabel(MTLSTR("Active Clear Depth Encoder"));
@@ -1937,16 +1972,15 @@ namespace RT64 {
             activeClearDepthRenderEncoder->setDepthStencilState(depthStencilState);
             
             // Release resources
-            pipelineDesc->release();
-            renderDescriptor->release();
-            depthDescriptor->release();
-            depthStencilState->release();
+            activeClearDepthRenderEncoder->retain();
+            releasePool->release();
         }
     }
 
     void MetalCommandList::endActiveClearDepthRenderEncoder() {
         if (activeClearDepthRenderEncoder != nullptr) {
             activeClearDepthRenderEncoder->endEncoding();
+            activeClearDepthRenderEncoder->release();
             activeClearDepthRenderEncoder = nullptr;
         }
     }
@@ -2007,12 +2041,6 @@ namespace RT64 {
     void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
-        
-        buffer->enqueue();
-        buffer->commit();
-        
-        // TODO: Are we releasing this buffer? Shall we rotate command buffers?
-        buffer = mtl->commandBuffer();
     }
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
@@ -2024,7 +2052,6 @@ namespace RT64 {
     MetalPipelineLayout::MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc) {
         assert(device != nullptr);
         
-        this->device = device;
         this->setCount = desc.descriptorSetDescsCount;
         
         // TODO: Make sure push constant ranges are laid out correctly
@@ -2049,7 +2076,7 @@ namespace RT64 {
     }
 
     MetalPipelineLayout::~MetalPipelineLayout() {
-        // TODO: Should be handled by ARC
+        pushConstantsBuffer->release();
     }
 
     // MetalDevice
@@ -2182,6 +2209,8 @@ namespace RT64 {
     // MetalInterface
 
     MetalInterface::MetalInterface() {
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+
         // We only have one device on Metal atm, so we create it here.
         // Ok, that's not entirely true.. but we'll support just the discrete for now.
         device = MTL::CreateSystemDefaultDevice();
@@ -2190,6 +2219,8 @@ namespace RT64 {
         createClearColorShaderLibrary();
         createResolvePipelineState();
         createClearDepthShaderLibrary();
+        
+        releasePool->release();
     }
 
     MetalInterface::~MetalInterface() {

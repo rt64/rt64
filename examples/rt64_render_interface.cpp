@@ -904,7 +904,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 2;
+    static uint32_t g_CurrentTestIndex = 3;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });

@@ -34,7 +34,6 @@ namespace RT64 {
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
         MTL::ArgumentEncoder *argumentEncoder = nullptr;
         MTL::Buffer *descriptorBuffer = nullptr;
-        MetalDevice *device = nullptr;
         std::vector<RenderDescriptorRangeType> descriptorTypes;
         std::vector<uint32_t> descriptorToRangeIndex;
         std::vector<uint32_t> descriptorIndexBases;
@@ -72,7 +71,6 @@ namespace RT64 {
         std::unordered_map<uint32_t, MTL::Texture *> indicesToTextures;
         std::vector<MTL::SamplerState *> staticSamplers;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
-        MetalDevice *device = nullptr;
         uint32_t bufferOffset = 0;
         uint32_t entryCount = 0;
         uint32_t descriptorTypeMaxIndex = 0;
@@ -119,8 +117,6 @@ namespace RT64 {
     };
 
     struct MetalFramebuffer : RenderFramebuffer {
-        MetalDevice *device = nullptr;
-        MTL::RenderCommandEncoder *renderEncoder = nil;
         bool depthAttachmentReadOnly = false;
         uint32_t width = 0;
         uint32_t height = 0;
@@ -253,7 +249,6 @@ namespace RT64 {
 
     struct MetalBuffer : RenderBuffer {
         MTL::Buffer *mtl = nullptr;
-        MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
         RenderBufferDesc desc;
 
@@ -276,7 +271,6 @@ namespace RT64 {
     struct MetalTexture : RenderTexture {
         MTL::Texture *mtl = nullptr;
         RenderTextureLayout layout = RenderTextureLayout::UNKNOWN;
-        MetalDevice *device = nullptr;
         MetalPool *pool = nullptr;
         RenderTextureDesc desc;
         MetalSwapChain *parentSwapChain = nullptr;
@@ -318,7 +312,6 @@ namespace RT64 {
 
     struct MetalShader : RenderShader {
         MTL::Function *function = nullptr;
-        MetalDevice *device = nullptr;
         NS::String *functionName = nullptr;
         RenderShaderFormat format = RenderShaderFormat::UNKNOWN;
 
@@ -328,7 +321,6 @@ namespace RT64 {
 
     struct MetalSampler : RenderSampler {
         MTL::SamplerState *state = nullptr;
-        MetalDevice *device = nullptr;
         RenderBorderColor borderColor = RenderBorderColor::UNKNOWN;
         RenderShaderVisibility shaderVisibility = RenderShaderVisibility::UNKNOWN;
 
@@ -344,7 +336,6 @@ namespace RT64 {
             Raytracing
         };
 
-        MetalDevice *device = nullptr;
         Type type = Type::Unknown;
 
         MetalPipeline(MetalDevice *device, Type type);
@@ -367,7 +358,6 @@ namespace RT64 {
 
     struct MetalPipelineLayout : RenderPipelineLayout {
         MTL::Buffer *pushConstantsBuffer = nullptr;
-        MetalDevice *device = nullptr;
         std::vector<RenderPushConstantRange> pushConstantRanges;
         uint32_t setCount = 0;
         std::vector<MetalDescriptorSetLayout *> setLayoutHandles;
