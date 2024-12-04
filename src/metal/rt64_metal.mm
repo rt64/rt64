@@ -1278,6 +1278,10 @@ namespace RT64 {
                 depthAttachment.storeAction = MTLStoreActionStore;
             }
         }
+
+        if (encoderType == EncoderType::Render && activeRenderState->sampleCount > 1) {
+            [renderDescriptor setSamplePositions:activeRenderState->samplePositions count:activeRenderState->sampleCount];
+        }
     }
 
 
