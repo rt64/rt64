@@ -921,7 +921,6 @@ namespace RT64 {
         state->winding = MTL::WindingClockwise;
         state->sampleCount = desc.multisampling.sampleCount;
         if (desc.multisampling.sampleCount > 1) {
-            // TODO: Make use of sample positions
             state->samplePositions = new MTL::SamplePosition[desc.multisampling.sampleCount];
             for (uint32_t i = 0; i < desc.multisampling.sampleCount; i++) {
                 state->samplePositions[i] = MTL::SamplePosition::Make(desc.multisampling.sampleLocations[i].x, desc.multisampling.sampleLocations[i].y);
