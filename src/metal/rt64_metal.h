@@ -207,6 +207,7 @@ namespace RT64 {
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
+        void bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, MTL::Buffer* pushConstantsBuffer, bool isCompute);
         void configureRenderDescriptor(MTL::RenderPassDescriptor *descriptor, EncoderType encoderType);
         void endOtherEncoders(EncoderType type);
         void checkActiveComputeEncoder();

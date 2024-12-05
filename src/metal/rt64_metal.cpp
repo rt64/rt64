@@ -1729,37 +1729,8 @@ namespace RT64 {
             activeComputeEncoder->setLabel(MTLSTR("Active Compute Encoder"));
             activeComputeEncoder->setComputePipelineState(activeComputeState->pipelineState);
             
-            // Encode Descriptor set layouts and mark resources
-            for (uint32_t i = 0; i < activeComputePipelineLayout->setCount; i++) {
-                const auto *setLayout = activeComputePipelineLayout->setLayoutHandles[i];
-                
-                if (indicesToComputeDescriptorSets.count(i) != 0) {
-                    const auto *descriptorSet = indicesToComputeDescriptorSets[i];
-                    // Mark resources in the argument buffer as resident
-                    for (const auto& pair : descriptorSet->indicesToTextures) {
-                        uint32_t index = pair.first;
-                        auto *texture = pair.second;
-                        if (texture != nullptr) {
-                            activeComputeEncoder->useResource(texture, MTL::ResourceUsageRead);
-                            
-                            uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                            setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
-                        }
-                    }
-                    
-                    // TODO: Mark and bind buffers
-                }
-                
-                activeComputeEncoder->setBuffer(setLayout->descriptorBuffer, 0, i);
-            }
+            bindDescriptorSetLayout(activeComputePipelineLayout, activeComputeEncoder, indicesToComputeDescriptorSets, computePushConstantsBuffer, true);
             
-            if (computePushConstantsBuffer != nullptr) {
-                uint32_t pushConstantsIndex = activeComputePipelineLayout->setCount;
-                activeComputeEncoder->setBuffer(computePushConstantsBuffer, 0, pushConstantsIndex);
-            }
-            
-            
-            // Release resources
             activeComputeEncoder->retain();
             releasePool->release();
         }
@@ -1798,36 +1769,8 @@ namespace RT64 {
                 activeRenderEncoder->setVertexBuffer(vertexBuffers[i], vertexBufferOffsets[i], vertexBufferIndices[i]);
             }
             
-            // Encode Descriptor set layouts and mark resources
-            for (uint32_t i = 0; i < activeGraphicsPipelineLayout->setCount; i++) {
-                const auto *setLayout = activeGraphicsPipelineLayout->setLayoutHandles[i];
-                
-                if (indicesToRenderDescriptorSets.count(i) != 0) {
-                    const auto *descriptorSet = indicesToRenderDescriptorSets[i];
-                    // Mark resources in the argument buffer as resident
-                    for (const auto& pair : descriptorSet->indicesToTextures) {
-                        uint32_t index = pair.first;
-                        auto *texture = pair.second;
-                        if (texture != nullptr) {
-                            activeRenderEncoder->useResource(texture, MTL::ResourceUsageRead, MTL::RenderStageVertex | MTL::RenderStageFragment);
-                            
-                            uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                            setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
-                        }
-                    }
-                    
-                    // TODO: Mark and bind buffers
-                }
-                
-                activeRenderEncoder->setFragmentBuffer(setLayout->descriptorBuffer, 0, i);
-            }
+            bindDescriptorSetLayout(activeGraphicsPipelineLayout, activeRenderEncoder, indicesToRenderDescriptorSets, graphicsPushConstantsBuffer, false);
             
-            if (graphicsPushConstantsBuffer != nullptr) {
-                uint32_t pushConstantsIndex = activeGraphicsPipelineLayout->setCount;
-                activeRenderEncoder->setFragmentBuffer(graphicsPushConstantsBuffer, 0, pushConstantsIndex);
-            }
-            
-            // Release resources
             activeRenderEncoder->retain();
             releasePool->release();
         }
@@ -2005,6 +1948,49 @@ namespace RT64 {
             indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
         }
     }
+
+    void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, MTL::Buffer* pushConstantsBuffer, bool isCompute) {
+        // Encode Descriptor set layouts and mark resources
+        for (uint32_t i = 0; i < layout->setCount; i++) {
+            const auto* setLayout = layout->setLayoutHandles[i];
+            
+            if (descriptorSets.count(i) != 0) {
+                const auto* descriptorSet = descriptorSets.at(i);
+                // Mark resources in the argument buffer as resident
+                for (const auto& pair : descriptorSet->indicesToTextures) {
+                    uint32_t index = pair.first;
+                    auto* texture = pair.second;
+                    if (texture != nullptr) {
+                        if (isCompute) {
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead);
+                        } else {
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        }
+                        
+                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                        setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
+                    }
+                }
+                
+                // TODO: Mark and bind buffers
+            }
+            
+            if (isCompute) {
+                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, 0, i);
+            } else {
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, 0, i);
+            }
+    }
+    
+    if (pushConstantsBuffer != nullptr) {
+        uint32_t pushConstantsIndex = layout->setCount;
+        if (isCompute) {
+            static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(pushConstantsBuffer, 0, pushConstantsIndex);
+        } else {
+            static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(pushConstantsBuffer, 0, pushConstantsIndex);
+        }
+    }
+}
 
     // MetalCommandFence
 
