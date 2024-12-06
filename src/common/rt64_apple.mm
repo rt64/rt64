@@ -8,30 +8,55 @@ const char* GetHomeDirectory() {
 }
 
 void GetWindowAttributes(void* window, CocoaWindowAttributes *attributes) {
-    NSWindow *nsWindow = (__bridge NSWindow *)window;
-    NSRect contentFrame = [[nsWindow contentView] frame];
-    attributes->x = contentFrame.origin.x;
-    attributes->y = contentFrame.origin.y;
-    attributes->width = contentFrame.size.width;
-    attributes->height = contentFrame.size.height;
+    if ([NSThread isMainThread]) {
+        NSWindow *nsWindow = (__bridge NSWindow *)window;
+        NSRect contentFrame = [[nsWindow contentView] frame];
+        attributes->x = contentFrame.origin.x;
+        attributes->y = contentFrame.origin.y;
+        attributes->width = contentFrame.size.width;
+        attributes->height = contentFrame.size.height;
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            NSWindow *nsWindow = (__bridge NSWindow *)window;
+            NSRect contentFrame = [[nsWindow contentView] frame];
+            attributes->x = contentFrame.origin.x;
+            attributes->y = contentFrame.origin.y;
+            attributes->width = contentFrame.size.width;
+            attributes->height = contentFrame.size.height;
+        });
+    }
 }
 
 int GetWindowRefreshRate(void* window) {
-    NSWindow *nsWindow = (__bridge NSWindow *)window;
-    NSScreen *screen = [nsWindow screen];
-
-    if (@available(macOS 12.0, *)) {
-        return (int)[screen maximumFramesPerSecond];
+    __block int refreshRate = 0;
+    
+    if ([NSThread isMainThread]) {
+        NSWindow *nsWindow = (__bridge NSWindow *)window;
+        NSScreen *screen = [nsWindow screen];
+        if (@available(macOS 12.0, *)) {
+            refreshRate = (int)[screen maximumFramesPerSecond];
+        }
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            NSWindow *nsWindow = (__bridge NSWindow *)window;
+            NSScreen *screen = [nsWindow screen];
+            if (@available(macOS 12.0, *)) {
+                refreshRate = (int)[screen maximumFramesPerSecond];
+            }
+        });
     }
     
-    // TODO: Implement this.
-    return 0;
+    return refreshRate;
 }
 
 void WindowToggleFullscreen(void* window) {
-    // UI operations have to happen on the main thread.
-    dispatch_async(dispatch_get_main_queue(), ^{
+    if ([NSThread isMainThread]) {
         NSWindow *nsWindow = (__bridge NSWindow *)window;
         [nsWindow toggleFullScreen:NULL];
-    });
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSWindow *nsWindow = (__bridge NSWindow *)window;
+            [nsWindow toggleFullScreen:NULL];
+        });
+    }
 }
