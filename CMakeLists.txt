@@ -134,8 +134,6 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
             COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metal.c ${OUTNAME}.metal.h
             DEPENDS ${OUTNAME}.metallib file_to_c
             BYPRODUCTS ${OUTNAME}.metal.h)
-    add_custom_command(TARGET ${TARGETOBJ} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E rm -f ${OUTNAME}.spv ${OUTNAME}.metal ${OUTNAME}.ir ${OUTNAME}.metallib)
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metal.c)
 endfunction()
 
@@ -537,6 +535,7 @@ if (RT64_BUILD_EXAMPLES)
     add_executable(rhi_test "examples/rt64_render_interface.cpp" "examples/rhi_test.cpp")
     target_link_libraries(rhi_test rt64)
 
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestSpecPS.hlsl")
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestColorPS.hlsl")
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTexturePS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")

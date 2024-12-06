@@ -311,12 +311,13 @@ namespace RT64 {
     };
 
     struct MetalShader : RenderShader {
-        MTL::Function *function = nullptr;
         NS::String *functionName = nullptr;
         RenderShaderFormat format = RenderShaderFormat::UNKNOWN;
+        MTL::Library *library = nullptr;
 
         MetalShader(MetalDevice *device, const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format);
         ~MetalShader() override;
+        MTL::Function* createFunction(const RenderSpecConstant *specConstants, uint32_t specConstantsCount) const;
     };
 
     struct MetalSampler : RenderSampler {

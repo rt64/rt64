@@ -31,6 +31,7 @@
 #include "shaders/RenderInterfaceTestCS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
+#include "shaders/RenderInterfaceTestSpecPS.hlsl.spirv.h"
 #ifdef __APPLE__
 #include "shaders/RenderInterfaceTestColorPS.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestTexturePS.hlsl.metal.h"
@@ -40,6 +41,7 @@
 #include "shaders/RenderInterfaceTestCS.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestPostPS.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestSpecPS.hlsl.metal.h"
 #endif
 
 namespace RT64 {
@@ -156,7 +158,8 @@ namespace RT64 {
         RAY_TRACE,
 #endif
         POST_VERTEX,
-        POST_PIXEL
+        POST_PIXEL,
+        SPEC_PIXEL
     };
 
     struct ShaderData {
@@ -301,6 +304,10 @@ namespace RT64 {
                         data.blob = RenderInterfaceTestPostPSBlobDXIL;
                         data.size = sizeof(RenderInterfaceTestPostPSBlobDXIL);
                         break;
+                    case ShaderType::SPEC_PIXEL:
+                        data.blob = RenderInterfaceTestSpecPSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestSpecPSBlobDXIL);
+                        break;
                 }
                 break;
 #       endif
@@ -336,6 +343,10 @@ namespace RT64 {
                         data.blob = RenderInterfaceTestPostPSBlobSPIRV;
                         data.size = sizeof(RenderInterfaceTestPostPSBlobSPIRV);
                         break;
+                    case ShaderType::SPEC_PIXEL:
+                        data.blob = RenderInterfaceTestSpecPSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestSpecPSBlobSPIRV);
+                        break;
                 }
                 break;
 #       ifdef __APPLE__
@@ -364,6 +375,10 @@ namespace RT64 {
                     case ShaderType::POST_PIXEL:
                         data.blob = RenderInterfaceTestPostPSBlobMSL;
                         data.size = sizeof(RenderInterfaceTestPostPSBlobMSL);
+                        break;
+                    case ShaderType::SPEC_PIXEL:
+                        data.blob = RenderInterfaceTestSpecPSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestSpecPSBlobMSL);
                         break;
                 }
                 break;
@@ -900,17 +915,97 @@ namespace RT64 {
         }
     };
 
+    struct SpecConstantTest : public TestBase {
+        std::unique_ptr<RenderPipeline> specConstantPipeline;
+        std::unique_ptr<RenderPipelineLayout> specConstantLayout;
+
+        void createSpecConstantPipeline(TestContext& ctx) {
+            const RenderShaderFormat shaderFormat = ctx.renderInterface->getCapabilities().shaderFormat;
+            assert(shaderFormat != RenderShaderFormat::DXIL && "DXIL does not support specialization constants.");
+            
+            RenderPipelineLayoutBuilder layoutBuilder;
+            layoutBuilder.begin(false, true);
+            layoutBuilder.end();
+            
+            specConstantLayout = layoutBuilder.create(ctx.device.get());
+
+            ShaderData psData = getShaderData(shaderFormat, ShaderType::SPEC_PIXEL);
+            ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
+            
+            std::vector<RenderInputElement> inputElements;
+            inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
+            inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
+            
+            std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
+            std::unique_ptr<RenderShader> vertexShader = ctx.device->createShader(vsData.blob, vsData.size, "VSMain", shaderFormat);
+            
+            const uint32_t FloatsPerVertex = 4;
+
+            ctx.inputSlot = RenderInputSlot(0, sizeof(float) * FloatsPerVertex);
+
+            // Create specialization constant
+            std::vector<RenderSpecConstant> specConstants;
+            specConstants.emplace_back(0, 1);
+
+            RenderGraphicsPipelineDesc graphicsDesc;
+            graphicsDesc.inputSlots = &ctx.inputSlot;
+            graphicsDesc.inputSlotsCount = 1;
+            graphicsDesc.inputElements = inputElements.data();
+            graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
+            graphicsDesc.pipelineLayout = specConstantLayout.get();
+            graphicsDesc.pixelShader = pixelShader.get();
+            graphicsDesc.vertexShader = vertexShader.get();
+            graphicsDesc.renderTargetFormat[0] = ColorFormat;
+            graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+            graphicsDesc.depthTargetFormat = DepthFormat;
+            graphicsDesc.renderTargetCount = 1;
+            graphicsDesc.multisampling.sampleCount = MSAACount;
+            graphicsDesc.specConstants = specConstants.data();
+            graphicsDesc.specConstantsCount = uint32_t(specConstants.size());
+
+            specConstantPipeline = ctx.device->createGraphicsPipeline(graphicsDesc);
+        }
+
+        void initialize(TestContext& ctx) override {
+            createSpecConstantPipeline(ctx);
+            createPostPipeline(ctx);
+            createVertexBuffer(ctx);
+            resize(ctx);
+        }
+        
+        void resize(TestContext& ctx) override {
+            createSwapChain(ctx);
+            createTargets(ctx);
+        }
+
+        void draw(TestContext& ctx) override {
+            ctx.commandList->begin();
+            initializeRenderTargets(ctx);
+
+            // Draw triangle with spec constant pipeline
+            ctx.commandList->setPipeline(specConstantPipeline.get());
+            ctx.commandList->setGraphicsPipelineLayout(specConstantLayout.get());
+            drawRasterTriangle(ctx);
+
+            resolveMultisampledTexture(ctx);
+            applyPostProcessToSwapChain(ctx);
+            ctx.commandList->end();
+            presentSwapChain(ctx);
+        }
+    };
+
     // Test registration and management
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 3;
+    static uint32_t g_CurrentTestIndex = 4;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
         g_Tests.push_back([]() { return std::make_unique<RasterTest>(); });
         g_Tests.push_back([]() { return std::make_unique<TextureTest>(); });
         g_Tests.push_back([]() { return std::make_unique<ComputeTest>(); });
+        g_Tests.push_back([]() { return std::make_unique<SpecConstantTest>(); });
     }
 
     // Update platform specific code to use the new test framework

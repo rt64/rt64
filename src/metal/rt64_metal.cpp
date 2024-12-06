@@ -754,20 +754,39 @@ namespace RT64 {
         
         NS::Error *error;
         dispatch_data_t dispatchData = dispatch_data_create(data, size, dispatch_get_main_queue(), ^{});
-        MTL::Library *library = device->mtl->newLibrary(dispatchData, &error);
+        library = device->mtl->newLibrary(dispatchData, &error);
         
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newLibraryWithSource: failed with error %s.\n", error->localizedDescription()->utf8String());
             return;
         }
-        
-        this->function = library->newFunction(functionName);
-        library->release();
     }
 
     MetalShader::~MetalShader() {
         functionName->release();
-        function->release();
+        library->release();
+    }
+
+    MTL::Function* MetalShader::createFunction(const RenderSpecConstant *specConstants, uint32_t specConstantsCount) const {
+        if (specConstants != nullptr) {
+            MTL::FunctionConstantValues *values = MTL::FunctionConstantValues::alloc()->init();
+            for (uint32_t i = 0; i < specConstantsCount; i++) {
+                const RenderSpecConstant &specConstant = specConstants[i];
+                values->setConstantValue(&specConstant.value, MTL::DataTypeUInt, specConstant.index);
+            }
+            
+            NS::Error *error;
+            auto function = library->newFunction(functionName, values, &error);
+            
+            if (error != nullptr) {
+                fprintf(stderr, "MTLLibrary newFunction: failed with error: %ld.\n", error->code());
+                return;
+            }
+            
+            return function;
+        } else {
+            return library->newFunction(functionName);
+        }
     }
 
     // MetalSampler
@@ -819,7 +838,8 @@ namespace RT64 {
         const auto *computeShader = static_cast<const MetalShader *>(desc.computeShader);
         
         MTL::ComputePipelineDescriptor *descriptor = MTL::ComputePipelineDescriptor::alloc()->init();
-        descriptor->setComputeFunction(computeShader->function);
+        auto function = computeShader->createFunction(desc.specConstants, desc.specConstantsCount);
+        descriptor->setComputeFunction(function);
         descriptor->setLabel(computeShader->functionName);
 
         // State variables, initialized here to be reused in encoder re-binding
@@ -863,7 +883,8 @@ namespace RT64 {
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
         const auto *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
         
-        descriptor->setVertexFunction(metalShader->function);
+        auto vertexFunction = metalShader->createFunction(desc.specConstants, desc.specConstantsCount);
+        descriptor->setVertexFunction(vertexFunction);
         
         MTL::VertexDescriptor *vertexDescriptor = MTL::VertexDescriptor::alloc()->init()->autorelease();
         
@@ -891,7 +912,8 @@ namespace RT64 {
         
         if (desc.pixelShader != nullptr) {
             const auto *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
-            descriptor->setFragmentFunction(pixelShader->function);
+            auto fragmentFunction = pixelShader->createFunction(desc.specConstants, desc.specConstantsCount);
+            descriptor->setFragmentFunction(fragmentFunction);
         }
         
         for (uint32_t i = 0; i < desc.renderTargetCount; i++) {
