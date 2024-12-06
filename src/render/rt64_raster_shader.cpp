@@ -173,7 +173,7 @@ namespace RT64 {
                 VSBlobSize = uint32_t(std::size(RasterVSSpecConstantFlatBlobMSL));
             }
 
-            // Pick the correct SPIR-V based on the configuration.
+            // Pick the correct MSL based on the configuration.
             if (desc.flags.smoothShade) {
                 if (outputDepth) {
                     PSBlob = useMSAA ? RasterPSSpecConstantDepthMSBlobMSL : RasterPSSpecConstantDepthBlobMSL;
