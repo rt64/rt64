@@ -1043,6 +1043,7 @@ namespace RT64 {
             case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
             case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
                 indicesToBuffers[descriptorIndex] = interfaceBuffer->mtl;
+                break;
             }
             case RenderDescriptorRangeType::TEXTURE:
             case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
