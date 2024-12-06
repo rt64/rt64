@@ -780,7 +780,7 @@ namespace RT64 {
             
             if (error != nullptr) {
                 fprintf(stderr, "MTLLibrary newFunction: failed with error: %ld.\n", error->code());
-                return;
+                return nullptr;
             }
             
             return function;
