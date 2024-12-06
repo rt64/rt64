@@ -15,6 +15,7 @@
 
 #ifdef _WIN64
 #include "shaders/RenderInterfaceTestColorPS.hlsl.dxil.h"
+#include "shaders/RenderInterfaceTestDecalPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestTexturePS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestRT.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestVS.hlsl.dxil.h"
@@ -23,6 +24,7 @@
 #include "shaders/RenderInterfaceTestPostVS.hlsl.dxil.h"
 #endif
 #include "shaders/RenderInterfaceTestColorPS.hlsl.spirv.h"
+#include "shaders/RenderInterfaceTestDecalPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestTexturePS.hlsl.spirv.h"
 #ifndef __APPLE__
 #include "shaders/RenderInterfaceTestRT.hlsl.spirv.h"
@@ -34,6 +36,7 @@
 #include "shaders/RenderInterfaceTestSpecPS.hlsl.spirv.h"
 #ifdef __APPLE__
 #include "shaders/RenderInterfaceTestColorPS.hlsl.metal.h"
+#include "shaders/RenderInterfaceTestDecalPS.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestTexturePS.hlsl.metal.h"
 // TODO: Enable when RT is added to Metal.
 //#include "shaders/RenderInterfaceTestRT.hlsl.metal.h"
@@ -152,6 +155,7 @@ namespace RT64 {
     enum class ShaderType {
         VERTEX,
         COLOR_PIXEL,
+        DECAL_PIXEL,
         TEXTURE_PIXEL,
         COMPUTE,
 #ifndef __APPLE__
@@ -180,6 +184,7 @@ namespace RT64 {
         std::unique_ptr<RenderCommandFence> commandFence;
         std::unique_ptr<RenderSwapChain> swapChain;
         std::unique_ptr<RenderFramebuffer> framebuffer;
+        std::unique_ptr<RenderFramebuffer> framebufferDepthRead;
         std::vector<std::unique_ptr<RenderFramebuffer>> swapFramebuffers;
         std::unique_ptr<RenderSampler> linearSampler;
         std::unique_ptr<RenderSampler> postSampler;
@@ -201,6 +206,7 @@ namespace RT64 {
         std::unique_ptr<RenderTexture> colorTargetMS;
         std::unique_ptr<RenderTexture> colorTargetResolved;
         std::unique_ptr<RenderTexture> depthTarget;
+        std::unique_ptr<RenderTextureView> depthTargetView;
         std::unique_ptr<RenderBuffer> uploadBuffer;
         std::unique_ptr<RenderTexture> blueNoiseTexture;
         std::unique_ptr<RenderBuffer> vertexBuffer;
@@ -253,9 +259,12 @@ namespace RT64 {
             ctx.postSet.reset(nullptr);
             ctx.linearSampler.reset(nullptr);
             ctx.postSampler.reset(nullptr);
+            ctx.framebuffer.reset(nullptr);
+            ctx.framebufferDepthRead.reset(nullptr);
             ctx.colorTargetMS.reset(nullptr);
             ctx.colorTargetResolved.reset(nullptr);
-            ctx.framebuffer.reset(nullptr);
+            ctx.depthTargetView.reset(nullptr);
+            ctx.depthTarget.reset(nullptr);
             ctx.swapFramebuffers.clear();
             ctx.commandList.reset(nullptr);
             ctx.drawSemaphore.reset(nullptr);
@@ -284,6 +293,10 @@ namespace RT64 {
                         data.blob = RenderInterfaceTestColorPSBlobDXIL;
                         data.size = sizeof(RenderInterfaceTestColorPSBlobDXIL);
                         break;
+                    case ShaderType::DECAL_PIXEL:
+                        data.blob = RenderInterfaceTestDecalPSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestDecalPSBlobDXIL);
+                        break;
                     case ShaderType::TEXTURE_PIXEL:
                         data.blob = RenderInterfaceTestTexturePSBlobDXIL;
                         data.size = sizeof(RenderInterfaceTestTexturePSBlobDXIL);
@@ -305,8 +318,7 @@ namespace RT64 {
                         data.size = sizeof(RenderInterfaceTestPostPSBlobDXIL);
                         break;
                     case ShaderType::SPEC_PIXEL:
-                        data.blob = RenderInterfaceTestSpecPSBlobDXIL;
-                        data.size = sizeof(RenderInterfaceTestSpecPSBlobDXIL);
+                        assert(false && "Spec constants are not supported in DXIL.");
                         break;
                 }
                 break;
@@ -320,6 +332,10 @@ namespace RT64 {
                     case ShaderType::COLOR_PIXEL:
                         data.blob = RenderInterfaceTestColorPSBlobSPIRV;
                         data.size = sizeof(RenderInterfaceTestColorPSBlobSPIRV);
+                        break;
+                    case ShaderType::DECAL_PIXEL:
+                        data.blob = RenderInterfaceTestDecalPSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestDecalPSBlobSPIRV);
                         break;
                     case ShaderType::TEXTURE_PIXEL:
                         data.blob = RenderInterfaceTestTexturePSBlobSPIRV;
@@ -359,6 +375,10 @@ namespace RT64 {
                     case ShaderType::COLOR_PIXEL:
                         data.blob = RenderInterfaceTestColorPSBlobMSL;
                         data.size = sizeof(RenderInterfaceTestColorPSBlobMSL);
+                        break;
+                    case ShaderType::DECAL_PIXEL:
+                        data.blob = RenderInterfaceTestDecalPSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestDecalPSBlobMSL);
                         break;
                     case ShaderType::TEXTURE_PIXEL:
                         data.blob = RenderInterfaceTestTexturePSBlobMSL;
@@ -416,9 +436,11 @@ namespace RT64 {
         ctx.colorTargetMS = ctx.device->createTexture(RenderTextureDesc::ColorTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), ColorFormat, RenderMultisampling(MSAACount), nullptr));
         ctx.colorTargetResolved = ctx.device->createTexture(RenderTextureDesc::ColorTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), ColorFormat, 1, nullptr, RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
         ctx.depthTarget = ctx.device->createTexture(RenderTextureDesc::DepthTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), DepthFormat, RenderMultisampling(MSAACount)));
+        ctx.depthTargetView = ctx.depthTarget->createTextureView(RenderTextureViewDesc::Texture2D(RenderFormat::D32_FLOAT));
         
         const RenderTexture *colorTargetPtr = ctx.colorTargetMS.get();
         ctx.framebuffer = ctx.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, ctx.depthTarget.get()));
+        ctx.framebufferDepthRead = ctx.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, ctx.depthTarget.get(), true));
     }
 
     static void createRasterColorShader(TestContext &ctx) {
@@ -456,6 +478,9 @@ namespace RT64 {
         graphicsDesc.vertexShader = vertexShader.get();
         graphicsDesc.renderTargetFormat[0] = ColorFormat;
         graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+        graphicsDesc.depthEnabled = true;
+        graphicsDesc.depthFunction = RenderComparisonFunction::LESS_EQUAL;
+        graphicsDesc.depthWriteEnabled = true;
         graphicsDesc.depthTargetFormat = DepthFormat;
         graphicsDesc.renderTargetCount = 1;
         graphicsDesc.multisampling.sampleCount = MSAACount;
@@ -654,23 +679,19 @@ namespace RT64 {
         ctx.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f)); // Clear to blue
         
         // Clear with rects
-        std::vector<RenderRect> clearColorRects = {
-            {0, 0, 100, 100},
-            {200, 200, 300, 300},
-            {400, 400, 500, 500}
+        const RenderRect clearRects[] = {
+            RenderRect(0, 0, 100, 100),
+            RenderRect(200, 200, 300, 300),
+            RenderRect(400, 400, 500, 500)
         };
-        ctx.commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearColorRects.data(), clearColorRects.size()); // Clear to green
+
+        ctx.commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearRects, std::size(clearRects)); // Clear to green
         
         // Clear full depth buffer
         ctx.commandList->clearDepth();  // Clear to 1.0f
         
         // Clear depth buffer with rects
-        std::vector<RenderRect> clearDepthRects = {
-            {100, 100, 200, 200},
-            {300, 300, 400, 400},
-            {500, 500, 600, 600},
-        };
-        ctx.commandList->clearDepth(true, 0, clearDepthRects.data(), clearDepthRects.size());
+        ctx.commandList->clearDepth(true, 0, clearRects, std::size(clearRects));
     }
 
     static void resolveMultisampledTexture(TestContext& ctx) {
@@ -769,16 +790,56 @@ namespace RT64 {
 
     struct RasterTest : public TestBase {
         std::unique_ptr<RenderPipeline> rasterColorPipelineBlend;
+        std::unique_ptr<RenderPipeline> rasterDecalPipeline;
+        std::unique_ptr<RenderPipelineLayout> rasterDecalPipelineLayout;
+        std::unique_ptr<RenderDescriptorSet> rasterDecalDescriptorSet;
 
         void createSecondRasterPipeline(TestContext& ctx) {
-            RenderPipelineLayoutBuilder layoutBuilder;
-            layoutBuilder.begin(false, true);
-            layoutBuilder.end();
-
-            std::unique_ptr<RenderPipelineLayout> layout = layoutBuilder.create(ctx.device.get());
-
             const RenderShaderFormat shaderFormat = ctx.renderInterface->getCapabilities().shaderFormat;
             ShaderData psData = getShaderData(shaderFormat, ShaderType::COLOR_PIXEL);
+            ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
+
+            std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
+            std::unique_ptr<RenderShader> vertexShader = ctx.device->createShader(vsData.blob, vsData.size, "VSMain", shaderFormat);
+
+            // Create input elements matching the first pipeline
+            std::vector<RenderInputElement> inputElements;
+            inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
+            inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, 0));
+
+            RenderGraphicsPipelineDesc graphicsDesc;
+            graphicsDesc.inputSlots = &ctx.inputSlot;
+            graphicsDesc.inputSlotsCount = 1;
+            graphicsDesc.inputElements = inputElements.data();
+            graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
+            graphicsDesc.pipelineLayout = ctx.rasterColorPipelineLayout.get();
+            graphicsDesc.pixelShader = pixelShader.get();
+            graphicsDesc.vertexShader = vertexShader.get();
+            graphicsDesc.renderTargetFormat[0] = ColorFormat;
+            graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::AlphaBlend();
+            graphicsDesc.depthTargetFormat = DepthFormat;
+            graphicsDesc.renderTargetCount = 1;
+            graphicsDesc.multisampling.sampleCount = MSAACount;
+
+            rasterColorPipelineBlend = ctx.device->createGraphicsPipeline(graphicsDesc);
+        }
+
+        void createRasterDecalPipeline(TestContext &ctx) {
+            RenderDescriptorSetBuilder setBuilder;
+            setBuilder.begin();
+            setBuilder.addTexture(0);
+            setBuilder.end();
+            rasterDecalDescriptorSet = setBuilder.create(ctx.device.get());
+
+            RenderPipelineLayoutBuilder layoutBuilder;
+            layoutBuilder.begin(false, true);
+            layoutBuilder.addDescriptorSet(setBuilder);
+            layoutBuilder.end();
+
+            rasterDecalPipelineLayout = layoutBuilder.create(ctx.device.get());
+
+            const RenderShaderFormat shaderFormat = ctx.renderInterface->getCapabilities().shaderFormat;
+            ShaderData psData = getShaderData(shaderFormat, ShaderType::DECAL_PIXEL);
             ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
 
             std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
@@ -794,33 +855,22 @@ namespace RT64 {
             graphicsDesc.inputSlotsCount = 1;
             graphicsDesc.inputElements = inputElements.data();
             graphicsDesc.inputElementsCount = uint32_t(inputElements.size());
-            graphicsDesc.pipelineLayout = layout.get();
+            graphicsDesc.pipelineLayout = rasterDecalPipelineLayout.get();
             graphicsDesc.pixelShader = pixelShader.get();
             graphicsDesc.vertexShader = vertexShader.get();
             graphicsDesc.renderTargetFormat[0] = ColorFormat;
-
-            // Set up proper blend state
-            RenderBlendDesc blendDesc;
-            blendDesc.blendEnabled = true;
-            blendDesc.srcBlend = RenderBlend::ONE;
-            blendDesc.dstBlend = RenderBlend::ONE;
-            blendDesc.blendOp = RenderBlendOperation::ADD;
-            blendDesc.srcBlendAlpha = RenderBlend::ONE;
-            blendDesc.dstBlendAlpha = RenderBlend::ONE;
-            blendDesc.blendOpAlpha = RenderBlendOperation::ADD;
-            blendDesc.renderTargetWriteMask = uint8_t(RenderColorWriteEnable::ALL);
-            
-            graphicsDesc.renderTargetBlend[0] = blendDesc;
+            graphicsDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
             graphicsDesc.depthTargetFormat = DepthFormat;
             graphicsDesc.renderTargetCount = 1;
             graphicsDesc.multisampling.sampleCount = MSAACount;
 
-            rasterColorPipelineBlend = ctx.device->createGraphicsPipeline(graphicsDesc);
+            rasterDecalPipeline = ctx.device->createGraphicsPipeline(graphicsDesc);
         }
 
         void initialize(TestContext& ctx) override {
             createRasterColorShader(ctx);
             createSecondRasterPipeline(ctx);
+            createRasterDecalPipeline(ctx);
             createPostPipeline(ctx);
             createVertexBuffer(ctx);
             resize(ctx);
@@ -829,6 +879,7 @@ namespace RT64 {
         void resize(TestContext& ctx) override {
             createSwapChain(ctx);
             createTargets(ctx);
+            rasterDecalDescriptorSet->setTexture(0, ctx.depthTarget.get(), RenderTextureLayout::DEPTH_READ, ctx.depthTargetView.get());
         }
 
         void draw(TestContext& ctx) override {
@@ -839,15 +890,33 @@ namespace RT64 {
             setupRasterColorPipeline(ctx);
             drawRasterTriangle(ctx);
 
-            // Draw second triangle with blend pipeline
-            ctx.commandList->setPipeline(rasterColorPipelineBlend.get());
             // Offset the viewport for the second triangle
             const uint32_t width = ctx.swapChain->getWidth();
             const uint32_t height = ctx.swapChain->getHeight();
             const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));            
             RenderViewport offsetViewport = viewport;
-            offsetViewport.x += 100.0f;  // Offset by 100 pixels
+            
+            // Depth target must be in read-only mode
+            ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_READ));
+
+            // Draw decal triangle
+            offsetViewport.x += 300.0f;
+            ctx.commandList->setFramebuffer(ctx.framebufferDepthRead.get());
             ctx.commandList->setViewports(offsetViewport);
+            ctx.commandList->setGraphicsPipelineLayout(rasterDecalPipelineLayout.get());
+            ctx.commandList->setGraphicsDescriptorSet(rasterDecalDescriptorSet.get(), 0);
+            ctx.commandList->setPipeline(rasterDecalPipeline.get());
+            drawRasterTriangle(ctx);
+
+            // Switch depth target back to write mode
+            ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_WRITE));
+
+            // Draw alpha blended triangle
+            offsetViewport.x -= 200.0f;
+            ctx.commandList->setFramebuffer(ctx.framebuffer.get());
+            ctx.commandList->setViewports(offsetViewport);
+            ctx.commandList->setGraphicsPipelineLayout(ctx.rasterColorPipelineLayout.get());
+            ctx.commandList->setPipeline(rasterColorPipelineBlend.get());
             drawRasterTriangle(ctx);
 
             resolveMultisampledTexture(ctx);
@@ -998,7 +1067,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 4;
+    static uint32_t g_CurrentTestIndex = 1;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });

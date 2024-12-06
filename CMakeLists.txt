@@ -537,6 +537,7 @@ if (RT64_BUILD_EXAMPLES)
 
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestSpecPS.hlsl")
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestColorPS.hlsl")
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestDecalPS.hlsl")
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTexturePS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
     build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
