@@ -1,6 +1,7 @@
 #define NS_PRIVATE_IMPLEMENTATION
 #define CA_PRIVATE_IMPLEMENTATION
 #define MTL_PRIVATE_IMPLEMENTATION
+
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
@@ -630,7 +631,7 @@ namespace RT64 {
     MetalBufferFormattedView::MetalBufferFormattedView(RT64::MetalBuffer *buffer, RT64::RenderFormat format) {
         assert(buffer != nullptr);
         assert((buffer->desc.flags & RenderBufferFlag::FORMATTED) && "Buffer must allow formatted views.");
-        
+
         this->buffer = buffer;
     }
 
@@ -1029,7 +1030,30 @@ namespace RT64 {
     }
 
     void MetalDescriptorSet::setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
-        // TODO: Unimplemented.
+        const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer*>(buffer);
+        const auto nativeResource = (interfaceBuffer != nullptr) ? interfaceBuffer->mtl : nullptr;
+        uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+        RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
+        switch (descriptorType) {
+            case RenderDescriptorRangeType::CONSTANT_BUFFER:
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
+                indicesToBuffers[descriptorIndex] = interfaceBuffer->mtl;
+            }
+            case RenderDescriptorRangeType::TEXTURE:
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+            case RenderDescriptorRangeType::SAMPLER:
+            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
+                assert(false && "Incompatible descriptor type.");
+               break;
+            default:
+                assert(false && "Unknown descriptor type.");
+                break;
+        }
     }
 
     void MetalDescriptorSet::setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) {
@@ -1066,7 +1090,10 @@ namespace RT64 {
     }
 
     void MetalDescriptorSet::setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) {
-        // TODO: Unimplemented.
+        if (sampler != nullptr) {
+            const MetalSampler *interfaceSampler = static_cast<const MetalSampler *>(sampler);
+            indicesToSamplers[descriptorIndex] = interfaceSampler->state;
+        }
     }
 
     void MetalDescriptorSet::setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
@@ -1993,8 +2020,30 @@ namespace RT64 {
                         setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
                     }
                 }
-                
-                // TODO: Mark and bind buffers
+
+                for (const auto& pair : descriptorSet->indicesToBuffers) {
+                    uint32_t index = pair.first;
+                    auto* buffer = pair.second;
+                    if (buffer != nullptr) {
+                        if (isCompute) {
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(buffer, MTL::ResourceUsageRead);
+                        } else {
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(buffer, MTL::ResourceUsageRead, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        }
+
+                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                        setLayout->argumentEncoder->setBuffer(buffer, 0, adjustedIndex);
+                    }
+                }
+
+                for (const auto& pair : descriptorSet->indicesToSamplers) {
+                    uint32_t index = pair.first;
+                    auto* sampler = pair.second;
+                    if (sampler != nullptr) {
+                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                        setLayout->argumentEncoder->setSamplerState(sampler, adjustedIndex);
+                    }
+                }
             }
             
             if (isCompute) {
