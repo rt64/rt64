@@ -2097,11 +2097,11 @@ namespace RT64 {
     // MetalCommandFence
 
     MetalCommandFence::MetalCommandFence(MetalDevice *device) {
-        // TODO: Unimplemented and probably unnecessary.
+        semaphore = dispatch_semaphore_create(0);
     }
 
     MetalCommandFence::~MetalCommandFence() {
-        // TODO: Should be handled by ARC
+        dispatch_release(semaphore);
     }
 
     // MetalCommandSemaphore
@@ -2141,10 +2141,17 @@ namespace RT64 {
     void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
+        
+        if (signalFence != nullptr) {
+            buffer->addCompletedHandler([signalFence](MTL::CommandBuffer* cmdBuffer) {
+                dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
+            });
+        }
     }
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
-        // TODO: Should be handled by hazard tracking.
+        auto *metalFence = static_cast<MetalCommandFence *>(fence);
+        dispatch_semaphore_wait(metalFence->semaphore, DISPATCH_TIME_FOREVER);
     }
 
     // MetalPipelineLayout

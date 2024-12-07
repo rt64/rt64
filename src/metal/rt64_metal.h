@@ -230,6 +230,8 @@ namespace RT64 {
     };
 
     struct MetalCommandFence : RenderCommandFence {
+        dispatch_semaphore_t semaphore;
+        
         MetalCommandFence(MetalDevice *device);
         ~MetalCommandFence() override;
     };
