@@ -691,7 +691,7 @@ namespace RT64 {
 
     MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
         assert(texture != nullptr);
-        auto textureType = toTextureType(desc.dimension, 1);
+        assert(texture->desc.dimension == desc.dimension && "Creating a view with a different dimension is currently not supported.");
         this->texture = texture->mtl->newTextureView(toMTL(desc.format), texture->mtl->textureType(), NS::Range::Make(desc.mipSlice, desc.mipLevels), NS::Range::Make(0, texture->arrayCount));
     }
 
