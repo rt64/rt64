@@ -275,6 +275,7 @@ namespace RT64 {
         RenderTextureLayout layout = RenderTextureLayout::UNKNOWN;
         MetalPool *pool = nullptr;
         RenderTextureDesc desc;
+        uint32_t arrayCount = 1;
         MetalSwapChain *parentSwapChain = nullptr;
 
         MetalTexture() = default;

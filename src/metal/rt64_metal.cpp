@@ -691,9 +691,8 @@ namespace RT64 {
 
     MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
         assert(texture != nullptr);
-        // TODO: Validate levels and slices
         auto textureType = toTextureType(desc.dimension, 1);
-        this->texture = texture->mtl->newTextureView(toMTL(desc.format), textureType, NS::Range::Make(desc.mipSlice, desc.mipLevels), NS::Range::Make(0, 1));
+        this->texture = texture->mtl->newTextureView(toMTL(desc.format), texture->mtl->textureType(), NS::Range::Make(desc.mipSlice, desc.mipLevels), NS::Range::Make(0, texture->arrayCount));
     }
 
     MetalTextureView::~MetalTextureView() {
