@@ -7,13 +7,64 @@
 #include <QuartzCore/QuartzCore.hpp>
 #include <TargetConditionals.h>
 
+#include <algorithm>
+#include <xxHash/xxh3.h>
+
 #include "rt64_metal.h"
 #include "common/rt64_apple.h"
-#include <algorithm>
 
 namespace RT64 {
+    const static uint32_t MAX_COLOR_ATTACHMENT_COUNT = 8;
+    const static uint32_t COLOR_COUNT = MAX_COLOR_ATTACHMENT_COUNT;
+    const static uint32_t DEPTH_INDEX = COLOR_COUNT;
+    const static uint32_t STENCIL_INDEX = DEPTH_INDEX + 1;
+    const static uint32_t ATTACHMENT_COUNT = STENCIL_INDEX + 1;
+
     static size_t calculateAlignedSize(size_t size, size_t alignment = 16) {
         return (size + alignment - 1) & ~(alignment - 1);
+    }
+
+    static uint64_t hashForRenderPipelineDescriptor(MTL::RenderPipelineDescriptor *pipelineDesc) {
+        XXH3_state_t xxh3;
+        XXH3_64bits_reset(&xxh3);
+        
+        std::uintptr_t sampleCount = pipelineDesc->sampleCount();
+        XXH3_64bits_update(&xxh3, &sampleCount, sizeof(sampleCount));
+        
+        uint16_t pixel_formats[ATTACHMENT_COUNT] = { 0 };
+        for (uint32_t i = 0; i < COLOR_COUNT; i++) {
+            if (auto colorAttachment = pipelineDesc->colorAttachments()->object(i)) {
+                pixel_formats[i] = static_cast<uint16_t>(colorAttachment->pixelFormat());
+            }
+        }
+        
+        if (pipelineDesc->depthAttachmentPixelFormat() != MTL::PixelFormatInvalid) {
+            pixel_formats[DEPTH_INDEX] = static_cast<uint16_t>(pipelineDesc->depthAttachmentPixelFormat());
+        }
+
+        XXH3_64bits_update(&xxh3, pixel_formats, sizeof(pixel_formats));
+        return XXH3_64bits_digest(&xxh3);
+    }
+
+    static MTL::RenderPipelineState* getClearRenderPipelineState(MTL::Device *device, MTL::RenderPipelineDescriptor *pipelineDesc) {
+        auto hash = hashForRenderPipelineDescriptor(pipelineDesc);
+        
+        auto it = MetalContext.clearRenderPipelineStates.find(hash);
+        if (it != MetalContext.clearRenderPipelineStates.end()) {
+            return it->second;
+        } else {
+            NS::Error *error = nullptr;
+            auto clearPipelineState = device->newRenderPipelineState(pipelineDesc, &error)->autorelease();
+            
+            if (error != nullptr) {
+                fprintf(stderr, "Failed to create render pipeline state: %s\n", error->localizedDescription()->utf8String());
+                return nullptr;
+            }
+            
+            MetalContext.clearRenderPipelineStates.insert(std::make_pair(hash, clearPipelineState));
+            
+            return clearPipelineState;
+        }
     }
 
     MTL::DataType toMTL(RenderDescriptorRangeType type) {
@@ -954,6 +1005,7 @@ namespace RT64 {
         }
         
         NS::Error *error = nullptr;
+        
         this->state->renderPipelineState = device->mtl->newRenderPipelineState(descriptor, &error);
         
         if (error != nullptr) {
@@ -1870,16 +1922,10 @@ namespace RT64 {
                 pipelineColorAttachment->setBlendingEnabled(false);
             }
             
-            NS::Error *error = nullptr;
-            auto clearPipelineState = device->mtl->newRenderPipelineState(pipelineDesc, &error)->autorelease();
-            
-            if (error != nullptr) {
-                fprintf(stderr, "Failed to create clear color pipeline state: %s\n", error->localizedDescription()->utf8String());
-                return;
-            }
-
             activeClearColorRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
             activeClearColorRenderEncoder->setLabel(MTLSTR("Active Clear Color Encoder"));
+            
+            auto clearPipelineState = getClearRenderPipelineState(device->mtl, pipelineDesc);
             activeClearColorRenderEncoder->setRenderPipelineState(clearPipelineState);
             
             // Release resources
@@ -1891,7 +1937,6 @@ namespace RT64 {
     void MetalCommandList::endActiveClearColorRenderEncoder() {
         if (activeClearColorRenderEncoder != nullptr) {
             activeClearColorRenderEncoder->endEncoding();
-            activeClearColorRenderEncoder->release();
             activeClearColorRenderEncoder = nullptr;
         }
     }
@@ -1955,23 +2000,12 @@ namespace RT64 {
             pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
             pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
             
-            NS::Error *error = nullptr;
-            auto clearDepthPipelineState = device->mtl->newRenderPipelineState(pipelineDesc, &error)->autorelease();
-            
-            if (error != nullptr) {
-                fprintf(stderr, "Failed to create clear depth pipeline state: %s\n", error->localizedDescription()->utf8String());
-                return;
-            }
-            
-            MTL::DepthStencilDescriptor *depthDescriptor = MTL::DepthStencilDescriptor::alloc()->init()->autorelease();
-            depthDescriptor->setDepthWriteEnabled(true);
-            depthDescriptor->setDepthCompareFunction(MTL::CompareFunctionAlways);
-            auto depthStencilState = device->mtl->newDepthStencilState(depthDescriptor)->autorelease();
-
             activeClearDepthRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
             activeClearDepthRenderEncoder->setLabel(MTLSTR("Active Clear Depth Encoder"));
-            activeClearDepthRenderEncoder->setRenderPipelineState(clearDepthPipelineState);
-            activeClearDepthRenderEncoder->setDepthStencilState(depthStencilState);
+            
+            auto clearPipelineState = getClearRenderPipelineState(device->mtl, pipelineDesc);
+            activeClearDepthRenderEncoder->setRenderPipelineState(clearPipelineState);
+            activeClearDepthRenderEncoder->setDepthStencilState(MetalContext.clearDepthStencilState);
             
             // Release resources
             activeClearDepthRenderEncoder->retain();
@@ -1982,7 +2016,6 @@ namespace RT64 {
     void MetalCommandList::endActiveClearDepthRenderEncoder() {
         if (activeClearDepthRenderEncoder != nullptr) {
             activeClearDepthRenderEncoder->endEncoding();
-            activeClearDepthRenderEncoder->release();
             activeClearDepthRenderEncoder = nullptr;
         }
     }
@@ -2400,6 +2433,13 @@ namespace RT64 {
         NS::Error* error = nullptr;
         MetalContext.clearDepthShaderLibrary = device->newLibrary(NS::String::string(depth_clear_shader, NS::UTF8StringEncoding), nullptr, &error);
         assert(MetalContext.clearDepthShaderLibrary != nullptr && "Failed to create clear depth library");
+        
+        MTL::DepthStencilDescriptor *depthDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
+        depthDescriptor->setDepthWriteEnabled(true);
+        depthDescriptor->setDepthCompareFunction(MTL::CompareFunctionAlways);
+        MetalContext.clearDepthStencilState = device->newDepthStencilState(depthDescriptor);
+        
+        depthDescriptor->release();
     }
 
     std::unique_ptr<RenderDevice> MetalInterface::createDevice() {

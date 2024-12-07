@@ -27,6 +27,9 @@ namespace RT64 {
         MTL::ComputePipelineState *resolveTexturePipelineState;
         MTL::Library *clearColorShaderLibrary;
         MTL::Library *clearDepthShaderLibrary;
+        
+        MTL::DepthStencilState *clearDepthStencilState;
+        std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
     } MetalContext;
 
     struct MetalDescriptorSetLayout {
