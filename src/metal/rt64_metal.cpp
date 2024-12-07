@@ -1921,12 +1921,9 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Resolve);
         
         if (activeResolveComputeEncoder == nullptr) {
-            auto computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
             activeResolveComputeEncoder = queue->buffer->computeCommandEncoder();
             activeResolveComputeEncoder->setLabel(MTLSTR("Active Resolve Texture Encoder"));
             activeResolveComputeEncoder->setComputePipelineState(MetalContext.resolveTexturePipelineState);
-            
-            computeDescriptor->release();
         }
     }
 
