@@ -1183,17 +1183,14 @@ namespace RT64 {
         assert(layer != nullptr && "Cannot present without a valid layer.");
         assert(drawable != nullptr && "Cannot present without a valid drawable.");
         
-        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
-        drawable->autorelease();
-        commandQueue->buffer->autorelease();
+        // Create a new command buffer just for presenting
+        auto presentBuffer = commandQueue->mtl->commandBuffer();
+        presentBuffer->presentDrawable(drawable);
+        presentBuffer->commit();
         
-        commandQueue->buffer->enqueue();
-        commandQueue->buffer->presentDrawable(drawable);
-        commandQueue->buffer->commit();
-        
-        releasePool->release();
-        
-        commandQueue->buffer = commandQueue->mtl->commandBuffer();
+        // Store both the drawable and command buffer for later cleanup
+        commandQueue->pendingPresents.push_back({drawable, presentBuffer});
+
         return true;
     }
 
@@ -2143,10 +2140,22 @@ namespace RT64 {
         assert(commandListCount > 0);
         
         if (signalFence != nullptr) {
-            buffer->addCompletedHandler([signalFence](MTL::CommandBuffer* cmdBuffer) {
+            buffer->addCompletedHandler([signalFence, this](MTL::CommandBuffer* cmdBuffer) {
+                // Clean up any pending presents when the command buffer completes
+                for (auto& [drawable, presentBuffer] : pendingPresents) {
+                    drawable->release();
+                    presentBuffer->release();
+                }
+                pendingPresents.clear();
+                
                 dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
             });
         }
+        
+        buffer->enqueue();
+        buffer->commit();
+        
+        buffer = mtl->commandBuffer();
     }
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {

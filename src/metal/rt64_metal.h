@@ -245,6 +245,7 @@ namespace RT64 {
         MTL::CommandBuffer *buffer = nullptr;
         MTL::CommandQueue *mtl = nullptr;
         MetalDevice *device = nullptr;
+        std::vector<std::pair<CA::MetalDrawable*, MTL::CommandBuffer*>> pendingPresents;
 
         MetalCommandQueue(MetalDevice *device, RenderCommandListType type);
         ~MetalCommandQueue() override;
