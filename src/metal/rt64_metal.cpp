@@ -5,6 +5,7 @@
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
+#include <TargetConditionals.h>
 
 #include "rt64_metal.h"
 #include "common/rt64_apple.h"
@@ -2155,10 +2156,13 @@ namespace RT64 {
         // Fill capabilities.
         // TODO: Let's add ray tracing as a second step
         //        capabilities.raytracing = [this->renderInterface->device supportsFamily:MTLGPUFamilyApple9];
-        capabilities.maxTextureSize = 16384;
+        capabilities.maxTextureSize = mtl->supportsFamily(MTL::GPUFamilyApple3) ? 16384 : 8192;
         capabilities.sampleLocations = mtl->programmableSamplePositionsSupported();
+#if TARGET_OS_IPHONE
+        capabilities.descriptorIndexing = mtl->supportsFamily(MTL::GPUFamilyApple3);
+#else
         capabilities.descriptorIndexing = true;
-        // TODO: check if this came after MacFamily2
+#endif
         capabilities.scalarBlockLayout = true;
         capabilities.presentWait = true;
         description.name = "Metal";
