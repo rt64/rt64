@@ -223,6 +223,8 @@ namespace RT64 {
         virtual const RenderDeviceCapabilities &getCapabilities() const = 0;
         virtual const RenderDeviceDescription &getDescription() const = 0;
         virtual RenderSampleCounts getSampleCountsSupported(RenderFormat format) const = 0;
+        virtual bool beginCapture() = 0;
+        virtual bool endCapture() = 0;
     };
 
     struct RenderInterface {

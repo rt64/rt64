@@ -3600,6 +3600,14 @@ namespace RT64 {
         return d3d != nullptr;
     }
 
+    bool D3D12Device::beginCapture() {
+        return false;
+    }
+        
+    bool D3D12Device::endCapture() {
+        return false;
+    }
+
     // D3D12Interface
 
     D3D12Interface::D3D12Interface() {

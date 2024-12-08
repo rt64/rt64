@@ -4008,6 +4008,14 @@ namespace RT64 {
     bool VulkanDevice::isValid() const {
         return vk != nullptr;
     }
+        
+    bool VulkanDevice::beginCapture() {
+        return false;
+    }
+        
+    bool VulkanDevice::endCapture() {
+        return false;
+    }
 
     // VulkanInterface
 

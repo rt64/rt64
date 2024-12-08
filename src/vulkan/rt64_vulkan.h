@@ -397,6 +397,8 @@ namespace RT64 {
         RenderSampleCounts getSampleCountsSupported(RenderFormat format) const override;
         void release();
         bool isValid() const;
+        bool beginCapture() override;
+        bool endCapture() override;
     };
 
     struct VulkanInterface : RenderInterface {

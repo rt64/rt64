@@ -1448,7 +1448,7 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::begin() { }
+    void MetalCommandList::begin() {}
 
     void MetalCommandList::end() {
         endActiveClearColorRenderEncoder();
@@ -1915,7 +1915,6 @@ namespace RT64 {
     }
 
     void MetalCommandList::checkActiveComputeEncoder() {
-        assert(targetFramebuffer != nullptr);
         endOtherEncoders(EncoderType::Compute);
         
         if (activeComputeEncoder == nullptr) {
@@ -2407,6 +2406,16 @@ namespace RT64 {
 
     bool MetalDevice::isValid() const {
         return mtl != nullptr;
+    }
+
+    bool MetalDevice::beginCapture() {
+        auto manager = MTL::CaptureManager::sharedCaptureManager();
+        manager->startCapture(mtl);
+    }
+
+    bool MetalDevice::endCapture() {
+        auto manager = MTL::CaptureManager::sharedCaptureManager();
+        manager->stopCapture();
     }
 
     // MetalInterface

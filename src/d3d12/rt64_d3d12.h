@@ -435,6 +435,8 @@ namespace RT64 {
         RenderSampleCounts getSampleCountsSupported(RenderFormat format) const override;
         void release();
         bool isValid() const;
+        virtual bool beginCapture() = 0;
+        virtual bool endCapture() = 0;
     };
 
     struct D3D12Interface : RenderInterface {

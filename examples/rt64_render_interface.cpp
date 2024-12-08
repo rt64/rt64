@@ -1089,8 +1089,10 @@ namespace RT64 {
         std::unique_ptr<RenderCommandQueue> asyncCommandQueue;
         std::unique_ptr<RenderCommandList> asyncCommandList;
         std::unique_ptr<RenderCommandFence> asyncCommandFence;
+        RenderDevice* device;
 
         void initialize(TestContext &ctx) override {
+            device = ctx.device.get();
             asyncCommandQueue = ctx.device->createCommandQueue(RenderCommandListType::COMPUTE);
             asyncCommandList = asyncCommandQueue->createCommandList(RenderCommandListType::COMPUTE);
             asyncCommandFence = ctx.device->createCommandFence();
@@ -1133,7 +1135,9 @@ namespace RT64 {
             void *bufferData;
             float inputValue = 1.0f;
             float outputValue = 0.0f;
+            uint32_t captureCount = 5;
             while (true) {
+                device->beginCapture();
                 asyncCommandList->begin();
                 asyncCommandList->setComputePipelineLayout(asyncPipelineLayout.get());
                 asyncCommandList->setPipeline(asyncPipeline.get());
@@ -1150,6 +1154,11 @@ namespace RT64 {
 
                 printf("Y = sqrt(X) -> X: %f Y: %f (expected %f)\n", inputValue, outputValue, sqrt(inputValue));
                 inputValue += 1.0f;
+                
+                // end capture after a few iterations
+                if (--captureCount == 0) {
+                    device->endCapture();
+                }
             }
         }
     };
