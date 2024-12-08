@@ -541,6 +541,7 @@ if (RT64_BUILD_EXAMPLES)
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTexturePS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
     build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
+    build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestAsyncCS.hlsl")
     if (NOT APPLE)
         # TODO: Enable when RT is added to Metal.
         build_ray_shader(rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")

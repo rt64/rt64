@@ -14,6 +14,7 @@
 #include <random>
 
 #ifdef _WIN64
+#include "shaders/RenderInterfaceTestAsyncCS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestColorPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestDecalPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestTexturePS.hlsl.dxil.h"
@@ -23,6 +24,7 @@
 #include "shaders/RenderInterfaceTestPostPS.hlsl.dxil.h"
 #include "shaders/RenderInterfaceTestPostVS.hlsl.dxil.h"
 #endif
+#include "shaders/RenderInterfaceTestAsyncCS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestColorPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestDecalPS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestTexturePS.hlsl.spirv.h"
@@ -35,6 +37,7 @@
 #include "shaders/RenderInterfaceTestPostVS.hlsl.spirv.h"
 #include "shaders/RenderInterfaceTestSpecPS.hlsl.spirv.h"
 #ifdef __APPLE__
+#include "shaders/RenderInterfaceTestAsyncCS.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestColorPS.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestDecalPS.hlsl.metal.h"
 #include "shaders/RenderInterfaceTestTexturePS.hlsl.metal.h"
@@ -158,6 +161,7 @@ namespace RT64 {
         DECAL_PIXEL,
         TEXTURE_PIXEL,
         COMPUTE,
+        ASYNC_COMPUTE,
 #ifndef __APPLE__
         RAY_TRACE,
 #endif
@@ -305,6 +309,10 @@ namespace RT64 {
                         data.blob = RenderInterfaceTestCSBlobDXIL;
                         data.size = sizeof(RenderInterfaceTestCSBlobDXIL);
                         break;
+                    case ShaderType::ASYNC_COMPUTE:
+                        data.blob = RenderInterfaceTestAsyncCSBlobDXIL;
+                        data.size = sizeof(RenderInterfaceTestAsyncCSBlobDXIL);
+                        break;
                     case ShaderType::RAY_TRACE:
                         data.blob = RenderInterfaceTestRTBlobDXIL;
                         data.size = sizeof(RenderInterfaceTestRTBlobDXIL);
@@ -344,6 +352,10 @@ namespace RT64 {
                     case ShaderType::COMPUTE:
                         data.blob = RenderInterfaceTestCSBlobSPIRV;
                         data.size = sizeof(RenderInterfaceTestCSBlobSPIRV);
+                        break;
+                    case ShaderType::ASYNC_COMPUTE:
+                        data.blob = RenderInterfaceTestAsyncCSBlobSPIRV;
+                        data.size = sizeof(RenderInterfaceTestAsyncCSBlobSPIRV);
                         break;
 #               ifndef __APPLE__
                     case ShaderType::RAY_TRACE:
@@ -387,6 +399,10 @@ namespace RT64 {
                     case ShaderType::COMPUTE:
                         data.blob = RenderInterfaceTestCSBlobMSL;
                         data.size = sizeof(RenderInterfaceTestCSBlobMSL);
+                        break;
+                    case ShaderType::ASYNC_COMPUTE:
+                        data.blob = RenderInterfaceTestAsyncCSBlobMSL;
+                        data.size = sizeof(RenderInterfaceTestAsyncCSBlobMSL);
                         break;
                     case ShaderType::POST_VERTEX:
                         data.blob = RenderInterfaceTestPostVSBlobMSL;
@@ -1063,11 +1079,86 @@ namespace RT64 {
         }
     };
 
+    struct AsyncComputeTest : public TestBase {
+        std::unique_ptr<std::thread> thread;
+        std::unique_ptr<RenderPipeline> asyncPipeline;
+        std::unique_ptr<RenderPipelineLayout> asyncPipelineLayout;
+        std::unique_ptr<RenderDescriptorSet> asyncDescriptorSet;
+        std::unique_ptr<RenderBuffer> asyncBuffer;
+        std::unique_ptr<RenderBufferFormattedView> asyncBufferFormattedView;
+        std::unique_ptr<RenderCommandQueue> asyncCommandQueue;
+        std::unique_ptr<RenderCommandList> asyncCommandList;
+        std::unique_ptr<RenderCommandFence> asyncCommandFence;
+
+        void initialize(TestContext &ctx) override {
+            asyncCommandQueue = ctx.device->createCommandQueue(RenderCommandListType::COMPUTE);
+            asyncCommandList = asyncCommandQueue->createCommandList(RenderCommandListType::COMPUTE);
+            asyncCommandFence = ctx.device->createCommandFence();
+
+            RenderDescriptorSetBuilder setBuilder;
+            setBuilder.begin();
+            uint32_t descriptorIndex = setBuilder.addReadWriteFormattedBuffer(1);
+            setBuilder.end();
+
+            RenderPipelineLayoutBuilder layoutBuilder;
+            layoutBuilder.begin();
+            layoutBuilder.addPushConstant(0, 0, sizeof(float), RenderShaderStageFlag::COMPUTE);
+            layoutBuilder.addDescriptorSet(setBuilder);
+            layoutBuilder.end();
+
+            asyncPipelineLayout = layoutBuilder.create(ctx.device.get());
+
+            const RenderShaderFormat shaderFormat = ctx.renderInterface->getCapabilities().shaderFormat;
+            ShaderData csData = getShaderData(shaderFormat, ShaderType::ASYNC_COMPUTE);
+            std::unique_ptr<RenderShader> computeShader = ctx.device->createShader(csData.blob, csData.size, "CSMain", shaderFormat);
+            asyncPipeline = ctx.device->createComputePipeline(RenderComputePipelineDesc(asyncPipelineLayout.get(), computeShader.get(), 1, 1, 1));
+            asyncBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(float), RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE));
+            asyncBufferFormattedView = asyncBuffer->createBufferFormattedView(RenderFormat::R32_FLOAT);
+            asyncDescriptorSet = setBuilder.create(ctx.device.get());
+            asyncDescriptorSet->setBuffer(descriptorIndex, asyncBuffer.get(), sizeof(float), nullptr, asyncBufferFormattedView.get());
+
+            thread = std::make_unique<std::thread>(&AsyncComputeTest::threadFunction, this);
+        }
+
+        void resize(TestContext &ctx) override {
+            // This test does not use a swap chain.
+        }
+
+        void draw(TestContext &ctx) override {
+            // This test does not draw anything.
+        }
+
+        void threadFunction() {
+            const RenderCommandList *commandListPtr = asyncCommandList.get();
+            void *bufferData;
+            float inputValue = 1.0f;
+            float outputValue = 0.0f;
+            while (true) {
+                asyncCommandList->begin();
+                asyncCommandList->setComputePipelineLayout(asyncPipelineLayout.get());
+                asyncCommandList->setPipeline(asyncPipeline.get());
+                asyncCommandList->setComputeDescriptorSet(asyncDescriptorSet.get(), 0);
+                asyncCommandList->setComputePushConstants(0, &inputValue);
+                asyncCommandList->dispatch(1, 1, 1);
+                asyncCommandList->end();
+                asyncCommandQueue->executeCommandLists(&commandListPtr, 1, nullptr, 0, nullptr, 0, asyncCommandFence.get());
+                asyncCommandQueue->waitForCommandFence(asyncCommandFence.get());
+
+                bufferData = asyncBuffer->map();
+                memcpy(&outputValue, bufferData, sizeof(float));
+                asyncBuffer->unmap();
+
+                printf("Y = sqrt(X) -> X: %f Y: %f (expected %f)\n", inputValue, outputValue, sqrt(inputValue));
+                inputValue += 1.0f;
+            }
+        }
+    };
+
     // Test registration and management
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 1;
+    static uint32_t g_CurrentTestIndex = 5;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
@@ -1075,6 +1166,7 @@ namespace RT64 {
         g_Tests.push_back([]() { return std::make_unique<TextureTest>(); });
         g_Tests.push_back([]() { return std::make_unique<ComputeTest>(); });
         g_Tests.push_back([]() { return std::make_unique<SpecConstantTest>(); });
+        g_Tests.push_back([]() { return std::make_unique<AsyncComputeTest>(); });
     }
 
     // Update platform specific code to use the new test framework
