@@ -92,16 +92,16 @@ namespace RT64 {
     };
 
     struct MetalSwapChain : RenderSwapChain {
-        CA::MetalDrawable *drawable = nullptr;
         CA::MetalLayer *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
         uint32_t textureCount = 0;
-        MetalTexture *proxyTexture;
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t refreshRate = 0;
+        std::vector<MetalTexture> textures;
+        uint32_t currentTextureIndex = 0;
 
         MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~MetalSwapChain() override;
@@ -245,7 +245,6 @@ namespace RT64 {
         MTL::CommandBuffer *buffer = nullptr;
         MTL::CommandQueue *mtl = nullptr;
         MetalDevice *device = nullptr;
-        std::vector<std::pair<CA::MetalDrawable*, MTL::CommandBuffer*>> pendingPresents;
 
         MetalCommandQueue(MetalDevice *device, RenderCommandListType type);
         ~MetalCommandQueue() override;
@@ -282,7 +281,7 @@ namespace RT64 {
         MetalPool *pool = nullptr;
         RenderTextureDesc desc;
         uint32_t arrayCount = 1;
-        MetalSwapChain *parentSwapChain = nullptr;
+        MTL::Drawable *drawable = nullptr;
 
         MetalTexture() = default;
         MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);

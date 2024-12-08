@@ -6,6 +6,7 @@
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
 #include <TargetConditionals.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include <algorithm>
 #include <xxHash/xxh3.h>
@@ -91,6 +92,94 @@ namespace RT64 {
             default:
                 assert(false && "Unknown descriptor range type.");
                 return MTL::DataTypeNone;
+        }
+    }
+
+    RenderFormat toRHI(MTL::PixelFormat format) {
+        switch (format) {
+            case MTL::PixelFormatInvalid:
+                return RenderFormat::UNKNOWN;
+            case MTL::PixelFormatRGBA32Float:
+                return RenderFormat::R32G32B32A32_FLOAT;
+            case MTL::PixelFormatRGBA32Uint:
+                return RenderFormat::R32G32B32A32_UINT;
+            case MTL::PixelFormatRGBA32Sint:
+                return RenderFormat::R32G32B32A32_SINT;
+            case MTL::PixelFormatRGBA16Float:
+                return RenderFormat::R16G16B16A16_FLOAT;
+            case MTL::PixelFormatRGBA16Unorm:
+                return RenderFormat::R16G16B16A16_UNORM;
+            case MTL::PixelFormatRGBA16Uint:
+                return RenderFormat::R16G16B16A16_UINT;
+            case MTL::PixelFormatRGBA16Snorm:
+                return RenderFormat::R16G16B16A16_SNORM;
+            case MTL::PixelFormatRGBA16Sint:
+                return RenderFormat::R16G16B16A16_SINT;
+            case MTL::PixelFormatRG32Float:
+                return RenderFormat::R32G32_FLOAT;
+            case MTL::PixelFormatRG32Uint:
+                return RenderFormat::R32G32_UINT;
+            case MTL::PixelFormatRG32Sint:
+                return RenderFormat::R32G32_SINT;
+            case MTL::PixelFormatRGBA8Unorm:
+                return RenderFormat::R8G8B8A8_UNORM;
+            case MTL::PixelFormatRGBA8Uint:
+                return RenderFormat::R8G8B8A8_UINT;
+            case MTL::PixelFormatRGBA8Snorm:
+                return RenderFormat::R8G8B8A8_SNORM;
+            case MTL::PixelFormatRGBA8Sint:
+                return RenderFormat::R8G8B8A8_SINT;
+            case MTL::PixelFormatBGRA8Unorm:
+                return RenderFormat::B8G8R8A8_UNORM;
+            case MTL::PixelFormatRG16Float:
+                return RenderFormat::R16G16_FLOAT;
+            case MTL::PixelFormatRG16Unorm:
+                return RenderFormat::R16G16_UNORM;
+            case MTL::PixelFormatRG16Uint:
+                return RenderFormat::R16G16_UINT;
+            case MTL::PixelFormatRG16Snorm:
+                return RenderFormat::R16G16_SNORM;
+            case MTL::PixelFormatRG16Sint:
+                return RenderFormat::R16G16_SINT;
+            case MTL::PixelFormatDepth32Float:
+                return RenderFormat::D32_FLOAT;
+            case MTL::PixelFormatR32Float:
+                return RenderFormat::R32_FLOAT;
+            case MTL::PixelFormatR32Uint:
+                return RenderFormat::R32_UINT;
+            case MTL::PixelFormatR32Sint:
+                return RenderFormat::R32_SINT;
+            case MTL::PixelFormatRG8Unorm:
+                return RenderFormat::R8G8_UNORM;
+            case MTL::PixelFormatRG8Uint:
+                return RenderFormat::R8G8_UINT;
+            case MTL::PixelFormatRG8Snorm:
+                return RenderFormat::R8G8_SNORM;
+            case MTL::PixelFormatRG8Sint:
+                return RenderFormat::R8G8_SINT;
+            case MTL::PixelFormatR16Float:
+                return RenderFormat::R16_FLOAT;
+            case MTL::PixelFormatDepth16Unorm:
+                return RenderFormat::D16_UNORM;
+            case MTL::PixelFormatR16Unorm:
+                return RenderFormat::R16_UNORM;
+            case MTL::PixelFormatR16Uint:
+                return RenderFormat::R16_UINT;
+            case MTL::PixelFormatR16Snorm:
+                return RenderFormat::R16_SNORM;
+            case MTL::PixelFormatR16Sint:
+                return RenderFormat::R16_SINT;
+            case MTL::PixelFormatR8Unorm:
+                return RenderFormat::R8_UNORM;
+            case MTL::PixelFormatR8Uint:
+                return RenderFormat::R8_UINT;
+            case MTL::PixelFormatR8Snorm:
+                return RenderFormat::R8_SNORM;
+            case MTL::PixelFormatR8Sint:
+                return RenderFormat::R8_SINT;
+            default:
+                assert(false && "Unknown Metal format.");
+                return RenderFormat::UNKNOWN;
         }
     }
 
@@ -1161,13 +1250,20 @@ namespace RT64 {
         layer->setPixelFormat(toMTL(format));
         
         this->commandQueue = commandQueue;
+        this->layer->setPixelFormat(toMTL(format));
         
-        // We use only 1 proxy texture for the swap chain, and fetch
-        // the next drawable from the layer's pool when needed.
-        this->textureCount = 1;
-        this->proxyTexture = new MetalTexture();
-        this->proxyTexture->parentSwapChain = this;
-        this->proxyTexture->desc.flags = RenderTextureFlag::RENDER_TARGET;
+        // Metal supports a maximum of 3 drawables.
+        this->textureCount = 3;
+        this->textures.resize(3);
+
+        // set each of the drawable to have desc.flags = RenderTextureFlag::RENDER_TARGET;
+        for (uint32_t i = 0; i < this->textureCount; i++) {
+            auto& drawable = this->textures[i];
+            drawable.desc.width = width;
+            drawable.desc.height = height;
+            drawable.desc.format = format;
+            drawable.desc.flags = RenderTextureFlag::RENDER_TARGET;
+        }
         
         this->renderWindow = renderWindow;
         getWindowSize(width, height);
@@ -1175,21 +1271,26 @@ namespace RT64 {
 
     MetalSwapChain::~MetalSwapChain() {
         layer->release();
-        delete proxyTexture;
         delete commandQueue;
     }
 
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
         assert(layer != nullptr && "Cannot present without a valid layer.");
+        
+        auto drawable = textures[textureIndex].drawable;
         assert(drawable != nullptr && "Cannot present without a valid drawable.");
+        
+        auto& texture = textures[textureIndex];
+        texture.mtl = nullptr;
+        texture.drawable = nullptr;
         
         // Create a new command buffer just for presenting
         auto presentBuffer = commandQueue->mtl->commandBuffer();
         presentBuffer->presentDrawable(drawable);
+        presentBuffer->enqueue();
         presentBuffer->commit();
         
-        // Store both the drawable and command buffer for later cleanup
-        commandQueue->pendingPresents.push_back({drawable, presentBuffer});
+        drawable->release();
 
         return true;
     }
@@ -1199,6 +1300,12 @@ namespace RT64 {
         
         if ((width == 0) || (height == 0)) {
             return false;
+        }
+        
+        auto drawableSize = CGSizeMake(width, height);
+        auto current = layer->drawableSize();
+        if (!CGSizeEqualToSize(current, drawableSize)) {
+            layer->setDrawableSize(drawableSize);
         }
         
         return true;
@@ -1227,23 +1334,30 @@ namespace RT64 {
     }
 
     RenderTexture *MetalSwapChain::getTexture(uint32_t textureIndex) {
-        return proxyTexture;
+        return &textures[textureIndex];
     }
 
     bool MetalSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
         assert(signalSemaphore != nullptr);
-
-        // Ignore textureIndex for Metal in both acquireTexture and getTexture.
-        // Metal will always return the next available texture from the layer's pool.
-        *textureIndex = 0;
+        assert(textureIndex != nullptr);
+        assert(*textureIndex < textureCount);
+        
         auto nextDrawable = layer->nextDrawable();
-        if (nextDrawable != nullptr) {
-            drawable = nextDrawable;
-            return true;
+        if (nextDrawable == nullptr) {
+            fprintf(stderr, "No more drawables available for rendering.\n");
+            return false;
         }
         
-        nextDrawable->release();
-        return false;
+        *textureIndex = (currentTextureIndex + 1) % textureCount;
+        currentTextureIndex = *textureIndex;
+        
+        auto& drawable = textures[*textureIndex];
+        drawable.desc.width = width;
+        drawable.desc.height = height;
+        drawable.desc.flags = RenderTextureFlag::RENDER_TARGET;
+        drawable.desc.format = toRHI(nextDrawable->texture()->pixelFormat());
+        drawable.drawable = nextDrawable;
+        drawable.mtl = nextDrawable->texture();
     }
 
     uint32_t MetalSwapChain::getTextureCount() const {
@@ -1284,13 +1398,8 @@ namespace RT64 {
             colorAttachments.emplace_back(colorAttachment);
             
             if (i == 0) {
-                if (colorAttachment->parentSwapChain != nullptr) {
-                    width = colorAttachment->parentSwapChain->getWidth();
-                    height = colorAttachment->parentSwapChain->getHeight();
-                } else {
-                    width = colorAttachment->desc.width;
-                    height = colorAttachment->desc.height;
-                }
+                width = colorAttachment->desc.width;
+                height = colorAttachment->desc.height;
             }
         }
         
@@ -1358,20 +1467,9 @@ namespace RT64 {
         if (encoderType != EncoderType::ClearDepth) {
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
                 auto colorAttachment = renderDescriptor->colorAttachments()->object(i);
-
-                // If framebuffer was created using a swap chain, use the drawable's texture
-                if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
-                    assert(targetFramebuffer->colorAttachments.size() == 1 && "Swap chain framebuffers must have exactly one color attachment.");
-                    
-                    auto swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
-                    colorAttachment->setTexture(swapChain->drawable->texture());
-                    colorAttachment->setLoadAction(MTL::LoadActionLoad);
-                    colorAttachment->setStoreAction(MTL::StoreActionStore);
-                } else {
-                    colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->mtl);
-                    colorAttachment->setLoadAction(MTL::LoadActionLoad);
-                    colorAttachment->setStoreAction(MTL::StoreActionStore);
-                }
+                colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->mtl);
+                colorAttachment->setLoadAction(MTL::LoadActionLoad);
+                colorAttachment->setStoreAction(MTL::StoreActionStore);
             }
         }
         
@@ -1905,14 +2003,7 @@ namespace RT64 {
             
             // Configure attachments
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-                MTL::PixelFormat format;
-                // Handle swapchain case specially
-                if (i == 0 && targetFramebuffer->colorAttachments[0]->parentSwapChain != nullptr) {
-                    auto swapChain = targetFramebuffer->colorAttachments[0]->parentSwapChain;
-                    format = swapChain->drawable->texture()->pixelFormat();
-                } else {
-                    format = toMTL(targetFramebuffer->colorAttachments[i]->desc.format);
-                }
+                MTL::PixelFormat format = toMTL(targetFramebuffer->colorAttachments[i]->desc.format);
 
                 auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(i);
                 pipelineColorAttachment->setPixelFormat(format);
@@ -2141,13 +2232,6 @@ namespace RT64 {
         
         if (signalFence != nullptr) {
             buffer->addCompletedHandler([signalFence, this](MTL::CommandBuffer* cmdBuffer) {
-                // Clean up any pending presents when the command buffer completes
-                for (auto& [drawable, presentBuffer] : pendingPresents) {
-                    drawable->release();
-                    presentBuffer->release();
-                }
-                pendingPresents.clear();
-                
                 dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
             });
         }
