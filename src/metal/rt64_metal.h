@@ -73,6 +73,7 @@ namespace RT64 {
         std::vector<MTL::Buffer *> residentBuffers;
         std::unordered_map<uint32_t, MTL::Texture *> indicesToTextures;
         std::unordered_map<uint32_t, MTL::Buffer *> indicesToBuffers;
+        std::unordered_map<uint32_t, MTL::Texture *> indicesToBufferFormattedViews;
         std::unordered_map<uint32_t, MTL::SamplerState *> indicesToSamplers;
         std::vector<MTL::SamplerState *> staticSamplers;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
@@ -257,6 +258,7 @@ namespace RT64 {
     struct MetalBuffer : RenderBuffer {
         MTL::Buffer *mtl = nullptr;
         MetalPool *pool = nullptr;
+        MetalDevice *device = nullptr;
         RenderBufferDesc desc;
 
         MetalBuffer() = default;
@@ -270,6 +272,7 @@ namespace RT64 {
 
     struct MetalBufferFormattedView : RenderBufferFormattedView {
         MetalBuffer *buffer = nullptr;
+        MTL::Texture *texture = nullptr;
 
         MetalBufferFormattedView(MetalBuffer *buffer, RenderFormat format);
         ~MetalBufferFormattedView() override;

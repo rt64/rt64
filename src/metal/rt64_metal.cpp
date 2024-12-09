@@ -297,6 +297,26 @@ namespace RT64 {
         }
     }
 
+    static NS::UInteger RenderFormatBufferAlignment(MTL::Device *device, RenderFormat format) {
+        auto deviceAlignment = device->minimumLinearTextureAlignmentForPixelFormat(toMTL(format));
+        
+    #if TARGET_OS_TV
+        auto minTexelBufferOffsetAligment = 64;
+    #elif TARGET_OS_IPHONE
+        auto minTexelBufferOffsetAligment = 64;
+        if (device->supportsFamily(MTL::GPUFamilyApple3)) {
+            minTexelBufferOffsetAligment = 16;
+        }
+    #elif TARGET_OS_MAC
+        auto minTexelBufferOffsetAligment = 256;
+        if (device->supportsFamily(MTL::GPUFamilyApple3)) {
+            minTexelBufferOffsetAligment = 16;
+        }
+    #endif
+        
+        return deviceAlignment ? deviceAlignment : minTexelBufferOffsetAligment;
+    }
+
     static MTL::VertexFormat toVertexFormat(RenderFormat format) {
         switch (format) {
             case RenderFormat::UNKNOWN:
@@ -733,6 +753,7 @@ namespace RT64 {
         
         this->pool = pool;
         this->desc = desc;
+        this->device = device;
         
         // TODO: Set the right buffer options
         if (pool != nullptr) {
@@ -774,10 +795,20 @@ namespace RT64 {
         assert((buffer->desc.flags & RenderBufferFlag::FORMATTED) && "Buffer must allow formatted views.");
 
         this->buffer = buffer;
+        
+        auto bytesPerBlock = RenderFormatSize(format);
+        auto blockCount = buffer->desc.size / bytesPerBlock;
+        auto width = blockCount * RenderFormatBlockWidth(format);
+        
+        MTL::TextureDescriptor *descriptor = MTL::TextureDescriptor::textureBufferDescriptor(toMTL(format), width, toMTL(buffer->desc.heapType), MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
+        
+        auto bytesPerRow = calculateAlignedSize(buffer->desc.size, RenderFormatBufferAlignment(buffer->device->mtl, format));
+        this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
+        descriptor->release();
     }
 
     MetalBufferFormattedView::~MetalBufferFormattedView() {
-        // The internal buffers's destructor will handle the release
+        texture->release();
     }
 
     // MetalTexture
@@ -1171,30 +1202,41 @@ namespace RT64 {
     }
 
     void MetalDescriptorSet::setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
+        if (buffer == nullptr) {
+            return;
+        }
+        
         const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer*>(buffer);
         const auto nativeResource = (interfaceBuffer != nullptr) ? interfaceBuffer->mtl : nullptr;
-        uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
-        RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
-        switch (descriptorType) {
-            case RenderDescriptorRangeType::CONSTANT_BUFFER:
-            case RenderDescriptorRangeType::FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
-                indicesToBuffers[descriptorIndex] = interfaceBuffer->mtl;
-                break;
+        
+        // handle the buffer formatted view
+        if (bufferFormattedView != nullptr) {
+            const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
+            indicesToBufferFormattedViews[descriptorIndex] = interfaceBufferFormattedView->texture;
+        } else {
+            uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+            RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
+            switch (descriptorType) {
+                case RenderDescriptorRangeType::CONSTANT_BUFFER:
+                case RenderDescriptorRangeType::FORMATTED_BUFFER:
+                case RenderDescriptorRangeType::STRUCTURED_BUFFER:
+                case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
+                case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
+                case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
+                    indicesToBuffers[descriptorIndex] = interfaceBuffer->mtl;
+                    break;
+                }
+                case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
+                case RenderDescriptorRangeType::TEXTURE:
+                case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+                case RenderDescriptorRangeType::SAMPLER:
+                case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
+                    assert(false && "Incompatible descriptor type.");
+                    break;
+                default:
+                    assert(false && "Unknown descriptor type.");
+                    break;
             }
-            case RenderDescriptorRangeType::TEXTURE:
-            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
-            case RenderDescriptorRangeType::SAMPLER:
-            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
-                assert(false && "Incompatible descriptor type.");
-               break;
-            default:
-                assert(false && "Unknown descriptor type.");
-                break;
         }
     }
 
@@ -2138,7 +2180,7 @@ namespace RT64 {
                         setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
                     }
                 }
-
+                
                 for (const auto& pair : descriptorSet->indicesToBuffers) {
                     uint32_t index = pair.first;
                     auto* buffer = pair.second;
@@ -2152,6 +2194,39 @@ namespace RT64 {
                         uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
                         setLayout->argumentEncoder->setBuffer(buffer, 0, adjustedIndex);
                     }
+                }
+
+                for (const auto& pair : descriptorSet->indicesToBufferFormattedViews) {
+                    uint32_t index = pair.first;
+                    auto* texture = pair.second;
+                    
+                    auto argumentDesc = MTL::ArgumentDescriptor::alloc()->init();
+                    argumentDesc->setDataType(MTL::DataTypeTexture);
+                    argumentDesc->setIndex(0);
+                    argumentDesc->setArrayLength(1);
+                    
+                    std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
+                    argumentDescriptors.push_back(argumentDesc);
+                    NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
+                    auto argumentEncoder = device->mtl->newArgumentEncoder(pArray);
+                    
+                    auto argumentBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), MTL::ResourceOptionCPUCacheModeDefault);
+                    argumentEncoder->setArgumentBuffer(argumentBuffer, 0);
+                    argumentEncoder->setTexture(texture, 0);
+                    
+                    if (texture != nullptr) {
+                        if (isCompute) {
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
+                        } else {
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead | MTL::ResourceUsageWrite, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        }
+
+                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                        setLayout->argumentEncoder->setBuffer(argumentBuffer, 0, adjustedIndex);
+                    }
+                    
+                    pArray->release();
+                    argumentDesc->release();
                 }
 
                 for (const auto& pair : descriptorSet->indicesToSamplers) {

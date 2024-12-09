@@ -122,7 +122,7 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
             COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
             DEPENDS ${FILENAME})
     add_custom_command(OUTPUT ${OUTNAME}.metal
-            COMMAND ${SPIRVCROSS} ${OUTNAME}.spv --msl --output ${OUTNAME}.metal --msl-version 20000 --msl-argument-buffers --msl-force-native-arrays --msl-decoration-binding
+            COMMAND ${SPIRVCROSS} ${OUTNAME}.spv --msl --output ${OUTNAME}.metal --msl-version 20100 --msl-argument-buffers --msl-decoration-binding --msl-texture-buffer-native
             DEPENDS ${OUTNAME}.spv)
     add_custom_command(OUTPUT ${OUTNAME}.ir
             COMMAND xcrun -sdk macosx metal -o ${OUTNAME}.ir -c ${OUTNAME}.metal $<$<CONFIG:Debug>:-frecord-sources>
