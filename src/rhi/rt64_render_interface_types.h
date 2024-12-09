@@ -23,7 +23,8 @@
 #undef ControlMask
 #undef Success
 #elif defined(__APPLE__)
-typedef struct _NSWindow NSWindow;
+//typedef struct _NSWindow NSWindow;
+#include <SDL.h>
 #endif
 
 namespace RT64 {
@@ -43,7 +44,9 @@ namespace RT64 {
     };
 #elif defined(__APPLE__)
     struct RenderWindow {
-        NSWindow* window;
+        void* window;
+        void* view;
+
         bool operator==(const struct RenderWindow& rhs) const {
             return window == rhs.window;
         }
@@ -346,7 +349,8 @@ namespace RT64 {
     enum class RenderShaderFormat {
         UNKNOWN,
         DXIL,
-        SPIRV
+        SPIRV,
+        METAL,
     };
 
     enum class RenderRaytracingPipelineLibrarySymbolType {
@@ -1116,12 +1120,18 @@ namespace RT64 {
         const RenderShader *computeShader = nullptr;
         const RenderSpecConstant *specConstants = nullptr;
         uint32_t specConstantsCount = 0;
+        uint32_t threadGroupSizeX = 0;
+        uint32_t threadGroupSizeY = 0;
+        uint32_t threadGroupSizeZ = 0;
 
         RenderComputePipelineDesc() = default;
 
-        RenderComputePipelineDesc(const RenderPipelineLayout *pipelineLayout, const RenderShader *computeShader) {
+        RenderComputePipelineDesc(const RenderPipelineLayout *pipelineLayout, const RenderShader *computeShader, uint32_t threadGroupSizeX, uint32_t threadGroupSizeY, uint32_t threadGroupSizeZ) {
             this->pipelineLayout = pipelineLayout;
             this->computeShader = computeShader;
+            this->threadGroupSizeX = threadGroupSizeX;
+            this->threadGroupSizeY = threadGroupSizeY;
+            this->threadGroupSizeZ = threadGroupSizeZ;
         }
     };
 
@@ -1719,6 +1729,9 @@ namespace RT64 {
         // Present.
         bool presentWait = false;
         bool displayTiming = false;
+
+        // Framebuffers.
+        uint64_t maxTextureSize = 0;
 
         // HDR.
         bool preferHDR = false;
