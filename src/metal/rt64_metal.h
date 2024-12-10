@@ -30,6 +30,8 @@ namespace RT64 {
         
         MTL::DepthStencilState *clearDepthStencilState;
         std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
+        
+        dispatch_semaphore_t drawables_semaphore;
     } MetalContext;
 
     struct MetalDescriptorSetLayout {

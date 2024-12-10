@@ -15,11 +15,12 @@
 #include "common/rt64_apple.h"
 
 namespace RT64 {
-    const static uint32_t MAX_COLOR_ATTACHMENT_COUNT = 8;
-    const static uint32_t COLOR_COUNT = MAX_COLOR_ATTACHMENT_COUNT;
-    const static uint32_t DEPTH_INDEX = COLOR_COUNT;
-    const static uint32_t STENCIL_INDEX = DEPTH_INDEX + 1;
-    const static uint32_t ATTACHMENT_COUNT = STENCIL_INDEX + 1;
+    const constexpr uint32_t MAX_COLOR_ATTACHMENT_COUNT = 8;
+    const constexpr uint32_t COLOR_COUNT = MAX_COLOR_ATTACHMENT_COUNT;
+    const constexpr uint32_t DEPTH_INDEX = COLOR_COUNT;
+    const constexpr uint32_t STENCIL_INDEX = DEPTH_INDEX + 1;
+    const constexpr uint32_t ATTACHMENT_COUNT = STENCIL_INDEX + 1;
+    static constexpr size_t MAX_DRAWABLES = 3;
 
     static size_t calculateAlignedSize(size_t size, size_t alignment = 16) {
         return (size + alignment - 1) & ~(alignment - 1);
@@ -1384,6 +1385,8 @@ namespace RT64 {
         assert(textureIndex != nullptr);
         assert(*textureIndex < textureCount);
         
+        dispatch_semaphore_wait(MetalContext.drawables_semaphore, DISPATCH_TIME_FOREVER );
+        
         auto nextDrawable = layer->nextDrawable();
         if (nextDrawable == nullptr) {
             fprintf(stderr, "No more drawables available for rendering.\n");
@@ -2307,6 +2310,7 @@ namespace RT64 {
         if (signalFence != nullptr) {
             buffer->addCompletedHandler([signalFence, this](MTL::CommandBuffer* cmdBuffer) {
                 dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
+                dispatch_semaphore_signal(MetalContext.drawables_semaphore);
             });
         }
         
@@ -2506,6 +2510,8 @@ namespace RT64 {
         createClearColorShaderLibrary();
         createResolvePipelineState();
         createClearDepthShaderLibrary();
+        
+        MetalContext.drawables_semaphore = dispatch_semaphore_create(MAX_DRAWABLES);
         
         releasePool->release();
     }
