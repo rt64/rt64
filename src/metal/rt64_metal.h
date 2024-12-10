@@ -23,17 +23,6 @@ namespace RT64 {
         Resolve
     };
 
-    static struct {
-        MTL::ComputePipelineState *resolveTexturePipelineState;
-        MTL::Library *clearColorShaderLibrary;
-        MTL::Library *clearDepthShaderLibrary;
-        
-        MTL::DepthStencilState *clearDepthStencilState;
-        std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
-        
-        dispatch_semaphore_t drawables_semaphore;
-    } MetalContext;
-
     struct MetalDescriptorSetLayout {
         std::vector<MTL::SamplerState *> staticSamplers;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
@@ -418,6 +407,15 @@ namespace RT64 {
     struct MetalInterface : RenderInterface {
         MTL::Device* device;
         RenderInterfaceCapabilities capabilities;
+        
+        MTL::ComputePipelineState *resolveTexturePipelineState;
+        MTL::Library *clearColorShaderLibrary;
+        MTL::Library *clearDepthShaderLibrary;
+        
+        MTL::DepthStencilState *clearDepthStencilState;
+        std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
+        
+        dispatch_semaphore_t drawables_semaphore;
         
         MetalInterface();
         ~MetalInterface() override;

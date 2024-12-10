@@ -48,22 +48,22 @@ namespace RT64 {
         return XXH3_64bits_digest(&xxh3);
     }
 
-    static MTL::RenderPipelineState* getClearRenderPipelineState(MTL::Device *device, MTL::RenderPipelineDescriptor *pipelineDesc) {
+    static MTL::RenderPipelineState* getClearRenderPipelineState(MetalDevice *device, MTL::RenderPipelineDescriptor *pipelineDesc) {
         auto hash = hashForRenderPipelineDescriptor(pipelineDesc);
         
-        auto it = MetalContext.clearRenderPipelineStates.find(hash);
-        if (it != MetalContext.clearRenderPipelineStates.end()) {
+        auto it = device->renderInterface->clearRenderPipelineStates.find(hash);
+        if (it != device->renderInterface->clearRenderPipelineStates.end()) {
             return it->second;
         } else {
             NS::Error *error = nullptr;
-            auto clearPipelineState = device->newRenderPipelineState(pipelineDesc, &error)->autorelease();
+            auto clearPipelineState = device->mtl->newRenderPipelineState(pipelineDesc, &error)->autorelease();
             
             if (error != nullptr) {
                 fprintf(stderr, "Failed to create render pipeline state: %s\n", error->localizedDescription()->utf8String());
                 return nullptr;
             }
             
-            MetalContext.clearRenderPipelineStates.insert(std::make_pair(hash, clearPipelineState));
+            device->renderInterface->clearRenderPipelineStates.insert(std::make_pair(hash, clearPipelineState));
             
             return clearPipelineState;
         }
@@ -1385,7 +1385,7 @@ namespace RT64 {
         assert(textureIndex != nullptr);
         assert(*textureIndex < textureCount);
         
-        dispatch_semaphore_wait(MetalContext.drawables_semaphore, DISPATCH_TIME_FOREVER );
+        dispatch_semaphore_wait(commandQueue->device->renderInterface->drawables_semaphore, DISPATCH_TIME_FOREVER );
         
         auto nextDrawable = layer->nextDrawable();
         if (nextDrawable == nullptr) {
@@ -2035,8 +2035,8 @@ namespace RT64 {
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::ClearColor);
             
-            auto clearVertFunction = MetalContext.clearColorShaderLibrary->newFunction(MTLSTR("clearVert"))->autorelease();
-            auto clearFragFunction = MetalContext.clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"))->autorelease();
+            auto clearVertFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearVert"))->autorelease();
+            auto clearFragFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"))->autorelease();
             
             MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
             pipelineDesc->setVertexFunction(clearVertFunction);
@@ -2057,7 +2057,7 @@ namespace RT64 {
             activeClearColorRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
             activeClearColorRenderEncoder->setLabel(MTLSTR("Active Clear Color Encoder"));
             
-            auto clearPipelineState = getClearRenderPipelineState(device->mtl, pipelineDesc);
+            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
             activeClearColorRenderEncoder->setRenderPipelineState(clearPipelineState);
             
             // Release resources
@@ -2101,7 +2101,7 @@ namespace RT64 {
         if (activeResolveComputeEncoder == nullptr) {
             activeResolveComputeEncoder = queue->buffer->computeCommandEncoder();
             activeResolveComputeEncoder->setLabel(MTLSTR("Active Resolve Texture Encoder"));
-            activeResolveComputeEncoder->setComputePipelineState(MetalContext.resolveTexturePipelineState);
+            activeResolveComputeEncoder->setComputePipelineState(device->renderInterface->resolveTexturePipelineState);
         }
     }
 
@@ -2123,8 +2123,8 @@ namespace RT64 {
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::ClearDepth);
 
-            auto clearDepthVertFunction = MetalContext.clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"))->autorelease();
-            auto clearDepthFragFunction = MetalContext.clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"))->autorelease();
+            auto clearDepthVertFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"))->autorelease();
+            auto clearDepthFragFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"))->autorelease();
 
             MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
             pipelineDesc->setVertexFunction(clearDepthVertFunction);
@@ -2135,9 +2135,9 @@ namespace RT64 {
             activeClearDepthRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
             activeClearDepthRenderEncoder->setLabel(MTLSTR("Active Clear Depth Encoder"));
             
-            auto clearPipelineState = getClearRenderPipelineState(device->mtl, pipelineDesc);
+            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
             activeClearDepthRenderEncoder->setRenderPipelineState(clearPipelineState);
-            activeClearDepthRenderEncoder->setDepthStencilState(MetalContext.clearDepthStencilState);
+            activeClearDepthRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
             
             // Release resources
             activeClearDepthRenderEncoder->retain();
@@ -2310,7 +2310,7 @@ namespace RT64 {
         if (signalFence != nullptr) {
             buffer->addCompletedHandler([signalFence, this](MTL::CommandBuffer* cmdBuffer) {
                 dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
-                dispatch_semaphore_signal(MetalContext.drawables_semaphore);
+                dispatch_semaphore_signal(device->renderInterface->drawables_semaphore);
             });
         }
         
@@ -2511,15 +2511,15 @@ namespace RT64 {
         createResolvePipelineState();
         createClearDepthShaderLibrary();
         
-        MetalContext.drawables_semaphore = dispatch_semaphore_create(MAX_DRAWABLES);
+        drawables_semaphore = dispatch_semaphore_create(MAX_DRAWABLES);
         
         releasePool->release();
     }
 
     MetalInterface::~MetalInterface() {
-        MetalContext.resolveTexturePipelineState->release();
-        MetalContext.clearColorShaderLibrary->release();
-        MetalContext.clearDepthShaderLibrary->release();
+        resolveTexturePipelineState->release();
+        clearColorShaderLibrary->release();
+        clearDepthShaderLibrary->release();
         
         device->release();
     }
@@ -2561,8 +2561,8 @@ namespace RT64 {
         assert(resolveFunction != nullptr && "Failed to create resolve function");
         
         error = nullptr;
-        MetalContext.resolveTexturePipelineState = device->newComputePipelineState(resolveFunction, &error);
-        assert(MetalContext.resolveTexturePipelineState != nullptr && "Failed to create MSAA resolve pipeline state");
+        resolveTexturePipelineState = device->newComputePipelineState(resolveFunction, &error);
+        assert(resolveTexturePipelineState != nullptr && "Failed to create MSAA resolve pipeline state");
         
         // Destroy
         resolveFunction->release();
@@ -2590,8 +2590,8 @@ namespace RT64 {
         )";
         
         NS::Error* error = nullptr;
-        MetalContext.clearColorShaderLibrary = device->newLibrary(NS::String::string(clear_color_shader, NS::UTF8StringEncoding), nullptr, &error);
-        assert(MetalContext.clearColorShaderLibrary != nullptr && "Failed to create clear color library");
+        clearColorShaderLibrary = device->newLibrary(NS::String::string(clear_color_shader, NS::UTF8StringEncoding), nullptr, &error);
+        assert(clearColorShaderLibrary != nullptr && "Failed to create clear color library");
     }
 
     void MetalInterface::createClearDepthShaderLibrary() {
@@ -2621,13 +2621,13 @@ namespace RT64 {
         )";
 
         NS::Error* error = nullptr;
-        MetalContext.clearDepthShaderLibrary = device->newLibrary(NS::String::string(depth_clear_shader, NS::UTF8StringEncoding), nullptr, &error);
-        assert(MetalContext.clearDepthShaderLibrary != nullptr && "Failed to create clear depth library");
+        clearDepthShaderLibrary = device->newLibrary(NS::String::string(depth_clear_shader, NS::UTF8StringEncoding), nullptr, &error);
+        assert(clearDepthShaderLibrary != nullptr && "Failed to create clear depth library");
         
         MTL::DepthStencilDescriptor *depthDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
         depthDescriptor->setDepthWriteEnabled(true);
         depthDescriptor->setDepthCompareFunction(MTL::CompareFunctionAlways);
-        MetalContext.clearDepthStencilState = device->newDepthStencilState(depthDescriptor);
+        clearDepthStencilState = device->newDepthStencilState(depthDescriptor);
         
         depthDescriptor->release();
     }
