@@ -799,11 +799,7 @@ namespace RT64 {
     }
 
     void MetalBuffer::unmap(uint32_t subresource, const RenderRange* writtenRange) {
-        // For managed buffers, we need to notify Metal about changes
-        if (writtenRange && mtl->storageMode() == MTL::StorageModeManaged) {
-            NS::Range range = NS::Range::Make(writtenRange->begin, writtenRange->end - writtenRange->begin);
-            mtl->didModifyRange(range);
-        }
+        // Do nothing.
     }
 
     std::unique_ptr<RenderBufferFormattedView> MetalBuffer::createBufferFormattedView(RenderFormat format) {
