@@ -1090,6 +1090,8 @@ namespace RT64 {
         std::unique_ptr<RenderCommandList> asyncCommandList;
         std::unique_ptr<RenderCommandFence> asyncCommandFence;
         RenderDevice* device;
+        std::unique_ptr<RenderBuffer> asyncStructuredBuffer;
+        std::unique_ptr<RenderBuffer> asyncByteAddressBuffer;
 
         void initialize(TestContext &ctx) override {
             device = ctx.device.get();
@@ -1099,7 +1101,9 @@ namespace RT64 {
 
             RenderDescriptorSetBuilder setBuilder;
             setBuilder.begin();
-            uint32_t descriptorIndex = setBuilder.addReadWriteFormattedBuffer(1);
+            uint32_t formattedBufferIndex = setBuilder.addReadWriteFormattedBuffer(1);
+            uint32_t structuredBufferIndex = setBuilder.addStructuredBuffer(2);
+            uint32_t byteAddressBufferIndex = setBuilder.addByteAddressBuffer(3);
             setBuilder.end();
 
             RenderPipelineLayoutBuilder layoutBuilder;
@@ -1110,14 +1114,46 @@ namespace RT64 {
 
             asyncPipelineLayout = layoutBuilder.create(ctx.device.get());
 
+            // Create formatted buffer
+            asyncBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(3 * sizeof(float), 
+                RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE));
+            asyncBufferFormattedView = asyncBuffer->createBufferFormattedView(RenderFormat::R32_FLOAT);
+
+            // Create structured buffer
+            struct CustomStruct {
+                float point3D[3];
+                float size2D[2];
+            };
+            CustomStruct structData = {
+                {1.0f, 2.0f, 3.0f},
+                {2.0f, 3.0f}
+            };
+            asyncStructuredBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(CustomStruct) * 4, 
+                RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::STORAGE));
+            void* structPtr = asyncStructuredBuffer->map();
+            memcpy(structPtr, &structData, sizeof(CustomStruct));
+            asyncStructuredBuffer->unmap();
+
+            // Create byte address buffer
+            const uint32_t byteAddressSize = 32;
+            float byteAddressData[8] = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            asyncByteAddressBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(byteAddressSize,
+                RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::STORAGE));
+            void* bytePtr = asyncByteAddressBuffer->map();
+            memcpy(bytePtr, byteAddressData, sizeof(byteAddressData));
+            asyncByteAddressBuffer->unmap();
+
+            // Create descriptor set and bind all buffers
+            asyncDescriptorSet = setBuilder.create(ctx.device.get());
+            asyncDescriptorSet->setBuffer(formattedBufferIndex, asyncBuffer.get(), 3 * sizeof(float), nullptr, asyncBufferFormattedView.get());
+            asyncDescriptorSet->setBuffer(structuredBufferIndex, asyncStructuredBuffer.get());
+            asyncDescriptorSet->setBuffer(byteAddressBufferIndex, asyncByteAddressBuffer.get());
+
+            // Create pipeline
             const RenderShaderFormat shaderFormat = ctx.renderInterface->getCapabilities().shaderFormat;
             ShaderData csData = getShaderData(shaderFormat, ShaderType::ASYNC_COMPUTE);
             std::unique_ptr<RenderShader> computeShader = ctx.device->createShader(csData.blob, csData.size, "CSMain", shaderFormat);
             asyncPipeline = ctx.device->createComputePipeline(RenderComputePipelineDesc(asyncPipelineLayout.get(), computeShader.get(), 1, 1, 1));
-            asyncBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(float), RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE));
-            asyncBufferFormattedView = asyncBuffer->createBufferFormattedView(RenderFormat::R32_FLOAT);
-            asyncDescriptorSet = setBuilder.create(ctx.device.get());
-            asyncDescriptorSet->setBuffer(descriptorIndex, asyncBuffer.get(), sizeof(float), nullptr, asyncBufferFormattedView.get());
 
             thread = std::make_unique<std::thread>(&AsyncComputeTest::threadFunction, this);
         }
@@ -1132,9 +1168,10 @@ namespace RT64 {
 
         void threadFunction() {
             const RenderCommandList *commandListPtr = asyncCommandList.get();
-            void *bufferData;
             float inputValue = 1.0f;
-            float outputValue = 0.0f;
+            float outputValues[3] = {};
+            int frameCount = 0;
+            
             while (true) {
                 asyncCommandList->begin();
                 asyncCommandList->setComputePipelineLayout(asyncPipelineLayout.get());
@@ -1146,12 +1183,26 @@ namespace RT64 {
                 asyncCommandQueue->executeCommandLists(&commandListPtr, 1, nullptr, 0, nullptr, 0, asyncCommandFence.get());
                 asyncCommandQueue->waitForCommandFence(asyncCommandFence.get());
 
-                bufferData = asyncBuffer->map();
-                memcpy(&outputValue, bufferData, sizeof(float));
+                void* bufferData = asyncBuffer->map();
+                memcpy(outputValues, bufferData, sizeof(outputValues));
                 asyncBuffer->unmap();
 
-                printf("Y = sqrt(X) -> X: %f Y: %f (expected %f)\n", inputValue, outputValue, sqrt(inputValue));
+                float expectedStructuredValue = (frameCount == 0) ? 14.0f : 40.0f;
+                float expectedByteAddressValue = 5.0f + frameCount;
+
+                printf("Frame %d Results:\n", frameCount);
+                printf("  Formatted Buffer: sqrt(%f) = %f (expected: %f)\n", 
+                    inputValue, outputValues[0], sqrt(inputValue));
+                printf("  Structured Buffer: scaled sum = %f (expected: %f)\n", 
+                    outputValues[1], expectedStructuredValue);
+                printf("  Byte Address Buffer: value at offset 16 = %f (expected: %f)\n", 
+                    outputValues[2], expectedByteAddressValue);
+                
                 inputValue += 1.0f;
+                frameCount++;
+
+                using namespace std::chrono_literals;
+                std::this_thread::sleep_for(500ms);
             }
         }
     };
@@ -1160,7 +1211,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 1;
+    static uint32_t g_CurrentTestIndex = 5;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
