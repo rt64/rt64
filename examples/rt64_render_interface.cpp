@@ -1135,9 +1135,7 @@ namespace RT64 {
             void *bufferData;
             float inputValue = 1.0f;
             float outputValue = 0.0f;
-            uint32_t captureCount = 5;
             while (true) {
-                device->beginCapture();
                 asyncCommandList->begin();
                 asyncCommandList->setComputePipelineLayout(asyncPipelineLayout.get());
                 asyncCommandList->setPipeline(asyncPipeline.get());
@@ -1154,11 +1152,6 @@ namespace RT64 {
 
                 printf("Y = sqrt(X) -> X: %f Y: %f (expected %f)\n", inputValue, outputValue, sqrt(inputValue));
                 inputValue += 1.0f;
-                
-                // end capture after a few iterations
-                if (--captureCount == 0) {
-                    device->endCapture();
-                }
             }
         }
     };
@@ -1167,7 +1160,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 5;
+    static uint32_t g_CurrentTestIndex = 1;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });

@@ -73,15 +73,15 @@ namespace RT64 {
         switch (type) {
             case RenderDescriptorRangeType::TEXTURE:
             case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
                 return MTL::DataTypeTexture;
 
             case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
                 return MTL::DataTypePrimitiveAccelerationStructure;
 
-            case RenderDescriptorRangeType::FORMATTED_BUFFER:
             case RenderDescriptorRangeType::STRUCTURED_BUFFER:
             case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
             case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
             case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
@@ -634,6 +634,28 @@ namespace RT64 {
         return MTL::ClearColor(color.r, color.g, color.b, color.a);
     }
 
+    static MTL::ResourceUsage getResourceUsage(RenderDescriptorRangeType type) {
+        switch (type) {
+            case RenderDescriptorRangeType::TEXTURE:
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
+            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::CONSTANT_BUFFER:
+            case RenderDescriptorRangeType::SAMPLER:
+                return MTL::ResourceUsageRead;
+
+            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+                return MTL::ResourceUsageRead | MTL::ResourceUsageWrite;
+            default:
+                assert(false && "Unknown descriptor range type.");
+                return MTL::DataTypeNone;
+        }
+    }
+
     // MARK: - Helper Structures
 
     MetalDescriptorSetLayout::MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
@@ -689,6 +711,8 @@ namespace RT64 {
 
             if (range.type == RenderDescriptorRangeType::TEXTURE) {
                 argumentDesc->setTextureType(MTL::TextureType2D);
+            } else if (range.type == RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER || range.type == RenderDescriptorRangeType::FORMATTED_BUFFER) {
+                argumentDesc->setTextureType(MTL::TextureTypeTextureBuffer);
             }
 
             argumentDescriptors.push_back(argumentDesc);
@@ -707,6 +731,8 @@ namespace RT64 {
 
             if (lastRange.type == RenderDescriptorRangeType::TEXTURE) {
                 argumentDesc->setTextureType(MTL::TextureType2D);
+            } else if (lastRange.type == RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER || lastRange.type == RenderDescriptorRangeType::FORMATTED_BUFFER) {
+                argumentDesc->setTextureType(MTL::TextureTypeTextureBuffer);
             }
 
             argumentDescriptors.push_back(argumentDesc);
@@ -797,13 +823,21 @@ namespace RT64 {
 
         this->buffer = buffer;
 
-        // Create a texture buffer descriptor
-        uint32_t width = buffer->desc.size / RenderFormatSize(format);
-        MTL::TextureDescriptor *descriptor = MTL::TextureDescriptor::textureBufferDescriptor(toMTL(format), width, toMTL(buffer->desc.heapType), MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
+        const uint32_t width = buffer->desc.size / RenderFormatSize(format);
+        const size_t rowAlignment = RenderFormatBufferAlignment(buffer->device->mtl, format);
+        const auto bytesPerRow = calculateAlignedSize(buffer->desc.size, rowAlignment);
 
-        size_t rowAlignment = RenderFormatBufferAlignment(buffer->device->mtl, format);
-        auto bytesPerRow = calculateAlignedSize(buffer->desc.size, rowAlignment);
+        // Configure texture usage flags
+        MTL::TextureUsage usage = (buffer->desc.flags & RenderBufferFlag::UNORDERED_ACCESS)
+            ? (MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite)
+            : MTL::TextureUsageShaderRead;
+
+        // Create and configure texture descriptor
+        auto descriptor = MTL::TextureDescriptor::textureBufferDescriptor(toMTL(format), width, toMTL(buffer->desc.heapType), usage);
+
+        // Create texture with configured descriptor and alignment
         this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
+
         descriptor->release();
     }
 
@@ -1214,37 +1248,33 @@ namespace RT64 {
             return;
         }
 
-        const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer*>(buffer);
-        const auto nativeResource = (interfaceBuffer != nullptr) ? interfaceBuffer->mtl : nullptr;
-
-        // handle the buffer formatted view
-        if (bufferFormattedView != nullptr) {
-            const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
-            indicesToBufferFormattedViews[descriptorIndex] = interfaceBufferFormattedView->texture;
-        } else {
-            uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
-            RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
-            switch (descriptorType) {
-                case RenderDescriptorRangeType::CONSTANT_BUFFER:
-                case RenderDescriptorRangeType::FORMATTED_BUFFER:
-                case RenderDescriptorRangeType::STRUCTURED_BUFFER:
-                case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
-                case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
-                case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
-                    indicesToBuffers[descriptorIndex] = interfaceBuffer->mtl;
-                    break;
-                }
-                case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
-                case RenderDescriptorRangeType::TEXTURE:
-                case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
-                case RenderDescriptorRangeType::SAMPLER:
-                case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
-                    assert(false && "Incompatible descriptor type.");
-                    break;
-                default:
-                    assert(false && "Unknown descriptor type.");
-                    break;
+        uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
+        RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
+        switch (descriptorType) {
+            case RenderDescriptorRangeType::FORMATTED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER: {
+                const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
+                indicesToBufferFormattedViews[descriptorIndex] = interfaceBufferFormattedView->texture;
+                break;
             }
+            case RenderDescriptorRangeType::CONSTANT_BUFFER:
+            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
+            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
+                const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer*>(buffer);
+                indicesToBuffers[descriptorIndex] = interfaceBuffer->mtl;
+                break;
+            }
+            case RenderDescriptorRangeType::TEXTURE:
+            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
+            case RenderDescriptorRangeType::SAMPLER:
+            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
+                assert(false && "Incompatible descriptor type.");
+                break;
+            default:
+                assert(false && "Unknown descriptor type.");
+                break;
         }
     }
 
@@ -2186,11 +2216,15 @@ namespace RT64 {
                 for (const auto& pair : descriptorSet->indicesToTextures) {
                     uint32_t index = pair.first;
                     auto* texture = pair.second;
+
                     if (texture != nullptr) {
+                        auto descriptorType = setLayout->descriptorTypes[index];
+                        auto usageFlags = getResourceUsage(descriptorType);
+
                         if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead);
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, usageFlags);
                         } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
                         }
 
                         uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
@@ -2201,11 +2235,15 @@ namespace RT64 {
                 for (const auto& pair : descriptorSet->indicesToBuffers) {
                     uint32_t index = pair.first;
                     auto* buffer = pair.second;
+
                     if (buffer != nullptr) {
+                        auto descriptorType = setLayout->descriptorTypes[index];
+                        auto usageFlags = getResourceUsage(descriptorType);
+
                         if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(buffer, MTL::ResourceUsageRead);
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(buffer, usageFlags);
                         } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(buffer, MTL::ResourceUsageRead, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(buffer, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
                         }
 
                         uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
@@ -2218,7 +2256,8 @@ namespace RT64 {
                     auto* texture = pair.second;
 
                     if (texture != nullptr) {
-                        auto usageFlags = MTL::ResourceUsageRead | MTL::ResourceUsageWrite | MTL::ResourceUsageSample;
+                        auto descriptorType = setLayout->descriptorTypes[index];
+                        auto usageFlags = getResourceUsage(descriptorType);
 
                         if (isCompute) {
                             static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, usageFlags);
@@ -2227,29 +2266,8 @@ namespace RT64 {
                         }
                     }
 
-                    auto argumentDesc = MTL::ArgumentDescriptor::alloc()->init();
-                    argumentDesc->setDataType(MTL::DataTypeTexture);
-                    argumentDesc->setIndex(0);
-                    argumentDesc->setArrayLength(1);
-                    argumentDesc->setAccess(MTL::ArgumentAccessReadWrite);
-                    argumentDesc->setTextureType(MTL::TextureType2D);
-
-                    std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
-                    argumentDescriptors.push_back(argumentDesc);
-
-                    NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
-                    auto argumentEncoder = device->mtl->newArgumentEncoder(pArray);
-
-                    auto argumentBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), MTL::ResourceOptionCPUCacheModeWriteCombined);
-                    argumentEncoder->setArgumentBuffer(argumentBuffer, 0);
-                    argumentEncoder->setTexture(texture, 0);
-
                     uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                    setLayout->argumentEncoder->setBuffer(argumentBuffer, 0, adjustedIndex);
-
-                    pArray->release();
-                    argumentDesc->release();
-                    argumentEncoder->release();
+                    setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
                 }
 
                 for (const auto& pair : descriptorSet->indicesToSamplers) {

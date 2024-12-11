@@ -61,7 +61,6 @@ namespace RT64 {
 
     struct MetalDescriptorSet : RenderDescriptorSet {
         MTL::Buffer *descriptorBuffer;
-        std::vector<MTL::Buffer *> residentBuffers;
         std::unordered_map<uint32_t, MTL::Texture *> indicesToTextures;
         std::unordered_map<uint32_t, MTL::Buffer *> indicesToBuffers;
         std::unordered_map<uint32_t, MTL::Texture *> indicesToBufferFormattedViews;
