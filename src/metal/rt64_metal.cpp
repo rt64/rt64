@@ -950,6 +950,7 @@ namespace RT64 {
             
             NS::Error *error;
             auto function = library->newFunction(functionName, values, &error);
+            values->release();
             
             if (error != nullptr) {
                 fprintf(stderr, "MTLLibrary newFunction: failed with error: %ld.\n", error->code());
@@ -1031,6 +1032,7 @@ namespace RT64 {
         
         // Release resources
         descriptor->release();
+        function->release();
     }
 
     MetalComputePipeline::~MetalComputePipeline() {
@@ -1049,7 +1051,7 @@ namespace RT64 {
         assert(desc.pipelineLayout != nullptr);
         NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
         
-        MTL::RenderPipelineDescriptor *descriptor = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
+        MTL::RenderPipelineDescriptor *descriptor = MTL::RenderPipelineDescriptor::alloc()->init();
         descriptor->setInputPrimitiveTopology(toMTL(desc.primitiveTopology));
         descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
         
@@ -1059,7 +1061,7 @@ namespace RT64 {
         auto vertexFunction = metalShader->createFunction(desc.specConstants, desc.specConstantsCount);
         descriptor->setVertexFunction(vertexFunction);
         
-        MTL::VertexDescriptor *vertexDescriptor = MTL::VertexDescriptor::alloc()->init()->autorelease();
+        MTL::VertexDescriptor *vertexDescriptor = MTL::VertexDescriptor::alloc()->init();
         
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
             const RenderInputSlot &inputSlot = desc.inputSlots[i];
@@ -1087,6 +1089,7 @@ namespace RT64 {
             const auto *pixelShader = static_cast<const MetalShader *>(desc.pixelShader);
             auto fragmentFunction = pixelShader->createFunction(desc.specConstants, desc.specConstantsCount);
             descriptor->setFragmentFunction(fragmentFunction);
+            fragmentFunction->release();
         }
         
         for (uint32_t i = 0; i < desc.renderTargetCount; i++) {
@@ -1108,7 +1111,7 @@ namespace RT64 {
         descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
         
         // State variables, initialized here to be reused in encoder re-binding
-        MTL::DepthStencilDescriptor *depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init()->autorelease();
+        MTL::DepthStencilDescriptor *depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
         depthStencilDescriptor->setDepthWriteEnabled(desc.depthWriteEnabled);
         depthStencilDescriptor->setDepthCompareFunction(desc.depthEnabled ? toMTL(desc.depthFunction) : MTL::CompareFunctionAlways);
 
@@ -1135,12 +1138,17 @@ namespace RT64 {
         }
         
         // Releae resources
+        vertexDescriptor->release();
+        vertexFunction->release();
+        descriptor->release();
+        depthStencilDescriptor->release();
         releasePool->release();
     }
 
     MetalGraphicsPipeline::~MetalGraphicsPipeline() {
         state->renderPipelineState->release();
         state->depthStencilState->release();
+        // TODO: better way to dispose of sample positions
         delete[] state->samplePositions;
         delete state;
     }
@@ -1320,20 +1328,21 @@ namespace RT64 {
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
         assert(layer != nullptr && "Cannot present without a valid layer.");
         
-        auto drawable = textures[textureIndex].drawable;
-        assert(drawable != nullptr && "Cannot present without a valid drawable.");
-        
         auto& texture = textures[textureIndex];
-        texture.mtl = nullptr;
-        texture.drawable = nullptr;
+        assert(texture.drawable != nullptr && "Cannot present without a valid drawable.");
+        
+//        auto& texture = textures[textureIndex];
+//        texture.mtl = nullptr;
+//        texture.drawable = nullptr;
         
         // Create a new command buffer just for presenting
         auto presentBuffer = commandQueue->mtl->commandBuffer();
-        presentBuffer->presentDrawable(drawable);
+        presentBuffer->presentDrawable(texture.drawable);
         presentBuffer->enqueue();
         presentBuffer->commit();
         
-        drawable->release();
+        texture.drawable->release();
+        texture.mtl->release();
 
         return true;
     }
@@ -1385,7 +1394,7 @@ namespace RT64 {
         assert(textureIndex != nullptr);
         assert(*textureIndex < textureCount);
         
-        dispatch_semaphore_wait(commandQueue->device->renderInterface->drawables_semaphore, DISPATCH_TIME_FOREVER );
+        dispatch_semaphore_wait(commandQueue->device->renderInterface->drawables_semaphore, DISPATCH_TIME_FOREVER);
         
         auto nextDrawable = layer->nextDrawable();
         if (nextDrawable == nullptr) {
@@ -1393,10 +1402,9 @@ namespace RT64 {
             return false;
         }
         
-        *textureIndex = (currentTextureIndex + 1) % textureCount;
-        currentTextureIndex = *textureIndex;
+        *textureIndex = currentTextureIndex = (currentTextureIndex + 1) % textureCount;
         
-        auto& drawable = textures[*textureIndex];
+        auto& drawable = textures[currentTextureIndex];
         drawable.desc.width = width;
         drawable.desc.height = height;
         drawable.desc.flags = RenderTextureFlag::RENDER_TARGET;
@@ -1965,15 +1973,17 @@ namespace RT64 {
         if (activeComputeEncoder == nullptr) {
             NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
-            MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init()->autorelease();
+            MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
             activeComputeEncoder = queue->buffer->computeCommandEncoder(computeDescriptor);
             activeComputeEncoder->setLabel(MTLSTR("Active Compute Encoder"));
             activeComputeEncoder->setComputePipelineState(activeComputeState->pipelineState);
             
             bindDescriptorSetLayout(activeComputePipelineLayout, activeComputeEncoder, indicesToComputeDescriptorSets, computePushConstantsBuffer, true);
             
+            computeDescriptor->release();
             activeComputeEncoder->retain();
             releasePool->release();
+            int g = 0;
         }
     }
 
@@ -2035,10 +2045,10 @@ namespace RT64 {
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::ClearColor);
             
-            auto clearVertFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearVert"))->autorelease();
-            auto clearFragFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"))->autorelease();
+            auto clearVertFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearVert"));
+            auto clearFragFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"));
             
-            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
+            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
             pipelineDesc->setVertexFunction(clearVertFunction);
             pipelineDesc->setFragmentFunction(clearFragFunction);
             
@@ -2061,6 +2071,9 @@ namespace RT64 {
             activeClearColorRenderEncoder->setRenderPipelineState(clearPipelineState);
             
             // Release resources
+            clearVertFunction->release();
+            clearFragFunction->release();
+            pipelineDesc->release();
             activeClearColorRenderEncoder->retain();
             releasePool->release();
         }
@@ -2123,10 +2136,10 @@ namespace RT64 {
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::ClearDepth);
 
-            auto clearDepthVertFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"))->autorelease();
-            auto clearDepthFragFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"))->autorelease();
+            auto clearDepthVertFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"));
+            auto clearDepthFragFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"));
 
-            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init()->autorelease();
+            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
             pipelineDesc->setVertexFunction(clearDepthVertFunction);
             pipelineDesc->setFragmentFunction(clearDepthFragFunction);
             pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
@@ -2140,6 +2153,9 @@ namespace RT64 {
             activeClearDepthRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
             
             // Release resources
+            clearDepthVertFunction->release();
+            clearDepthFragFunction->release();
+            pipelineDesc->release();
             activeClearDepthRenderEncoder->retain();
             releasePool->release();
         }
@@ -2230,6 +2246,7 @@ namespace RT64 {
                     
                     pArray->release();
                     argumentDesc->release();
+                    argumentEncoder->release();
                 }
 
                 for (const auto& pair : descriptorSet->indicesToSamplers) {
@@ -2317,6 +2334,7 @@ namespace RT64 {
         buffer->enqueue();
         buffer->commit();
         
+        buffer->release();
         buffer = mtl->commandBuffer();
     }
 
@@ -2520,7 +2538,6 @@ namespace RT64 {
         resolveTexturePipelineState->release();
         clearColorShaderLibrary->release();
         clearDepthShaderLibrary->release();
-        
         device->release();
     }
 
