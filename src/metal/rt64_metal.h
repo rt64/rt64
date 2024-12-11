@@ -93,7 +93,7 @@ namespace RT64 {
         uint32_t height = 0;
         uint32_t refreshRate = 0;
         std::vector<MetalTexture> textures;
-        uint32_t currentTextureIndex = 0;
+        uint32_t currentAvailableDrawableIndex = 0;
 
         MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~MetalSwapChain() override;
@@ -133,7 +133,7 @@ namespace RT64 {
         MTL::RenderCommandEncoder *activeClearDepthRenderEncoder = nullptr;
         MTL::BlitCommandEncoder *activeBlitEncoder = nullptr;
         MTL::ComputeCommandEncoder *activeResolveComputeEncoder = nullptr;
-    
+
         MTL::ComputeCommandEncoder *computeEncoder = nullptr;
 
         MTL::PrimitiveType currentPrimitiveType = MTL::PrimitiveTypeTriangle;
@@ -150,7 +150,7 @@ namespace RT64 {
 
         MTL::Buffer *graphicsPushConstantsBuffer = nullptr;
         MTL::Buffer *computePushConstantsBuffer = nullptr;
-        
+
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
         const MetalCommandQueue *queue = nullptr;
@@ -223,7 +223,7 @@ namespace RT64 {
 
     struct MetalCommandFence : RenderCommandFence {
         dispatch_semaphore_t semaphore;
-        
+
         MetalCommandFence(MetalDevice *device);
         ~MetalCommandFence() override;
     };
@@ -407,22 +407,22 @@ namespace RT64 {
     struct MetalInterface : RenderInterface {
         MTL::Device* device;
         RenderInterfaceCapabilities capabilities;
-        
+
         MTL::ComputePipelineState *resolveTexturePipelineState;
         MTL::Library *clearColorShaderLibrary;
         MTL::Library *clearDepthShaderLibrary;
-        
+
         MTL::DepthStencilState *clearDepthStencilState;
         std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
-        
+
         dispatch_semaphore_t drawables_semaphore;
-        
+
         MetalInterface();
         ~MetalInterface() override;
         std::unique_ptr<RenderDevice> createDevice() override;
         const RenderInterfaceCapabilities &getCapabilities() const override;
         bool isValid() const;
-        
+
         // Shader libraries and pipeline states used for emulated operations
         void createResolvePipelineState();
         void createClearColorShaderLibrary();
