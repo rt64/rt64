@@ -797,13 +797,12 @@ namespace RT64 {
 
         this->buffer = buffer;
 
-        auto bytesPerBlock = RenderFormatSize(format);
-        auto blockCount = buffer->desc.size / bytesPerBlock;
-        auto width = blockCount * RenderFormatBlockWidth(format);
-
+        // Create a texture buffer descriptor
+        uint32_t width = buffer->desc.size / RenderFormatSize(format);
         MTL::TextureDescriptor *descriptor = MTL::TextureDescriptor::textureBufferDescriptor(toMTL(format), width, toMTL(buffer->desc.heapType), MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
 
-        auto bytesPerRow = calculateAlignedSize(buffer->desc.size, RenderFormatBufferAlignment(buffer->device->mtl, format));
+        size_t rowAlignment = RenderFormatBufferAlignment(buffer->device->mtl, format);
+        auto bytesPerRow = calculateAlignedSize(buffer->desc.size, rowAlignment);
         this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
         descriptor->release();
     }
@@ -2218,30 +2217,35 @@ namespace RT64 {
                     uint32_t index = pair.first;
                     auto* texture = pair.second;
 
+                    if (texture != nullptr) {
+                        auto usageFlags = MTL::ResourceUsageRead | MTL::ResourceUsageWrite | MTL::ResourceUsageSample;
+
+                        if (isCompute) {
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, usageFlags);
+                        } else {
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        }
+                    }
+
                     auto argumentDesc = MTL::ArgumentDescriptor::alloc()->init();
                     argumentDesc->setDataType(MTL::DataTypeTexture);
                     argumentDesc->setIndex(0);
                     argumentDesc->setArrayLength(1);
+                    argumentDesc->setAccess(MTL::ArgumentAccessReadWrite);
+                    argumentDesc->setTextureType(MTL::TextureType2D);
 
                     std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
                     argumentDescriptors.push_back(argumentDesc);
+
                     NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
                     auto argumentEncoder = device->mtl->newArgumentEncoder(pArray);
 
-                    auto argumentBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), MTL::ResourceOptionCPUCacheModeDefault);
+                    auto argumentBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), MTL::ResourceOptionCPUCacheModeWriteCombined);
                     argumentEncoder->setArgumentBuffer(argumentBuffer, 0);
                     argumentEncoder->setTexture(texture, 0);
 
-                    if (texture != nullptr) {
-                        if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
-                        } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, MTL::ResourceUsageRead | MTL::ResourceUsageWrite, MTL::RenderStageVertex | MTL::RenderStageFragment);
-                        }
-
-                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setBuffer(argumentBuffer, 0, adjustedIndex);
-                    }
+                    uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                    setLayout->argumentEncoder->setBuffer(argumentBuffer, 0, adjustedIndex);
 
                     pArray->release();
                     argumentDesc->release();
