@@ -1102,8 +1102,8 @@ namespace RT64 {
             RenderDescriptorSetBuilder setBuilder;
             setBuilder.begin();
             uint32_t formattedBufferIndex = setBuilder.addReadWriteFormattedBuffer(1);
-            uint32_t structuredBufferIndex = setBuilder.addStructuredBuffer(2);
-            uint32_t byteAddressBufferIndex = setBuilder.addByteAddressBuffer(3);
+            uint32_t structuredBufferIndex = setBuilder.addReadWriteStructuredBuffer(2);
+            uint32_t byteAddressBufferIndex = setBuilder.addReadWriteByteAddressBuffer(3);
             setBuilder.end();
 
             RenderPipelineLayoutBuilder layoutBuilder;
@@ -1144,9 +1144,10 @@ namespace RT64 {
             asyncByteAddressBuffer->unmap();
 
             // Create descriptor set and bind all buffers
+            const RenderBufferStructuredView asyncStructuredBufferView(sizeof(CustomStruct));
             asyncDescriptorSet = setBuilder.create(ctx.device.get());
             asyncDescriptorSet->setBuffer(formattedBufferIndex, asyncBuffer.get(), 3 * sizeof(float), nullptr, asyncBufferFormattedView.get());
-            asyncDescriptorSet->setBuffer(structuredBufferIndex, asyncStructuredBuffer.get());
+            asyncDescriptorSet->setBuffer(structuredBufferIndex, asyncStructuredBuffer.get(), 4 * sizeof(CustomStruct), &asyncStructuredBufferView);
             asyncDescriptorSet->setBuffer(byteAddressBufferIndex, asyncByteAddressBuffer.get());
 
             // Create pipeline
