@@ -1119,23 +1119,25 @@ namespace RT64 {
                 RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE));
             asyncBufferFormattedView = asyncBuffer->createBufferFormattedView(RenderFormat::R32_FLOAT);
 
-            // Create structured buffer
+            // Create structured buffer with multiple elements
             struct CustomStruct {
                 float point3D[3];
                 float size2D[2];
             };
-            CustomStruct structData = {
-                {1.0f, 2.0f, 3.0f},
-                {2.0f, 3.0f}
+            CustomStruct structData[] = {
+                {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},  // Element 0
+                {{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},  // Element 1
+                {{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f}},  // Element 2: Initial test data (sum = 15)
+                {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}   // Element 3
             };
-            asyncStructuredBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(CustomStruct) * 4, 
+            asyncStructuredBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(structData), 
                 RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::STORAGE));
             void* structPtr = asyncStructuredBuffer->map();
-            memcpy(structPtr, &structData, sizeof(CustomStruct));
+            memcpy(structPtr, structData, sizeof(structData));
             asyncStructuredBuffer->unmap();
 
-            // Create byte address buffer
-            const uint32_t byteAddressSize = 32;
+            // Create byte address buffer with 8 floats
+            const uint32_t byteAddressSize = 32;  // 8 floats * 4 bytes
             float byteAddressData[8] = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
             asyncByteAddressBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(byteAddressSize,
                 RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::STORAGE));
@@ -1147,7 +1149,7 @@ namespace RT64 {
             const RenderBufferStructuredView asyncStructuredBufferView(sizeof(CustomStruct));
             asyncDescriptorSet = setBuilder.create(ctx.device.get());
             asyncDescriptorSet->setBuffer(formattedBufferIndex, asyncBuffer.get(), 3 * sizeof(float), nullptr, asyncBufferFormattedView.get());
-            asyncDescriptorSet->setBuffer(structuredBufferIndex, asyncStructuredBuffer.get(), 4 * sizeof(CustomStruct), &asyncStructuredBufferView);
+            asyncDescriptorSet->setBuffer(structuredBufferIndex, asyncStructuredBuffer.get(), sizeof(structData), &asyncStructuredBufferView);
             asyncDescriptorSet->setBuffer(byteAddressBufferIndex, asyncByteAddressBuffer.get());
 
             // Create pipeline
@@ -1187,17 +1189,14 @@ namespace RT64 {
                 void* bufferData = asyncBuffer->map();
                 memcpy(outputValues, bufferData, sizeof(outputValues));
                 asyncBuffer->unmap();
-
-                float expectedStructuredValue = (frameCount == 0) ? 14.0f : 40.0f;
-                float expectedByteAddressValue = 5.0f + frameCount;
-
+                
                 printf("Frame %d Results:\n", frameCount);
                 printf("  Formatted Buffer: sqrt(%f) = %f (expected: %f)\n", 
                     inputValue, outputValues[0], sqrt(inputValue));
-                printf("  Structured Buffer: scaled sum = %f (expected: %f)\n", 
-                    outputValues[1], expectedStructuredValue);
-                printf("  Byte Address Buffer: value at offset 16 = %f (expected: %f)\n", 
-                    outputValues[2], expectedByteAddressValue);
+                printf("  Structured Buffer: sum = %f (expected: %f)\n", 
+                    outputValues[1], 15.0f + (frameCount * 5.0f));
+                printf("  Byte Address Buffer: value at offset 16 = %f (expected: %f)\n",
+                    outputValues[2], 5.0f + frameCount);
                 
                 inputValue += 1.0f;
                 frameCount++;

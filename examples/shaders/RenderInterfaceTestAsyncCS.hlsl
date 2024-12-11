@@ -24,12 +24,13 @@ void CSMain(uint coord : SV_DispatchThreadID) {
 
     // Test structured buffer (reading and writing)
     CustomStruct data = gStructured[2];
-    float3 scaledPoint = data.point3D * data.size2D.xyx;
-    gOutput[1] = scaledPoint.x + scaledPoint.y + scaledPoint.z;
+    // Simple sum of all components for verification
+    gOutput[1] = data.point3D.x + data.point3D.y + data.point3D.z + 
+                 data.size2D.x + data.size2D.y;
     
-    // Write back modified data
-    data.point3D *= 2.0;
-    data.size2D += 1.0;
+    // Write back modified data - just increment each value by 1
+    data.point3D = data.point3D + 1.0;
+    data.size2D = data.size2D + 1.0;
     gStructured[2] = data;
 
     // Test byte address buffer (reading and writing)
