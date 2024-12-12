@@ -462,6 +462,7 @@ namespace RT64 {
     static void createRasterColorShader(TestContext &ctx) {
         RenderPipelineLayoutBuilder layoutBuilder;
         layoutBuilder.begin(false, true);
+        layoutBuilder.addPushConstant(0, 0, sizeof(RasterPushConstant), RenderShaderStageFlag::PIXEL);
         layoutBuilder.end();
 
         ctx.rasterColorPipelineLayout = layoutBuilder.create(ctx.device.get());
@@ -904,6 +905,12 @@ namespace RT64 {
 
             // Draw first triangle with normal pipeline
             setupRasterColorPipeline(ctx);
+            RasterPushConstant pushConstant0;
+            pushConstant0.colorAdd[0] = 0.0f;
+            pushConstant0.colorAdd[1] = 0.0f;
+            pushConstant0.colorAdd[2] = 0.0f;
+            pushConstant0.colorAdd[3] = 0.0f;
+            ctx.commandList->setGraphicsPushConstants(0, &pushConstant0);
             drawRasterTriangle(ctx);
 
             // Offset the viewport for the second triangle
@@ -912,11 +919,36 @@ namespace RT64 {
             const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));            
             RenderViewport offsetViewport = viewport;
             
+            // Draw second triangle with push constants for red color
+            offsetViewport.y -= 200.0f;
+            ctx.commandList->setViewports(offsetViewport);
+            setupRasterColorPipeline(ctx);
+            RasterPushConstant pushConstant1;
+            pushConstant1.colorAdd[0] = 1.0f; // Red
+            pushConstant1.colorAdd[1] = 0.0f;
+            pushConstant1.colorAdd[2] = 0.0f;
+            pushConstant1.colorAdd[3] = 1.0f;
+            ctx.commandList->setGraphicsPushConstants(0, &pushConstant1);
+            drawRasterTriangle(ctx);
+            
+            // Draw second triangle with push constants for red color
+            offsetViewport.y -= 100.0f;
+            ctx.commandList->setViewports(offsetViewport);
+            setupRasterColorPipeline(ctx);
+            RasterPushConstant pushConstant2;
+            pushConstant2.colorAdd[0] = 0.0f; // Red
+            pushConstant2.colorAdd[1] = 1.0f;
+            pushConstant2.colorAdd[2] = 0.0f;
+            pushConstant2.colorAdd[3] = 1.0f;
+            ctx.commandList->setGraphicsPushConstants(0, &pushConstant2);
+            drawRasterTriangle(ctx);
+            
             // Depth target must be in read-only mode
             ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_READ));
 
             // Draw decal triangle
             offsetViewport.x += 300.0f;
+            offsetViewport.y += 300.0f;
             ctx.commandList->setFramebuffer(ctx.framebufferDepthRead.get());
             ctx.commandList->setViewports(offsetViewport);
             ctx.commandList->setGraphicsPipelineLayout(rasterDecalPipelineLayout.get());
@@ -933,6 +965,7 @@ namespace RT64 {
             ctx.commandList->setViewports(offsetViewport);
             ctx.commandList->setGraphicsPipelineLayout(ctx.rasterColorPipelineLayout.get());
             ctx.commandList->setPipeline(rasterColorPipelineBlend.get());
+            ctx.commandList->setGraphicsPushConstants(0, &pushConstant0);
             drawRasterTriangle(ctx);
 
             resolveMultisampledTexture(ctx);
@@ -1219,7 +1252,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 5;
+    static uint32_t g_CurrentTestIndex = 1;
     
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
