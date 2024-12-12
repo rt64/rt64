@@ -782,12 +782,7 @@ namespace RT64 {
         this->desc = desc;
         this->device = device;
 
-        // TODO: Set the right buffer options
-        if (pool != nullptr) {
-            this->mtl = pool->heap->newBuffer(desc.size, toMTL(desc.heapType));
-        } else {
-            this->mtl = device->mtl->newBuffer(desc.size, toMTL(desc.heapType));
-        }
+        this->mtl = device->mtl->newBuffer(desc.size, toMTL(desc.heapType));
     }
 
     MetalBuffer::~MetalBuffer() {
@@ -921,18 +916,18 @@ namespace RT64 {
         assert(device != nullptr);
         this->device = device;
 
-        MTL::HeapDescriptor *descriptor = MTL::HeapDescriptor::alloc()->init();
-        // TODO: Set Descriptor properties correctly
-        descriptor->setType(MTL::HeapTypeAutomatic);
-
-        this->heap = device->mtl->newHeap(descriptor);
-
-        // Release resources
-        descriptor->release();
+//        MTL::HeapDescriptor *descriptor = MTL::HeapDescriptor::alloc()->init();
+//        // TODO: Set Descriptor properties correctly
+//        descriptor->setType(MTL::HeapTypeAutomatic);
+//
+//        this->heap = device->mtl->newHeap(descriptor);
+//
+//        // Release resources
+//        descriptor->release();
     }
 
     MetalPool::~MetalPool() {
-        heap->release();
+        // heap->release();
     }
 
     std::unique_ptr<RenderBuffer> MetalPool::createBuffer(const RenderBufferDesc &desc) {
@@ -1340,6 +1335,9 @@ namespace RT64 {
         this->textureCount = 3;
         this->textures.resize(3);
 
+        this->renderWindow = renderWindow;
+        getWindowSize(width, height);
+
         // set each of the drawable to have desc.flags = RenderTextureFlag::RENDER_TARGET;
         for (uint32_t i = 0; i < this->textureCount; i++) {
             auto& drawable = this->textures[i];
@@ -1348,9 +1346,6 @@ namespace RT64 {
             drawable.desc.format = format;
             drawable.desc.flags = RenderTextureFlag::RENDER_TARGET;
         }
-
-        this->renderWindow = renderWindow;
-        getWindowSize(width, height);
     }
 
     MetalSwapChain::~MetalSwapChain() {
@@ -1443,6 +1438,8 @@ namespace RT64 {
         drawable.desc.format = toRHI(nextDrawable->texture()->pixelFormat());
         drawable.drawable = nextDrawable;
         drawable.mtl = nextDrawable->texture();
+        
+        return true;
     }
 
     uint32_t MetalSwapChain::getTextureCount() const {
