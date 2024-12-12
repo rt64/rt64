@@ -59,10 +59,18 @@ namespace RT64 {
         uint32_t sampleCount = 0;
     };
 
+    struct MetalBufferBinding {
+        MTL::Buffer* buffer;
+        uint32_t offset;
+
+        MetalBufferBinding(MTL::Buffer* buffer = nullptr, uint32_t offset = 0) 
+            : buffer(buffer), offset(offset) {}
+    };
+
     struct MetalDescriptorSet : RenderDescriptorSet {
         MTL::Buffer *descriptorBuffer;
         std::unordered_map<uint32_t, MTL::Texture *> indicesToTextures;
-        std::unordered_map<uint32_t, MTL::Buffer *> indicesToBuffers;
+        std::unordered_map<uint32_t, MetalBufferBinding> indicesToBuffers;
         std::unordered_map<uint32_t, MTL::Texture *> indicesToBufferFormattedViews;
         std::unordered_map<uint32_t, MTL::SamplerState *> indicesToSamplers;
         std::vector<MTL::SamplerState *> staticSamplers;

@@ -1236,7 +1236,9 @@ namespace RT64 {
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
-        // TODO: Should be handled by ARC
+        for (auto &buffer : indicesToBuffers) {
+            buffer.second.buffer->release();
+        }
     }
 
     void MetalDescriptorSet::setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
@@ -1259,7 +1261,13 @@ namespace RT64 {
             case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
             case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
                 const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer*>(buffer);
-                indicesToBuffers[descriptorIndex] = interfaceBuffer->mtl;
+                uint32_t offset = 0;
+                
+                if (bufferStructuredView != nullptr) {
+                    offset = bufferStructuredView->firstElement * bufferStructuredView->structureByteStride;
+                }
+                
+                indicesToBuffers[descriptorIndex] = MetalBufferBinding(interfaceBuffer->mtl, offset);
                 break;
             }
             case RenderDescriptorRangeType::TEXTURE:
@@ -2230,20 +2238,20 @@ namespace RT64 {
 
                 for (const auto& pair : descriptorSet->indicesToBuffers) {
                     uint32_t index = pair.first;
-                    auto* buffer = pair.second;
+                    const auto& binding = pair.second;
 
-                    if (buffer != nullptr) {
+                    if (binding.buffer != nullptr) {
                         auto descriptorType = setLayout->descriptorTypes[index];
                         auto usageFlags = getResourceUsage(descriptorType);
 
                         if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(buffer, usageFlags);
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(binding.buffer, usageFlags);
                         } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(buffer, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(binding.buffer, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
                         }
 
                         uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setBuffer(buffer, 0, adjustedIndex);
+                        setLayout->argumentEncoder->setBuffer(binding.buffer, binding.offset, adjustedIndex);
                     }
                 }
 

@@ -1099,11 +1099,13 @@ namespace RT64 {
             asyncCommandList = asyncCommandQueue->createCommandList(RenderCommandListType::COMPUTE);
             asyncCommandFence = ctx.device->createCommandFence();
 
+            // Update descriptor set builder to include two structured buffer views
             RenderDescriptorSetBuilder setBuilder;
             setBuilder.begin();
             uint32_t formattedBufferIndex = setBuilder.addReadWriteFormattedBuffer(1);
-            uint32_t structuredBufferIndex = setBuilder.addReadWriteStructuredBuffer(2);
-            uint32_t byteAddressBufferIndex = setBuilder.addReadWriteByteAddressBuffer(3);
+            uint32_t structuredBufferBaseIndex = setBuilder.addReadWriteStructuredBuffer(2);
+            uint32_t structuredBufferOffsetIndex = setBuilder.addReadWriteStructuredBuffer(3);
+            uint32_t byteAddressBufferIndex = setBuilder.addReadWriteByteAddressBuffer(4);
             setBuilder.end();
 
             RenderPipelineLayoutBuilder layoutBuilder;
@@ -1115,26 +1117,30 @@ namespace RT64 {
             asyncPipelineLayout = layoutBuilder.create(ctx.device.get());
 
             // Create formatted buffer
-            asyncBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(3 * sizeof(float), 
+            asyncBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(4 * sizeof(float), 
                 RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE));
             asyncBufferFormattedView = asyncBuffer->createBufferFormattedView(RenderFormat::R32_FLOAT);
 
-            // Create structured buffer with multiple elements
+            // Create structured buffer with test data
             struct CustomStruct {
                 float point3D[3];
                 float size2D[2];
             };
             CustomStruct structData[] = {
-                {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},  // Element 0
-                {{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},  // Element 1
-                {{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f}},  // Element 2: Initial test data (sum = 15)
-                {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}   // Element 3
+                {{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},    // Element 0: sum = 5
+                {{2.0f, 2.0f, 2.0f}, {2.0f, 2.0f}},    // Element 1: sum = 10
+                {{3.0f, 3.0f, 3.0f}, {3.0f, 3.0f}},    // Element 2: sum = 15
+                {{4.0f, 4.0f, 4.0f}, {4.0f, 4.0f}}     // Element 3: sum = 20
             };
             asyncStructuredBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(structData), 
                 RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::STORAGE));
             void* structPtr = asyncStructuredBuffer->map();
             memcpy(structPtr, structData, sizeof(structData));
             asyncStructuredBuffer->unmap();
+
+            // Create two views into the same buffer with different offsets
+            const RenderBufferStructuredView baseView(sizeof(CustomStruct), 0);
+            const RenderBufferStructuredView offsetView(sizeof(CustomStruct), 2);
 
             // Create byte address buffer with 8 floats
             const uint32_t byteAddressSize = 32;  // 8 floats * 4 bytes
@@ -1145,11 +1151,11 @@ namespace RT64 {
             memcpy(bytePtr, byteAddressData, sizeof(byteAddressData));
             asyncByteAddressBuffer->unmap();
 
-            // Create descriptor set and bind all buffers
-            const RenderBufferStructuredView asyncStructuredBufferView(sizeof(CustomStruct));
+            // Bind both views to the descriptor set
             asyncDescriptorSet = setBuilder.create(ctx.device.get());
-            asyncDescriptorSet->setBuffer(formattedBufferIndex, asyncBuffer.get(), 3 * sizeof(float), nullptr, asyncBufferFormattedView.get());
-            asyncDescriptorSet->setBuffer(structuredBufferIndex, asyncStructuredBuffer.get(), sizeof(structData), &asyncStructuredBufferView);
+            asyncDescriptorSet->setBuffer(formattedBufferIndex, asyncBuffer.get(), 4 * sizeof(float), nullptr, asyncBufferFormattedView.get());
+            asyncDescriptorSet->setBuffer(structuredBufferBaseIndex, asyncStructuredBuffer.get(), sizeof(structData), &baseView);
+            asyncDescriptorSet->setBuffer(structuredBufferOffsetIndex, asyncStructuredBuffer.get(), sizeof(structData), &offsetView);
             asyncDescriptorSet->setBuffer(byteAddressBufferIndex, asyncByteAddressBuffer.get());
 
             // Create pipeline
@@ -1172,7 +1178,7 @@ namespace RT64 {
         void threadFunction() {
             const RenderCommandList *commandListPtr = asyncCommandList.get();
             float inputValue = 1.0f;
-            float outputValues[3] = {};
+            float outputValues[4] = {};
             int frameCount = 0;
             
             while (true) {
@@ -1189,14 +1195,16 @@ namespace RT64 {
                 void* bufferData = asyncBuffer->map();
                 memcpy(outputValues, bufferData, sizeof(outputValues));
                 asyncBuffer->unmap();
-                
+
                 printf("Frame %d Results:\n", frameCount);
                 printf("  Formatted Buffer: sqrt(%f) = %f (expected: %f)\n", 
                     inputValue, outputValues[0], sqrt(inputValue));
-                printf("  Structured Buffer: sum = %f (expected: %f)\n", 
-                    outputValues[1], 15.0f + (frameCount * 5.0f));
+                printf("  Structured Buffer Base View[0]: sum = %f (expected: %f)\n", 
+                    outputValues[1], 5.0f + (frameCount * 5.0f));
+                printf("  Structured Buffer Offset View[0]: sum = %f (expected: %f)\n",
+                    outputValues[2], 15.0f + (frameCount * 5.0f));
                 printf("  Byte Address Buffer: value at offset 16 = %f (expected: %f)\n",
-                    outputValues[2], 5.0f + frameCount);
+                    outputValues[3], 5.0f + frameCount);
                 
                 inputValue += 1.0f;
                 frameCount++;
