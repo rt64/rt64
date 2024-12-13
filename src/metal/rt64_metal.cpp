@@ -1257,11 +1257,11 @@ namespace RT64 {
             case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
                 const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer*>(buffer);
                 uint32_t offset = 0;
-                
+
                 if (bufferStructuredView != nullptr) {
                     offset = bufferStructuredView->firstElement * bufferStructuredView->structureByteStride;
                 }
-                
+
                 indicesToBuffers[descriptorIndex] = MetalBufferBinding(interfaceBuffer->mtl, offset);
                 break;
             }
@@ -1438,7 +1438,7 @@ namespace RT64 {
         drawable.desc.format = toRHI(nextDrawable->texture()->pixelFormat());
         drawable.drawable = nextDrawable;
         drawable.mtl = nextDrawable->texture();
-        
+
         return true;
     }
 
@@ -1611,8 +1611,11 @@ namespace RT64 {
                 break;
             }
             case MetalPipeline::Type::Graphics: {
-                endActiveRenderEncoder();
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
+                if (!activeRenderState || activeRenderState->samplePositions != graphicsPipeline->state->samplePositions || activeRenderState->sampleCount != graphicsPipeline->state->sampleCount) {
+                    endActiveRenderEncoder();
+                }
+
                 activeRenderState = graphicsPipeline->state;
                 break;
             }
@@ -1664,6 +1667,7 @@ namespace RT64 {
         if (oldLayout != activeGraphicsPipelineLayout) {
             indicesToRenderDescriptorSets.clear();
             graphicsPushConstantsBuffer = nullptr;
+            isActiveRenderEncodeDirty = true;
         }
     }
 
@@ -1682,6 +1686,7 @@ namespace RT64 {
         memcpy(bufferContents + startOffset, data, range.size);
 
         graphicsPushConstantsBuffer = activeGraphicsPipelineLayout->pushConstantsBuffer;
+        isActiveRenderEncodeDirty = true;
     }
 
     void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
@@ -1711,9 +1716,9 @@ namespace RT64 {
     void MetalCommandList::setVertexBuffers(uint32_t startSlot, const RenderVertexBufferView *views, uint32_t viewCount, const RenderInputSlot *inputSlots) {
         if ((views != nullptr) && (viewCount > 0)) {
             assert(inputSlots != nullptr);
-            
-            // Since vertex buffers are set at the encoder level, we need to end the current encoder
-            endActiveRenderEncoder();
+
+            // Since VBOs are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
+            isActiveRenderEncodeDirty = true;
 
             this->viewCount = viewCount;
             vertexBuffers.clear();
@@ -1730,8 +1735,8 @@ namespace RT64 {
     }
 
     void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
-        // Since viewports are set at the encoder level, we need to end the current encoder
-        endActiveRenderEncoder();
+        // Since viewports are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
+        isActiveRenderEncodeDirty = true;
         viewportVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
@@ -1741,8 +1746,8 @@ namespace RT64 {
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
-        // Since scissors are set at the encoder level, we need to end the current encoder
-        endActiveRenderEncoder();
+        // Since scissors are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
+        isActiveRenderEncodeDirty = true;
         scissorVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
@@ -2038,11 +2043,17 @@ namespace RT64 {
         if (activeRenderEncoder == nullptr) {
             NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
+            // target frame buffer & sample positions affect the descriptor
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::Render);
-
             activeRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
             activeRenderEncoder->setLabel(MTLSTR("Active Render Encoder"));
+
+            activeRenderEncoder->retain();
+            releasePool->release();
+        }
+
+        if (isActiveRenderEncodeDirty) {
             activeRenderEncoder->setRenderPipelineState(activeRenderState->renderPipelineState);
             activeRenderEncoder->setDepthStencilState(activeRenderState->depthStencilState);
             activeRenderEncoder->setDepthClipMode(activeRenderState->depthClipMode);
@@ -2057,9 +2068,7 @@ namespace RT64 {
             }
 
             bindDescriptorSetLayout(activeGraphicsPipelineLayout, activeRenderEncoder, indicesToRenderDescriptorSets, graphicsPushConstantsBuffer, false);
-
-            activeRenderEncoder->retain();
-            releasePool->release();
+            isActiveRenderEncodeDirty = false;
         }
     }
 
@@ -2068,6 +2077,7 @@ namespace RT64 {
             activeRenderEncoder->endEncoding();
             activeRenderEncoder->release();
             activeRenderEncoder = nullptr;
+            isActiveRenderEncodeDirty = true;
         }
     }
 
@@ -2211,6 +2221,8 @@ namespace RT64 {
         } else {
             indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
         }
+
+        isActiveRenderEncodeDirty = true;
     }
 
     void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, MTL::Buffer* pushConstantsBuffer, bool isCompute) {

@@ -63,7 +63,7 @@ namespace RT64 {
         MTL::Buffer* buffer;
         uint32_t offset;
 
-        MetalBufferBinding(MTL::Buffer* buffer = nullptr, uint32_t offset = 0) 
+        MetalBufferBinding(MTL::Buffer* buffer = nullptr, uint32_t offset = 0)
             : buffer(buffer), offset(offset) {}
     };
 
@@ -134,8 +134,10 @@ namespace RT64 {
     };
 
     struct MetalCommandList : RenderCommandList {
-        MTL::ComputeCommandEncoder *activeComputeEncoder = nullptr;
+        bool isActiveRenderEncodeDirty = true;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
+
+        MTL::ComputeCommandEncoder *activeComputeEncoder = nullptr;
         MTL::RenderCommandEncoder *activeClearColorRenderEncoder = nullptr;
         MTL::RenderCommandEncoder *activeClearDepthRenderEncoder = nullptr;
         MTL::BlitCommandEncoder *activeBlitEncoder = nullptr;
