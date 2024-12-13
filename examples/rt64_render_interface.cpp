@@ -1345,7 +1345,7 @@ namespace RT64 {
             return;
         }
 
-        auto flags = SDL_WINDOW_RESIZABLE;
+        uint32_t flags = SDL_WINDOW_RESIZABLE;
     #if defined(__APPLE__)
         flags |= SDL_WINDOW_METAL;
     #endif
