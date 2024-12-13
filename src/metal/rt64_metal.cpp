@@ -1522,8 +1522,6 @@ namespace RT64 {
 
     MetalCommandList::~MetalCommandList() {
         indexBuffer->release();
-        graphicsPushConstantsBuffer->release();
-        computePushConstantsBuffer->release();
 
         for (auto buffer : vertexBuffers) {
             buffer->release();
@@ -1636,7 +1634,7 @@ namespace RT64 {
 
         if (oldLayout != activeComputePipelineLayout) {
             indicesToComputeDescriptorSets.clear();
-            computePushConstantsBuffer = nullptr;
+            pendingPushConstants.clear();
             isActiveComputeEncodeDirty = true;
         }
     }
@@ -1652,10 +1650,14 @@ namespace RT64 {
             startOffset += activeComputePipelineLayout->pushConstantRanges[i].size;
         }
 
-        auto bufferContents = (uint8_t *)activeComputePipelineLayout->pushConstantsBuffer->contents();
-        memcpy(bufferContents + startOffset, data, range.size);
-
-        computePushConstantsBuffer = activeComputePipelineLayout->pushConstantsBuffer;
+        PushConstantData pushConstant;
+        pushConstant.data.resize(range.size);
+        memcpy(pushConstant.data.data(), data, range.size);
+        pushConstant.offset = startOffset;
+        pushConstant.size = range.size;
+        pushConstant.stages = range.stageFlags;
+        pendingPushConstants.push_back(pushConstant);
+        
         isActiveComputeEncodeDirty = true;
     }
 
@@ -1671,7 +1673,7 @@ namespace RT64 {
 
         if (oldLayout != activeGraphicsPipelineLayout) {
             indicesToRenderDescriptorSets.clear();
-            graphicsPushConstantsBuffer = nullptr;
+            pendingPushConstants.clear();
             isActiveRenderEncodeDirty = true;
         }
     }
@@ -1687,10 +1689,14 @@ namespace RT64 {
             startOffset += activeGraphicsPipelineLayout->pushConstantRanges[i].size;
         }
 
-        auto bufferContents = (uint8_t *)activeGraphicsPipelineLayout->pushConstantsBuffer->contents();
-        memcpy(bufferContents + startOffset, data, range.size);
+        PushConstantData pushConstant;
+        pushConstant.data.resize(range.size);
+        memcpy(pushConstant.data.data(), data, range.size);
+        pushConstant.offset = startOffset;
+        pushConstant.size = range.size;
+        pushConstant.stages = range.stageFlags;
+        pendingPushConstants.push_back(pushConstant);
 
-        graphicsPushConstantsBuffer = activeGraphicsPipelineLayout->pushConstantsBuffer;
         isActiveRenderEncodeDirty = true;
     }
 
@@ -2030,7 +2036,7 @@ namespace RT64 {
 
         if (isActiveComputeEncodeDirty) {
             activeComputeEncoder->setComputePipelineState(activeComputeState->pipelineState);
-            bindDescriptorSetLayout(activeComputePipelineLayout, activeComputeEncoder, indicesToComputeDescriptorSets, computePushConstantsBuffer, true);
+            bindDescriptorSetLayout(activeComputePipelineLayout, activeComputeEncoder, indicesToComputeDescriptorSets, true);
         }
     }
 
@@ -2074,7 +2080,7 @@ namespace RT64 {
                 activeRenderEncoder->setVertexBuffer(vertexBuffers[i], vertexBufferOffsets[i], vertexBufferIndices[i]);
             }
 
-            bindDescriptorSetLayout(activeGraphicsPipelineLayout, activeRenderEncoder, indicesToRenderDescriptorSets, graphicsPushConstantsBuffer, false);
+            bindDescriptorSetLayout(activeGraphicsPipelineLayout, activeRenderEncoder, indicesToRenderDescriptorSets, false);
             isActiveRenderEncodeDirty = false;
         }
     }
@@ -2085,6 +2091,7 @@ namespace RT64 {
             activeRenderEncoder->release();
             activeRenderEncoder = nullptr;
             isActiveRenderEncodeDirty = true;
+            pendingPushConstants.clear();
         }
     }
 
@@ -2232,7 +2239,7 @@ namespace RT64 {
         isActiveRenderEncodeDirty = true;
     }
 
-    void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, MTL::Buffer* pushConstantsBuffer, bool isCompute) {
+    void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) {
         // Encode Descriptor set layouts and mark resources
         for (uint32_t i = 0; i < layout->setCount; i++) {
             const auto* setLayout = layout->setLayoutHandles[i];
@@ -2314,12 +2321,16 @@ namespace RT64 {
             }
     }
 
-    if (pushConstantsBuffer != nullptr) {
-        uint32_t pushConstantsIndex = layout->setCount;
+    for (const auto& pushConstant : pendingPushConstants) {
         if (isCompute) {
-            static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(pushConstantsBuffer, 0, pushConstantsIndex);
+            if (pushConstant.stages & RenderShaderStageFlag::COMPUTE) {
+                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBytes(pushConstant.data.data(), pushConstant.size, pushConstant.offset);
+            }
         } else {
-            static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(pushConstantsBuffer, 0, pushConstantsIndex);
+            if (pushConstant.stages & RenderShaderStageFlag::VERTEX) {
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setVertexBytes(pushConstant.data.data(), pushConstant.size, pushConstant.offset);
+            } else if (pushConstant.stages & RenderShaderStageFlag::PIXEL)
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBytes(pushConstant.data.data(), pushConstant.size, pushConstant.offset);
         }
     }
 }
@@ -2406,11 +2417,6 @@ namespace RT64 {
             totalPushConstantSize += range.size;
         }
 
-        if (totalPushConstantSize > 0) {
-            size_t alignedSize = calculateAlignedSize(totalPushConstantSize);
-            pushConstantsBuffer = device->mtl->newBuffer(alignedSize, MTL::ResourceStorageModeShared);
-        }
-
         // Create Descriptor Set Layouts
         for (uint32_t i = 0; i < desc.descriptorSetDescsCount; i++) {
             const RenderDescriptorSetDesc &setDesc = desc.descriptorSetDescs[i];
@@ -2418,9 +2424,7 @@ namespace RT64 {
         }
     }
 
-    MetalPipelineLayout::~MetalPipelineLayout() {
-        pushConstantsBuffer->release();
-    }
+    MetalPipelineLayout::~MetalPipelineLayout() {}
 
     // MetalDevice
 

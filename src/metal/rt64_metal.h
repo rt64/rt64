@@ -134,6 +134,13 @@ namespace RT64 {
     };
 
     struct MetalCommandList : RenderCommandList {
+        struct PushConstantData {
+            std::vector<uint8_t> data;
+            uint32_t offset;
+            uint32_t size;
+            RenderShaderStageFlags stages;
+        };
+
         bool isActiveRenderEncodeDirty = true;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
 
@@ -159,8 +166,7 @@ namespace RT64 {
         std::vector<MTL::Viewport> viewportVector;
         std::vector<MTL::ScissorRect> scissorVector;
 
-        MTL::Buffer *graphicsPushConstantsBuffer = nullptr;
-        MTL::Buffer *computePushConstantsBuffer = nullptr;
+        std::vector<PushConstantData> pendingPushConstants;
 
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;
@@ -215,7 +221,7 @@ namespace RT64 {
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void setDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute);
-        void bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, MTL::Buffer* pushConstantsBuffer, bool isCompute);
+        void bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute);
         void configureRenderDescriptor(MTL::RenderPassDescriptor *descriptor, EncoderType encoderType);
         void endOtherEncoders(EncoderType type);
         void checkActiveComputeEncoder();
@@ -371,7 +377,6 @@ namespace RT64 {
     };
 
     struct MetalPipelineLayout : RenderPipelineLayout {
-        MTL::Buffer *pushConstantsBuffer = nullptr;
         std::vector<RenderPushConstantRange> pushConstantRanges;
         uint32_t setCount = 0;
         std::vector<MetalDescriptorSetLayout *> setLayoutHandles;

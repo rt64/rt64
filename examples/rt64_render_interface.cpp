@@ -935,8 +935,8 @@ namespace RT64 {
             offsetViewport.y -= 100.0f;
             ctx.commandList->setViewports(offsetViewport);
             RasterPushConstant pushConstant2;
-            pushConstant2.colorAdd[0] = 0.0f; // Red
-            pushConstant2.colorAdd[1] = 1.0f;
+            pushConstant2.colorAdd[0] = 0.0f;
+            pushConstant2.colorAdd[1] = 1.0f; // Green
             pushConstant2.colorAdd[2] = 0.0f;
             pushConstant2.colorAdd[3] = 1.0f;
             ctx.commandList->setGraphicsPushConstants(0, &pushConstant2);
