@@ -923,7 +923,6 @@ namespace RT64 {
             // Draw second triangle with push constants for red color
             offsetViewport.y -= 200.0f;
             ctx.commandList->setViewports(offsetViewport);
-            setupRasterColorPipeline(ctx);
             RasterPushConstant pushConstant1;
             pushConstant1.colorAdd[0] = 1.0f; // Red
             pushConstant1.colorAdd[1] = 0.0f;
@@ -935,7 +934,6 @@ namespace RT64 {
             // Draw second triangle with push constants for red color
             offsetViewport.y -= 100.0f;
             ctx.commandList->setViewports(offsetViewport);
-            setupRasterColorPipeline(ctx);
             RasterPushConstant pushConstant2;
             pushConstant2.colorAdd[0] = 0.0f; // Red
             pushConstant2.colorAdd[1] = 1.0f;

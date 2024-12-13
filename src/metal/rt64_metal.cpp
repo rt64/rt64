@@ -1711,6 +1711,9 @@ namespace RT64 {
     void MetalCommandList::setVertexBuffers(uint32_t startSlot, const RenderVertexBufferView *views, uint32_t viewCount, const RenderInputSlot *inputSlots) {
         if ((views != nullptr) && (viewCount > 0)) {
             assert(inputSlots != nullptr);
+            
+            // Since vertex buffers are set at the encoder level, we need to end the current encoder
+            endActiveRenderEncoder();
 
             this->viewCount = viewCount;
             vertexBuffers.clear();
@@ -1727,6 +1730,8 @@ namespace RT64 {
     }
 
     void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
+        // Since viewports are set at the encoder level, we need to end the current encoder
+        endActiveRenderEncoder();
         viewportVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
@@ -1736,6 +1741,8 @@ namespace RT64 {
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
+        // Since scissors are set at the encoder level, we need to end the current encoder
+        endActiveRenderEncoder();
         scissorVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
@@ -1750,7 +1757,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
-        endActiveClearColorRenderEncoder();
+        endOtherEncoders(EncoderType::Render);
         endActiveRenderEncoder();
 
         if (framebuffer != nullptr) {
