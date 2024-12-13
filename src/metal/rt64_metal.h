@@ -137,7 +137,9 @@ namespace RT64 {
         bool isActiveRenderEncodeDirty = true;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
 
+        bool isActiveComputeEncodeDirty = true;
         MTL::ComputeCommandEncoder *activeComputeEncoder = nullptr;
+
         MTL::RenderCommandEncoder *activeClearColorRenderEncoder = nullptr;
         MTL::RenderCommandEncoder *activeClearDepthRenderEncoder = nullptr;
         MTL::BlitCommandEncoder *activeBlitEncoder = nullptr;

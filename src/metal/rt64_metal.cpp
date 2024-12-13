@@ -1605,8 +1605,11 @@ namespace RT64 {
         const auto *interfacePipeline = static_cast<const MetalPipeline *>(pipeline);
         switch (interfacePipeline->type) {
             case MetalPipeline::Type::Compute: {
-                endActiveComputeEncoder();
                 const auto *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
+                if (!activeComputeState || activeComputeState->pipelineState != computePipeline->state->pipelineState) {
+                    endActiveComputeEncoder();
+                }
+
                 activeComputeState = computePipeline->state;
                 break;
             }
@@ -1634,6 +1637,7 @@ namespace RT64 {
         if (oldLayout != activeComputePipelineLayout) {
             indicesToComputeDescriptorSets.clear();
             computePushConstantsBuffer = nullptr;
+            isActiveComputeEncodeDirty = true;
         }
     }
 
@@ -1652,6 +1656,7 @@ namespace RT64 {
         memcpy(bufferContents + startOffset, data, range.size);
 
         computePushConstantsBuffer = activeComputePipelineLayout->pushConstantsBuffer;
+        isActiveComputeEncodeDirty = true;
     }
 
     void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
@@ -2017,14 +2022,15 @@ namespace RT64 {
             MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
             activeComputeEncoder = queue->buffer->computeCommandEncoder(computeDescriptor);
             activeComputeEncoder->setLabel(MTLSTR("Active Compute Encoder"));
-            activeComputeEncoder->setComputePipelineState(activeComputeState->pipelineState);
-
-            bindDescriptorSetLayout(activeComputePipelineLayout, activeComputeEncoder, indicesToComputeDescriptorSets, computePushConstantsBuffer, true);
 
             computeDescriptor->release();
             activeComputeEncoder->retain();
             releasePool->release();
-            int g = 0;
+        }
+
+        if (isActiveComputeEncodeDirty) {
+            activeComputeEncoder->setComputePipelineState(activeComputeState->pipelineState);
+            bindDescriptorSetLayout(activeComputePipelineLayout, activeComputeEncoder, indicesToComputeDescriptorSets, computePushConstantsBuffer, true);
         }
     }
 
@@ -2033,6 +2039,7 @@ namespace RT64 {
             activeComputeEncoder->endEncoding();
             activeComputeEncoder->release();
             activeComputeEncoder = nullptr;
+            isActiveComputeEncodeDirty = true;
         }
     }
 
