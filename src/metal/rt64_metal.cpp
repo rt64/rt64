@@ -1751,7 +1751,7 @@ namespace RT64 {
         viewportVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
-            MTL::Viewport viewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth };
+            MTL::Viewport viewport { viewports[i].x, -viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth };
             viewportVector.emplace_back(viewport);
         }
     }
@@ -1764,7 +1764,7 @@ namespace RT64 {
         for (uint32_t i = 0; i < count; i++) {
             MTL::ScissorRect scissor {
                 static_cast<NS::UInteger>(scissorRects[i].left),
-                static_cast<NS::UInteger>(scissorRects[i].top),
+                static_cast<NS::UInteger>(-scissorRects[i].top),
                 static_cast<NS::UInteger>(scissorRects[i].right - scissorRects[i].left),
                 static_cast<NS::UInteger>(scissorRects[i].bottom - scissorRects[i].top)
             };
