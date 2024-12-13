@@ -61,20 +61,20 @@ namespace RT64 {
         static std::vector<uint8_t> generateCheckeredData(uint32_t width, uint32_t height) {
             std::vector<uint8_t> textureData(width * height * 4);
             const uint32_t squareSize = 32; // Size of each checker square
-            
+
             for (uint32_t y = 0; y < height; y++) {
                 for (uint32_t x = 0; x < width; x++) {
                     uint32_t index = (y * width + x) * 4;
                     bool isWhite = ((x / squareSize) + (y / squareSize)) % 2 == 0;
                     uint8_t pixelValue = isWhite ? 255 : 0;
-                    
+
                     textureData[index + 0] = pixelValue;  // R
                     textureData[index + 1] = pixelValue;  // G
                     textureData[index + 2] = pixelValue;  // B
                     textureData[index + 3] = 255;         // A
                 }
             }
-            
+
             return textureData;
         }
     };
@@ -82,9 +82,9 @@ namespace RT64 {
     struct RasterTextureDescriptorSet : RenderDescriptorSetBase {
         uint32_t gSampler;
         uint32_t gTextures;
-        
+
         std::unique_ptr<RenderSampler> linearSampler;
-        
+
         RasterTextureDescriptorSet(RenderDevice *device, uint32_t textureArraySize) {
             linearSampler = device->createSampler(RenderSamplerDesc());
 
@@ -229,7 +229,7 @@ namespace RT64 {
         RenderIndexBufferView indexBufferView;
         RenderInputSlot inputSlot;
     };
-    
+
     struct TestBase {
         virtual ~TestBase() {}
         virtual void initialize(TestContext& ctx) = 0;
@@ -285,7 +285,7 @@ namespace RT64 {
     static ShaderData getShaderData(RenderShaderFormat format, ShaderType type) {
         ShaderData data = {};
         data.format = format;
-        
+
         switch (format) {
 #       ifdef _WIN64
             case RenderShaderFormat::DXIL:
@@ -454,7 +454,7 @@ namespace RT64 {
         ctx.colorTargetResolved = ctx.device->createTexture(RenderTextureDesc::ColorTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), ColorFormat, 1, nullptr, RenderTextureFlag::STORAGE | RenderTextureFlag::UNORDERED_ACCESS));
         ctx.depthTarget = ctx.device->createTexture(RenderTextureDesc::DepthTarget(ctx.swapChain->getWidth(), ctx.swapChain->getHeight(), DepthFormat, RenderMultisampling(MSAACount)));
         ctx.depthTargetView = ctx.depthTarget->createTextureView(RenderTextureViewDesc::Texture2D(RenderFormat::D32_FLOAT));
-        
+
         const RenderTexture *colorTargetPtr = ctx.colorTargetMS.get();
         ctx.framebuffer = ctx.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, ctx.depthTarget.get()));
         ctx.framebufferDepthRead = ctx.device->createFramebuffer(RenderFramebufferDesc(&colorTargetPtr, 1, ctx.depthTarget.get(), true));
@@ -508,33 +508,33 @@ namespace RT64 {
     static void createRasterTextureShader(TestContext& ctx) {
         const uint32_t textureArraySize = 3;
         ctx.rasterTextureSet = std::make_unique<RasterTextureDescriptorSet>(ctx.device.get(), 3);
-        
+
         RenderPipelineLayoutBuilder layoutBuilder;
         layoutBuilder.begin(false, true);
         layoutBuilder.addPushConstant(0, 0, sizeof(RasterPushConstant), RenderShaderStageFlag::PIXEL);
         layoutBuilder.addDescriptorSet(ctx.rasterTextureSet->builder);
         layoutBuilder.end();
-        
+
         ctx.rasterTexturePipelineLayout = layoutBuilder.create(ctx.device.get());
-        
+
         // Pick shader format depending on the render interface's requirements.
         const RenderInterfaceCapabilities &interfaceCapabilities = ctx.renderInterface->getCapabilities();
         const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
-        
+
         ShaderData psData = getShaderData(shaderFormat, ShaderType::TEXTURE_PIXEL);
         ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
-        
+
         const uint32_t FloatsPerVertex = 4;
-        
+
         ctx.inputSlot = RenderInputSlot(0, sizeof(float) * FloatsPerVertex);
-        
+
         std::vector<RenderInputElement> inputElements;
         inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
         inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
-        
+
         std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
         std::unique_ptr<RenderShader> vertexShader = ctx.device->createShader(vsData.blob, vsData.size, "VSMain", shaderFormat);
-        
+
         RenderGraphicsPipelineDesc graphicsDesc;
         graphicsDesc.inputSlots = &ctx.inputSlot;
         graphicsDesc.inputSlotsCount = 1;
@@ -601,24 +601,24 @@ namespace RT64 {
         ctx.uploadBuffer = ctx.device->createBuffer(RenderBufferDesc::UploadBuffer(BufferSize));
         ctx.blueNoiseTexture = ctx.device->createTexture(RenderTextureDesc::Texture2D(Width, Height, 1, Format));
         ctx.rasterTextureSet->setTexture(ctx.rasterTextureSet->gTextures + 2, ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
-        
+
         // Copy to upload buffer.
         void *bufferData = ctx.uploadBuffer->map();
         auto noiseData = CheckeredTextureGenerator::generateCheckeredData(Width, Height);
         memcpy(bufferData, noiseData.data(), BufferSize);
         ctx.uploadBuffer->unmap();
-        
+
         // Run command list to copy the upload buffer to the texture.
         ctx.commandList->begin();
         ctx.commandList->barriers(RenderBarrierStage::COPY,
                                    RenderBufferBarrier(ctx.uploadBuffer.get(), RenderBufferAccess::READ),
                                    RenderTextureBarrier(ctx.blueNoiseTexture.get(), RenderTextureLayout::COPY_DEST)
                                    );
-        
+
         ctx.commandList->copyTextureRegion(
                                             RenderTextureCopyLocation::Subresource(ctx.blueNoiseTexture.get()),
                                             RenderTextureCopyLocation::PlacedFootprint(ctx.uploadBuffer.get(), Format, Width, Height, 1, RowLength));
-        
+
         ctx.commandList->barriers(RenderBarrierStage::GRAPHICS_AND_COMPUTE, RenderTextureBarrier(ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ));
         ctx.commandList->end();
         ctx.commandQueue->executeCommandLists(ctx.commandList.get(), ctx.commandFence.get());
@@ -633,17 +633,17 @@ namespace RT64 {
             0.5f, -0.25f, 1.0f, 0.0f,
             0.25f, 0.25f, 0.0f, 1.0f
         };
-        
+
         const uint32_t Indices[3] = {
             0, 1, 2
         };
-        
+
         ctx.vertexBuffer = ctx.device->createBuffer(RenderBufferDesc::VertexBuffer(sizeof(Vertices), RenderHeapType::UPLOAD));
         void *dstData = ctx.vertexBuffer->map();
         memcpy(dstData, Vertices, sizeof(Vertices));
         ctx.vertexBuffer->unmap();
         ctx.vertexBufferView = RenderVertexBufferView(ctx.vertexBuffer.get(), sizeof(Vertices));
-        
+
         ctx.indexBuffer = ctx.device->createBuffer(RenderBufferDesc::IndexBuffer(sizeof(Indices), RenderHeapType::UPLOAD));
         dstData = ctx.indexBuffer->map();
         memcpy(dstData, Indices, sizeof(Indices));
@@ -655,16 +655,16 @@ namespace RT64 {
         ctx.computeFirstSet = std::make_unique<ComputeDescriptorFirstSet>(ctx.device.get());
         ctx.computeSecondSet = std::make_unique<ComputeDescriptorSecondSet>(ctx.device.get());
         ctx.computeFirstSet->setTexture(ctx.computeFirstSet->gBlueNoiseTexture, ctx.blueNoiseTexture.get(), RenderTextureLayout::SHADER_READ);
-        
+
         RenderPipelineLayoutBuilder layoutBuilder;
         layoutBuilder.begin();
         layoutBuilder.addPushConstant(0, 0, sizeof(ComputePushConstant), RenderShaderStageFlag::COMPUTE);
         layoutBuilder.addDescriptorSet(ctx.computeFirstSet->builder);
         layoutBuilder.addDescriptorSet(ctx.computeSecondSet->builder);
         layoutBuilder.end();
-        
+
         ctx.computePipelineLayout = layoutBuilder.create(ctx.device.get());
-        
+
         ShaderData computeData = getShaderData(ctx.renderInterface->getCapabilities().shaderFormat, ShaderType::COMPUTE);
         std::unique_ptr<RenderShader> computeShader = ctx.device->createShader(computeData.blob, computeData.size, "CSMain", computeData.format);
         RenderComputePipelineDesc computeDesc(ctx.computePipelineLayout.get(), computeShader.get(), 8, 8, 1);
@@ -675,7 +675,7 @@ namespace RT64 {
         const RenderCommandList* cmdList = ctx.commandList.get();
         RenderCommandSemaphore* waitSemaphore = ctx.acquireSemaphore.get();
         RenderCommandSemaphore* signalSemaphore = ctx.drawSemaphore.get();
-        
+
         ctx.commandQueue->executeCommandLists(&cmdList, 1, &waitSemaphore, 1, &signalSemaphore, 1, ctx.commandFence.get());
         ctx.swapChain->present(ctx.swapChainTextureIndex, &signalSemaphore, 1);
         ctx.commandQueue->waitForCommandFence(ctx.commandFence.get());
@@ -686,16 +686,16 @@ namespace RT64 {
         const uint32_t height = ctx.swapChain->getHeight();
         const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
         const RenderRect scissor(0, 0, width, height);
-        
+
         ctx.commandList->setViewports(viewport);
         ctx.commandList->setScissors(scissor);
         ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.colorTargetMS.get(), RenderTextureLayout::COLOR_WRITE));
         ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_WRITE));
         ctx.commandList->setFramebuffer(ctx.framebuffer.get());
-        
+
         // Clear full screen
         ctx.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.5f)); // Clear to blue
-        
+
         // Clear with rects
         const RenderRect clearRects[] = {
             RenderRect(0, 0, 100, 100),
@@ -704,10 +704,10 @@ namespace RT64 {
         };
 
         ctx.commandList->clearColor(0, RenderColor(0.0f, 1.0f, 0.5f), clearRects, std::size(clearRects)); // Clear to green
-        
+
         // Clear full depth buffer
         ctx.commandList->clearDepth();  // Clear to 1.0f
-        
+
         // Clear depth buffer with rects
         ctx.commandList->clearDepth(true, 0, clearRects, std::size(clearRects));
     }
@@ -723,7 +723,7 @@ namespace RT64 {
         const uint32_t height = ctx.swapChain->getHeight();
         const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
         const RenderRect scissor(0, 0, width, height);
-        
+
         ctx.swapChain->acquireTexture(ctx.acquireSemaphore.get(), &ctx.swapChainTextureIndex);
         RenderTexture *swapChainTexture = ctx.swapChain->getTexture(ctx.swapChainTextureIndex);
         RenderFramebuffer *swapFramebuffer = ctx.swapFramebuffers[ctx.swapChainTextureIndex].get();
@@ -731,7 +731,7 @@ namespace RT64 {
         ctx.commandList->setScissors(scissor);
         ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
         ctx.commandList->setFramebuffer(swapFramebuffer);
-        
+
         ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.colorTargetResolved.get(), RenderTextureLayout::SHADER_READ));
         ctx.commandList->clearColor(0, RenderColor(0.0f, 0.0f, 0.0f));
         ctx.commandList->setPipeline(ctx.postPipeline.get());
@@ -769,7 +769,7 @@ namespace RT64 {
         const uint32_t GroupCount = 8;
         const uint32_t width = ctx.swapChain->getWidth();
         const uint32_t height = ctx.swapChain->getHeight();
-        
+
         ComputePushConstant pushCostant;
         pushCostant.Resolution[0] = width;
         pushCostant.Resolution[1] = height;
@@ -893,7 +893,7 @@ namespace RT64 {
             createVertexBuffer(ctx);
             resize(ctx);
         }
-        
+
         void resize(TestContext& ctx) override {
             createSwapChain(ctx);
             createTargets(ctx);
@@ -917,9 +917,9 @@ namespace RT64 {
             // Offset the viewport for the second triangle
             const uint32_t width = ctx.swapChain->getWidth();
             const uint32_t height = ctx.swapChain->getHeight();
-            const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));            
+            const RenderViewport viewport(0.0f, 0.0f, float(width), float(height));
             RenderViewport offsetViewport = viewport;
-            
+
             // Draw second triangle with push constants for red color
             offsetViewport.y -= 200.0f;
             ctx.commandList->setViewports(offsetViewport);
@@ -930,7 +930,7 @@ namespace RT64 {
             pushConstant1.colorAdd[3] = 1.0f;
             ctx.commandList->setGraphicsPushConstants(0, &pushConstant1);
             drawRasterTriangle(ctx);
-            
+
             // Draw second triangle with push constants for red color
             offsetViewport.y -= 100.0f;
             ctx.commandList->setViewports(offsetViewport);
@@ -941,7 +941,7 @@ namespace RT64 {
             pushConstant2.colorAdd[3] = 1.0f;
             ctx.commandList->setGraphicsPushConstants(0, &pushConstant2);
             drawRasterTriangle(ctx);
-            
+
             // Depth target must be in read-only mode
             ctx.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(ctx.depthTarget.get(), RenderTextureLayout::DEPTH_READ));
 
@@ -982,7 +982,7 @@ namespace RT64 {
             createVertexBuffer(ctx);
             resize(ctx);
         }
-        
+
         void resize(TestContext& ctx) override {
             createSwapChain(ctx);
             createTargets(ctx);
@@ -1010,7 +1010,7 @@ namespace RT64 {
             createComputePipeline(ctx);
             resize(ctx);
         }
-        
+
         void resize(TestContext& ctx) override {
             createSwapChain(ctx);
             createTargets(ctx);
@@ -1039,23 +1039,23 @@ namespace RT64 {
         void createSpecConstantPipeline(TestContext& ctx) {
             const RenderShaderFormat shaderFormat = ctx.renderInterface->getCapabilities().shaderFormat;
             assert(shaderFormat != RenderShaderFormat::DXIL && "DXIL does not support specialization constants.");
-            
+
             RenderPipelineLayoutBuilder layoutBuilder;
             layoutBuilder.begin(false, true);
             layoutBuilder.end();
-            
+
             specConstantLayout = layoutBuilder.create(ctx.device.get());
 
             ShaderData psData = getShaderData(shaderFormat, ShaderType::SPEC_PIXEL);
             ShaderData vsData = getShaderData(shaderFormat, ShaderType::VERTEX);
-            
+
             std::vector<RenderInputElement> inputElements;
             inputElements.emplace_back(RenderInputElement("POSITION", 0, 0, RenderFormat::R32G32_FLOAT, 0, 0));
             inputElements.emplace_back(RenderInputElement("TEXCOORD", 0, 1, RenderFormat::R32G32_FLOAT, 0, sizeof(float) * 2));
-            
+
             std::unique_ptr<RenderShader> pixelShader = ctx.device->createShader(psData.blob, psData.size, "PSMain", shaderFormat);
             std::unique_ptr<RenderShader> vertexShader = ctx.device->createShader(vsData.blob, vsData.size, "VSMain", shaderFormat);
-            
+
             const uint32_t FloatsPerVertex = 4;
 
             ctx.inputSlot = RenderInputSlot(0, sizeof(float) * FloatsPerVertex);
@@ -1089,7 +1089,7 @@ namespace RT64 {
             createVertexBuffer(ctx);
             resize(ctx);
         }
-        
+
         void resize(TestContext& ctx) override {
             createSwapChain(ctx);
             createTargets(ctx);
@@ -1149,7 +1149,7 @@ namespace RT64 {
             asyncPipelineLayout = layoutBuilder.create(ctx.device.get());
 
             // Create formatted buffer
-            asyncBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(4 * sizeof(float), 
+            asyncBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(4 * sizeof(float),
                 RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE));
             asyncBufferFormattedView = asyncBuffer->createBufferFormattedView(RenderFormat::R32_FLOAT);
 
@@ -1164,7 +1164,7 @@ namespace RT64 {
                 {{3.0f, 3.0f, 3.0f}, {3.0f, 3.0f}},    // Element 2: sum = 15
                 {{4.0f, 4.0f, 4.0f}, {4.0f, 4.0f}}     // Element 3: sum = 20
             };
-            asyncStructuredBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(structData), 
+            asyncStructuredBuffer = ctx.device->createBuffer(RenderBufferDesc::ReadbackBuffer(sizeof(structData),
                 RenderBufferFlag::UNORDERED_ACCESS | RenderBufferFlag::STORAGE));
             void* structPtr = asyncStructuredBuffer->map();
             memcpy(structPtr, structData, sizeof(structData));
@@ -1212,7 +1212,7 @@ namespace RT64 {
             float inputValue = 1.0f;
             float outputValues[4] = {};
             int frameCount = 0;
-            
+
             while (true) {
                 asyncCommandList->begin();
                 asyncCommandList->setComputePipelineLayout(asyncPipelineLayout.get());
@@ -1229,15 +1229,15 @@ namespace RT64 {
                 asyncBuffer->unmap();
 
                 printf("Frame %d Results:\n", frameCount);
-                printf("  Formatted Buffer: sqrt(%f) = %f (expected: %f)\n", 
+                printf("  Formatted Buffer: sqrt(%f) = %f (expected: %f)\n",
                     inputValue, outputValues[0], sqrt(inputValue));
-                printf("  Structured Buffer Base View[0]: sum = %f (expected: %f)\n", 
+                printf("  Structured Buffer Base View[0]: sum = %f (expected: %f)\n",
                     outputValues[1], 5.0f + (frameCount * 5.0f));
                 printf("  Structured Buffer Offset View[0]: sum = %f (expected: %f)\n",
                     outputValues[2], 15.0f + (frameCount * 5.0f));
                 printf("  Byte Address Buffer: value at offset 16 = %f (expected: %f)\n",
                     outputValues[3], 5.0f + frameCount);
-                
+
                 inputValue += 1.0f;
                 frameCount++;
 
@@ -1252,7 +1252,7 @@ namespace RT64 {
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
     static uint32_t g_CurrentTestIndex = 1;
-    
+
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });
         g_Tests.push_back([]() { return std::make_unique<RasterTest>(); });
@@ -1318,7 +1318,7 @@ namespace RT64 {
         HWND hwnd = TestCreateWindow();
 
         createContext(g_TestContext, renderInterface, hwnd);
-        
+
         g_CurrentTest = g_Tests[g_CurrentTestIndex]();
         g_CurrentTest->initialize(g_TestContext);
 
@@ -1337,7 +1337,7 @@ namespace RT64 {
     void RenderInterfaceTest(RenderInterface* renderInterface) {
         assert(false);
     }
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__APPLE__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
         RegisterTests();
         if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -1345,7 +1345,12 @@ namespace RT64 {
             return;
         }
 
-        SDL_Window *window = SDL_CreateWindow("Render Interface Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE);
+        auto flags = SDL_WINDOW_RESIZABLE;
+    #if defined(__APPLE__)
+        flags |= SDL_WINDOW_METAL;
+    #endif
+
+        SDL_Window *window = SDL_CreateWindow("Render Interface Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, flags);
         if (window == nullptr) {
             fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
             SDL_Quit();
@@ -1356,68 +1361,14 @@ namespace RT64 {
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
-        
+
         TestContext g_TestContext;
+#   if defined(__linux__)
         createContext(g_TestContext, renderInterface, { wmInfo.info.x11.display, wmInfo.info.x11.window });
-
-        g_CurrentTest = g_Tests[g_CurrentTestIndex]();
-        g_CurrentTest->initialize(g_TestContext);
-
-        std::chrono::system_clock::time_point prev_frame = std::chrono::system_clock::now();
-        bool running = true;
-        while (running) {
-            SDL_Event event;
-            while (SDL_PollEvent(&event)) {
-                switch (event.type) {
-                    case SDL_QUIT:
-                        running = false;
-                        break;
-                    case SDL_WINDOWEVENT:
-                        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                            g_CurrentTest->resize(g_TestContext);
-                        }
-                        break;
-                }
-            }
-
-            using namespace std::chrono_literals;
-            std::this_thread::sleep_for(1ms);
-            auto now_time = std::chrono::system_clock::now();
-            if (now_time - prev_frame > 16666us) {
-                prev_frame = now_time;
-                g_CurrentTest->draw(g_TestContext);
-            }
-        }
-
-        g_CurrentTest->shutdown(g_TestContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-    }
-#elif defined(__APPLE__)
-    void RenderInterfaceTest(RenderInterface* renderInterface) {
-        RegisterTests();
-        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-            fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
-            return;
-        }
-
-        SDL_Window *window = SDL_CreateWindow("Render Interface Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_METAL);
-        if (window == nullptr) {
-            fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
-            SDL_Quit();
-            return;
-        }
-
-        // Setup Metal view.
+#   elif defined(__APPLE__)
         SDL_MetalView view = SDL_Metal_CreateView(window);
-
-        // SDL_Window's handle can be used directly if needed
-        SDL_SysWMinfo wmInfo;
-        SDL_VERSION(&wmInfo.version);
-        SDL_GetWindowWMInfo(window, &wmInfo);
-        
-        TestContext g_TestContext;
         createContext(g_TestContext, renderInterface, { wmInfo.info.cocoa.window, SDL_Metal_GetLayer(view) });
+#   endif
 
         g_CurrentTest = g_Tests[g_CurrentTestIndex]();
         g_CurrentTest->initialize(g_TestContext);
@@ -1449,7 +1400,9 @@ namespace RT64 {
         }
 
         g_CurrentTest->shutdown(g_TestContext);
+#   if defined(__APPLE__)
         SDL_Metal_DestroyView(view);
+#   endif
         SDL_DestroyWindow(window);
         SDL_Quit();
     }
