@@ -1649,12 +1649,19 @@ namespace RT64 {
         for (uint32_t i = 0; i < rangeIndex; i++) {
             startOffset += activeComputePipelineLayout->pushConstantRanges[i].size;
         }
+        
+        uint32_t totalPushConstantSize = 0;
+        for (uint32_t i = 0; i < activeComputePipelineLayout->pushConstantRanges.size(); i++) {
+            totalPushConstantSize += activeComputePipelineLayout->pushConstantRanges[i].size;
+        }
+
+        totalPushConstantSize = calculateAlignedSize(totalPushConstantSize);
 
         PushConstantData pushConstant;
-        pushConstant.data.resize(range.size);
-        memcpy(pushConstant.data.data(), data, range.size);
+        pushConstant.data.resize(totalPushConstantSize);
+        memcpy(pushConstant.data.data() + startOffset, data, range.size);
         pushConstant.offset = startOffset;
-        pushConstant.size = range.size;
+        pushConstant.size = totalPushConstantSize;
         pushConstant.stages = range.stageFlags;
         pendingPushConstants.push_back(pushConstant);
         
@@ -1688,12 +1695,19 @@ namespace RT64 {
         for (uint32_t i = 0; i < rangeIndex; i++) {
             startOffset += activeGraphicsPipelineLayout->pushConstantRanges[i].size;
         }
+        
+        uint32_t totalPushConstantSize = 0;
+        for (uint32_t i = 0; i < activeGraphicsPipelineLayout->pushConstantRanges.size(); i++) {
+            totalPushConstantSize += activeGraphicsPipelineLayout->pushConstantRanges[i].size;
+        }
+        
+        totalPushConstantSize = calculateAlignedSize(totalPushConstantSize);
 
         PushConstantData pushConstant;
-        pushConstant.data.resize(range.size);
-        memcpy(pushConstant.data.data(), data, range.size);
+        pushConstant.data.resize(totalPushConstantSize);
+        memcpy(pushConstant.data.data() + startOffset, data, range.size);
         pushConstant.offset = startOffset;
-        pushConstant.size = range.size;
+        pushConstant.size = totalPushConstantSize;
         pushConstant.stages = range.stageFlags;
         pendingPushConstants.push_back(pushConstant);
 
@@ -2322,15 +2336,17 @@ namespace RT64 {
     }
 
     for (const auto& pushConstant : pendingPushConstants) {
+        uint32_t pushConstantsIndex = layout->setCount;
+        
         if (isCompute) {
             if (pushConstant.stages & RenderShaderStageFlag::COMPUTE) {
-                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBytes(pushConstant.data.data(), pushConstant.size, pushConstant.offset);
+                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBytes(pushConstant.data.data(), pushConstant.size, pushConstantsIndex);
             }
         } else {
             if (pushConstant.stages & RenderShaderStageFlag::VERTEX) {
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setVertexBytes(pushConstant.data.data(), pushConstant.size, pushConstant.offset);
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setVertexBytes(pushConstant.data.data(), pushConstant.size, pushConstantsIndex);
             } else if (pushConstant.stages & RenderShaderStageFlag::PIXEL)
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBytes(pushConstant.data.data(), pushConstant.size, pushConstant.offset);
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBytes(pushConstant.data.data(), pushConstant.size, pushConstantsIndex);
         }
     }
 }
@@ -2410,11 +2426,9 @@ namespace RT64 {
 
         // TODO: Make sure push constant ranges are laid out correctly
 
-        uint32_t totalPushConstantSize = 0;
         for (uint32_t i = 0; i < desc.pushConstantRangesCount; i++) {
             RenderPushConstantRange range = desc.pushConstantRanges[i];
             pushConstantRanges.push_back(range);
-            totalPushConstantSize += range.size;
         }
 
         // Create Descriptor Set Layouts
