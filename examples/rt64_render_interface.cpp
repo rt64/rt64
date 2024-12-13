@@ -231,6 +231,7 @@ namespace RT64 {
     };
     
     struct TestBase {
+        virtual ~TestBase() {}
         virtual void initialize(TestContext& ctx) = 0;
         virtual void resize(TestContext& ctx) = 0;
         virtual void draw(TestContext& ctx) = 0;
@@ -1341,51 +1342,42 @@ namespace RT64 {
 #elif defined(__linux__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
         RegisterTests();
-        Display* display = XOpenDisplay(nullptr);
-        int blackColor = BlackPixel(display, DefaultScreen(display));
-        Window window = XCreateSimpleWindow(display, DefaultRootWindow(display), 
-            0, 0, 1280, 720, 0, blackColor, blackColor);
-        
-
-          XSelectInput(display, window, StructureNotifyMask);
-        // Map the window and wait for the notify event to come in.
-        XMapWindow(display, window);
-        while (true) {
-            XEvent event;
-            XNextEvent(display, &event);
-            if (event.type == MapNotify) {
-                break;
-            }
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+            fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
+            return;
         }
 
-        // Set up the delete window protocol.
-        Atom wmDeleteMessage = XInternAtom(display, "WM_DELETE_WINDOW", False);
-        XSetWMProtocols(display, window, &wmDeleteMessage, 1);
+        SDL_Window *window = SDL_CreateWindow("Render Interface Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE);
+        if (window == nullptr) {
+            fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
+            SDL_Quit();
+            return;
+        }
+
+        // SDL_Window's handle can be used directly if needed
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        SDL_GetWindowWMInfo(window, &wmInfo);
+        
+        TestContext g_TestContext;
+        createContext(g_TestContext, renderInterface, { wmInfo.info.x11.display, wmInfo.info.x11.window });
 
         g_CurrentTest = g_Tests[g_CurrentTestIndex]();
-        g_CurrentTest->initialize(renderInterface, {display, window});
-        g_CurrentTest->resize();
-        g_CurrentTest->execute();
+        g_CurrentTest->initialize(g_TestContext);
 
-        // Loop until the window is closed.
         std::chrono::system_clock::time_point prev_frame = std::chrono::system_clock::now();
         bool running = true;
         while (running) {
-            if (XPending(display) > 0) {
-                XEvent event;
-                XNextEvent(display, &event);
-
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
                 switch (event.type) {
-                    case Expose:
-                        g_CurrentTest->execute();
+                    case SDL_QUIT:
+                        running = false;
                         break;
-
-                    case ClientMessage:
-                        if (event.xclient.data.l[0] == wmDeleteMessage)
-                            running = false;
-                        break;
-
-                    default:
+                    case SDL_WINDOWEVENT:
+                        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                            g_CurrentTest->resize(g_TestContext);
+                        }
                         break;
                 }
             }
@@ -1395,12 +1387,13 @@ namespace RT64 {
             auto now_time = std::chrono::system_clock::now();
             if (now_time - prev_frame > 16666us) {
                 prev_frame = now_time;
-                g_CurrentTest->draw();
+                g_CurrentTest->draw(g_TestContext);
             }
         }
 
-        g_CurrentTest->shutdown();
-        XDestroyWindow(display, window);
+        g_CurrentTest->shutdown(g_TestContext);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
     }
 #elif defined(__APPLE__)
     void RenderInterfaceTest(RenderInterface* renderInterface) {
