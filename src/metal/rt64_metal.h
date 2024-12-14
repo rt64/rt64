@@ -140,6 +140,8 @@ namespace RT64 {
             uint32_t size;
             RenderShaderStageFlags stages;
         };
+        
+        MTL::CommandBuffer *mtl = nullptr;
 
         bool isActiveRenderEncodeDirty = true;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
@@ -186,6 +188,7 @@ namespace RT64 {
         void begin() override;
         void end() override;
         void endEncoder(bool clearDescs);
+        void commit();
         void guaranteeRenderDescriptor(bool forClearColor);
         void guaranteeComputeEncoder();
         void clearDrawCalls();
@@ -246,12 +249,14 @@ namespace RT64 {
     };
 
     struct MetalCommandSemaphore : RenderCommandSemaphore {
+        MTL::Event *mtl;
+        std::atomic<uint64_t> mtlEventValue;
+
         MetalCommandSemaphore(MetalDevice *device);
         ~MetalCommandSemaphore() override;
     };
 
     struct MetalCommandQueue : RenderCommandQueue {
-        MTL::CommandBuffer *buffer = nullptr;
         MTL::CommandQueue *mtl = nullptr;
         MetalDevice *device = nullptr;
 

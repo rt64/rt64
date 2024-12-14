@@ -1371,6 +1371,7 @@ namespace RT64 {
 
         texture.drawable->release();
         texture.mtl->release();
+        presentBuffer->release();
 
         return true;
     }
@@ -1521,6 +1522,7 @@ namespace RT64 {
     }
 
     MetalCommandList::~MetalCommandList() {
+        mtl->release();
         indexBuffer->release();
 
         for (auto buffer : vertexBuffers) {
@@ -1528,7 +1530,10 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::begin() {}
+    void MetalCommandList::begin() {
+        assert(mtl == nullptr);
+        mtl = queue->mtl->commandBuffer();
+    }
 
     void MetalCommandList::end() {
         endActiveClearColorRenderEncoder();
@@ -1539,6 +1544,13 @@ namespace RT64 {
         endActiveComputeEncoder();
 
         targetFramebuffer = nullptr;
+    }
+
+    void MetalCommandList::commit() {
+//        mtl->enqueue();
+        mtl->commit();
+        mtl->release();
+        mtl = nullptr;
     }
 
     void MetalCommandList::configureRenderDescriptor(MTL::RenderPassDescriptor *renderDescriptor, EncoderType encoderType) {
@@ -2040,7 +2052,7 @@ namespace RT64 {
             NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
             MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
-            activeComputeEncoder = queue->buffer->computeCommandEncoder(computeDescriptor);
+            activeComputeEncoder = mtl->computeCommandEncoder(computeDescriptor);
             activeComputeEncoder->setLabel(MTLSTR("Active Compute Encoder"));
 
             computeDescriptor->release();
@@ -2073,7 +2085,7 @@ namespace RT64 {
             // target frame buffer & sample positions affect the descriptor
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor, EncoderType::Render);
-            activeRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
+            activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
             activeRenderEncoder->setLabel(MTLSTR("Active Render Encoder"));
 
             activeRenderEncoder->retain();
@@ -2138,7 +2150,7 @@ namespace RT64 {
                 pipelineColorAttachment->setBlendingEnabled(false);
             }
 
-            activeClearColorRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
+            activeClearColorRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
             activeClearColorRenderEncoder->setLabel(MTLSTR("Active Clear Color Encoder"));
 
             auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
@@ -2166,7 +2178,7 @@ namespace RT64 {
 
             // TODO: We don't specialize this descriptor, so it could be reused.
             auto blitDescriptor = MTL::BlitPassDescriptor::alloc()->init();
-            activeBlitEncoder = queue->buffer->blitCommandEncoder(blitDescriptor);
+            activeBlitEncoder = mtl->blitCommandEncoder(blitDescriptor);
             activeBlitEncoder->setLabel(MTLSTR("Active Blit Encoder"));
 
             blitDescriptor->release();
@@ -2186,7 +2198,7 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Resolve);
 
         if (activeResolveComputeEncoder == nullptr) {
-            activeResolveComputeEncoder = queue->buffer->computeCommandEncoder();
+            activeResolveComputeEncoder = mtl->computeCommandEncoder();
             activeResolveComputeEncoder->setLabel(MTLSTR("Active Resolve Texture Encoder"));
             activeResolveComputeEncoder->setComputePipelineState(device->renderInterface->resolveTexturePipelineState);
         }
@@ -2219,7 +2231,7 @@ namespace RT64 {
             pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
             pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
 
-            activeClearDepthRenderEncoder = queue->buffer->renderCommandEncoder(renderDescriptor);
+            activeClearDepthRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
             activeClearDepthRenderEncoder->setLabel(MTLSTR("Active Clear Depth Encoder"));
 
             auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
@@ -2379,11 +2391,9 @@ namespace RT64 {
 
         this->device = device;
         this->mtl = device->mtl->newCommandQueue();
-        this->buffer = mtl->commandBuffer();
     }
 
     MetalCommandQueue::~MetalCommandQueue() {
-        buffer->release();
         mtl->release();
     }
 
@@ -2398,18 +2408,27 @@ namespace RT64 {
     void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
-
+        
+        for (uint32_t i = 0; i < commandListCount - 1; i++) {
+            assert(commandLists[i] != nullptr);
+            
+            const MetalCommandList *interfaceCommandList = static_cast<const MetalCommandList *>(commandLists[i]);
+            MetalCommandList *mutableCommandList = const_cast<MetalCommandList*>(interfaceCommandList);
+            mutableCommandList->commit();
+        }
+        
+        // Last command list
+        auto *interfaceCommandList = static_cast<const MetalCommandList *>(commandLists[commandListCount - 1]);
+        MetalCommandList *mutableCommandList = const_cast<MetalCommandList*>(interfaceCommandList);
+        
+        auto *fence = static_cast<MetalCommandFence *>(signalFence);
         if (signalFence != nullptr) {
-            buffer->addCompletedHandler([signalFence, this](MTL::CommandBuffer* cmdBuffer) {
-                dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
+            interfaceCommandList->mtl->addCompletedHandler([fence](MTL::CommandBuffer* cmdBuffer) {
+                dispatch_semaphore_signal(fence->semaphore);
             });
         }
 
-        buffer->enqueue();
-        buffer->commit();
-
-        buffer->release();
-        buffer = mtl->commandBuffer();
+        mutableCommandList->commit();
     }
 
     void MetalCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
