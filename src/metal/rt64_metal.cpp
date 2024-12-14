@@ -1360,14 +1360,20 @@ namespace RT64 {
         assert(texture.drawable != nullptr && "Cannot present without a valid drawable.");
 
         // Create a new command buffer just for presenting
-         auto presentBuffer = commandQueue->mtl->commandBuffer();
-         presentBuffer->presentDrawable(texture.drawable);
-         presentBuffer->addCompletedHandler([this](MTL::CommandBuffer* cmdBuffer) {
-             dispatch_semaphore_signal(commandQueue->device->renderInterface->drawables_semaphore);
-             currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % textureCount;
-         });
-         presentBuffer->enqueue();
-         presentBuffer->commit();
+        auto presentBuffer = commandQueue->mtl->commandBuffer();
+        
+        for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+            MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
+            presentBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
+        }
+        
+        presentBuffer->presentDrawable(texture.drawable);
+        presentBuffer->addCompletedHandler([presentBuffer, waitSemaphoreCount, waitSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
+            dispatch_semaphore_signal(commandQueue->device->renderInterface->drawables_semaphore);
+            currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % textureCount;
+        });
+        presentBuffer->enqueue();
+        presentBuffer->commit();
 
         texture.drawable->release();
         texture.mtl->release();
@@ -1430,7 +1436,15 @@ namespace RT64 {
             fprintf(stderr, "No more drawables available for rendering.\n");
             return false;
         }
+        
+        // Create a command buffer just to encode the signal
+        auto acquireBuffer = commandQueue->mtl->commandBuffer();
+        MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphore);
+        acquireBuffer->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
+        acquireBuffer->enqueue();
+        acquireBuffer->commit();
 
+        // Set the texture index and drawable data
         *textureIndex = currentAvailableDrawableIndex;
         auto& drawable = textures[currentAvailableDrawableIndex];
         drawable.desc.width = width;
@@ -2376,11 +2390,12 @@ namespace RT64 {
     // MetalCommandSemaphore
 
     MetalCommandSemaphore::MetalCommandSemaphore(MetalDevice *device) {
-        // TODO: Unimplemented
+        this->mtl = device->mtl->newEvent();
+        this->mtlEventValue = 1;
     }
 
     MetalCommandSemaphore::~MetalCommandSemaphore() {
-        // TODO: Unimplemented.
+        mtl->release();
     }
 
     // MetalCommandQueue
@@ -2409,6 +2424,13 @@ namespace RT64 {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
         
+        // Encode waiting into the first command list in the chain
+        for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+            MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
+            const MetalCommandList *interfaceCommandList = static_cast<const MetalCommandList *>(commandLists[0]);
+            interfaceCommandList->mtl->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
+        }
+        
         for (uint32_t i = 0; i < commandListCount - 1; i++) {
             assert(commandLists[i] != nullptr);
             
@@ -2417,17 +2439,21 @@ namespace RT64 {
             mutableCommandList->commit();
         }
         
-        // Last command list
+        // Use the last command list to mark the end and signal the fence
         auto *interfaceCommandList = static_cast<const MetalCommandList *>(commandLists[commandListCount - 1]);
-        MetalCommandList *mutableCommandList = const_cast<MetalCommandList*>(interfaceCommandList);
-        
-        auto *fence = static_cast<MetalCommandFence *>(signalFence);
+
         if (signalFence != nullptr) {
-            interfaceCommandList->mtl->addCompletedHandler([fence](MTL::CommandBuffer* cmdBuffer) {
-                dispatch_semaphore_signal(fence->semaphore);
+            interfaceCommandList->mtl->addCompletedHandler([signalFence, signalSemaphoreCount, signalSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
+                dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
             });
         }
+        
+        for (uint32_t i = 0; i < signalSemaphoreCount; i++) {
+            MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphores[i]);
+            interfaceCommandList->mtl->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
+        }
 
+        MetalCommandList *mutableCommandList = const_cast<MetalCommandList*>(interfaceCommandList);
         mutableCommandList->commit();
     }
 
