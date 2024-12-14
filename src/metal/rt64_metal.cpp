@@ -1361,6 +1361,7 @@ namespace RT64 {
 
         // Create a new command buffer just for presenting
         auto presentBuffer = commandQueue->mtl->commandBuffer();
+        presentBuffer->setLabel(MTLSTR("PresentCommandBuffer"));
         
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
@@ -1439,10 +1440,12 @@ namespace RT64 {
         
         // Create a command buffer just to encode the signal
         auto acquireBuffer = commandQueue->mtl->commandBuffer();
+        acquireBuffer->setLabel(MTLSTR("AcquireTextureCommandBuffer"));
         MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphore);
         acquireBuffer->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
         acquireBuffer->enqueue();
         acquireBuffer->commit();
+        acquireBuffer->release();
 
         // Set the texture index and drawable data
         *textureIndex = currentAvailableDrawableIndex;
