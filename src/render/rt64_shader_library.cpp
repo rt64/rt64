@@ -149,8 +149,8 @@
         SHADER_FORMAT
 #elif defined(__APPLE__)
 #   define CREATE_SHADER_INPUTS(DXIL_BLOB, SPIRV_BLOB, MSL_BLOB, ENTRY_NAME, SHADER_FORMAT)\
-        (SHADER_FORMAT == RenderShaderFormat::METAL) ? MSL_BLOB : nullptr,\
-        (SHADER_FORMAT == RenderShaderFormat::METAL) ? sizeof(MSL_BLOB) : 0,\
+        (SHADER_FORMAT == RenderShaderFormat::METAL) ? MSL_BLOB : (SHADER_FORMAT == RenderShaderFormat::SPIRV) ? SPIRV_BLOB : nullptr,\
+        (SHADER_FORMAT == RenderShaderFormat::METAL) ? sizeof(MSL_BLOB) : (SHADER_FORMAT == RenderShaderFormat::SPIRV) ? sizeof(SPIRV_BLOB) : 0,\
         ENTRY_NAME,\
         SHADER_FORMAT
 #else
