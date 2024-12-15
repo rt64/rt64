@@ -1373,7 +1373,6 @@ namespace RT64 {
             dispatch_semaphore_signal(commandQueue->device->renderInterface->drawables_semaphore);
             currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % textureCount;
         });
-        presentBuffer->enqueue();
         presentBuffer->commit();
 
         texture.drawable->release();
@@ -1431,21 +1430,20 @@ namespace RT64 {
         assert(*textureIndex < textureCount);
 
         dispatch_semaphore_wait(commandQueue->device->renderInterface->drawables_semaphore, DISPATCH_TIME_FOREVER);
-
-        auto nextDrawable = layer->nextDrawable();
-        if (nextDrawable == nullptr) {
-            fprintf(stderr, "No more drawables available for rendering.\n");
-            return false;
-        }
         
         // Create a command buffer just to encode the signal
         auto acquireBuffer = commandQueue->mtl->commandBuffer();
         acquireBuffer->setLabel(MTLSTR("AcquireTextureCommandBuffer"));
         MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphore);
         acquireBuffer->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
-        acquireBuffer->enqueue();
         acquireBuffer->commit();
         acquireBuffer->release();
+
+        auto nextDrawable = layer->nextDrawable();
+        if (nextDrawable == nullptr) {
+            fprintf(stderr, "No more drawables available for rendering.\n");
+            return false;
+        }
 
         // Set the texture index and drawable data
         *textureIndex = currentAvailableDrawableIndex;
@@ -1553,45 +1551,38 @@ namespace RT64 {
     }
 
     void MetalCommandList::end() {
-        endActiveClearColorRenderEncoder();
         endActiveRenderEncoder();
         endActiveResolveTextureComputeEncoder();
         endActiveBlitEncoder();
-        endActiveClearDepthRenderEncoder();
         endActiveComputeEncoder();
 
         targetFramebuffer = nullptr;
     }
 
     void MetalCommandList::commit() {
-//        mtl->enqueue();
         mtl->commit();
         mtl->release();
         mtl = nullptr;
     }
 
-    void MetalCommandList::configureRenderDescriptor(MTL::RenderPassDescriptor *renderDescriptor, EncoderType encoderType) {
+    void MetalCommandList::configureRenderDescriptor(MTL::RenderPassDescriptor *renderDescriptor) {
         assert(targetFramebuffer != nullptr && "Cannot encode render commands without a target framebuffer");
 
-        if (encoderType != EncoderType::ClearDepth) {
-            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-                auto colorAttachment = renderDescriptor->colorAttachments()->object(i);
-                colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->mtl);
-                colorAttachment->setLoadAction(MTL::LoadActionLoad);
-                colorAttachment->setStoreAction(MTL::StoreActionStore);
-            }
+        for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+            auto colorAttachment = renderDescriptor->colorAttachments()->object(i);
+            colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->mtl);
+            colorAttachment->setLoadAction(MTL::LoadActionLoad);
+            colorAttachment->setStoreAction(MTL::StoreActionStore);
         }
 
-        if (encoderType != EncoderType::ClearColor) {
-            if (targetFramebuffer->depthAttachment != nullptr) {
-                auto depthAttachment = renderDescriptor->depthAttachment();
-                depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
-                depthAttachment->setLoadAction(MTL::LoadActionLoad);
-                depthAttachment->setStoreAction(MTL::StoreActionStore);
-            }
+        if (targetFramebuffer->depthAttachment != nullptr) {
+            auto depthAttachment = renderDescriptor->depthAttachment();
+            depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
+            depthAttachment->setLoadAction(MTL::LoadActionLoad);
+            depthAttachment->setStoreAction(MTL::StoreActionStore);
         }
 
-        if (encoderType == EncoderType::Render && activeRenderState->sampleCount > 1) {
+        if (activeRenderState && activeRenderState->sampleCount > 1) {
             renderDescriptor->setSamplePositions(activeRenderState->samplePositions, activeRenderState->sampleCount);
         }
     }
@@ -1614,14 +1605,97 @@ namespace RT64 {
         // TODO: Support Metal RT
     }
 
+    void MetalCommandList::processPendingClears() {
+        if (pendingColorClears.empty() && pendingDepthClears.empty()) {
+            return;
+        }
+        
+        bool weHaveRenderedBefore = activeRenderState != nullptr;
+        
+        if (!weHaveRenderedBefore) {
+            isActiveRenderEncodeDirty = false;
+            checkActiveRenderEncoder();
+        }
+                
+        // Process color clears
+        for (const auto& clearOp : pendingColorClears) {
+            activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
+            auto clearVertFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearVert"));
+            auto clearFragFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"));
+            
+            MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
+            pipelineDesc->setVertexFunction(clearVertFunction);
+            pipelineDesc->setFragmentFunction(clearFragFunction);
+            pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->desc.multisampling.sampleCount);
+            
+            // Configure color attachments
+            auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(clearOp.attachmentIndex);
+            pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->mtl->pixelFormat());
+            pipelineColorAttachment->setBlendingEnabled(false);
+            
+            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
+            activeRenderEncoder->setRenderPipelineState(clearPipelineState);
+            
+            float clearColor[4] = { clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a };
+            activeRenderEncoder->setFragmentBytes(clearColor, sizeof(float) * 4, 0);
+            
+            encodeCommonClear(activeRenderEncoder, clearOp.clearRects.data(), clearOp.clearRects.size());
+            
+            clearVertFunction->release();
+            clearFragFunction->release();
+            pipelineDesc->release();
+            activeRenderEncoder->popDebugGroup();
+        }
+        
+        // Process depth clears
+        for (const auto& clearOp : pendingDepthClears) {
+            if (targetFramebuffer->depthAttachment == nullptr) {
+                break;
+            }
+            
+            activeRenderEncoder->pushDebugGroup(MTLSTR("DepthClear"));
+            auto clearDepthVertFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"));
+            auto clearDepthFragFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"));
+            
+            MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
+            pipelineDesc->setVertexFunction(clearDepthVertFunction);
+            pipelineDesc->setFragmentFunction(clearDepthFragFunction);
+            pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
+            pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount);
+            
+            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
+            activeRenderEncoder->setRenderPipelineState(clearPipelineState);
+            activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
+            
+            activeRenderEncoder->setFragmentBytes(&clearOp.depthValue, sizeof(float), 0);
+            encodeCommonClear(activeRenderEncoder, clearOp.clearRects.data(), clearOp.clearRects.size());
+            
+            clearDepthVertFunction->release();
+            clearDepthFragFunction->release();
+            pipelineDesc->release();
+            activeRenderEncoder->popDebugGroup();
+        }
+        
+        pendingColorClears.clear();
+        pendingDepthClears.clear();
+        
+        // Used to restore the render encoder state after clearing calls
+        if (weHaveRenderedBefore) {
+            isActiveRenderEncodeDirty = true;
+            checkActiveRenderEncoder();
+        }
+    }
+
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
         checkActiveRenderEncoder();
+        processPendingClears();
 
         activeRenderEncoder->drawPrimitives(currentPrimitiveType, startVertexLocation, vertexCountPerInstance, instanceCount, startInstanceLocation);
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
         checkActiveRenderEncoder();
+        processPendingClears();
 
         activeRenderEncoder->drawIndexedPrimitives(currentPrimitiveType, indexCountPerInstance, currentIndexType, indexBuffer, startIndexLocation, instanceCount, baseVertexLocation, startInstanceLocation);
     }
@@ -1830,6 +1904,7 @@ namespace RT64 {
         if (clearRectsCount == 0) {
             MTL::Viewport viewport { 0, 0, static_cast<double>(targetFramebuffer->width), static_cast<double>(targetFramebuffer->height), 0, 1 };
             encoder->setViewport(viewport);
+            encoder->setScissorRect(MTL::ScissorRect { 0, 0, targetFramebuffer->width, targetFramebuffer->height });
             encoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.f, 3);
         } else {
             for (uint32_t i = 0; i < clearRectsCount; i++) {
@@ -1865,22 +1940,28 @@ namespace RT64 {
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(attachmentIndex < targetFramebuffer->colorAttachments.size());
-
-        checkActiveClearColorRenderEncoder();
-
-        float clearColor[4] = { colorValue.r, colorValue.g, colorValue.b, colorValue.a };
-        activeClearColorRenderEncoder->setFragmentBytes(clearColor, sizeof(float) * 4, 0);
-        encodeCommonClear(activeClearColorRenderEncoder, clearRects, clearRectsCount);
+        
+        PendingColorClear clearOp;
+        clearOp.attachmentIndex = attachmentIndex;
+        clearOp.colorValue = colorValue;
+        if (clearRects && clearRectsCount > 0) {
+            clearOp.clearRects.assign(clearRects, clearRects + clearRectsCount);
+        }
+        pendingColorClears.push_back(clearOp);
     }
 
     void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(targetFramebuffer->depthAttachment != nullptr);
-
-        checkActiveClearDepthRenderEncoder();
-
-        activeClearDepthRenderEncoder->setFragmentBytes(&depthValue, sizeof(float), 0);
-        encodeCommonClear(activeClearDepthRenderEncoder, clearRects, clearRectsCount);
+        
+        if (clearDepth) {
+            PendingDepthClear clearOp;
+            clearOp.depthValue = depthValue;
+            if (clearRects && clearRectsCount > 0) {
+                clearOp.clearRects.assign(clearRects, clearRects + clearRectsCount);
+            }
+            pendingDepthClears.push_back(clearOp);
+        }
     }
 
     void MetalCommandList::copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) {
@@ -2042,12 +2123,6 @@ namespace RT64 {
     }
 
     void MetalCommandList::endOtherEncoders(EncoderType type) {
-        if (type != EncoderType::ClearColor) {
-            endActiveClearColorRenderEncoder();
-        }
-        if (type != EncoderType::ClearDepth) {
-            endActiveClearDepthRenderEncoder();
-        }
         if (type != EncoderType::Render) {
             endActiveRenderEncoder();
         }
@@ -2063,6 +2138,8 @@ namespace RT64 {
     }
 
     void MetalCommandList::checkActiveComputeEncoder() {
+        // before switching pipelines see if we have any pending clears to process
+        processPendingClears();
         endOtherEncoders(EncoderType::Compute);
 
         if (activeComputeEncoder == nullptr) {
@@ -2101,7 +2178,7 @@ namespace RT64 {
 
             // target frame buffer & sample positions affect the descriptor
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
-            configureRenderDescriptor(renderDescriptor, EncoderType::Render);
+            configureRenderDescriptor(renderDescriptor);
             activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
             activeRenderEncoder->setLabel(MTLSTR("Active Render Encoder"));
 
@@ -2138,61 +2215,12 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::checkActiveClearColorRenderEncoder() {
-        assert(targetFramebuffer != nullptr);
-        endOtherEncoders(EncoderType::ClearColor);
-
-        if (activeClearColorRenderEncoder == nullptr) {
-            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
-
-            MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
-            configureRenderDescriptor(renderDescriptor, EncoderType::ClearColor);
-
-            auto clearVertFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearVert"));
-            auto clearFragFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"));
-
-            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-            pipelineDesc->setVertexFunction(clearVertFunction);
-            pipelineDesc->setFragmentFunction(clearFragFunction);
-
-            // TODO: Are we using the right color attachment?
-            pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount);
-
-            // Configure attachments
-            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-                MTL::PixelFormat format = toMTL(targetFramebuffer->colorAttachments[i]->desc.format);
-
-                auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(i);
-                pipelineColorAttachment->setPixelFormat(format);
-                pipelineColorAttachment->setBlendingEnabled(false);
-            }
-
-            activeClearColorRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
-            activeClearColorRenderEncoder->setLabel(MTLSTR("Active Clear Color Encoder"));
-
-            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
-            activeClearColorRenderEncoder->setRenderPipelineState(clearPipelineState);
-
-            // Release resources
-            clearVertFunction->release();
-            clearFragFunction->release();
-            pipelineDesc->release();
-            activeClearColorRenderEncoder->retain();
-            releasePool->release();
-        }
-    }
-
-    void MetalCommandList::endActiveClearColorRenderEncoder() {
-        if (activeClearColorRenderEncoder != nullptr) {
-            activeClearColorRenderEncoder->endEncoding();
-            activeClearColorRenderEncoder = nullptr;
-        }
-    }
-
     void MetalCommandList::checkActiveBlitEncoder() {
+        // before switching pipelines see if we have any pending clears to process
+        processPendingClears();
+        endOtherEncoders(EncoderType::Blit);
+        
         if (activeBlitEncoder == nullptr) {
-            endOtherEncoders(EncoderType::Blit);
-
             // TODO: We don't specialize this descriptor, so it could be reused.
             auto blitDescriptor = MTL::BlitPassDescriptor::alloc()->init();
             activeBlitEncoder = mtl->blitCommandEncoder(blitDescriptor);
@@ -2212,6 +2240,9 @@ namespace RT64 {
 
     void MetalCommandList::checkActiveResolveTextureComputeEncoder() {
         assert(targetFramebuffer != nullptr);
+        
+        // before switching pipelines see if we have any pending clears to process
+        processPendingClears();
         endOtherEncoders(EncoderType::Resolve);
 
         if (activeResolveComputeEncoder == nullptr) {
@@ -2226,48 +2257,6 @@ namespace RT64 {
             activeResolveComputeEncoder->endEncoding();
             activeResolveComputeEncoder->release();
             activeResolveComputeEncoder = nullptr;
-        }
-    }
-
-    void MetalCommandList::checkActiveClearDepthRenderEncoder() {
-        assert(targetFramebuffer != nullptr);
-        endOtherEncoders(EncoderType::ClearDepth);
-
-        if (activeClearDepthRenderEncoder == nullptr) {
-            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
-
-            MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
-            configureRenderDescriptor(renderDescriptor, EncoderType::ClearDepth);
-
-            auto clearDepthVertFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"));
-            auto clearDepthFragFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"));
-
-            MTL::RenderPipelineDescriptor *pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-            pipelineDesc->setVertexFunction(clearDepthVertFunction);
-            pipelineDesc->setFragmentFunction(clearDepthFragFunction);
-            pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
-            pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
-
-            activeClearDepthRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
-            activeClearDepthRenderEncoder->setLabel(MTLSTR("Active Clear Depth Encoder"));
-
-            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
-            activeClearDepthRenderEncoder->setRenderPipelineState(clearPipelineState);
-            activeClearDepthRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
-
-            // Release resources
-            clearDepthVertFunction->release();
-            clearDepthFragFunction->release();
-            pipelineDesc->release();
-            activeClearDepthRenderEncoder->retain();
-            releasePool->release();
-        }
-    }
-
-    void MetalCommandList::endActiveClearDepthRenderEncoder() {
-        if (activeClearDepthRenderEncoder != nullptr) {
-            activeClearDepthRenderEncoder->endEncoding();
-            activeClearDepthRenderEncoder = nullptr;
         }
     }
 
