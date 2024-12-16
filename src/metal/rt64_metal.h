@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/rt64_render_interface.h"
+#include <simd/simd.h>
 
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
@@ -151,16 +152,12 @@ namespace RT64 {
         };
         
         struct ClearRect {
-            float position[2];
-            float size[2];
-        };
-
-        struct Float4 {
-            float x, y, z, w;
+            simd::float2 position;
+            simd::float2 size;
         };
 
         struct ClearTransform {
-            float ndcTransform[16];
+            simd::float4x4 ndcTransform;
         };
         
         MTL::CommandBuffer *mtl = nullptr;

@@ -1611,30 +1611,22 @@ namespace RT64 {
         float tx = -1.0f;
         float ty = 1.0f;
         
-        transform.ndcTransform[0] = sx;   transform.ndcTransform[4] = 0.0f;
-        transform.ndcTransform[8] = 0.0f; transform.ndcTransform[12] = tx;
-        transform.ndcTransform[1] = 0.0f; transform.ndcTransform[5] = sy;
-        transform.ndcTransform[9] = 0.0f; transform.ndcTransform[13] = ty;
-        transform.ndcTransform[2] = 0.0f; transform.ndcTransform[6] = 0.0f;
-        transform.ndcTransform[10] = 1.0f;transform.ndcTransform[14] = 0.0f;
-        transform.ndcTransform[3] = 0.0f; transform.ndcTransform[7] = 0.0f;
-        transform.ndcTransform[11] = 0.0f;transform.ndcTransform[15] = 1.0f;
+        transform.ndcTransform = simd::float4x4(
+            (simd::float4){ sx, 0.0f, 0.0f, 0.0f },
+            (simd::float4){ 0.0f, sy, 0.0f, 0.0f },
+            (simd::float4){ 0.0f, 0.0f, 1.0f, 0.0f },
+            (simd::float4){ tx, ty, 0.0f, 1.0f }
+        );
     }
 
     std::vector<MetalCommandList::ClearRect> MetalCommandList::prepareClearRects(const std::vector<RenderRect>& clearRects) {
         std::vector<ClearRect> rects;
         if (clearRects.empty()) {
-            rects.push_back({{0, 0},
-                {float(targetFramebuffer->width),
-                 float(targetFramebuffer->height)}});
+            rects.push_back({ { 0, 0 }, { float(targetFramebuffer->width), float(targetFramebuffer->height) } });
         } else {
             for (const auto& r : clearRects) {
                 if (!r.isEmpty()) {
-                    rects.push_back({
-                        {float(r.left), float(r.top)},
-                        {float(r.right - r.left),
-                         float(r.bottom - r.top)}
-                    });
+                    rects.push_back({ { float(r.left), float(r.top) }, { float(r.right - r.left), float(r.bottom - r.top) } });
                 }
             }
         }
@@ -1676,8 +1668,8 @@ namespace RT64 {
                 activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
                 activeRenderEncoder->setVertexBytes(&transform, sizeof(transform), 1);
                 
-                std::vector<Float4> clearColors(clearRects.size(), Float4{ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a });
-                activeRenderEncoder->setFragmentBytes(clearColors.data(), sizeof(Float4) * clearColors.size(), 0);
+                std::vector<simd::float4> clearColors(clearRects.size(), (simd::float4){ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a });
+                activeRenderEncoder->setFragmentBytes(clearColors.data(), sizeof(float) * 4 * clearColors.size(), 0);
                 
                 activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
             }
