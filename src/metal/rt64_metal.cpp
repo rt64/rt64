@@ -2284,7 +2284,8 @@ namespace RT64 {
                     auto* texture = pair.second;
 
                     if (texture != nullptr) {
-                        auto descriptorType = setLayout->descriptorTypes[index];
+                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
                         auto usageFlags = getResourceUsage(descriptorType);
 
                         if (isCompute) {
@@ -2303,7 +2304,8 @@ namespace RT64 {
                     const auto& binding = pair.second;
 
                     if (binding.buffer != nullptr) {
-                        auto descriptorType = setLayout->descriptorTypes[index];
+                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
                         auto usageFlags = getResourceUsage(descriptorType);
 
                         if (isCompute) {
@@ -2322,7 +2324,8 @@ namespace RT64 {
                     auto* texture = pair.second;
 
                     if (texture != nullptr) {
-                        auto descriptorType = setLayout->descriptorTypes[index];
+                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
                         auto usageFlags = getResourceUsage(descriptorType);
 
                         if (isCompute) {
