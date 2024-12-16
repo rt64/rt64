@@ -1605,22 +1605,61 @@ namespace RT64 {
         // TODO: Support Metal RT
     }
 
+    void MetalCommandList::setupClearTransform(ClearTransform& transform) {
+        float sx = 2.0f / float(targetFramebuffer->width);
+        float sy = -2.0f / float(targetFramebuffer->height);
+        float tx = -1.0f;
+        float ty = 1.0f;
+        
+        transform.ndcTransform[0] = sx;   transform.ndcTransform[4] = 0.0f;
+        transform.ndcTransform[8] = 0.0f; transform.ndcTransform[12] = tx;
+        transform.ndcTransform[1] = 0.0f; transform.ndcTransform[5] = sy;
+        transform.ndcTransform[9] = 0.0f; transform.ndcTransform[13] = ty;
+        transform.ndcTransform[2] = 0.0f; transform.ndcTransform[6] = 0.0f;
+        transform.ndcTransform[10] = 1.0f;transform.ndcTransform[14] = 0.0f;
+        transform.ndcTransform[3] = 0.0f; transform.ndcTransform[7] = 0.0f;
+        transform.ndcTransform[11] = 0.0f;transform.ndcTransform[15] = 1.0f;
+    }
+
+    std::vector<MetalCommandList::ClearRect> MetalCommandList::prepareClearRects(const std::vector<RenderRect>& clearRects) {
+        std::vector<ClearRect> rects;
+        if (clearRects.empty()) {
+            rects.push_back({{0, 0},
+                {float(targetFramebuffer->width),
+                 float(targetFramebuffer->height)}});
+        } else {
+            for (const auto& r : clearRects) {
+                if (!r.isEmpty()) {
+                    rects.push_back({
+                        {float(r.left), float(r.top)},
+                        {float(r.right - r.left),
+                         float(r.bottom - r.top)}
+                    });
+                }
+            }
+        }
+        return rects;
+    }
+
     void MetalCommandList::processPendingClears() {
         if (pendingColorClears.empty() && pendingDepthClears.empty()) {
             return;
         }
         
         bool weHaveRenderedBefore = activeRenderState != nullptr;
-        
         if (!weHaveRenderedBefore) {
             isActiveRenderEncodeDirty = false;
             checkActiveRenderEncoder();
         }
-                
+        
+        // Calculate transform matrix once for all clears
+        ClearTransform transform;
+        setupClearTransform(transform);
+        
         // Process color clears
         for (const auto& clearOp : pendingColorClears) {
             activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
-                        
+            
             MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
             pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
             pipelineDesc->setFragmentFunction(device->renderInterface->clearColorFunction);
@@ -1630,38 +1669,17 @@ namespace RT64 {
             pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->mtl->pixelFormat());
             pipelineColorAttachment->setBlendingEnabled(false);
             
-            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
-            activeRenderEncoder->setRenderPipelineState(clearPipelineState);
+            activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
             
-            // Prepare clear rects
-            std::vector<ClearRect> clearRects;
-            if (clearOp.clearRects.empty()) {
-                // Full screen clear
-                ClearRect rect = { {0, 0}, {float(targetFramebuffer->width), float(targetFramebuffer->height)} };
-                clearRects.push_back(rect);
-            } else {
-                for (const auto& r : clearOp.clearRects) {
-                    if (!r.isEmpty()) {
-                        ClearRect rect = {
-                            {float(r.left), float(r.top)},
-                            {float(r.right - r.left), float(r.bottom - r.top)}
-                        };
-                        clearRects.push_back(rect);
-                    }
-                }
-            }
-            
+            auto clearRects = prepareClearRects(clearOp.clearRects);
             if (!clearRects.empty()) {
-                float framebufferSize[2] = { float(targetFramebuffer->width), float(targetFramebuffer->height) };
                 activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
-                activeRenderEncoder->setVertexBytes(framebufferSize, sizeof(framebufferSize), 1);
+                activeRenderEncoder->setVertexBytes(&transform, sizeof(transform), 1);
                 
-                std::vector<Float4> clearColors(clearRects.size(),
-                    Float4{clearOp.colorValue.r, clearOp.colorValue.g,
-                           clearOp.colorValue.b, clearOp.colorValue.a});
+                std::vector<Float4> clearColors(clearRects.size(), Float4{ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a });
                 activeRenderEncoder->setFragmentBytes(clearColors.data(), sizeof(Float4) * clearColors.size(), 0);
                 
-                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0, 6, clearRects.size());
+                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
             }
             
             pipelineDesc->release();
@@ -1682,36 +1700,18 @@ namespace RT64 {
             pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
             pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
             
-            auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
-            activeRenderEncoder->setRenderPipelineState(clearPipelineState);
+            activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
             activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
             
-            // Prepare clear rects
-            std::vector<ClearRect> clearRects;
-            if (clearOp.clearRects.empty()) {
-                ClearRect rect = { {0, 0}, {float(targetFramebuffer->width), float(targetFramebuffer->height)} };
-                clearRects.push_back(rect);
-            } else {
-                for (const auto& r : clearOp.clearRects) {
-                    if (!r.isEmpty()) {
-                        ClearRect rect = {
-                            {float(r.left), float(r.top)},
-                            {float(r.right - r.left), float(r.bottom - r.top)}
-                        };
-                        clearRects.push_back(rect);
-                    }
-                }
-            }
-            
+            auto clearRects = prepareClearRects(clearOp.clearRects);
             if (!clearRects.empty()) {
-                float framebufferSize[2] = { float(targetFramebuffer->width), float(targetFramebuffer->height) };
                 activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
-                activeRenderEncoder->setVertexBytes(framebufferSize, sizeof(framebufferSize), 1);
+                activeRenderEncoder->setVertexBytes(&transform, sizeof(transform), 1);
                 
                 std::vector<float> clearDepths(clearRects.size(), clearOp.depthValue);
                 activeRenderEncoder->setFragmentBytes(clearDepths.data(), sizeof(float) * clearDepths.size(), 0);
                 
-                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0, 6, clearRects.size());
+                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
             }
             
             pipelineDesc->release();
@@ -2648,6 +2648,7 @@ namespace RT64 {
         clearVertexFunction->release();
         clearColorFunction->release();
         clearDepthFunction->release();
+        clearDepthFunction->release();
         device->release();
     }
 
@@ -2700,53 +2701,48 @@ namespace RT64 {
         const char* clear_shader = R"(
             #include <metal_stdlib>
             using namespace metal;
-
-            struct VertexOutput {
-                float4 position [[position]];
-                uint rect_index [[flat]];
-            };
-
-            struct ClearRect {
-                float2 position;  // x, y
-                float2 size;     // width, height
-            };
         
             struct DepthClearFragmentOut {
                 float depth [[depth(any)]];
             };
 
-            // Common vertex shader for both color and depth clears
+            struct VertexOutput {
+                float4 position [[position]];
+                uint rect_index [[flat]];
+            };
+        
+            struct ClearRect {
+                float2 position;  // x, y
+                float2 size;     // width, height
+            };
+        
+            struct ClearTransform {
+                float4x4 ndcTransform;  // Pre-calculated transform matrix that includes scaling and Y-flip
+            };
+        
+            // Define quad vertices as a constant buffer to reduce vertex shader work
+            constant float2 quadVertices[] = {
+                float2(0, 0),  // Top-left
+                float2(1, 0),  // Top-right
+                float2(0, 1),  // Bottom-left
+                float2(1, 1)   // Bottom-right
+            };
+        
             vertex VertexOutput clearVert(uint vid [[vertex_id]], 
                                         uint instance_id [[instance_id]],
                                         constant ClearRect* rects [[buffer(0)]],
-                                        constant float2& framebufferSize [[buffer(1)]]) 
+                                        constant ClearTransform& transform [[buffer(1)]])  
             {
                 VertexOutput out;
-                
-                // Generate vertices for a quad (two triangles)
-                const float2 positions[6] = {
-                    float2(0, 0),  // v0: top-left
-                    float2(1, 0),  // v1: top-right
-                    float2(0, 1),  // v2: bottom-left
-                    float2(0, 1),  // v2: bottom-left
-                    float2(1, 0),  // v1: top-right
-                    float2(1, 1)   // v3: bottom-right
-                };
-                
+                    
                 ClearRect rect = rects[instance_id];
-                float2 pos = positions[vid];
+                float2 pos = quadVertices[vid];
                 
-                // Scale by rect size and offset to rect position
-                pos.x = rect.position.x + pos.x * rect.size.x;
-                pos.y = rect.position.y + pos.y * rect.size.y;
-
-                // Flip Y before converting to NDC
-                pos.y = framebufferSize.y - pos.y;
+                // Transform to rect space
+                pos = rect.position + (pos * rect.size);
                 
-                // Convert to NDC space (-1 to 1)
-                pos = (pos / framebufferSize) * float2(2.0, 2.0) - float2(1.0, 1.0);
-                
-                out.position = float4(pos, 0, 1);
+                // Single matrix multiplication for NDC transform
+                out.position = transform.ndcTransform * float4(pos, 0, 1);
                 out.rect_index = instance_id;
                 return out;
             }

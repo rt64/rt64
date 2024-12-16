@@ -154,9 +154,13 @@ namespace RT64 {
             float position[2];
             float size[2];
         };
-        
+
         struct Float4 {
             float x, y, z, w;
+        };
+
+        struct ClearTransform {
+            float ndcTransform[16];
         };
         
         MTL::CommandBuffer *mtl = nullptr;
@@ -251,6 +255,9 @@ namespace RT64 {
         void endActiveBlitEncoder();
         void checkActiveResolveTextureComputeEncoder();
         void endActiveResolveTextureComputeEncoder();
+        
+        void setupClearTransform(ClearTransform& transform);
+        std::vector<ClearRect> prepareClearRects(const std::vector<RenderRect>& clearRects);
     };
 
     struct MetalCommandFence : RenderCommandFence {
