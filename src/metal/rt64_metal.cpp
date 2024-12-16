@@ -1620,15 +1620,12 @@ namespace RT64 {
         // Process color clears
         for (const auto& clearOp : pendingColorClears) {
             activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
-            auto clearVertFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearVert"));
-            auto clearFragFunction = device->renderInterface->clearColorShaderLibrary->newFunction(MTLSTR("clearFrag"));
-            
+                        
             MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-            pipelineDesc->setVertexFunction(clearVertFunction);
-            pipelineDesc->setFragmentFunction(clearFragFunction);
+            pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
+            pipelineDesc->setFragmentFunction(device->renderInterface->clearColorFunction);
             pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->desc.multisampling.sampleCount);
             
-            // Configure color attachments
             auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(clearOp.attachmentIndex);
             pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->mtl->pixelFormat());
             pipelineColorAttachment->setBlendingEnabled(false);
@@ -1636,13 +1633,37 @@ namespace RT64 {
             auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
             activeRenderEncoder->setRenderPipelineState(clearPipelineState);
             
-            float clearColor[4] = { clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a };
-            activeRenderEncoder->setFragmentBytes(clearColor, sizeof(float) * 4, 0);
+            // Prepare clear rects
+            std::vector<ClearRect> clearRects;
+            if (clearOp.clearRects.empty()) {
+                // Full screen clear
+                ClearRect rect = { {0, 0}, {float(targetFramebuffer->width), float(targetFramebuffer->height)} };
+                clearRects.push_back(rect);
+            } else {
+                for (const auto& r : clearOp.clearRects) {
+                    if (!r.isEmpty()) {
+                        ClearRect rect = {
+                            {float(r.left), float(r.top)},
+                            {float(r.right - r.left), float(r.bottom - r.top)}
+                        };
+                        clearRects.push_back(rect);
+                    }
+                }
+            }
             
-            encodeCommonClear(activeRenderEncoder, clearOp.clearRects.data(), clearOp.clearRects.size());
+            if (!clearRects.empty()) {
+                float framebufferSize[2] = { float(targetFramebuffer->width), float(targetFramebuffer->height) };
+                activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
+                activeRenderEncoder->setVertexBytes(framebufferSize, sizeof(framebufferSize), 1);
+                
+                std::vector<Float4> clearColors(clearRects.size(),
+                    Float4{clearOp.colorValue.r, clearOp.colorValue.g,
+                           clearOp.colorValue.b, clearOp.colorValue.a});
+                activeRenderEncoder->setFragmentBytes(clearColors.data(), sizeof(Float4) * clearColors.size(), 0);
+                
+                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0, 6, clearRects.size());
+            }
             
-            clearVertFunction->release();
-            clearFragFunction->release();
             pipelineDesc->release();
             activeRenderEncoder->popDebugGroup();
         }
@@ -1654,24 +1675,45 @@ namespace RT64 {
             }
             
             activeRenderEncoder->pushDebugGroup(MTLSTR("DepthClear"));
-            auto clearDepthVertFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthVertex"));
-            auto clearDepthFragFunction = device->renderInterface->clearDepthShaderLibrary->newFunction(MTLSTR("clearDepthFragment"));
             
             MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-            pipelineDesc->setVertexFunction(clearDepthVertFunction);
-            pipelineDesc->setFragmentFunction(clearDepthFragFunction);
+            pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
+            pipelineDesc->setFragmentFunction(device->renderInterface->clearDepthFunction);
             pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
-            pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[0]->desc.multisampling.sampleCount);
+            pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
             
             auto clearPipelineState = getClearRenderPipelineState(device, pipelineDesc);
             activeRenderEncoder->setRenderPipelineState(clearPipelineState);
             activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
             
-            activeRenderEncoder->setFragmentBytes(&clearOp.depthValue, sizeof(float), 0);
-            encodeCommonClear(activeRenderEncoder, clearOp.clearRects.data(), clearOp.clearRects.size());
+            // Prepare clear rects
+            std::vector<ClearRect> clearRects;
+            if (clearOp.clearRects.empty()) {
+                ClearRect rect = { {0, 0}, {float(targetFramebuffer->width), float(targetFramebuffer->height)} };
+                clearRects.push_back(rect);
+            } else {
+                for (const auto& r : clearOp.clearRects) {
+                    if (!r.isEmpty()) {
+                        ClearRect rect = {
+                            {float(r.left), float(r.top)},
+                            {float(r.right - r.left), float(r.bottom - r.top)}
+                        };
+                        clearRects.push_back(rect);
+                    }
+                }
+            }
             
-            clearDepthVertFunction->release();
-            clearDepthFragFunction->release();
+            if (!clearRects.empty()) {
+                float framebufferSize[2] = { float(targetFramebuffer->width), float(targetFramebuffer->height) };
+                activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
+                activeRenderEncoder->setVertexBytes(framebufferSize, sizeof(framebufferSize), 1);
+                
+                std::vector<float> clearDepths(clearRects.size(), clearOp.depthValue);
+                activeRenderEncoder->setFragmentBytes(clearDepths.data(), sizeof(float) * clearDepths.size(), 0);
+                
+                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0, 6, clearRects.size());
+            }
+            
             pipelineDesc->release();
             activeRenderEncoder->popDebugGroup();
         }
@@ -1897,40 +1939,6 @@ namespace RT64 {
             targetFramebuffer = static_cast<const MetalFramebuffer *>(framebuffer);
         } else {
             targetFramebuffer = nullptr;
-        }
-    }
-
-    void MetalCommandList::encodeCommonClear(MTL::RenderCommandEncoder *encoder, const RenderRect *clearRects, uint32_t clearRectsCount) {
-        if (clearRectsCount == 0) {
-            MTL::Viewport viewport { 0, 0, static_cast<double>(targetFramebuffer->width), static_cast<double>(targetFramebuffer->height), 0, 1 };
-            encoder->setViewport(viewport);
-            encoder->setScissorRect(MTL::ScissorRect { 0, 0, targetFramebuffer->width, targetFramebuffer->height });
-            encoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.f, 3);
-        } else {
-            for (uint32_t i = 0; i < clearRectsCount; i++) {
-                const RenderRect& rect = clearRects[i];
-
-                if (rect.isEmpty()) {
-                    continue;
-                }
-
-                int32_t width = rect.right - rect.left;
-                int32_t height = rect.bottom - rect.top;
-
-                MTL::Viewport viewport { static_cast<double>(rect.left), static_cast<double>(rect.top), static_cast<double>(width), static_cast<double>(height), 0, 1 };
-
-                // clamp to viewport size as metal does not support larger values than viewport size
-                MTL::ScissorRect scissor {
-                    static_cast<NS::UInteger>(std::max(0, std::min(rect.left, static_cast<int32_t>(targetFramebuffer->width)))),
-                    static_cast<NS::UInteger>(std::max(0, std::min(rect.top, static_cast<int32_t>(targetFramebuffer->height)))),
-                    static_cast<NS::UInteger>(std::min(width, static_cast<int32_t>(targetFramebuffer->width - rect.left))),
-                    static_cast<NS::UInteger>(std::min(height, static_cast<int32_t>(targetFramebuffer->height - rect.top)))
-                };
-
-                encoder->setViewport(viewport);
-                encoder->setScissorRect(scissor);
-                encoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.f, 3);
-            }
         }
     }
 
@@ -2627,9 +2635,8 @@ namespace RT64 {
         device = MTL::CreateSystemDefaultDevice();
         capabilities.shaderFormat = RenderShaderFormat::METAL;
 
-        createClearColorShaderLibrary();
+        createClearShaderLibrary();
         createResolvePipelineState();
-        createClearDepthShaderLibrary();
 
         drawables_semaphore = dispatch_semaphore_create(MAX_DRAWABLES);
 
@@ -2638,8 +2645,9 @@ namespace RT64 {
 
     MetalInterface::~MetalInterface() {
         resolveTexturePipelineState->release();
-        clearColorShaderLibrary->release();
-        clearDepthShaderLibrary->release();
+        clearVertexFunction->release();
+        clearColorFunction->release();
+        clearDepthFunction->release();
         device->release();
     }
 
@@ -2688,67 +2696,98 @@ namespace RT64 {
         library->release();
     }
 
-    void MetalInterface::createClearColorShaderLibrary() {
-        const char* clear_color_shader = R"(
+    void MetalInterface::createClearShaderLibrary() {
+        const char* clear_shader = R"(
             #include <metal_stdlib>
             using namespace metal;
 
-            vertex float4 clearVert(uint vid [[vertex_id]]) {
-                const float2 positions[] = {
-                    float2(-1, -1),
-                    float2(3, -1),
-                    float2(-1, 3)
-                };
+            struct VertexOutput {
+                float4 position [[position]];
+                uint rect_index [[flat]];
+            };
 
-                return float4(positions[vid], 0, 1);
-            }
-
-            fragment float4 clearFrag(constant float4& clearColor [[buffer(0)]]) {
-                return clearColor;
-            }
-        )";
-
-        NS::Error* error = nullptr;
-        clearColorShaderLibrary = device->newLibrary(NS::String::string(clear_color_shader, NS::UTF8StringEncoding), nullptr, &error);
-        assert(clearColorShaderLibrary != nullptr && "Failed to create clear color library");
-    }
-
-    void MetalInterface::createClearDepthShaderLibrary() {
-        const char* depth_clear_shader = R"(
-            #include <metal_stdlib>
-            using namespace metal;
-
+            struct ClearRect {
+                float2 position;  // x, y
+                float2 size;     // width, height
+            };
+        
             struct DepthClearFragmentOut {
                 float depth [[depth(any)]];
             };
 
-            vertex float4 clearDepthVertex(uint vid [[vertex_id]]) {
-                const float2 positions[] = {
-                    float2(-1, -1),
-                    float2(3, -1),
-                    float2(-1, 3)
+            // Common vertex shader for both color and depth clears
+            vertex VertexOutput clearVert(uint vid [[vertex_id]], 
+                                        uint instance_id [[instance_id]],
+                                        constant ClearRect* rects [[buffer(0)]],
+                                        constant float2& framebufferSize [[buffer(1)]]) 
+            {
+                VertexOutput out;
+                
+                // Generate vertices for a quad (two triangles)
+                const float2 positions[6] = {
+                    float2(0, 0),  // v0: top-left
+                    float2(1, 0),  // v1: top-right
+                    float2(0, 1),  // v2: bottom-left
+                    float2(0, 1),  // v2: bottom-left
+                    float2(1, 0),  // v1: top-right
+                    float2(1, 1)   // v3: bottom-right
                 };
+                
+                ClearRect rect = rects[instance_id];
+                float2 pos = positions[vid];
+                
+                // Scale by rect size and offset to rect position
+                pos.x = rect.position.x + pos.x * rect.size.x;
+                pos.y = rect.position.y + pos.y * rect.size.y;
 
-                return float4(positions[vid], 1, 1);
+                // Flip Y before converting to NDC
+                pos.y = framebufferSize.y - pos.y;
+                
+                // Convert to NDC space (-1 to 1)
+                pos = (pos / framebufferSize) * float2(2.0, 2.0) - float2(1.0, 1.0);
+                
+                out.position = float4(pos, 0, 1);
+                out.rect_index = instance_id;
+                return out;
             }
 
-            fragment DepthClearFragmentOut clearDepthFragment(constant float& clearDepth [[buffer(0)]]) {
+            // Color clear fragment shader
+            fragment float4 clearColorFrag(VertexOutput in [[stage_in]],
+                                         constant float4* clearColors [[buffer(0)]]) 
+            {
+                return clearColors[in.rect_index];
+            }
+
+            // Depth clear fragment shader
+            fragment DepthClearFragmentOut clearDepthFrag(VertexOutput in [[stage_in]],
+                                        constant float* clearDepths [[buffer(0)]]) 
+            {
                 DepthClearFragmentOut out;
-                out.depth = clearDepth;
+                out.depth = clearDepths[in.rect_index];
                 return out;
             }
         )";
 
         NS::Error* error = nullptr;
-        clearDepthShaderLibrary = device->newLibrary(NS::String::string(depth_clear_shader, NS::UTF8StringEncoding), nullptr, &error);
-        assert(clearDepthShaderLibrary != nullptr && "Failed to create clear depth library");
-
+        auto clearShaderLibrary = device->newLibrary(NS::String::string(clear_shader, NS::UTF8StringEncoding), nullptr, &error);
+        if (error != nullptr) {
+            fprintf(stderr, "Error: %s\n", error->localizedDescription()->utf8String());
+        }
+        assert(clearShaderLibrary != nullptr && "Failed to create clear color library");
+        
+        // Create and cache the shader functions
+        clearVertexFunction = clearShaderLibrary->newFunction(MTLSTR("clearVert"));
+        clearColorFunction = clearShaderLibrary->newFunction(MTLSTR("clearColorFrag"));
+        clearDepthFunction = clearShaderLibrary->newFunction(MTLSTR("clearDepthFrag"));
+        
+        // Create depth stencil state
         MTL::DepthStencilDescriptor *depthDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
         depthDescriptor->setDepthWriteEnabled(true);
         depthDescriptor->setDepthCompareFunction(MTL::CompareFunctionAlways);
         clearDepthStencilState = device->newDepthStencilState(depthDescriptor);
 
         depthDescriptor->release();
+        clearShaderLibrary->release();
     }
 
     std::unique_ptr<RenderDevice> MetalInterface::createDevice() {

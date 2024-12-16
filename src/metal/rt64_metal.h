@@ -150,6 +150,15 @@ namespace RT64 {
             RenderShaderStageFlags stages;
         };
         
+        struct ClearRect {
+            float position[2];
+            float size[2];
+        };
+        
+        struct Float4 {
+            float x, y, z, w;
+        };
+        
         MTL::CommandBuffer *mtl = nullptr;
 
         bool isActiveRenderEncodeDirty = true;
@@ -220,7 +229,6 @@ namespace RT64 {
         void setViewports(const RenderViewport *viewports, uint32_t count) override;
         void setScissors(const RenderRect *scissorRects, uint32_t count) override;
         void setFramebuffer(const RenderFramebuffer *framebuffer) override;
-        void encodeCommonClear(MTL::RenderCommandEncoder *encoder, const RenderRect *clearRects, uint32_t clearRectsCount);
         void clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) override;
         void clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) override;
         void copyBufferRegion(RenderBufferReference dstBuffer, RenderBufferReference srcBuffer, uint64_t size) override;
@@ -431,16 +439,16 @@ namespace RT64 {
 
     struct MetalInterface : RenderInterface {
         MTL::Device* device;
+        dispatch_semaphore_t drawables_semaphore;
         RenderInterfaceCapabilities capabilities;
-
         MTL::ComputePipelineState *resolveTexturePipelineState;
-        MTL::Library *clearColorShaderLibrary;
-        MTL::Library *clearDepthShaderLibrary;
-
+        
+        // Clear functionality
+        MTL::Function* clearVertexFunction = nullptr;
+        MTL::Function* clearColorFunction = nullptr;
+        MTL::Function* clearDepthFunction = nullptr;
         MTL::DepthStencilState *clearDepthStencilState;
         std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
-
-        dispatch_semaphore_t drawables_semaphore;
 
         MetalInterface();
         ~MetalInterface() override;
@@ -450,7 +458,6 @@ namespace RT64 {
 
         // Shader libraries and pipeline states used for emulated operations
         void createResolvePipelineState();
-        void createClearColorShaderLibrary();
-        void createClearDepthShaderLibrary();
+        void createClearShaderLibrary();
     };
 }
