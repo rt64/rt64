@@ -1868,7 +1868,7 @@ namespace RT64 {
         viewportVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
-            MTL::Viewport viewport { viewports[i].x, -viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth };
+            MTL::Viewport viewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth };
             viewportVector.emplace_back(viewport);
         }
     }
@@ -1881,7 +1881,7 @@ namespace RT64 {
         for (uint32_t i = 0; i < count; i++) {
             MTL::ScissorRect scissor {
                 static_cast<NS::UInteger>(scissorRects[i].left),
-                static_cast<NS::UInteger>(-scissorRects[i].top),
+                static_cast<NS::UInteger>(scissorRects[i].top),
                 static_cast<NS::UInteger>(scissorRects[i].right - scissorRects[i].left),
                 static_cast<NS::UInteger>(scissorRects[i].bottom - scissorRects[i].top)
             };
@@ -1917,17 +1917,14 @@ namespace RT64 {
                 int32_t width = rect.right - rect.left;
                 int32_t height = rect.bottom - rect.top;
 
-                MTL::Viewport viewport { static_cast<double>(rect.left), static_cast<double>(targetFramebuffer->height - rect.top), static_cast<double>(width), static_cast<double>(-height), 0, 1 };
+                MTL::Viewport viewport { static_cast<double>(rect.left), static_cast<double>(rect.top), static_cast<double>(width), static_cast<double>(height), 0, 1 };
 
                 // clamp to viewport size as metal does not support larger values than viewport size
                 MTL::ScissorRect scissor {
                     static_cast<NS::UInteger>(std::max(0, std::min(rect.left, static_cast<int32_t>(targetFramebuffer->width)))),
-                    static_cast<NS::UInteger>(std::max(0, std::min(static_cast<int32_t>(targetFramebuffer->height - rect.top - height),
-                                                                  static_cast<int32_t>(targetFramebuffer->height)))),
+                    static_cast<NS::UInteger>(std::max(0, std::min(rect.top, static_cast<int32_t>(targetFramebuffer->height)))),
                     static_cast<NS::UInteger>(std::min(width, static_cast<int32_t>(targetFramebuffer->width - rect.left))),
-                    static_cast<NS::UInteger>(std::min(height, static_cast<int32_t>(targetFramebuffer->height -
-                                             std::max(0, std::min(static_cast<int32_t>(targetFramebuffer->height - rect.top - height),
-                                                                static_cast<int32_t>(targetFramebuffer->height))))))
+                    static_cast<NS::UInteger>(std::min(height, static_cast<int32_t>(targetFramebuffer->height - rect.top)))
                 };
 
                 encoder->setViewport(viewport);
