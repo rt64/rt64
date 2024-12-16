@@ -2061,7 +2061,31 @@ namespace RT64 {
     }
 
     void MetalCommandList::resolveTexture(const RT64::RenderTexture *dstTexture, const RT64::RenderTexture *srcTexture) {
-        resolveTextureRegion(dstTexture, 0, 0, srcTexture, nullptr);
+        assert(dstTexture != nullptr);
+        assert(srcTexture != nullptr);
+        
+        const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
+        const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
+        
+        // For full texture resolves, use the more efficient render pass resolve
+        endOtherEncoders(EncoderType::Render);
+        endActiveRenderEncoder();
+                
+        NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+        
+        MTL::RenderPassDescriptor *renderPassDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
+        auto colorAttachment = renderPassDescriptor->colorAttachments()->object(0);
+        
+        colorAttachment->setTexture(src->mtl);
+        colorAttachment->setResolveTexture(dst->mtl);
+        colorAttachment->setLoadAction(MTL::LoadActionLoad);
+        colorAttachment->setStoreAction(MTL::StoreActionMultisampleResolve);
+        
+        auto encoder = mtl->renderCommandEncoder(renderPassDescriptor);
+        encoder->setLabel(MTLSTR("Resolve Texture Encoder"));
+        encoder->endEncoding();
+        
+        pool->release();
     }
 
     void MetalCommandList::resolveTextureRegion(const RT64::RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RT64::RenderTexture *srcTexture, const RT64::RenderRect *srcRect) {
@@ -2177,7 +2201,7 @@ namespace RT64 {
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
             configureRenderDescriptor(renderDescriptor);
             activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
-            activeRenderEncoder->setLabel(MTLSTR("Active Render Encoder"));
+            activeRenderEncoder->setLabel(MTLSTR("Graphics Render Encoder"));
 
             activeRenderEncoder->retain();
             releasePool->release();
