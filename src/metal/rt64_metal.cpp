@@ -1977,6 +1977,7 @@ namespace RT64 {
         assert(dstBuffer.ref != nullptr);
         assert(srcBuffer.ref != nullptr);
 
+        endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
 
         const auto interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
@@ -1989,6 +1990,7 @@ namespace RT64 {
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
 
+        endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
 
         const auto dstTexture = static_cast<const MetalTexture *>(dstLocation.texture);
@@ -2080,6 +2082,7 @@ namespace RT64 {
         assert(dstBuffer != nullptr);
         assert(srcBuffer != nullptr);
 
+        endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
 
         const auto dst = static_cast<const MetalBuffer *>(dstBuffer);
@@ -2094,6 +2097,7 @@ namespace RT64 {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
 
+        endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
 
         const auto dst = static_cast<const MetalTexture *>(dstTexture);
@@ -2134,6 +2138,7 @@ namespace RT64 {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
 
+        endOtherEncoders(EncoderType::Resolve);
         checkActiveResolveTextureComputeEncoder();
 
         const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
