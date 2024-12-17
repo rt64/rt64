@@ -1606,6 +1606,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setupClearTransform(ClearTransform& transform) {
+        // Convert from screen space to NDC space
         float sx = 2.0f / float(targetFramebuffer->width);
         float sy = -2.0f / float(targetFramebuffer->height);
         float tx = -1.0f;
@@ -1638,7 +1639,7 @@ namespace RT64 {
             return;
         }
         
-        bool weHaveRenderedBefore = activeRenderState != nullptr;
+        bool weHaveRenderedBefore = activeRenderState != nullptr && activeRenderEncoder != nullptr;
         if (!weHaveRenderedBefore) {
             isActiveRenderEncodeDirty = false;
             checkActiveRenderEncoder();
@@ -1662,6 +1663,11 @@ namespace RT64 {
             pipelineColorAttachment->setBlendingEnabled(false);
             
             activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
+            activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
+            activeRenderEncoder->setScissorRect({ 0, 0, targetFramebuffer->width, targetFramebuffer->height });
+            activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
+            activeRenderEncoder->setCullMode(MTL::CullModeNone);
+            activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
             
             auto clearRects = prepareClearRects(clearOp.clearRects);
             if (!clearRects.empty()) {
@@ -1694,6 +1700,11 @@ namespace RT64 {
             
             activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
             activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
+            activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
+            activeRenderEncoder->setScissorRect({ 0, 0, targetFramebuffer->width, targetFramebuffer->height });
+            activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
+            activeRenderEncoder->setCullMode(MTL::CullModeNone);
+            activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
             
             auto clearRects = prepareClearRects(clearOp.clearRects);
             if (!clearRects.empty()) {
@@ -1944,6 +1955,7 @@ namespace RT64 {
         if (clearRects && clearRectsCount > 0) {
             clearOp.clearRects.assign(clearRects, clearRects + clearRectsCount);
         }
+        
         pendingColorClears.push_back(clearOp);
     }
 
@@ -1973,10 +1985,7 @@ namespace RT64 {
         activeBlitEncoder->copyFromBuffer(interfaceSrcBuffer->mtl, srcBuffer.offset, interfaceDstBuffer->mtl, dstBuffer.offset, size);
     }
 
-    void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation,
-                                             const RenderTextureCopyLocation &srcLocation,
-                                             uint32_t dstX, uint32_t dstY, uint32_t dstZ,
-                                             const RenderBox *srcBox) {
+    void MetalCommandList::copyTextureRegion(const RenderTextureCopyLocation &dstLocation, const RenderTextureCopyLocation &srcLocation, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const RenderBox *srcBox) {
         assert(dstLocation.type != RenderTextureCopyType::UNKNOWN);
         assert(srcLocation.type != RenderTextureCopyType::UNKNOWN);
 
@@ -1987,53 +1996,84 @@ namespace RT64 {
         const auto dstBuffer = static_cast<const MetalBuffer *>(dstLocation.buffer);
         const auto srcBuffer = static_cast<const MetalBuffer *>(srcLocation.buffer);
 
-        if (dstLocation.type == RenderTextureCopyType::SUBRESOURCE &&
-            srcLocation.type == RenderTextureCopyType::PLACED_FOOTPRINT) {
+        if (dstLocation.type == RenderTextureCopyType::SUBRESOURCE && srcLocation.type == RenderTextureCopyType::PLACED_FOOTPRINT) {
             assert(dstTexture != nullptr);
             assert(srcBuffer != nullptr);
 
-            // Calculate actual dimensions based on format block size
-            uint32_t blockWidth = RenderFormatBlockWidth(srcLocation.placedFootprint.format);
-            uint32_t width = ((srcLocation.placedFootprint.width + blockWidth - 1) / blockWidth) * blockWidth;
-            uint32_t height = ((srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
-            uint32_t depth = srcLocation.placedFootprint.depth;
+            // Calculate block size based on destination texture format
+            uint32_t blockWidth = RenderFormatBlockWidth(dstTexture->desc.format);
+            
+            // Use actual dimensions for the copy size
+            MTL::Size size = MTL::Size::Make(
+                srcLocation.placedFootprint.width,
+                srcLocation.placedFootprint.height,
+                srcLocation.placedFootprint.depth
+            );
 
-            MTL::Size size = MTL::Size::Make(width, height, depth);
-
-            // Calculate proper bytes per row based on format
-            uint32_t blockCount = (srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth;
-            uint32_t bytesPerRow = blockCount * RenderFormatSize(srcLocation.placedFootprint.format);
+            // Calculate padded row width for buffer layout
+            uint32_t paddedRowWidth = ((srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth) * blockWidth;
+            uint32_t bytesPerRow = paddedRowWidth * RenderFormatSize(dstTexture->desc.format);
 
             // Verify alignment requirements
             assert((srcLocation.placedFootprint.offset % 256) == 0 && "Buffer offset must be aligned");
             assert((bytesPerRow % 256) == 0 && "Bytes per row must be aligned");
 
-            uint32_t bytesPerImage = bytesPerRow * height;
-            MTL::Origin dstOrigin = MTL::Origin::Make(dstX, dstY, dstZ);
-            activeBlitEncoder->copyFromBuffer(srcBuffer->mtl, srcLocation.placedFootprint.offset, bytesPerRow, bytesPerImage, size, dstTexture->mtl, dstLocation.subresource.index, 0, dstOrigin);
-        }
-        else if (dstLocation.type == RenderTextureCopyType::SUBRESOURCE &&
-                 srcLocation.type == RenderTextureCopyType::SUBRESOURCE) {
-            assert(dstTexture != nullptr);
-            assert(srcTexture != nullptr);
-
-            MTL::Origin srcOrigin;
-            MTL::Size size;
-
-            if (srcBox != nullptr) {
-                srcOrigin = MTL::Origin::Make(srcBox->left, srcBox->top, srcBox->front);
-                size = MTL::Size::Make(srcBox->right - srcBox->left, srcBox->bottom - srcBox->top, srcBox->back - srcBox->front);
-            } else {
-                srcOrigin = MTL::Origin::Make(0, 0, 0);
-                size = MTL::Size::Make(srcTexture->desc.width, srcTexture->desc.height, srcTexture->desc.depth);
-            }
+            // Calculate bytes per image using the padded height
+            uint32_t paddedHeight = ((srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
+            uint32_t bytesPerImage = bytesPerRow * paddedHeight;
 
             MTL::Origin dstOrigin = MTL::Origin::Make(dstX, dstY, dstZ);
-            activeBlitEncoder->copyFromTexture(srcTexture->mtl, srcLocation.subresource.index, 0, srcOrigin, size, dstTexture->mtl, dstLocation.subresource.index, 0, dstOrigin);
-        }
-        else {
-            assert(false && "Unsupported texture copy type combination");
-        }
+            
+            activeBlitEncoder->pushDebugGroup(MTLSTR("CopyTextureRegion"));
+            activeBlitEncoder->copyFromBuffer(
+                srcBuffer->mtl,
+                srcLocation.placedFootprint.offset,
+                bytesPerRow,
+                bytesPerImage,
+                size,
+                dstTexture->mtl,
+                dstLocation.subresource.index,
+                0,  // slice
+                dstOrigin
+            );
+            activeBlitEncoder->popDebugGroup();
+        } else {
+              assert(dstTexture != nullptr);
+              assert(srcTexture != nullptr);
+
+              MTL::Origin srcOrigin;
+              MTL::Size size;
+
+              if (srcBox != nullptr) {
+                  srcOrigin = MTL::Origin::Make(srcBox->left, srcBox->top, srcBox->front);
+                  size = MTL::Size::Make(
+                      srcBox->right - srcBox->left,
+                      srcBox->bottom - srcBox->top,
+                      srcBox->back - srcBox->front
+                  );
+              } else {
+                  srcOrigin = MTL::Origin::Make(0, 0, 0);
+                  size = MTL::Size::Make(
+                      srcTexture->desc.width,
+                      srcTexture->desc.height,
+                      srcTexture->desc.depth
+                  );
+              }
+
+              MTL::Origin dstOrigin = MTL::Origin::Make(dstX, dstY, dstZ);
+
+              activeBlitEncoder->copyFromTexture(
+                  srcTexture->mtl,                  // source texture
+                  srcLocation.subresource.index,    // source mipmap level
+                  0,                                // source slice (baseArrayLayer)
+                  srcOrigin,                        // source origin
+                  size,                             // copy size
+                  dstTexture->mtl,                 // destination texture
+                  dstLocation.subresource.index,   // destination mipmap level
+                  0,                               // destination slice (baseArrayLayer)
+                  dstOrigin                        // destination origin
+              );
+          }
     }
 
     void MetalCommandList::copyBuffer(const RenderBuffer *dstBuffer, const RenderBuffer *srcBuffer) {
@@ -2045,7 +2085,9 @@ namespace RT64 {
         const auto dst = static_cast<const MetalBuffer *>(dstBuffer);
         const auto src = static_cast<const MetalBuffer *>(srcBuffer);
 
+        activeBlitEncoder->pushDebugGroup(MTLSTR("CopyBuffer"));
         activeBlitEncoder->copyFromBuffer(src->mtl, 0, dst->mtl, 0, dst->desc.size);
+        activeBlitEncoder->popDebugGroup();
     }
 
     void MetalCommandList::copyTexture(const RenderTexture *dstTexture, const RenderTexture *srcTexture) {
@@ -2245,7 +2287,7 @@ namespace RT64 {
             // TODO: We don't specialize this descriptor, so it could be reused.
             auto blitDescriptor = MTL::BlitPassDescriptor::alloc()->init();
             activeBlitEncoder = mtl->blitCommandEncoder(blitDescriptor);
-            activeBlitEncoder->setLabel(MTLSTR("Active Blit Encoder"));
+            activeBlitEncoder->setLabel(MTLSTR("Copy Blit Encoder"));
 
             blitDescriptor->release();
         }
@@ -2520,6 +2562,7 @@ namespace RT64 {
 #endif
         capabilities.scalarBlockLayout = true;
         capabilities.presentWait = true;
+        capabilities.preferHDR = mtl->recommendedMaxWorkingSetSize() > (512 * 1024 * 1024);
         description.name = "Metal";
     }
 
@@ -2750,14 +2793,14 @@ namespace RT64 {
                                         constant ClearTransform& transform [[buffer(1)]])  
             {
                 VertexOutput out;
-                    
+                        
                 ClearRect rect = rects[instance_id];
                 float2 pos = quadVertices[vid];
                 
-                // Transform to rect space
+                // Transform to rect space (screen space coordinates)
                 pos = rect.position + (pos * rect.size);
                 
-                // Single matrix multiplication for NDC transform
+                // Transform from screen space to NDC space using the transform matrix
                 out.position = transform.ndcTransform * float4(pos, 0, 1);
                 out.rect_index = instance_id;
                 return out;
