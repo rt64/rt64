@@ -77,6 +77,27 @@ int main(int argc, char* argv[]) {
         msl_options.texture_buffer_native = true;
         msl.set_msl_options(msl_options);
 
+        spirv_cross::MSLResourceBinding msl_binding_vert;
+        msl_binding_vert.stage = spv::ExecutionModelVertex;
+        msl_binding_vert.desc_set = spirv_cross::kPushConstDescSet;
+        msl_binding_vert.binding = spirv_cross::kPushConstBinding;
+        msl_binding_vert.msl_buffer = 8;
+        msl.add_msl_resource_binding(msl_binding_vert);
+
+        spirv_cross::MSLResourceBinding msl_binding_frag;
+        msl_binding_frag.stage = spv::ExecutionModelFragment;
+        msl_binding_frag.desc_set = spirv_cross::kPushConstDescSet;
+        msl_binding_frag.binding = spirv_cross::kPushConstBinding;
+        msl_binding_frag.msl_buffer = 8;
+        msl.add_msl_resource_binding(msl_binding_frag);
+
+        spirv_cross::MSLResourceBinding msl_binding_compute;
+        msl_binding_compute.stage = spv::ExecutionModelGLCompute;
+        msl_binding_compute.desc_set = spirv_cross::kPushConstDescSet;
+        msl_binding_compute.binding = spirv_cross::kPushConstBinding;
+        msl_binding_compute.msl_buffer = 8;
+        msl.add_msl_resource_binding(msl_binding_compute);
+
         // Configure common options
         spirv_cross::CompilerGLSL::Options common_options;
         common_options.vertex.flip_vert_y = true;

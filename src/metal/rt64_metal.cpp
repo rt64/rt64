@@ -21,6 +21,7 @@ namespace RT64 {
     const constexpr uint32_t STENCIL_INDEX = DEPTH_INDEX + 1;
     const constexpr uint32_t ATTACHMENT_COUNT = STENCIL_INDEX + 1;
     static constexpr size_t MAX_DRAWABLES = 3;
+    static constexpr size_t MAX_DESCRIPTOR_SET_COUNT = 8;
 
     static size_t calculateAlignedSize(size_t size, size_t alignment = 16) {
         return (size + alignment - 1) & ~(alignment - 1);
@@ -2288,10 +2289,9 @@ namespace RT64 {
         }
         
         if (dirtyComputeState.pushConstants) {
-            // TODO: Should we be incrementing index?
             for (const auto& pushConstant : pendingPushConstants) {
                 if (pushConstant.stages & RenderShaderStageFlag::COMPUTE) {
-                    activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, activeComputePipelineLayout->setCount);
+                    activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT);
                 }
             }
             stateCache.lastPushConstants = pendingPushConstants;
@@ -2377,10 +2377,10 @@ namespace RT64 {
             // TODO: Should we be incrementing index?
             for (const auto& pushConstant : pendingPushConstants) {
                 if (pushConstant.stages & RenderShaderStageFlag::VERTEX) {
-                    activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, activeGraphicsPipelineLayout->setCount);
+                    activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT);
                 }
                 if (pushConstant.stages & RenderShaderStageFlag::PIXEL) {
-                    activeRenderEncoder->setFragmentBytes(pushConstant.data.data(), pushConstant.size, activeGraphicsPipelineLayout->setCount);
+                    activeRenderEncoder->setFragmentBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT);
                 }
             }
             
