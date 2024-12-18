@@ -1639,9 +1639,12 @@ namespace RT64 {
             return;
         }
         
+        // Store state cache
+        auto previousCache = stateCache;
+        
         bool weHaveRenderedBefore = activeRenderState != nullptr && activeRenderEncoder != nullptr;
         if (!weHaveRenderedBefore) {
-            isActiveRenderEncodeDirty = false;
+            dirtyGraphicsState.setAll();
             checkActiveRenderEncoder();
         }
         
@@ -1724,9 +1727,13 @@ namespace RT64 {
         pendingColorClears.clear();
         pendingDepthClears.clear();
         
-        // Used to restore the render encoder state after clearing calls
+        // Restore previous state if we had one
         if (weHaveRenderedBefore) {
-            isActiveRenderEncodeDirty = true;
+            // Restore state cache
+            stateCache = previousCache;
+            
+            // Force everything to be rebound
+            dirtyGraphicsState.setAll();
             checkActiveRenderEncoder();
         }
     }
@@ -1752,20 +1759,25 @@ namespace RT64 {
         switch (interfacePipeline->type) {
             case MetalPipeline::Type::Compute: {
                 const auto *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
-                if (!activeComputeState || activeComputeState->pipelineState != computePipeline->state->pipelineState) {
-                    endActiveComputeEncoder();
+                if (activeComputeState != computePipeline->state) {
+                    activeComputeState = computePipeline->state;
+                    dirtyComputeState.pipelineState = 1;
                 }
-
-                activeComputeState = computePipeline->state;
                 break;
             }
             case MetalPipeline::Type::Graphics: {
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
-                if (!activeRenderState || activeRenderState->samplePositions != graphicsPipeline->state->samplePositions || activeRenderState->sampleCount != graphicsPipeline->state->sampleCount) {
-                    endActiveRenderEncoder();
+                if (activeRenderState) {
+                    if (activeRenderState->samplePositions != graphicsPipeline->state->samplePositions || activeRenderState->sampleCount != graphicsPipeline->state->sampleCount) {
+                        endActiveRenderEncoder();
+                    }
                 }
-
-                activeRenderState = graphicsPipeline->state;
+                
+                // TODO: Can we be more granular here?
+                if (activeRenderState != graphicsPipeline->state) {
+                    activeRenderState = graphicsPipeline->state;
+                    dirtyGraphicsState.pipelineState = 1;
+                }
                 break;
             }
             default:
@@ -1781,9 +1793,16 @@ namespace RT64 {
         activeComputePipelineLayout = static_cast<const MetalPipelineLayout *>(pipelineLayout);
 
         if (oldLayout != activeComputePipelineLayout) {
+            // Clear descriptor set bindings since they're no longer valid with the new layout
             indicesToComputeDescriptorSets.clear();
+            
+            // Clear push constants since they might have different layouts/ranges
             pendingPushConstants.clear();
-            isActiveComputeEncodeDirty = true;
+            stateCache.lastPushConstants.clear();
+            
+            // Mark compute states as dirty that need to be rebound
+            dirtyComputeState.descriptorSets = 1;
+            dirtyComputeState.pushConstants = 1;
         }
     }
 
@@ -1813,7 +1832,7 @@ namespace RT64 {
         pushConstant.stages = range.stageFlags;
         pendingPushConstants.push_back(pushConstant);
         
-        isActiveComputeEncodeDirty = true;
+        dirtyComputeState.pushConstants = 1;
     }
 
     void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
@@ -1827,9 +1846,16 @@ namespace RT64 {
         activeGraphicsPipelineLayout = static_cast<const MetalPipelineLayout *>(pipelineLayout);
 
         if (oldLayout != activeGraphicsPipelineLayout) {
+            // Clear descriptor set bindings since they're no longer valid with the new layout
             indicesToRenderDescriptorSets.clear();
+            
+            // Clear push constants since they might have different layouts/ranges
             pendingPushConstants.clear();
-            isActiveRenderEncodeDirty = true;
+            stateCache.lastPushConstants.clear();
+            
+            // Mark graphics states as dirty that need to be rebound
+            dirtyGraphicsState.descriptorSets = 1;
+            dirtyGraphicsState.pushConstants = 1;
         }
     }
 
@@ -1859,7 +1885,7 @@ namespace RT64 {
         pushConstant.stages = range.stageFlags;
         pendingPushConstants.push_back(pushConstant);
 
-        isActiveRenderEncodeDirty = true;
+        dirtyGraphicsState.pushConstants = 1;
     }
 
     void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
@@ -1890,37 +1916,54 @@ namespace RT64 {
         if ((views != nullptr) && (viewCount > 0)) {
             assert(inputSlots != nullptr);
 
-            // Since VBOs are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
-            isActiveRenderEncodeDirty = true;
-
-            this->viewCount = viewCount;
-            vertexBuffers.clear();
-            vertexBufferOffsets.clear();
-            vertexBufferIndices.clear();
-
+            bool needsUpdate = false;
+            
+            // First time binding or different count requires full update
+            if (this->viewCount != viewCount) {
+                needsUpdate = true;
+            }
+            
+            // Resize our storage if needed
+            vertexBuffers.resize(viewCount);
+            vertexBufferOffsets.resize(viewCount);
+            vertexBufferIndices.resize(viewCount);
+            
+            // Check for changes in bindings
             for (uint32_t i = 0; i < viewCount; i++) {
-                const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer *>(views[i].buffer.ref);
-                vertexBuffers.emplace_back(interfaceBuffer->mtl);
-                vertexBufferOffsets.emplace_back(views[i].buffer.offset);
-                vertexBufferIndices.emplace_back(startSlot + i);
+                const MetalBuffer* interfaceBuffer = static_cast<const MetalBuffer*>(views[i].buffer.ref);
+                uint64_t newOffset = views[i].buffer.offset;
+                uint32_t newIndex = startSlot + i;
+                
+                // Check if this binding differs from current state
+                needsUpdate = i >= stateCache.lastVertexBuffers.size() || interfaceBuffer->mtl != stateCache.lastVertexBuffers[i] || newOffset != stateCache.lastVertexBufferOffsets[i] || newIndex != vertexBufferIndices[i];
+                
+                vertexBuffers[i] = interfaceBuffer->mtl;
+                vertexBufferOffsets[i] = newOffset;
+                vertexBufferIndices[i] = newIndex;
+            }
+            
+            if (needsUpdate) {
+                this->viewCount = viewCount;
+                dirtyGraphicsState.vertexBuffers = 1;
             }
         }
     }
 
     void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
-        // Since viewports are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
-        isActiveRenderEncodeDirty = true;
         viewportVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
             MTL::Viewport viewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth };
             viewportVector.emplace_back(viewport);
         }
+        
+        // Since viewports are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
+        if (viewportVector != stateCache.lastViewports) {
+            dirtyGraphicsState.viewports = 1;
+        }
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
-        // Since scissors are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
-        isActiveRenderEncodeDirty = true;
         scissorVector.clear();
 
         for (uint32_t i = 0; i < count; i++) {
@@ -1932,16 +1975,25 @@ namespace RT64 {
             };
             scissorVector.emplace_back(scissor);
         }
+        
+        // Since scissors are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
+        if (scissorVector != stateCache.lastScissors) {
+            dirtyGraphicsState.scissors = 1;
+        }
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
-        endOtherEncoders(EncoderType::Render);
-        endActiveRenderEncoder();
-
-        if (framebuffer != nullptr) {
-            targetFramebuffer = static_cast<const MetalFramebuffer *>(framebuffer);
-        } else {
-            targetFramebuffer = nullptr;
+        // If we're changing framebuffers, we need to end current encoder and reset state
+        if (targetFramebuffer != framebuffer) {
+            endOtherEncoders(EncoderType::Render);
+            endActiveRenderEncoder();
+            
+            targetFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
+            
+            // Mark all state as needing update with the new encoder
+            if (targetFramebuffer != nullptr) {
+                dirtyGraphicsState.setAll();
+            }
         }
     }
 
@@ -2114,6 +2166,7 @@ namespace RT64 {
         const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
         
         // For full texture resolves, use the more efficient render pass resolve
+        processPendingClears();
         endOtherEncoders(EncoderType::Render);
         endActiveRenderEncoder();
                 
@@ -2215,16 +2268,34 @@ namespace RT64 {
 
             MTL::ComputePassDescriptor *computeDescriptor = MTL::ComputePassDescriptor::alloc()->init();
             activeComputeEncoder = mtl->computeCommandEncoder(computeDescriptor);
-            activeComputeEncoder->setLabel(MTLSTR("Active Compute Encoder"));
+            activeComputeEncoder->setLabel(MTLSTR("Compute Encoder"));
 
             computeDescriptor->release();
             activeComputeEncoder->retain();
             releasePool->release();
+            
+            dirtyComputeState.setAll();
         }
-
-        if (isActiveComputeEncodeDirty) {
+        
+        if (dirtyComputeState.pipelineState) {
             activeComputeEncoder->setComputePipelineState(activeComputeState->pipelineState);
+            dirtyComputeState.pipelineState = 0;
+        }
+        
+        if (dirtyComputeState.descriptorSets) {
             bindDescriptorSetLayout(activeComputePipelineLayout, activeComputeEncoder, indicesToComputeDescriptorSets, true);
+            dirtyComputeState.descriptorSets = 0;
+        }
+        
+        if (dirtyComputeState.pushConstants) {
+            // TODO: Should we be incrementing index?
+            for (const auto& pushConstant : pendingPushConstants) {
+                if (pushConstant.stages & RenderShaderStageFlag::COMPUTE) {
+                    activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, activeComputePipelineLayout->setCount);
+                }
+            }
+            stateCache.lastPushConstants = pendingPushConstants;
+            dirtyComputeState.pushConstants = 0;
         }
     }
 
@@ -2233,7 +2304,12 @@ namespace RT64 {
             activeComputeEncoder->endEncoding();
             activeComputeEncoder->release();
             activeComputeEncoder = nullptr;
-            isActiveComputeEncodeDirty = true;
+            
+            // Mark all state as needing rebind for next encoder
+            dirtyComputeState.setAll();
+            
+            // Clear state cache for compute
+            stateCache.lastPushConstants.clear();
         }
     }
 
@@ -2252,24 +2328,64 @@ namespace RT64 {
 
             activeRenderEncoder->retain();
             releasePool->release();
+            
+            dirtyGraphicsState.setAll();
         }
-
-        if (isActiveRenderEncodeDirty) {
-            activeRenderEncoder->setRenderPipelineState(activeRenderState->renderPipelineState);
-            activeRenderEncoder->setDepthStencilState(activeRenderState->depthStencilState);
-            activeRenderEncoder->setDepthClipMode(activeRenderState->depthClipMode);
-            activeRenderEncoder->setCullMode(activeRenderState->cullMode);
-            activeRenderEncoder->setFrontFacingWinding(activeRenderState->winding);
-
+        
+        if (dirtyGraphicsState.pipelineState) {
+            if (activeRenderState) {
+                activeRenderEncoder->setRenderPipelineState(activeRenderState->renderPipelineState);
+                activeRenderEncoder->setDepthStencilState(activeRenderState->depthStencilState);
+                activeRenderEncoder->setDepthClipMode(activeRenderState->depthClipMode);
+                activeRenderEncoder->setCullMode(activeRenderState->cullMode);
+                activeRenderEncoder->setFrontFacingWinding(activeRenderState->winding);
+                stateCache.lastPipelineState = activeRenderState->renderPipelineState;
+            }
+            dirtyGraphicsState.pipelineState = 0;
+        }
+        
+        if (dirtyGraphicsState.viewports) {
             activeRenderEncoder->setViewports(viewportVector.data(), viewportVector.size());
+            stateCache.lastViewports = viewportVector;
+            dirtyGraphicsState.viewports = 0;
+        }
+        
+        if (dirtyGraphicsState.scissors) {
             activeRenderEncoder->setScissorRects(scissorVector.data(), scissorVector.size());
-
+            stateCache.lastScissors = scissorVector;
+            dirtyGraphicsState.scissors = 0;
+        }
+        
+        if (dirtyGraphicsState.vertexBuffers) {
             for (uint32_t i = 0; i < viewCount; i++) {
                 activeRenderEncoder->setVertexBuffer(vertexBuffers[i], vertexBufferOffsets[i], vertexBufferIndices[i]);
             }
 
-            bindDescriptorSetLayout(activeGraphicsPipelineLayout, activeRenderEncoder, indicesToRenderDescriptorSets, false);
-            isActiveRenderEncodeDirty = false;
+            stateCache.lastVertexBuffers = vertexBuffers;
+            stateCache.lastVertexBufferOffsets = vertexBufferOffsets;
+            dirtyGraphicsState.vertexBuffers = 0;
+        }
+        
+        if (dirtyGraphicsState.descriptorSets) {
+            if (activeGraphicsPipelineLayout) {
+                bindDescriptorSetLayout(activeGraphicsPipelineLayout, activeRenderEncoder, indicesToRenderDescriptorSets, false);
+            }
+            dirtyGraphicsState.descriptorSets = 0;
+        }
+        
+        if (dirtyGraphicsState.pushConstants) {
+            // TODO: Should we be incrementing index?
+            for (const auto& pushConstant : pendingPushConstants) {
+                if (pushConstant.stages & RenderShaderStageFlag::VERTEX) {
+                    activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, activeGraphicsPipelineLayout->setCount);
+                }
+                if (pushConstant.stages & RenderShaderStageFlag::PIXEL) {
+                    activeRenderEncoder->setFragmentBytes(pushConstant.data.data(), pushConstant.size, activeGraphicsPipelineLayout->setCount);
+                }
+            }
+            
+            stateCache.lastPushConstants = pendingPushConstants;
+            dirtyGraphicsState.pushConstants = 0;
         }
     }
 
@@ -2278,8 +2394,19 @@ namespace RT64 {
             activeRenderEncoder->endEncoding();
             activeRenderEncoder->release();
             activeRenderEncoder = nullptr;
-            isActiveRenderEncodeDirty = true;
-            pendingPushConstants.clear();
+            
+            // Mark all state as needing rebind for next encoder
+            dirtyGraphicsState.setAll();
+            
+            // Clear state cache since we'll need to rebind everything
+            stateCache.lastPipelineState = nullptr;
+            stateCache.lastViewports.clear();
+            stateCache.lastScissors.clear();
+            stateCache.lastVertexBuffers.clear();
+            stateCache.lastVertexBufferOffsets.clear();
+            stateCache.lastIndexBuffer = nullptr;
+            stateCache.lastIndexBufferOffset = 0;
+            stateCache.lastPushConstants.clear();
         }
     }
 
@@ -2315,7 +2442,7 @@ namespace RT64 {
 
         if (activeResolveComputeEncoder == nullptr) {
             activeResolveComputeEncoder = mtl->computeCommandEncoder();
-            activeResolveComputeEncoder->setLabel(MTLSTR("Active Resolve Texture Encoder"));
+            activeResolveComputeEncoder->setLabel(MTLSTR("Resolve Texture Encoder"));
             activeResolveComputeEncoder->setComputePipelineState(device->renderInterface->resolveTexturePipelineState);
         }
     }
@@ -2328,15 +2455,22 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::setDescriptorSet(RT64::RenderDescriptorSet *descriptorSet, uint32_t setIndex, bool setCompute) {
-        auto *interfaceDescriptorSet = static_cast<MetalDescriptorSet *>(descriptorSet);
-        if (setCompute) {
-            indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
+    void MetalCommandList::setDescriptorSet(RenderDescriptorSet* descriptorSet, uint32_t setIndex, bool isCompute) {
+        auto* interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
+        
+        if (isCompute) {
+            auto it = indicesToComputeDescriptorSets.find(setIndex);
+            if (it == indicesToComputeDescriptorSets.end() || it->second != interfaceDescriptorSet) {
+                indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
+                dirtyComputeState.descriptorSets = 1;
+            }
         } else {
-            indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
+            auto it = indicesToRenderDescriptorSets.find(setIndex);
+            if (it == indicesToRenderDescriptorSets.end() || it->second != interfaceDescriptorSet) {
+                indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
+                dirtyGraphicsState.descriptorSets = 1;
+            }
         }
-
-        isActiveRenderEncodeDirty = true;
     }
 
     void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) {
@@ -2422,21 +2556,6 @@ namespace RT64 {
             } else {
                 static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, 0, i);
             }
-    }
-
-    for (const auto& pushConstant : pendingPushConstants) {
-        uint32_t pushConstantsIndex = layout->setCount;
-        
-        if (isCompute) {
-            if (pushConstant.stages & RenderShaderStageFlag::COMPUTE) {
-                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBytes(pushConstant.data.data(), pushConstant.size, pushConstantsIndex);
-            }
-        } else {
-            if (pushConstant.stages & RenderShaderStageFlag::VERTEX) {
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setVertexBytes(pushConstant.data.data(), pushConstant.size, pushConstantsIndex);
-            } else if (pushConstant.stages & RenderShaderStageFlag::PIXEL)
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBytes(pushConstant.data.data(), pushConstant.size, pushConstantsIndex);
-        }
     }
 }
 

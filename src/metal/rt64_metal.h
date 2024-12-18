@@ -22,6 +22,38 @@ namespace RT64 {
         Resolve
     };
 
+    struct ComputeStateFlags {
+        uint32_t pipelineState : 1;
+        uint32_t descriptorSets : 1;
+        uint32_t pushConstants : 1;
+        
+        void setAll() {
+            pipelineState = 1;
+            descriptorSets = 1;
+            pushConstants = 1;
+        }
+    };
+
+    struct GraphicsStateFlags {
+        uint32_t pipelineState : 1;
+        uint32_t descriptorSets : 1;
+        uint32_t pushConstants : 1;
+        uint32_t viewports : 1;
+        uint32_t scissors : 1;
+        uint32_t vertexBuffers : 1;
+        uint32_t indexBuffer : 1;
+        
+        void setAll() {
+            pipelineState = 1;
+            descriptorSets = 1;
+            pushConstants = 1;
+            viewports = 1;
+            scissors = 1;
+            vertexBuffers = 1;
+            indexBuffer = 1;
+        }
+    };
+
     struct MetalDescriptorSetLayout {
         std::vector<MTL::SamplerState *> staticSamplers;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
@@ -149,6 +181,14 @@ namespace RT64 {
             uint32_t offset;
             uint32_t size;
             RenderShaderStageFlags stages;
+            
+            bool operator==(const PushConstantData& other) const {
+                return offset == other.offset && size == other.size && stages == other.stages && data == other.data;
+            }
+            
+            bool operator!=(const PushConstantData& other) const {
+                return !(*this == other);
+            }
         };
         
         struct ClearRect {
@@ -161,15 +201,24 @@ namespace RT64 {
         };
         
         MTL::CommandBuffer *mtl = nullptr;
-
-        bool isActiveRenderEncodeDirty = true;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
-
-        bool isActiveComputeEncodeDirty = true;
         MTL::ComputeCommandEncoder *activeComputeEncoder = nullptr;
-
         MTL::BlitCommandEncoder *activeBlitEncoder = nullptr;
         MTL::ComputeCommandEncoder *activeResolveComputeEncoder = nullptr;
+        
+        ComputeStateFlags dirtyComputeState{};
+        GraphicsStateFlags dirtyGraphicsState{};
+        
+        struct {
+            MTL::RenderPipelineState* lastPipelineState = nullptr;
+            std::vector<MTL::Viewport> lastViewports;
+            std::vector<MTL::ScissorRect> lastScissors;
+            std::vector<MTL::Buffer*> lastVertexBuffers;
+            std::vector<uint32_t> lastVertexBufferOffsets;
+            MTL::Buffer* lastIndexBuffer = nullptr;
+            uint64_t lastIndexBufferOffset = 0;
+            std::vector<PushConstantData> lastPushConstants;
+        } stateCache;
 
         MTL::PrimitiveType currentPrimitiveType = MTL::PrimitiveTypeTriangle;
         MTL::IndexType currentIndexType = MTL::IndexTypeUInt32;

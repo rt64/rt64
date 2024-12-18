@@ -54,6 +54,14 @@ struct ScissorRect
     NS::UInteger y;
     NS::UInteger width;
     NS::UInteger height;
+    
+    bool operator==(const ScissorRect& other) const {
+        return x == other.x && y == other.y && width == other.width && height == other.height;
+    }
+    
+    bool operator!=(const ScissorRect& other) const {
+        return !(*this == other);
+    }
 } _MTL_PACKED;
 
 struct Viewport
@@ -64,6 +72,14 @@ struct Viewport
     double height;
     double znear;
     double zfar;
+    
+    bool operator==(const Viewport& other) const {
+        return originX == other.originX && originY == other.originY && width == other.width && height == other.height && znear == other.znear && zfar == other.zfar;
+    }
+    
+    bool operator!=(const Viewport& other) const {
+        return !(*this == other);
+    }
 } _MTL_PACKED;
 
 _MTL_ENUM(NS::UInteger, CullMode) {
