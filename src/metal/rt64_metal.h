@@ -215,8 +215,6 @@ namespace RT64 {
             std::vector<MTL::ScissorRect> lastScissors;
             std::vector<MTL::Buffer*> lastVertexBuffers;
             std::vector<uint32_t> lastVertexBufferOffsets;
-            MTL::Buffer* lastIndexBuffer = nullptr;
-            uint64_t lastIndexBufferOffset = 0;
             std::vector<PushConstantData> lastPushConstants;
         } stateCache;
 
@@ -295,7 +293,7 @@ namespace RT64 {
         void endOtherEncoders(EncoderType type);
         void checkActiveComputeEncoder();
         void endActiveComputeEncoder();
-        void checkActiveRenderEncoder();
+        void checkActiveRenderEncoder(bool skipDirtyCheck = false);
         void endActiveRenderEncoder();
         void checkActiveBlitEncoder();
         void endActiveBlitEncoder();

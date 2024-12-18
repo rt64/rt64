@@ -1645,8 +1645,7 @@ namespace RT64 {
         
         bool weHaveRenderedBefore = activeRenderState != nullptr && activeRenderEncoder != nullptr;
         if (!weHaveRenderedBefore) {
-            dirtyGraphicsState.setAll();
-            checkActiveRenderEncoder();
+            checkActiveRenderEncoder(true);
         }
         
         // Calculate transform matrix once for all clears
@@ -1733,8 +1732,9 @@ namespace RT64 {
             // Restore state cache
             stateCache = previousCache;
             
-            // Force everything to be rebound
+            // Force everything except push constants to be rebound
             dirtyGraphicsState.setAll();
+            dirtyGraphicsState.pushConstants = 0;
             checkActiveRenderEncoder();
         }
     }
@@ -2313,7 +2313,7 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::checkActiveRenderEncoder() {
+    void MetalCommandList::checkActiveRenderEncoder(bool skipDirtyCheck) {
         assert(targetFramebuffer != nullptr);
         endOtherEncoders(EncoderType::Render);
 
@@ -2329,8 +2329,12 @@ namespace RT64 {
             activeRenderEncoder->retain();
             releasePool->release();
             
-            dirtyGraphicsState.setAll();
+            if (!skipDirtyCheck) {
+                dirtyGraphicsState.setAll();
+            }
         }
+        
+        if (skipDirtyCheck) { return; }
         
         if (dirtyGraphicsState.pipelineState) {
             if (activeRenderState) {
@@ -2408,8 +2412,6 @@ namespace RT64 {
             stateCache.lastScissors.clear();
             stateCache.lastVertexBuffers.clear();
             stateCache.lastVertexBufferOffsets.clear();
-            stateCache.lastIndexBuffer = nullptr;
-            stateCache.lastIndexBufferOffset = 0;
             stateCache.lastPushConstants.clear();
         }
     }
