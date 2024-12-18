@@ -2345,12 +2345,16 @@ namespace RT64 {
         }
         
         if (dirtyGraphicsState.viewports) {
+            if (viewportVector.size() < 1) return;
+
             activeRenderEncoder->setViewports(viewportVector.data(), viewportVector.size());
             stateCache.lastViewports = viewportVector;
             dirtyGraphicsState.viewports = 0;
         }
         
         if (dirtyGraphicsState.scissors) {
+            if (scissorVector.size() < 1) return;
+            
             activeRenderEncoder->setScissorRects(scissorVector.data(), scissorVector.size());
             stateCache.lastScissors = scissorVector;
             dirtyGraphicsState.scissors = 0;
