@@ -12,3 +12,10 @@ add_executable(spirv_cross_msl "spirv_cross_msl.cpp")
 target_include_directories(spirv_cross_msl PRIVATE "../../contrib/spirv-cross")
 add_subdirectory(../../contrib/spirv-cross ${CMAKE_BINARY_DIR}/spirv-cross)
 target_link_libraries(spirv_cross_msl spirv-cross-core spirv-cross-msl)
+
+if (APPLE)
+    set_target_properties(spirv_cross_msl PROPERTIES
+        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+        XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${CMAKE_SOURCE_DIR}/rt64.entitlements
+    )
+endif()

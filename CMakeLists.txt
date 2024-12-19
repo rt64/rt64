@@ -5,6 +5,7 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 if (APPLE)
     enable_language(OBJC OBJCXX)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15")
 endif()
 
 option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
@@ -552,4 +553,11 @@ if (RT64_BUILD_EXAMPLES)
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestPostVS.hlsl")
 
     target_include_directories(rhi_test PRIVATE ${CMAKE_BINARY_DIR}/examples)
+
+    if (APPLE)
+        set_target_properties(rhi_test PROPERTIES
+            XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${PROJECT_SOURCE_DIR}/rt64.entitlements
+        )
+    endif()
 endif()
