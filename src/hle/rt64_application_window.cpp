@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <stdio.h>
+#include <SDL.h>
 
 #if defined(_WIN32)
 #   include <Windows.h>
@@ -13,6 +14,9 @@
 #elif defined(__linux__)
 #   define Status int
 #   include <X11/extensions/Xrandr.h>
+#elif defined(__APPLE__)
+#   include "rt64_application.h"
+#   include "common/rt64_apple.h"
 #endif
 
 #include "common/rt64_common.h"
@@ -65,7 +69,7 @@ namespace RT64 {
         }
     }
 
-    void ApplicationWindow::setup(const char *windowTitle, Listener *listener) {
+    void ApplicationWindow::setup(const char *windowTitle, RenderInterface *renderInterface, Listener *listener) {
         assert(windowTitle != nullptr);
 
         // Find the right window dimension and placement.
@@ -110,9 +114,13 @@ namespace RT64 {
 #   else
         static_assert(false && "Unimplemented");
 #   endif
+        uint32_t createFlags = SDL_WINDOW_RESIZABLE;
+#   if defined(__APPLE__)
+        createFlags |= SDL_WINDOW_METAL;
+#   endif
 
         // Create window.
-        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE);
+        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, createFlags);
         assert((sdlWindow != nullptr) && "Failed to open window with SDL");
 
         // Get native window handles from the window.
@@ -127,7 +135,9 @@ namespace RT64 {
         windowHandle.display = wmInfo.info.x11.display;
         windowHandle.window = wmInfo.info.x11.window;
 #   elif defined(__APPLE__)
-        windowHandle.window = wmInfo.info.cocoa.window;
+        windowHandle.window = sdlWindow;
+        SDL_MetalView view = SDL_Metal_CreateView(sdlWindow);
+        windowHandle.view = SDL_Metal_GetLayer(view);
 #   else
         static_assert(false && "Unimplemented");
 #   endif
@@ -199,6 +209,8 @@ namespace RT64 {
         }
 
         fullScreen = newFullScreen;
+#   elif defined(__APPLE__)
+        WindowToggleFullscreen(windowHandle.window);
 #   endif
     }
     
@@ -271,6 +283,8 @@ namespace RT64 {
         }
 
         XRRFreeScreenResources(screenResources);
+#   elif defined(__APPLE__)
+        refreshRate = GetWindowRefreshRate(windowHandle.window);
 #   endif
     }
 
@@ -290,6 +304,11 @@ namespace RT64 {
 #   elif defined(__linux__)
         XWindowAttributes attributes;
         XGetWindowAttributes(windowHandle.display, windowHandle.window, &attributes);
+        newWindowLeft = attributes.x;
+        newWindowTop = attributes.y;
+#   elif defined(__APPLE__)
+        CocoaWindowAttributes attributes;
+        GetWindowAttributes(windowHandle.window, &attributes);
         newWindowLeft = attributes.x;
         newWindowTop = attributes.y;
 #   endif
