@@ -178,14 +178,11 @@ namespace RT64 {
             std::vector<RenderRect> clearRects;
         };
         
-        struct PushConstantData {
+        struct PushConstantData : RenderPushConstantRange {
             std::vector<uint8_t> data;
-            uint32_t offset;
-            uint32_t size;
-            RenderShaderStageFlags stages;
             
             bool operator==(const PushConstantData& other) const {
-                return offset == other.offset && size == other.size && stages == other.stages && data == other.data;
+                return offset == other.offset && size == other.size && stageFlags == other.stageFlags && data == other.data;
             }
             
             bool operator!=(const PushConstantData& other) const {
@@ -234,7 +231,7 @@ namespace RT64 {
 
         std::vector<PendingColorClear> pendingColorClears;
         std::vector<PendingDepthClear> pendingDepthClears;
-        std::vector<PushConstantData> pendingPushConstants;
+        std::vector<PushConstantData> pushConstants;
 
         MetalDevice *device = nullptr;
         RenderCommandListType type = RenderCommandListType::UNKNOWN;

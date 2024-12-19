@@ -1813,7 +1813,7 @@ namespace RT64 {
             indicesToComputeDescriptorSets.clear();
             
             // Clear push constants since they might have different layouts/ranges
-            pendingPushConstants.clear();
+            pushConstants.clear();
             stateCache.lastPushConstants.clear();
             
             // Mark compute states as dirty that need to be rebound
@@ -1825,28 +1825,16 @@ namespace RT64 {
     void MetalCommandList::setComputePushConstants(uint32_t rangeIndex, const void *data) {
         assert(activeComputePipelineLayout != nullptr);
         assert(rangeIndex < activeComputePipelineLayout->pushConstantRanges.size());
-
-        // TODO: make sure there's parity with Vulkan
-        const RenderPushConstantRange &range = activeComputePipelineLayout->pushConstantRanges[rangeIndex];
-        uint32_t startOffset = 0;
-        for (uint32_t i = 0; i < rangeIndex; i++) {
-            startOffset += activeComputePipelineLayout->pushConstantRanges[i].size;
-        }
         
-        uint32_t totalPushConstantSize = 0;
-        for (uint32_t i = 0; i < activeComputePipelineLayout->pushConstantRanges.size(); i++) {
-            totalPushConstantSize += activeComputePipelineLayout->pushConstantRanges[i].size;
-        }
-
-        totalPushConstantSize = calculateAlignedSize(totalPushConstantSize);
-
-        PushConstantData pushConstant;
-        pushConstant.data.resize(totalPushConstantSize);
-        memcpy(pushConstant.data.data() + startOffset, data, range.size);
-        pushConstant.offset = startOffset;
-        pushConstant.size = totalPushConstantSize;
-        pushConstant.stages = range.stageFlags;
-        pendingPushConstants.push_back(pushConstant);
+        const RenderPushConstantRange &range = activeComputePipelineLayout->pushConstantRanges[rangeIndex];
+        pushConstants.resize(activeComputePipelineLayout->pushConstantRanges.size());
+        pushConstants[rangeIndex].data.resize(range.size);
+        memcpy(pushConstants[rangeIndex].data.data(), data, range.size);
+        pushConstants[rangeIndex].binding = range.binding;
+        pushConstants[rangeIndex].set = range.set;
+        pushConstants[rangeIndex].offset = range.offset;
+        pushConstants[rangeIndex].size = range.size;
+        pushConstants[rangeIndex].stageFlags = range.stageFlags;
         
         dirtyComputeState.pushConstants = 1;
     }
@@ -1866,7 +1854,7 @@ namespace RT64 {
             indicesToRenderDescriptorSets.clear();
             
             // Clear push constants since they might have different layouts/ranges
-            pendingPushConstants.clear();
+            pushConstants.clear();
             stateCache.lastPushConstants.clear();
             
             // Mark graphics states as dirty that need to be rebound
@@ -1878,28 +1866,16 @@ namespace RT64 {
     void MetalCommandList::setGraphicsPushConstants(uint32_t rangeIndex, const void *data) {
         assert(activeGraphicsPipelineLayout != nullptr);
         assert(rangeIndex < activeGraphicsPipelineLayout->pushConstantRanges.size());
-
-        // TODO: make sure there's parity with Vulkan
+        
         const RenderPushConstantRange &range = activeGraphicsPipelineLayout->pushConstantRanges[rangeIndex];
-        uint32_t startOffset = 0;
-        for (uint32_t i = 0; i < rangeIndex; i++) {
-            startOffset += activeGraphicsPipelineLayout->pushConstantRanges[i].size;
-        }
-        
-        uint32_t totalPushConstantSize = 0;
-        for (uint32_t i = 0; i < activeGraphicsPipelineLayout->pushConstantRanges.size(); i++) {
-            totalPushConstantSize += activeGraphicsPipelineLayout->pushConstantRanges[i].size;
-        }
-        
-        totalPushConstantSize = calculateAlignedSize(totalPushConstantSize);
-
-        PushConstantData pushConstant;
-        pushConstant.data.resize(totalPushConstantSize);
-        memcpy(pushConstant.data.data() + startOffset, data, range.size);
-        pushConstant.offset = startOffset;
-        pushConstant.size = totalPushConstantSize;
-        pushConstant.stages = range.stageFlags;
-        pendingPushConstants.push_back(pushConstant);
+        pushConstants.resize(activeGraphicsPipelineLayout->pushConstantRanges.size());
+        pushConstants[rangeIndex].data.resize(range.size);
+        memcpy(pushConstants[rangeIndex].data.data(), data, range.size);
+        pushConstants[rangeIndex].binding = range.binding;
+        pushConstants[rangeIndex].set = range.set;
+        pushConstants[rangeIndex].offset = range.offset;
+        pushConstants[rangeIndex].size = range.size;
+        pushConstants[rangeIndex].stageFlags = range.stageFlags;
 
         dirtyGraphicsState.pushConstants = 1;
     }
@@ -2304,12 +2280,12 @@ namespace RT64 {
         }
         
         if (dirtyComputeState.pushConstants) {
-            for (const auto& pushConstant : pendingPushConstants) {
-                if (pushConstant.stages & RenderShaderStageFlag::COMPUTE) {
-                    activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT);
+            for (const auto& pushConstant : pushConstants) {
+                if (pushConstant.stageFlags & RenderShaderStageFlag::COMPUTE) {
+                    activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT + pushConstant.set);
                 }
             }
-            stateCache.lastPushConstants = pendingPushConstants;
+            stateCache.lastPushConstants = pushConstants;
             dirtyComputeState.pushConstants = 0;
         }
     }
@@ -2393,17 +2369,16 @@ namespace RT64 {
         }
         
         if (dirtyGraphicsState.pushConstants) {
-            // TODO: Should we be incrementing index?
-            for (const auto& pushConstant : pendingPushConstants) {
-                if (pushConstant.stages & RenderShaderStageFlag::VERTEX) {
-                    activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT);
+            for (const auto& pushConstant : pushConstants) {
+                if (pushConstant.stageFlags & RenderShaderStageFlag::VERTEX) {
+                    activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT + pushConstant.binding);
                 }
-                if (pushConstant.stages & RenderShaderStageFlag::PIXEL) {
-                    activeRenderEncoder->setFragmentBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT);
+                if (pushConstant.stageFlags & RenderShaderStageFlag::PIXEL) {
+                    activeRenderEncoder->setFragmentBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT + pushConstant.binding);
                 }
             }
             
-            stateCache.lastPushConstants = pendingPushConstants;
+            stateCache.lastPushConstants = pushConstants;
             dirtyGraphicsState.pushConstants = 0;
         }
     }
@@ -2670,12 +2645,8 @@ namespace RT64 {
 
         this->setCount = desc.descriptorSetDescsCount;
 
-        // TODO: Make sure push constant ranges are laid out correctly
-
-        for (uint32_t i = 0; i < desc.pushConstantRangesCount; i++) {
-            RenderPushConstantRange range = desc.pushConstantRanges[i];
-            pushConstantRanges.push_back(range);
-        }
+        pushConstantRanges.resize(desc.pushConstantRangesCount);
+        memcpy(pushConstantRanges.data(), desc.pushConstantRanges, sizeof(RenderPushConstantRange) * desc.pushConstantRangesCount);
 
         // Create Descriptor Set Layouts
         for (uint32_t i = 0; i < desc.descriptorSetDescsCount; i++) {
