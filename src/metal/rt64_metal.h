@@ -295,7 +295,7 @@ namespace RT64 {
         void endOtherEncoders(EncoderType type);
         void checkActiveComputeEncoder();
         void endActiveComputeEncoder();
-        void checkActiveRenderEncoder(bool skipDirtyCheck = false);
+        void checkActiveRenderEncoder();
         void endActiveRenderEncoder();
         void checkActiveBlitEncoder();
         void endActiveBlitEncoder();
@@ -304,6 +304,7 @@ namespace RT64 {
         
         void setupClearTransform(ClearTransform& transform);
         std::vector<ClearRect> prepareClearRects(const std::vector<RenderRect>& clearRects);
+        void checkForUpdatesInGraphicsState();
     };
 
     struct MetalCommandFence : RenderCommandFence {

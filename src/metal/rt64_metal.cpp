@@ -1653,13 +1653,10 @@ namespace RT64 {
             return;
         }
         
+        checkActiveRenderEncoder();
+        
         // Store state cache
         auto previousCache = stateCache;
-        
-        bool weHaveRenderedBefore = activeRenderState != nullptr && activeRenderEncoder != nullptr;
-        if (!weHaveRenderedBefore) {
-            checkActiveRenderEncoder(true);
-        }
         
         // Calculate transform matrix once for all clears
         ClearTransform transform;
@@ -1741,27 +1738,22 @@ namespace RT64 {
         pendingDepthClears.clear();
         
         // Restore previous state if we had one
-        if (weHaveRenderedBefore) {
-            // Restore state cache
-            stateCache = previousCache;
-            
-            // Force everything except push constants to be rebound
-            dirtyGraphicsState.setAll();
-            dirtyGraphicsState.pushConstants = 0;
-            checkActiveRenderEncoder();
-        }
+        stateCache = previousCache;
+        dirtyGraphicsState.setAll();
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
-        checkActiveRenderEncoder();
         processPendingClears();
-
+        checkActiveRenderEncoder();
+        checkForUpdatesInGraphicsState();
+        
         activeRenderEncoder->drawPrimitives(currentPrimitiveType, startVertexLocation, vertexCountPerInstance, instanceCount, startInstanceLocation);
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
-        checkActiveRenderEncoder();
         processPendingClears();
+        checkActiveRenderEncoder();
+        checkForUpdatesInGraphicsState();
 
         activeRenderEncoder->drawIndexedPrimitives(currentPrimitiveType, indexCountPerInstance, currentIndexType, indexBuffer, startIndexLocation, instanceCount, baseVertexLocation, startInstanceLocation);
     }
@@ -2326,7 +2318,7 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::checkActiveRenderEncoder(bool skipDirtyCheck) {
+    void MetalCommandList::checkActiveRenderEncoder() {
         assert(targetFramebuffer != nullptr);
         endOtherEncoders(EncoderType::Render);
 
@@ -2341,14 +2333,10 @@ namespace RT64 {
 
             activeRenderEncoder->retain();
             releasePool->release();
-            
-            if (!skipDirtyCheck) {
-                dirtyGraphicsState.setAll();
-            }
         }
-        
-        if (skipDirtyCheck) { return; }
-        
+    }
+
+    void MetalCommandList::checkForUpdatesInGraphicsState() {
         if (dirtyGraphicsState.pipelineState) {
             if (activeRenderState) {
                 activeRenderEncoder->setRenderPipelineState(activeRenderState->renderPipelineState);
