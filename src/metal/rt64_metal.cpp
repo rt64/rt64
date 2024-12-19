@@ -903,7 +903,7 @@ namespace RT64 {
     MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
         assert(texture != nullptr);
         assert(texture->desc.dimension == desc.dimension && "Creating a view with a different dimension is currently not supported.");
-        this->texture = texture->mtl->newTextureView(toMTL(desc.format), texture->mtl->textureType(), NS::Range::Make(desc.mipSlice, desc.mipLevels), NS::Range::Make(0, texture->arrayCount));
+        this->texture = texture->mtl->newTextureView(toMTL(desc.format), texture->mtl->textureType(), { desc.mipSlice, desc.mipLevels }, { 0, texture->arrayCount });
     }
 
     MetalTextureView::~MetalTextureView() {
@@ -1162,7 +1162,7 @@ namespace RT64 {
         if (desc.multisampling.sampleCount > 1) {
             state->samplePositions = new MTL::SamplePosition[desc.multisampling.sampleCount];
             for (uint32_t i = 0; i < desc.multisampling.sampleCount; i++) {
-                state->samplePositions[i] = MTL::SamplePosition::Make(desc.multisampling.sampleLocations[i].x, desc.multisampling.sampleLocations[i].y);
+                state->samplePositions[i] = { (float)desc.multisampling.sampleLocations[i].x, (float)desc.multisampling.sampleLocations[i].y };
             }
         }
 
@@ -1610,8 +1610,8 @@ namespace RT64 {
         assert(activeComputeEncoder != nullptr && "Cannot encode dispatch on nullptr MTLComputeCommandEncoder!");
 
 
-        auto threadGroupCount = MTL::Size::Make(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
-        auto threadGroupSize = MTL::Size::Make(activeComputeState->threadGroupSizeX, activeComputeState->threadGroupSizeY, activeComputeState->threadGroupSizeZ);
+        MTL::Size threadGroupCount = { threadGroupCountX, threadGroupCountY, threadGroupCountZ };
+        MTL::Size threadGroupSize = { activeComputeState->threadGroupSizeX, activeComputeState->threadGroupSizeY, activeComputeState->threadGroupSizeZ };
         activeComputeEncoder->dispatchThreadgroups(threadGroupCount, threadGroupSize);
     }
 
@@ -1942,11 +1942,11 @@ namespace RT64 {
     }
 
     void MetalCommandList::setViewports(const RenderViewport *viewports, uint32_t count) {
-        viewportVector.clear();
+        viewportVector.resize(count);
 
         for (uint32_t i = 0; i < count; i++) {
             MTL::Viewport viewport { viewports[i].x, viewports[i].y, viewports[i].width, viewports[i].height, viewports[i].minDepth, viewports[i].maxDepth };
-            viewportVector.emplace_back(viewport);
+            viewportVector[i] = viewport;
         }
         
         // Since viewports are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
@@ -1956,7 +1956,7 @@ namespace RT64 {
     }
 
     void MetalCommandList::setScissors(const RenderRect *scissorRects, uint32_t count) {
-        scissorVector.clear();
+        scissorVector.resize(count);
 
         for (uint32_t i = 0; i < count; i++) {
             MTL::ScissorRect scissor {
@@ -1965,7 +1965,7 @@ namespace RT64 {
                 static_cast<NS::UInteger>(scissorRects[i].right - scissorRects[i].left),
                 static_cast<NS::UInteger>(scissorRects[i].bottom - scissorRects[i].top)
             };
-            scissorVector.emplace_back(scissor);
+            scissorVector[i] = scissor;
         }
         
         // Since scissors are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
@@ -2050,11 +2050,7 @@ namespace RT64 {
             uint32_t blockWidth = RenderFormatBlockWidth(dstTexture->desc.format);
             
             // Use actual dimensions for the copy size
-            MTL::Size size = MTL::Size::Make(
-                srcLocation.placedFootprint.width,
-                srcLocation.placedFootprint.height,
-                srcLocation.placedFootprint.depth
-            );
+            MTL::Size size = { srcLocation.placedFootprint.width, srcLocation.placedFootprint.height, srcLocation.placedFootprint.depth};
 
             // Calculate padded row width for buffer layout
             uint32_t paddedRowWidth = ((srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth) * blockWidth;
@@ -2068,7 +2064,7 @@ namespace RT64 {
             uint32_t paddedHeight = ((srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
             uint32_t bytesPerImage = bytesPerRow * paddedHeight;
 
-            MTL::Origin dstOrigin = MTL::Origin::Make(dstX, dstY, dstZ);
+            MTL::Origin dstOrigin = { dstX, dstY, dstZ };
             
             activeBlitEncoder->pushDebugGroup(MTLSTR("CopyTextureRegion"));
             activeBlitEncoder->copyFromBuffer(
@@ -2084,41 +2080,33 @@ namespace RT64 {
             );
             activeBlitEncoder->popDebugGroup();
         } else {
-              assert(dstTexture != nullptr);
-              assert(srcTexture != nullptr);
+            assert(dstTexture != nullptr);
+            assert(srcTexture != nullptr);
+            
+            MTL::Origin srcOrigin;
+            MTL::Size size;
+            
+            if (srcBox != nullptr) {
+                srcOrigin = { NS::UInteger(srcBox->left), NS::UInteger(srcBox->top), NS::UInteger(srcBox->front) };
+                MTL::Size size = { NS::UInteger(srcBox->right - srcBox->left), NS::UInteger(srcBox->bottom - srcBox->top), NS::UInteger(srcBox->back - srcBox->front) };
+            } else {
+                srcOrigin = { 0, 0, 0 };
+                MTL::Size size = { srcTexture->desc.width, srcTexture->desc.height, srcTexture->desc.depth };
+            }
+            
+            MTL::Origin dstOrigin = { dstX, dstY, dstZ };
 
-              MTL::Origin srcOrigin;
-              MTL::Size size;
-
-              if (srcBox != nullptr) {
-                  srcOrigin = MTL::Origin::Make(srcBox->left, srcBox->top, srcBox->front);
-                  size = MTL::Size::Make(
-                      srcBox->right - srcBox->left,
-                      srcBox->bottom - srcBox->top,
-                      srcBox->back - srcBox->front
-                  );
-              } else {
-                  srcOrigin = MTL::Origin::Make(0, 0, 0);
-                  size = MTL::Size::Make(
-                      srcTexture->desc.width,
-                      srcTexture->desc.height,
-                      srcTexture->desc.depth
-                  );
-              }
-
-              MTL::Origin dstOrigin = MTL::Origin::Make(dstX, dstY, dstZ);
-
-              activeBlitEncoder->copyFromTexture(
-                  srcTexture->mtl,                  // source texture
-                  srcLocation.subresource.index,    // source mipmap level
-                  0,                                // source slice (baseArrayLayer)
-                  srcOrigin,                        // source origin
-                  size,                             // copy size
-                  dstTexture->mtl,                 // destination texture
-                  dstLocation.subresource.index,   // destination mipmap level
-                  0,                               // destination slice (baseArrayLayer)
-                  dstOrigin                        // destination origin
-              );
+            activeBlitEncoder->copyFromTexture(
+                srcTexture->mtl,                  // source texture
+                srcLocation.subresource.index,    // source mipmap level
+                0,                                // source slice (baseArrayLayer)
+                srcOrigin,                        // source origin
+                size,                             // copy size
+                dstTexture->mtl,                 // destination texture
+                dstLocation.subresource.index,   // destination mipmap level
+                0,                               // destination slice (baseArrayLayer)
+                dstOrigin                        // destination origin
+            );
           }
     }
 
@@ -2220,10 +2208,10 @@ namespace RT64 {
         activeResolveComputeEncoder->setTexture(dst->mtl, 1);
         activeResolveComputeEncoder->setBytes(&params, sizeof(params), 0);
 
-        MTL::Size threadGroupSize = MTL::Size::Make(8, 8, 1);
+        MTL::Size threadGroupSize = { 8, 8, 1 };
         auto groupSizeX = (width + threadGroupSize.width - 1) / threadGroupSize.width;
         auto groupSizeY = (height + threadGroupSize.height - 1) / threadGroupSize.height;
-        MTL::Size gridSize = MTL::Size::Make(groupSizeX, groupSizeY, 1);
+        MTL::Size gridSize = { groupSizeX, groupSizeY, 1 };
         activeResolveComputeEncoder->dispatchThreadgroups(gridSize, threadGroupSize);
     }
 
