@@ -1662,42 +1662,53 @@ namespace RT64 {
         ClearTransform transform;
         setupClearTransform(transform);
         
-        // Process color clears
-        for (const auto& clearOp : pendingColorClears) {
-            activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
-            
-            MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-            pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
-            pipelineDesc->setFragmentFunction(device->renderInterface->clearColorFunction);
-            pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->desc.multisampling.sampleCount);
-            
-            auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(clearOp.attachmentIndex);
-            pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->mtl->pixelFormat());
-            pipelineColorAttachment->setBlendingEnabled(false);
-            
-            activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
+        // Common render state setup (done once)
+        auto setupCommonState = [&]() {
             activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
             activeRenderEncoder->setScissorRect({ 0, 0, targetFramebuffer->width, targetFramebuffer->height });
             activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
             activeRenderEncoder->setCullMode(MTL::CullModeNone);
             activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
+            activeRenderEncoder->setVertexBytes(&transform, sizeof(transform), 1);
+        };
+        
+        // Process color clears
+        int lastColorAttachmentIndex = -1;
+        for (const auto& clearOp : pendingColorClears) {
+            activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
             
-            auto clearRects = prepareClearRects(clearOp.clearRects);
-            if (!clearRects.empty()) {
-                activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
-                activeRenderEncoder->setVertexBytes(&transform, sizeof(transform), 1);
+            if (lastColorAttachmentIndex != clearOp.attachmentIndex) {
+                MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
+                pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
+                pipelineDesc->setFragmentFunction(device->renderInterface->clearColorFunction);
+                pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->desc.multisampling.sampleCount);
                 
-                std::vector<simd::float4> clearColors(clearRects.size(), (simd::float4){ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a });
-                activeRenderEncoder->setFragmentBytes(clearColors.data(), sizeof(float) * 4 * clearColors.size(), 0);
+                auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(clearOp.attachmentIndex);
+                pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->mtl->pixelFormat());
+                pipelineColorAttachment->setBlendingEnabled(false);
+
+                activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
                 
-                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
+                // We only set these properties once per processing of all clears
+                if (lastColorAttachmentIndex == -1) setupCommonState();
+                
+                lastColorAttachmentIndex = clearOp.attachmentIndex;
+                pipelineDesc->release();
             }
             
-            pipelineDesc->release();
+            auto clearRects = prepareClearRects(clearOp.clearRects);
+            activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
+            
+            std::vector<simd::float4> clearColors(clearRects.size(), (simd::float4){ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a });
+            activeRenderEncoder->setFragmentBytes(clearColors.data(), sizeof(float) * 4 * clearColors.size(), 0);
+            
+            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
+            
             activeRenderEncoder->popDebugGroup();
         }
         
         // Process depth clears
+        bool isFirstDepthClear = true;
         for (const auto& clearOp : pendingDepthClears) {
             if (targetFramebuffer->depthAttachment == nullptr) {
                 break;
@@ -1705,32 +1716,31 @@ namespace RT64 {
             
             activeRenderEncoder->pushDebugGroup(MTLSTR("DepthClear"));
             
-            MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-            pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
-            pipelineDesc->setFragmentFunction(device->renderInterface->clearDepthFunction);
-            pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
-            pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
-            
-            activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
-            activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
-            activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
-            activeRenderEncoder->setScissorRect({ 0, 0, targetFramebuffer->width, targetFramebuffer->height });
-            activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
-            activeRenderEncoder->setCullMode(MTL::CullModeNone);
-            activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
-            
-            auto clearRects = prepareClearRects(clearOp.clearRects);
-            if (!clearRects.empty()) {
-                activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
-                activeRenderEncoder->setVertexBytes(&transform, sizeof(transform), 1);
+            if (isFirstDepthClear) {
+                MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
+                pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
+                pipelineDesc->setFragmentFunction(device->renderInterface->clearDepthFunction);
+                pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
+                pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
                 
-                std::vector<float> clearDepths(clearRects.size(), clearOp.depthValue);
-                activeRenderEncoder->setFragmentBytes(clearDepths.data(), sizeof(float) * clearDepths.size(), 0);
+                activeRenderEncoder->setRenderPipelineState(getClearRenderPipelineState(device, pipelineDesc));
+                activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
                 
-                activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
+                // Don't set these if we did some color clears, as those woeuld have already set them
+                if (pendingColorClears.empty()) setupCommonState();
+                
+                isFirstDepthClear = false;
+                pipelineDesc->release();
             }
             
-            pipelineDesc->release();
+            auto clearRects = prepareClearRects(clearOp.clearRects);
+            activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
+            
+            std::vector<float> clearDepths(clearRects.size(), clearOp.depthValue);
+            activeRenderEncoder->setFragmentBytes(clearDepths.data(), sizeof(float) * clearDepths.size(), 0);
+            
+            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
+            
             activeRenderEncoder->popDebugGroup();
         }
         
