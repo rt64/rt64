@@ -55,6 +55,7 @@ namespace RT64 {
     };
 
     struct MetalDescriptorSetLayout {
+        MetalDevice *device = nullptr;
         std::vector<MTL::SamplerState *> staticSamplers;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
         MTL::ArgumentEncoder *argumentEncoder = nullptr;
@@ -71,6 +72,7 @@ namespace RT64 {
 
         MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         ~MetalDescriptorSetLayout();
+        void createEncoderAndBuffer();
     };
 
     struct MetalComputeState {

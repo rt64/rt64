@@ -661,6 +661,8 @@ namespace RT64 {
 
     MetalDescriptorSetLayout::MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
         assert(device != nullptr);
+        this->device = device;
+        
         NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
         // Pre-allocate vectors with known size
@@ -741,21 +743,10 @@ namespace RT64 {
 
         assert(argumentDescriptors.size() > 0);
         descriptorTypeMaxIndex = descriptorTypes.empty() ? 0 : uint32_t(descriptorTypes.size() - 1);
-
-        // Create and initialize argument encoder
-        NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
-        argumentEncoder = device->mtl->newArgumentEncoder(pArray);
-        descriptorBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), MTL::ResourceStorageModeShared);
-
-        argumentEncoder->setArgumentBuffer(descriptorBuffer, 0);
-
-        // Set static samplers
-        for (size_t i = 0; i < staticSamplers.size(); i++) {
-            argumentEncoder->setSamplerState(staticSamplers[i], samplerIndices[i]);
-        }
+        
+        createEncoderAndBuffer();
 
         // Release resources
-        pArray->release();
         releasePool->release();
     }
 
@@ -772,6 +763,28 @@ namespace RT64 {
         for (MTL::SamplerState *sampler : staticSamplers) {
             sampler->release();
         }
+    }
+
+    void MetalDescriptorSetLayout::createEncoderAndBuffer() {
+        // Release previous resources
+        if (argumentEncoder) {
+            argumentEncoder->release();
+            descriptorBuffer->release();
+        }
+        
+        // Create and initialize argument encoder
+        NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
+        argumentEncoder = device->mtl->newArgumentEncoder(pArray);
+        descriptorBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), MTL::ResourceStorageModeShared);
+
+        argumentEncoder->setArgumentBuffer(descriptorBuffer, 0);
+
+        // Set static samplers
+        for (size_t i = 0; i < staticSamplers.size(); i++) {
+            argumentEncoder->setSamplerState(staticSamplers[i], samplerIndices[i]);
+        }
+        
+        pArray->release();
     }
 
     // MetalBuffer
@@ -2467,12 +2480,14 @@ namespace RT64 {
         if (isCompute) {
             auto it = indicesToComputeDescriptorSets.find(setIndex);
             if (it == indicesToComputeDescriptorSets.end() || it->second != interfaceDescriptorSet) {
+                activeComputePipelineLayout->setLayoutHandles[setIndex]->createEncoderAndBuffer();
                 indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
                 dirtyComputeState.descriptorSets = 1;
             }
         } else {
             auto it = indicesToRenderDescriptorSets.find(setIndex);
             if (it == indicesToRenderDescriptorSets.end() || it->second != interfaceDescriptorSet) {
+                activeGraphicsPipelineLayout->setLayoutHandles[setIndex]->createEncoderAndBuffer();
                 indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
                 dirtyGraphicsState.descriptorSets = 1;
             }
