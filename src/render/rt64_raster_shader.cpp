@@ -156,7 +156,7 @@ namespace RT64 {
             vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
             pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
         }
-        if (shaderFormat == RenderShaderFormat::METAL) {
+        else if (shaderFormat == RenderShaderFormat::METAL) {
 #       ifdef __APPLE__
             // Choose the pre-compiled shader permutations.
             const void *VSBlob = nullptr;
