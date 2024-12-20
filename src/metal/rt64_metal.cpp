@@ -1634,22 +1634,26 @@ namespace RT64 {
         );
     }
 
-    std::vector<MetalCommandList::ClearRect> MetalCommandList::prepareClearRects(const std::vector<RenderRect>& clearRects) {
-        std::vector<ClearRect> rects;
-        if (clearRects.empty()) {
-            rects.push_back({ { 0, 0 }, { float(targetFramebuffer->width), float(targetFramebuffer->height) } });
-        } else {
-            for (const auto& r : clearRects) {
-                if (!r.isEmpty()) {
-                    rects.push_back({ { float(r.left), float(r.top) }, { float(r.right - r.left), float(r.bottom - r.top) } });
-                }
+    MetalCommandList::ClearRect prepareClearRects[MAX_CLEAR_RECTS];
+    size_t MetalCommandList::prepareClearRectCount(const RenderRect* clearRects, size_t clearRectCount) {
+        if (clearRects == nullptr || clearRectCount == 0) {
+            prepareClearRects[0] = { { 0, 0 }, { float(targetFramebuffer->width), float(targetFramebuffer->height) } };
+            return 1;
+        }
+        
+        size_t validRectCount = 0;
+        for (size_t i = 0; i < clearRectCount && validRectCount < MAX_CLEAR_RECTS; i++) {
+            const auto& r = clearRects[i];
+            if (!r.isEmpty()) {
+                prepareClearRects[validRectCount++] = { { float(r.left), float(r.top) }, { float(r.right - r.left), float(r.bottom - r.top) } };
             }
         }
-        return rects;
+
+        return validRectCount;
     }
 
     void MetalCommandList::processPendingClears() {
-        if (pendingColorClears.empty() && pendingDepthClears.empty()) {
+        if (pendingColorClearCount == 0 && pendingDepthClearCount == 0) {
             return;
         }
         
@@ -1674,7 +1678,9 @@ namespace RT64 {
         
         // Process color clears
         int lastColorAttachmentIndex = -1;
-        for (const auto& clearOp : pendingColorClears) {
+        for (size_t i = 0; i < pendingColorClearCount; i++) {
+            const auto& clearOp = pendingColorClears[i];
+
             activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
             
             if (lastColorAttachmentIndex != clearOp.attachmentIndex) {
@@ -1696,24 +1702,29 @@ namespace RT64 {
                 pipelineDesc->release();
             }
             
-            auto clearRects = prepareClearRects(clearOp.clearRects);
-            activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
+            auto rectCount = prepareClearRectCount(clearOp.clearRectCount > 0 ? clearOp.clearRects : nullptr, clearOp.clearRectCount);
+            activeRenderEncoder->setVertexBytes(prepareClearRects, sizeof(ClearRect) * rectCount, 0);
             
-            std::vector<simd::float4> clearColors(clearRects.size(), (simd::float4){ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a });
-            activeRenderEncoder->setFragmentBytes(clearColors.data(), sizeof(float) * 4 * clearColors.size(), 0);
+            // Use stack for clear colors too since we know the max size
+            simd::float4 clearColors[MAX_CLEAR_RECTS];
+            for (size_t j = 0; j < rectCount; j++) {
+                clearColors[j] = (simd::float4){ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a };
+            }
+            activeRenderEncoder->setFragmentBytes(clearColors, sizeof(simd::float4) * rectCount, 0);
             
-            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
+            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, rectCount);
             
             activeRenderEncoder->popDebugGroup();
         }
         
         // Process depth clears
         bool isFirstDepthClear = true;
-        for (const auto& clearOp : pendingDepthClears) {
+        for (size_t i = 0; i < pendingDepthClearCount; i++) {
             if (targetFramebuffer->depthAttachment == nullptr) {
                 break;
             }
             
+            const auto& clearOp = pendingDepthClears[i];
             activeRenderEncoder->pushDebugGroup(MTLSTR("DepthClear"));
             
             if (isFirstDepthClear) {
@@ -1727,25 +1738,28 @@ namespace RT64 {
                 activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
                 
                 // Don't set these if we did some color clears, as those woeuld have already set them
-                if (pendingColorClears.empty()) setupCommonState();
+                if (pendingColorClearCount == 0) setupCommonState();
                 
                 isFirstDepthClear = false;
                 pipelineDesc->release();
             }
             
-            auto clearRects = prepareClearRects(clearOp.clearRects);
-            activeRenderEncoder->setVertexBytes(clearRects.data(), sizeof(ClearRect) * clearRects.size(), 0);
+            auto rectCount = prepareClearRectCount(clearOp.clearRectCount > 0 ? clearOp.clearRects : nullptr, clearOp.clearRectCount);
+            activeRenderEncoder->setVertexBytes(prepareClearRects, sizeof(ClearRect) * rectCount, 0);
             
-            std::vector<float> clearDepths(clearRects.size(), clearOp.depthValue);
-            activeRenderEncoder->setFragmentBytes(clearDepths.data(), sizeof(float) * clearDepths.size(), 0);
+            float clearDepths[MAX_CLEAR_RECTS];
+            for (size_t j = 0; j < rectCount; j++) {
+                clearDepths[j] = clearOp.depthValue;
+            }
+            activeRenderEncoder->setFragmentBytes(clearDepths, sizeof(float) * rectCount, 0);
             
-            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, clearRects.size());
+            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, rectCount);
             
             activeRenderEncoder->popDebugGroup();
         }
         
-        pendingColorClears.clear();
-        pendingDepthClears.clear();
+        pendingColorClearCount = 0;
+        pendingDepthClearCount = 0;
         
         // Restore previous state if we had one
         stateCache = previousCache;
@@ -1992,28 +2006,39 @@ namespace RT64 {
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(attachmentIndex < targetFramebuffer->colorAttachments.size());
+        assert(pendingColorClearCount < MAX_PENDING_CLEARS && "Too many pending color clears");
+        assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
         
-        PendingColorClear clearOp;
+        PendingColorClear& clearOp = pendingColorClears[pendingColorClearCount];
         clearOp.attachmentIndex = attachmentIndex;
         clearOp.colorValue = colorValue;
         if (clearRects && clearRectsCount > 0) {
-            clearOp.clearRects.assign(clearRects, clearRects + clearRectsCount);
+            for (uint32_t i = 0; i < clearRectsCount; i++) {
+                clearOp.clearRects[i] = clearRects[i];
+            }
+            clearOp.clearRectCount = clearRectsCount;
         }
         
-        pendingColorClears.push_back(clearOp);
+        pendingColorClearCount++;
     }
 
     void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(targetFramebuffer->depthAttachment != nullptr);
+        assert(pendingDepthClearCount < MAX_PENDING_CLEARS && "Too many pending color clears");
+        assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
         
         if (clearDepth) {
-            PendingDepthClear clearOp;
+            PendingDepthClear& clearOp = pendingDepthClears[pendingDepthClearCount];
             clearOp.depthValue = depthValue;
             if (clearRects && clearRectsCount > 0) {
-                clearOp.clearRects.assign(clearRects, clearRects + clearRectsCount);
+                for (uint32_t i = 0; i < clearRectsCount; i++) {
+                    clearOp.clearRects[i] = clearRects[i];
+                }
+                clearOp.clearRectCount = clearRectsCount;
             }
-            pendingDepthClears.push_back(clearOp);
+            
+            pendingDepthClearCount++;
         }
     }
 

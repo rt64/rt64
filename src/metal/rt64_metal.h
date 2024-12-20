@@ -6,6 +6,9 @@
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
 
+static constexpr size_t MAX_PENDING_CLEARS = 16;
+static constexpr size_t MAX_CLEAR_RECTS = 16;
+
 namespace RT64 {
     struct MetalInterface;
     struct MetalDevice;
@@ -170,12 +173,14 @@ namespace RT64 {
         struct PendingColorClear {
             uint32_t attachmentIndex;
             RenderColor colorValue;
-            std::vector<RenderRect> clearRects;
+            RenderRect clearRects[MAX_CLEAR_RECTS];
+            uint32_t clearRectCount;
         };
 
         struct PendingDepthClear {
             float depthValue;
-            std::vector<RenderRect> clearRects;
+            RenderRect clearRects[MAX_CLEAR_RECTS];
+            uint32_t clearRectCount;
         };
         
         struct PushConstantData : RenderPushConstantRange {
@@ -229,8 +234,11 @@ namespace RT64 {
         std::vector<MTL::Viewport> viewportVector;
         std::vector<MTL::ScissorRect> scissorVector;
 
-        std::vector<PendingColorClear> pendingColorClears;
-        std::vector<PendingDepthClear> pendingDepthClears;
+        uint32_t pendingColorClearCount = 0;
+        PendingColorClear pendingColorClears[MAX_PENDING_CLEARS];
+        uint32_t pendingDepthClearCount = 0;
+        PendingDepthClear pendingDepthClears[MAX_PENDING_CLEARS];
+
         std::vector<PushConstantData> pushConstants;
 
         MetalDevice *device = nullptr;
@@ -300,7 +308,7 @@ namespace RT64 {
         void endActiveResolveTextureComputeEncoder();
         
         void setupClearTransform(ClearTransform& transform);
-        std::vector<ClearRect> prepareClearRects(const std::vector<RenderRect>& clearRects);
+        size_t prepareClearRectCount(const RenderRect* clearRects, size_t clearRectCount);
         void checkForUpdatesInGraphicsState();
     };
 
