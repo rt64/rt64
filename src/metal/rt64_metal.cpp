@@ -13,7 +13,6 @@
 
 #include "rt64_metal.h"
 #include "rt64_metal_helpers.h"
-#include "rt64_metal_memory.h"
 #include "common/rt64_apple.h"
 
 namespace RT64 {
