@@ -518,5 +518,7 @@ namespace RT64 {
         // Shader libraries and pipeline states used for emulated operations
         void createResolvePipelineState();
         void createClearShaderLibrary();
+        
+        MTL::RenderPipelineState* getOrCreateClearRenderPipelineState(MTL::RenderPipelineDescriptor *pipelineDesc);
     };
 }
