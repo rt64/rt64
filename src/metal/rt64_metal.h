@@ -70,14 +70,13 @@ namespace RT64 {
         std::vector<uint32_t> descriptorIndexBases;
         std::vector<uint32_t> descriptorRangeBinding;
         std::vector<uint32_t> samplerIndices;
-        uint32_t bufferOffset = 0;
+        uint32_t currentArgumentBufferOffset = 0;
         uint32_t entryCount = 0;
         uint32_t descriptorTypeMaxIndex = 0;
-        uint32_t initialIndexOffset = 0;
 
         MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         ~MetalDescriptorSetLayout();
-        void createEncoderAndBuffer();
+        void resetArgumentBuffer();
     };
 
     struct MetalComputeState {
@@ -106,18 +105,15 @@ namespace RT64 {
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
-        MTL::Buffer *descriptorBuffer;
         std::unordered_map<uint32_t, MTL::Texture *> indicesToTextures;
         std::unordered_map<uint32_t, MetalBufferBinding> indicesToBuffers;
         std::unordered_map<uint32_t, MTL::Texture *> indicesToBufferFormattedViews;
         std::unordered_map<uint32_t, MTL::SamplerState *> indicesToSamplers;
         std::vector<MTL::SamplerState *> staticSamplers;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
-        uint32_t bufferOffset = 0;
         uint32_t entryCount = 0;
         uint32_t descriptorTypeMaxIndex = 0;
         std::vector<RenderDescriptorRangeType> descriptorTypes;
-        std::vector<uint32_t> samplerIndices;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
@@ -526,9 +522,9 @@ namespace RT64 {
         MTL::ComputePipelineState *resolveTexturePipelineState;
         
         // Clear functionality
-        MTL::Function* clearVertexFunction = nullptr;
-        MTL::Function* clearColorFunction = nullptr;
-        MTL::Function* clearDepthFunction = nullptr;
+        MTL::Function* clearVertexFunction;
+        MTL::Function* clearColorFunction;
+        MTL::Function* clearDepthFunction;
         MTL::DepthStencilState *clearDepthStencilState;
         std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
 

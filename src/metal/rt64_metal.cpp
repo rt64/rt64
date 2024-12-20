@@ -18,6 +18,7 @@
 namespace RT64 {
     static constexpr size_t MAX_DRAWABLES = 3;
     static constexpr size_t MAX_DESCRIPTOR_SET_COUNT = 8;
+    static constexpr size_t DESCRIPTOR_RING_BUFFER_SIZE = 1024 * 1024; // 1MB
 
     // MARK: - Helper Structures
 
@@ -109,8 +110,21 @@ namespace RT64 {
         // Create and initialize argument encoder
         NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
         argumentEncoder = device->mtl->newArgumentEncoder(pArray);
+        
+        // Create the argument buffer once to be reused on updates
+        auto argumentBufferStorageMode =
+#if TARGET_OS_IOS
+        MTL::ResourceStorageModeShared;
+#else
+        MTL::ResourceStorageModeManaged;
+#endif
+        
+        if (!descriptorBuffer) {
+            descriptorBuffer = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, argumentBufferStorageMode);
+        }
 
-        createEncoderAndBuffer();
+        // Reset the argument buffer to ensure it's in a clean state
+        resetArgumentBuffer();
 
         // Release resources
         pArray->release();
@@ -132,27 +146,24 @@ namespace RT64 {
         }
     }
 
-    void MetalDescriptorSetLayout::createEncoderAndBuffer() {
-        // Release previous resources
-        if (descriptorBuffer) {
-            descriptorBuffer->release();
+    void MetalDescriptorSetLayout::resetArgumentBuffer() {
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+        
+        // Use current offset and advance
+        size_t requiredSize = argumentEncoder->encodedLength();
+        if (currentArgumentBufferOffset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
+            currentArgumentBufferOffset = 0; // Wrap around
         }
         
-        auto argumentBufferStorageMode =
-#if TARGET_OS_IOS
-        MTL::ResourceStorageModeShared;
-#else
-        MTL::ResourceStorageModeManaged;
-#endif
-
-        auto g = argumentEncoder->encodedLength();
-        descriptorBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), argumentBufferStorageMode);
-        argumentEncoder->setArgumentBuffer(descriptorBuffer, 0);
+        argumentEncoder->setArgumentBuffer(descriptorBuffer, currentArgumentBufferOffset);
 
         // Set static samplers
         for (size_t i = 0; i < staticSamplers.size(); i++) {
             argumentEncoder->setSamplerState(staticSamplers[i], samplerIndices[i]);
         }
+        
+        currentArgumentBufferOffset += requiredSize;
+        releasePool->release();
     }
 
     // MetalBuffer
@@ -1858,14 +1869,14 @@ namespace RT64 {
         if (isCompute) {
             auto it = indicesToComputeDescriptorSets.find(setIndex);
             if (it == indicesToComputeDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-                activeComputePipelineLayout->setLayoutHandles[setIndex]->createEncoderAndBuffer();
+                activeComputePipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
                 indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
                 dirtyComputeState.descriptorSets = 1;
             }
         } else {
             auto it = indicesToRenderDescriptorSets.find(setIndex);
             if (it == indicesToRenderDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-                activeGraphicsPipelineLayout->setLayoutHandles[setIndex]->createEncoderAndBuffer();
+                activeGraphicsPipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
                 indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
                 dirtyGraphicsState.descriptorSets = 1;
             }
@@ -1950,14 +1961,16 @@ namespace RT64 {
                 }
             }
             
+            auto offsetOfCurrentlyEncodedData = setLayout->currentArgumentBufferOffset - setLayout->argumentEncoder->encodedLength();
+            
 #if     TARGET_OS_OSX
-            setLayout->descriptorBuffer->didModifyRange({ 0, setLayout->descriptorBuffer->length() });
+            setLayout->descriptorBuffer->didModifyRange({ offsetOfCurrentlyEncodedData, setLayout->argumentEncoder->encodedLength() });
 #endif
 
             if (isCompute) {
-                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, 0, i);
+                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
             } else {
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, 0, i);
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
             }
         }
     }
