@@ -17,6 +17,8 @@ namespace RT64 {
     struct MetalPipelineLayout;
     struct MetalGraphicsPipeline;
     struct MetalPool;
+    struct MetalDrawable;
+    struct ExtendedRenderTexture;
 
     enum class EncoderType {
         Render,
@@ -130,12 +132,11 @@ namespace RT64 {
         CA::MetalLayer *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
         RenderWindow renderWindow = {};
-        uint32_t textureCount = 0;
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t refreshRate = 0;
-        std::vector<MetalTexture> textures;
+        std::vector<MetalDrawable> drawables;
         uint32_t currentAvailableDrawableIndex = 0;
 
         MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
@@ -160,7 +161,7 @@ namespace RT64 {
         bool depthAttachmentReadOnly = false;
         uint32_t width = 0;
         uint32_t height = 0;
-        std::vector<const MetalTexture *> colorAttachments;
+        std::vector<const ExtendedRenderTexture *> colorAttachments;
         const MetalTexture *depthAttachment = nullptr;
 
         MetalFramebuffer(MetalDevice *device, const RenderFramebufferDesc &desc);
@@ -362,11 +363,29 @@ namespace RT64 {
         ~MetalBufferFormattedView() override;
     };
 
-    struct MetalTexture : RenderTexture {
+    struct ExtendedRenderTexture: RenderTexture {
+        RenderTextureDesc desc;
+        virtual MTL::Texture* getTexture() const = 0;
+    };
+
+    struct MetalDrawable : ExtendedRenderTexture {
+        CA::MetalDrawable *mtl = nullptr;
+        
+        MetalDrawable() = default;
+        MetalDrawable(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
+        ~MetalDrawable() override;
+        std::unique_ptr<RenderTextureView> createTextureView(const RenderTextureViewDesc &desc) override;
+        void setName(const std::string &name) override;
+
+        MTL::Texture* getTexture() const override {
+            return mtl->texture();
+        }
+    };
+
+    struct MetalTexture : ExtendedRenderTexture {
         MTL::Texture *mtl = nullptr;
         RenderTextureLayout layout = RenderTextureLayout::UNKNOWN;
         MetalPool *pool = nullptr;
-        RenderTextureDesc desc;
         uint32_t arrayCount = 1;
         MTL::Drawable *drawable = nullptr;
 
@@ -375,6 +394,10 @@ namespace RT64 {
         ~MetalTexture() override;
         std::unique_ptr<RenderTextureView> createTextureView(const RenderTextureViewDesc &desc) override;
         void setName(const std::string &name) override;
+        
+        MTL::Texture* getTexture() const override {
+            return mtl;
+        }
     };
 
     struct MetalTextureView : RenderTextureView {

@@ -694,6 +694,24 @@ namespace RT64 {
         // TODO: Unimplemented.
     }
 
+    // MetalDrawable
+
+    MetalDrawable::MetalDrawable(MetalDevice* device, MetalPool* pool, const RenderTextureDesc& desc) {
+        assert(false && "MetalDrawable cannot be constructed directly from device - use fromDrawable() instead");
+    }
+
+    MetalDrawable::~MetalDrawable() {
+        mtl->release();
+    }
+
+    std::unique_ptr<RenderTextureView> MetalDrawable::createTextureView(const RenderTextureViewDesc& desc) {
+        assert(false && "Drawables don't support texture views");
+    }
+
+    void MetalDrawable::setName(const std::string &name) {
+        mtl->texture()->setLabel(NS::String::string(name.c_str(), NS::UTF8StringEncoding));
+    }
+
     // MetalSwapChain
 
     MetalSwapChain::MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) {
@@ -704,15 +722,14 @@ namespace RT64 {
         this->commandQueue = commandQueue;
 
         // Metal supports a maximum of 3 drawables.
-        this->textureCount = 3;
-        this->textures.resize(3);
+        this->drawables.resize(MAX_DRAWABLES);
 
         this->renderWindow = renderWindow;
         getWindowSize(width, height);
 
         // set each of the drawable to have desc.flags = RenderTextureFlag::RENDER_TARGET;
-        for (uint32_t i = 0; i < this->textureCount; i++) {
-            auto& drawable = this->textures[i];
+        for (uint32_t i = 0; i < MAX_DRAWABLES; i++) {
+            auto& drawable = this->drawables[i];
             drawable.desc.width = width;
             drawable.desc.height = height;
             drawable.desc.format = format;
@@ -728,8 +745,8 @@ namespace RT64 {
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
         assert(layer != nullptr && "Cannot present without a valid layer.");
 
-        auto& texture = textures[textureIndex];
-        assert(texture.drawable != nullptr && "Cannot present without a valid drawable.");
+        auto& drawable = drawables[textureIndex];
+        assert(drawable.mtl != nullptr && "Cannot present without a valid drawable.");
 
         // Create a new command buffer just for presenting
         auto presentBuffer = commandQueue->mtl->commandBuffer();
@@ -740,17 +757,14 @@ namespace RT64 {
             presentBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
         }
 
-        presentBuffer->presentDrawable(texture.drawable);
-        presentBuffer->addCompletedHandler([presentBuffer, waitSemaphoreCount, waitSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
+        presentBuffer->presentDrawable(drawable.mtl);
+        presentBuffer->addCompletedHandler([waitSemaphoreCount, waitSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
             dispatch_semaphore_signal(commandQueue->device->renderInterface->drawables_semaphore);
-            currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % textureCount;
+            currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % MAX_DRAWABLES;
         });
         presentBuffer->commit();
 
-        texture.drawable->release();
-        texture.mtl->release();
-        presentBuffer->release();
-
+        drawable.mtl->release();
         return true;
     }
 
@@ -793,13 +807,13 @@ namespace RT64 {
     }
 
     RenderTexture *MetalSwapChain::getTexture(uint32_t textureIndex) {
-        return &textures[textureIndex];
+        return &drawables[textureIndex];
     }
 
     bool MetalSwapChain::acquireTexture(RenderCommandSemaphore *signalSemaphore, uint32_t *textureIndex) {
         assert(signalSemaphore != nullptr);
         assert(textureIndex != nullptr);
-        assert(*textureIndex < textureCount);
+        assert(*textureIndex < MAX_DRAWABLES);
 
         dispatch_semaphore_wait(commandQueue->device->renderInterface->drawables_semaphore, DISPATCH_TIME_FOREVER);
 
@@ -819,19 +833,18 @@ namespace RT64 {
 
         // Set the texture index and drawable data
         *textureIndex = currentAvailableDrawableIndex;
-        auto& drawable = textures[currentAvailableDrawableIndex];
+        auto& drawable = drawables[currentAvailableDrawableIndex];
         drawable.desc.width = width;
         drawable.desc.height = height;
         drawable.desc.flags = RenderTextureFlag::RENDER_TARGET;
         drawable.desc.format = metal::mapRenderFormat(nextDrawable->texture()->pixelFormat());
-        drawable.drawable = nextDrawable;
-        drawable.mtl = nextDrawable->texture();
+        drawable.mtl = nextDrawable;
 
         return true;
     }
 
     uint32_t MetalSwapChain::getTextureCount() const {
-        return textureCount;
+        return MAX_DRAWABLES;
     }
 
     RenderWindow MetalSwapChain::getWindow() const {
@@ -942,7 +955,7 @@ namespace RT64 {
 
         for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
             auto colorAttachment = renderDescriptor->colorAttachments()->object(i);
-            colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->mtl);
+            colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
             colorAttachment->setLoadAction(MTL::LoadActionLoad);
             colorAttachment->setStoreAction(MTL::StoreActionStore);
         }
@@ -1048,7 +1061,7 @@ namespace RT64 {
                 pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->desc.multisampling.sampleCount);
 
                 auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(clearOp.attachmentIndex);
-                pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->mtl->pixelFormat());
+                pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->getTexture()->pixelFormat());
                 pipelineColorAttachment->setBlendingEnabled(false);
 
                 auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc);
