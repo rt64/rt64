@@ -1651,7 +1651,10 @@ namespace RT64 {
 
     void MetalCommandList::checkActiveComputeEncoder() {
         // before switching pipelines see if we have any pending clears to process
-        processPendingClears();
+        if (targetFramebuffer != nullptr) {
+            processPendingClears();
+        }
+
         endOtherEncoders(EncoderType::Compute);
 
         if (activeComputeEncoder == nullptr) {
@@ -1803,7 +1806,10 @@ namespace RT64 {
 
     void MetalCommandList::checkActiveBlitEncoder() {
         // before switching pipelines see if we have any pending clears to process
-        processPendingClears();
+        if (targetFramebuffer != nullptr) {
+            processPendingClears();
+        }
+        
         endOtherEncoders(EncoderType::Blit);
 
         if (activeBlitEncoder == nullptr) {
