@@ -637,4 +637,21 @@ namespace metal {
                 return MTL::DataTypeNone;
         }
     }
+
+    static MTL::TextureUsage mapTextureUsageFromBufferFlags(RT64::RenderBufferFlags flags) {
+        MTL::TextureUsage usage = MTL::TextureUsageShaderRead;
+        usage |= (flags & RT64::RenderBufferFlag::UNORDERED_ACCESS) ? MTL::TextureUsageShaderWrite : MTL::TextureUsageUnknown;
+        
+        return usage;
+    }
+
+    static MTL::TextureUsage mapTextureUsage(RT64::RenderTextureFlags flags) {
+        MTL::TextureUsage usage = MTL::TextureUsageUnknown;
+
+        usage |= (flags & RT64::RenderTextureFlag::RENDER_TARGET) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
+        usage |= (flags & RT64::RenderTextureFlag::DEPTH_TARGET) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
+        usage |= (flags & RT64::RenderTextureFlag::UNORDERED_ACCESS) ? MTL::TextureUsageShaderWrite : MTL::TextureUsageUnknown;
+        
+        return usage;
+    }
 };

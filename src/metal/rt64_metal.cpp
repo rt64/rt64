@@ -190,19 +190,18 @@ namespace RT64 {
 
         this->buffer = buffer;
 
+        // Calculate texture properties
         const uint32_t width = buffer->desc.size / RenderFormatSize(format);
         const size_t rowAlignment = metal::alignmentForRenderFormat(buffer->device->mtl, format);
         const auto bytesPerRow = mem::alignUp(buffer->desc.size, rowAlignment);
 
-        // Configure texture usage flags
-        MTL::TextureUsage usage = (buffer->desc.flags & RenderBufferFlag::UNORDERED_ACCESS)
-            ? (MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite)
-            : MTL::TextureUsageShaderRead;
-
-        // Create and configure texture descriptor
-        auto descriptor = MTL::TextureDescriptor::textureBufferDescriptor(metal::mapPixelFormat(format), width, metal::mapResourceOption(buffer->desc.heapType), usage);
+        // Configure texture properties
+        auto pixelFormat = metal::mapPixelFormat(format);
+        auto usage = metal::mapTextureUsageFromBufferFlags(buffer->desc.flags);
+        auto options = metal::mapResourceOption(buffer->desc.heapType);
 
         // Create texture with configured descriptor and alignment
+        auto descriptor = MTL::TextureDescriptor::textureBufferDescriptor(pixelFormat, width, options, usage);
         this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
 
         descriptor->release();
@@ -233,9 +232,7 @@ namespace RT64 {
         descriptor->setArrayLength(1);
         descriptor->setSampleCount(desc.multisampling.sampleCount);
 
-        MTL::TextureUsage usage = MTL::TextureUsageShaderRead;
-        usage |= (desc.flags & (RenderTextureFlag::RENDER_TARGET | RenderTextureFlag::DEPTH_TARGET)) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
-        usage |= (desc.flags & (RenderTextureFlag::UNORDERED_ACCESS)) ? MTL::TextureUsageShaderWrite : MTL::TextureUsageUnknown;
+        MTL::TextureUsage usage = metal::mapTextureUsage(desc.flags);
         descriptor->setUsage(usage);
 
         if (pool != nullptr) {
