@@ -13,6 +13,7 @@
 
 #include "rt64_metal.h"
 #include "rt64_metal_helpers.h"
+#include "rt64_metal_memory.h"
 #include "common/rt64_apple.h"
 
 namespace RT64 {
@@ -105,10 +106,15 @@ namespace RT64 {
 
         assert(argumentDescriptors.size() > 0);
         descriptorTypeMaxIndex = descriptorTypes.empty() ? 0 : uint32_t(descriptorTypes.size() - 1);
+        
+        // Create and initialize argument encoder
+        NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
+        argumentEncoder = device->mtl->newArgumentEncoder(pArray);
 
         createEncoderAndBuffer();
 
         // Release resources
+        pArray->release();
         releasePool->release();
     }
 
@@ -129,24 +135,25 @@ namespace RT64 {
 
     void MetalDescriptorSetLayout::createEncoderAndBuffer() {
         // Release previous resources
-        if (argumentEncoder) {
-            argumentEncoder->release();
+        if (descriptorBuffer) {
             descriptorBuffer->release();
         }
+        
+        auto argumentBufferStorageMode =
+#if TARGET_OS_IOS
+        MTL::ResourceStorageModeShared;
+#else
+        MTL::ResourceStorageModeManaged;
+#endif
 
-        // Create and initialize argument encoder
-        NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
-        argumentEncoder = device->mtl->newArgumentEncoder(pArray);
-        descriptorBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), MTL::ResourceStorageModeShared);
-
+        auto g = argumentEncoder->encodedLength();
+        descriptorBuffer = device->mtl->newBuffer(argumentEncoder->encodedLength(), argumentBufferStorageMode);
         argumentEncoder->setArgumentBuffer(descriptorBuffer, 0);
 
         // Set static samplers
         for (size_t i = 0; i < staticSamplers.size(); i++) {
             argumentEncoder->setSamplerState(staticSamplers[i], samplerIndices[i]);
         }
-
-        pArray->release();
     }
 
     // MetalBuffer
@@ -744,6 +751,7 @@ namespace RT64 {
 
     bool MetalSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
         assert(layer != nullptr && "Cannot present without a valid layer.");
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
         auto& drawable = drawables[textureIndex];
         assert(drawable.mtl != nullptr && "Cannot present without a valid drawable.");
@@ -765,6 +773,8 @@ namespace RT64 {
         presentBuffer->commit();
 
         drawable.mtl->release();
+        releasePool->release();
+
         return true;
     }
 
@@ -816,6 +826,8 @@ namespace RT64 {
         assert(*textureIndex < MAX_DRAWABLES);
 
         dispatch_semaphore_wait(commandQueue->device->renderInterface->drawables_semaphore, DISPATCH_TIME_FOREVER);
+        
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
         // Create a command buffer just to encode the signal
         auto acquireBuffer = commandQueue->mtl->commandBuffer();
@@ -823,7 +835,6 @@ namespace RT64 {
         MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphore);
         acquireBuffer->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
         acquireBuffer->commit();
-        acquireBuffer->release();
 
         auto nextDrawable = layer->nextDrawable();
         if (nextDrawable == nullptr) {
@@ -839,6 +850,9 @@ namespace RT64 {
         drawable.desc.flags = RenderTextureFlag::RENDER_TARGET;
         drawable.desc.format = metal::mapRenderFormat(nextDrawable->texture()->pixelFormat());
         drawable.mtl = nextDrawable;
+        
+        drawable.mtl->retain();
+        releasePool->release();
 
         return true;
     }
@@ -1930,14 +1944,18 @@ namespace RT64 {
                     }
                 }
             }
+            
+#if     TARGET_OS_OSX
+            setLayout->descriptorBuffer->didModifyRange({ 0, setLayout->descriptorBuffer->length() });
+#endif
 
             if (isCompute) {
                 static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, 0, i);
             } else {
                 static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, 0, i);
             }
+        }
     }
-}
 
     // MetalCommandFence
 

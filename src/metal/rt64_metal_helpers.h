@@ -10,7 +10,7 @@ namespace mem {
     constexpr uint64_t alignUp(uint64_t n, uint64_t alignment = 16) {
         return (n + alignment - 1) & ~(alignment - 1);
     }
-}
+};
 
 namespace metal {
     // MARK: - Prototypes
