@@ -1251,7 +1251,14 @@ namespace RT64 {
     }
 
     void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
-        setDescriptorSet(descriptorSet, setIndex, true);
+        auto* interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
+
+        auto it = indicesToComputeDescriptorSets.find(setIndex);
+        if (it == indicesToComputeDescriptorSets.end() || it->second != interfaceDescriptorSet) {
+            activeComputePipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
+            indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
+            dirtyComputeState.descriptorSets = 1;
+        }
     }
 
     void MetalCommandList::setGraphicsPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
@@ -1292,7 +1299,14 @@ namespace RT64 {
     }
 
     void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
-        setDescriptorSet(descriptorSet, setIndex, false);
+        auto* interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
+
+        auto it = indicesToRenderDescriptorSets.find(setIndex);
+        if (it == indicesToRenderDescriptorSets.end() || it->second != interfaceDescriptorSet) {
+            activeGraphicsPipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
+            indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
+            dirtyGraphicsState.descriptorSets = 1;
+        }
     }
 
     void MetalCommandList::setRaytracingPipelineLayout(const RenderPipelineLayout *pipelineLayout) {
@@ -1860,26 +1874,6 @@ namespace RT64 {
             activeResolveComputeEncoder->endEncoding();
             activeResolveComputeEncoder->release();
             activeResolveComputeEncoder = nullptr;
-        }
-    }
-
-    void MetalCommandList::setDescriptorSet(RenderDescriptorSet* descriptorSet, uint32_t setIndex, bool isCompute) {
-        auto* interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
-
-        if (isCompute) {
-            auto it = indicesToComputeDescriptorSets.find(setIndex);
-            if (it == indicesToComputeDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-                activeComputePipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
-                indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
-                dirtyComputeState.descriptorSets = 1;
-            }
-        } else {
-            auto it = indicesToRenderDescriptorSets.find(setIndex);
-            if (it == indicesToRenderDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-                activeGraphicsPipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
-                indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
-                dirtyGraphicsState.descriptorSets = 1;
-            }
         }
     }
 
