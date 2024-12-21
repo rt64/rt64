@@ -568,6 +568,6 @@ namespace RT64 {
         void createResolvePipelineState();
         void createClearShaderLibrary();
         
-        MTL::RenderPipelineState* getOrCreateClearRenderPipelineState(MTL::RenderPipelineDescriptor *pipelineDesc);
+        MTL::RenderPipelineState* getOrCreateClearRenderPipelineState(MTL::RenderPipelineDescriptor *pipelineDesc, bool depthWriteEnabled = false);
     };
 }

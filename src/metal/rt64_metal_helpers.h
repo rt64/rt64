@@ -27,25 +27,25 @@ namespace metal {
 
     // MARK: - Helpers
 
-    static uint64_t hashForRenderPipelineDescriptor(MTL::RenderPipelineDescriptor *pipelineDesc) {
+    static uint64_t hashForRenderPipelineDescriptor(MTL::RenderPipelineDescriptor *pipelineDesc, bool depthWriteEnabled) {
         XXH3_state_t xxh3;
         XXH3_64bits_reset(&xxh3);
 
         std::uintptr_t sampleCount = pipelineDesc->sampleCount();
         XXH3_64bits_update(&xxh3, &sampleCount, sizeof(sampleCount));
 
-        uint16_t pixel_formats[ATTACHMENT_COUNT] = { 0 };
+        uint16_t pixel_info[ATTACHMENT_COUNT] = { 0 };
         for (uint32_t i = 0; i < COLOR_COUNT; i++) {
             if (auto colorAttachment = pipelineDesc->colorAttachments()->object(i)) {
-                pixel_formats[i] = static_cast<uint16_t>(colorAttachment->pixelFormat());
+                pixel_info[i] = static_cast<uint16_t>(colorAttachment->pixelFormat()) ^ colorAttachment->writeMask();
             }
         }
 
         if (pipelineDesc->depthAttachmentPixelFormat() != MTL::PixelFormatInvalid) {
-            pixel_formats[DEPTH_INDEX] = static_cast<uint16_t>(pipelineDesc->depthAttachmentPixelFormat());
+            pixel_info[DEPTH_INDEX] = static_cast<uint16_t>(pipelineDesc->depthAttachmentPixelFormat()) ^ (depthWriteEnabled ? 1 : 0);
         }
 
-        XXH3_64bits_update(&xxh3, pixel_formats, sizeof(pixel_formats));
+        XXH3_64bits_update(&xxh3, pixel_info, sizeof(pixel_info));
         return XXH3_64bits_digest(&xxh3);
     }
 

@@ -112,7 +112,7 @@ namespace RT64 {
         argumentEncoder = device->mtl->newArgumentEncoder(pArray);
         
         // Create the argument buffer once to be reused on updates
-        auto argumentBufferStorageMode = MTL::ResourceStorageModeShared;
+        auto argumentBufferStorageMode = MTL::ResourceStorageModeManaged;
         
         if (!descriptorBuffer) {
             descriptorBuffer = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, argumentBufferStorageMode);
@@ -1080,6 +1080,17 @@ namespace RT64 {
                 pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->getTexture()->pixelFormat());
                 pipelineColorAttachment->setBlendingEnabled(false);
 
+                // Set pixel format for depth attachment if we have one, with write disabled
+                if (targetFramebuffer->depthAttachment != nullptr) {
+                    pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
+                    auto depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
+                    depthStencilDescriptor->setDepthWriteEnabled(false);
+                    auto depthStencilState = device->mtl->newDepthStencilState(depthStencilDescriptor);
+                    activeRenderEncoder->setDepthStencilState(depthStencilState);
+
+                    depthStencilDescriptor->release();
+                }
+
                 auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc);
                 activeRenderEncoder->setRenderPipelineState(pipelineState);
 
@@ -1122,11 +1133,18 @@ namespace RT64 {
                 pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
                 pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
 
-                auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc);
+                // Set color attachment pixel formats with write disabled
+                for (uint32_t j = 0; j < targetFramebuffer->colorAttachments.size(); j++) {
+                    auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(j);
+                    pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[j]->getTexture()->pixelFormat());
+                    pipelineColorAttachment->setWriteMask(MTL::ColorWriteMaskNone);
+                }
+
+                auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc, true);
                 activeRenderEncoder->setRenderPipelineState(pipelineState);
                 activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
 
-                // Don't set these if we did some color clears, as those woeuld have already set them
+                // Don't set these if we did some color clears, as those would have already set them
                 if (pendingColorClearCount == 0) setupCommonState();
 
                 isFirstDepthClear = false;
@@ -1140,7 +1158,7 @@ namespace RT64 {
             for (size_t j = 0; j < rectCount; j++) {
                 clearDepths[j] = clearOp.depthValue;
             }
-            activeRenderEncoder->setFragmentBytes(clearDepths, sizeof(float) * rectCount, 0);
+            activeRenderEncoder->setFragmentBytes(clearDepths, mem::alignUp(sizeof(float) * rectCount), 0);
 
             activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, rectCount);
 
@@ -1243,7 +1261,7 @@ namespace RT64 {
         pushConstants[rangeIndex].binding = range.binding;
         pushConstants[rangeIndex].set = range.set;
         pushConstants[rangeIndex].offset = range.offset;
-        pushConstants[rangeIndex].size = range.size;
+        pushConstants[rangeIndex].size = mem::alignUp(range.size);
         pushConstants[rangeIndex].stageFlags = range.stageFlags;
 
         dirtyComputeState.pushConstants = 1;
@@ -1291,7 +1309,7 @@ namespace RT64 {
         pushConstants[rangeIndex].binding = range.binding;
         pushConstants[rangeIndex].set = range.set;
         pushConstants[rangeIndex].offset = range.offset;
-        pushConstants[rangeIndex].size = range.size;
+        pushConstants[rangeIndex].size = mem::alignUp(range.size);
         pushConstants[rangeIndex].stageFlags = range.stageFlags;
 
         dirtyGraphicsState.pushConstants = 1;
@@ -2398,8 +2416,8 @@ namespace RT64 {
         clearShaderLibrary->release();
     }
 
-    MTL::RenderPipelineState* MetalInterface::getOrCreateClearRenderPipelineState(MTL::RenderPipelineDescriptor *pipelineDesc) {
-        auto hash = metal::hashForRenderPipelineDescriptor(pipelineDesc);
+    MTL::RenderPipelineState* MetalInterface::getOrCreateClearRenderPipelineState(MTL::RenderPipelineDescriptor *pipelineDesc, bool depthWriteEnabled) {
+        auto hash = metal::hashForRenderPipelineDescriptor(pipelineDesc, depthWriteEnabled);
 
         auto it = clearRenderPipelineStates.find(hash);
         if (it != clearRenderPipelineStates.end()) {
