@@ -764,6 +764,7 @@ namespace RT64 {
 
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
+            presentBuffer->enqueue();
             presentBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
         }
 
@@ -833,7 +834,7 @@ namespace RT64 {
 
         // Create a command buffer just to encode the signal
         auto acquireBuffer = commandQueue->mtl->commandBuffer();
-        acquireBuffer->setLabel(MTLSTR("AcquireTextureCommandBuffer"));
+        acquireBuffer->setLabel(MTLSTR("Acquire Drawable Command Buffer"));
         MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphore);
         acquireBuffer->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
         acquireBuffer->commit();
@@ -2046,8 +2047,8 @@ namespace RT64 {
 
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
-            cmdBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
             cmdBuffer->enqueue();
+            cmdBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
             cmdBuffer->commit();
         }
         
@@ -2058,6 +2059,7 @@ namespace RT64 {
 
             const MetalCommandList *interfaceCommandList = static_cast<const MetalCommandList *>(commandLists[i]);
             MetalCommandList *mutableCommandList = const_cast<MetalCommandList*>(interfaceCommandList);
+            mutableCommandList->mtl->enqueue();
             mutableCommandList->commit();
         }
 
@@ -2072,6 +2074,7 @@ namespace RT64 {
 
         for (uint32_t i = 0; i < signalSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphores[i]);
+            interfaceCommandList->mtl->enqueue();
             interfaceCommandList->mtl->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
         }
 
