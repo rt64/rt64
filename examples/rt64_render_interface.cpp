@@ -1075,7 +1075,7 @@ namespace RT64 {
             ctx.commandList->setGraphicsPushConstants(0, &pushConstant1);
             drawRasterTriangle(ctx);
 
-            // Draw second triangle with push constants for red color
+            // Draw third triangle with push constants for green color
             offsetViewport.y -= 100.0f;
             ctx.commandList->setViewports(offsetViewport);
             RasterPushConstant pushConstant2;
@@ -1416,7 +1416,7 @@ namespace RT64 {
     using TestSetupFunc = std::function<std::unique_ptr<TestBase>()>;
     static std::vector<TestSetupFunc> g_Tests;
     static std::unique_ptr<TestBase> g_CurrentTest;
-    static uint32_t g_CurrentTestIndex = 2;
+    static uint32_t g_CurrentTestIndex = 1;
 
     void RegisterTests() {
         g_Tests.push_back([]() { return std::make_unique<ClearTest>(); });

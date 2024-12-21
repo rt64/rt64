@@ -18,7 +18,6 @@ namespace RT64 {
     struct MetalGraphicsPipeline;
     struct MetalPool;
     struct MetalDrawable;
-    struct ExtendedRenderTexture;
 
     enum class EncoderType {
         Render,
@@ -92,7 +91,7 @@ namespace RT64 {
         MTL::CullMode cullMode = MTL::CullModeNone;
         MTL::DepthClipMode depthClipMode = MTL::DepthClipModeClip;
         MTL::Winding winding = MTL::WindingClockwise;
-        MTL::SamplePosition *samplePositions = nullptr;
+        MTL::SamplePosition samplePositions[16] = {};
         uint32_t sampleCount = 0;
     };
 
@@ -102,6 +101,11 @@ namespace RT64 {
 
         MetalBufferBinding(MTL::Buffer* buffer = nullptr, uint32_t offset = 0)
             : buffer(buffer), offset(offset) {}
+    };
+
+    struct ExtendedRenderTexture: RenderTexture {
+        RenderTextureDesc desc;
+        virtual MTL::Texture* getTexture() const = 0;
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
@@ -164,6 +168,38 @@ namespace RT64 {
         ~MetalFramebuffer() override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
+        
+        // this comparison is tailored towards whether we'll require a new encoder
+        bool operator==(const MetalFramebuffer& other) const {
+            if (colorAttachments.size() != other.colorAttachments.size()) {
+                return false;
+            }
+            
+            for (size_t i = 0; i < colorAttachments.size(); i++) {
+                if (colorAttachments[i]->getTexture() != other.colorAttachments[i]->getTexture() ||
+                    colorAttachments[i]->desc.multisampling.sampleCount != other.colorAttachments[i]->desc.multisampling.sampleCount) {
+                    return false;
+                }
+                
+                // Compare individual sample locations if multisampling is enabled
+                if (colorAttachments[i]->desc.multisampling.sampleCount > 1) {
+                    for (uint32_t s = 0; s < colorAttachments[i]->desc.multisampling.sampleCount; s++) {
+                        const auto& loc1 = colorAttachments[i]->desc.multisampling.sampleLocations[s];
+                        const auto& loc2 = other.colorAttachments[i]->desc.multisampling.sampleLocations[s];
+                        if (loc1 != loc2) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            
+            return depthAttachment == other.depthAttachment;
+        }
+        
+        bool operator!=(const MetalFramebuffer& other) const {
+            return !(*this == other);
+        }
+        
     };
 
     struct MetalCommandList : RenderCommandList {
@@ -356,11 +392,6 @@ namespace RT64 {
 
         MetalBufferFormattedView(MetalBuffer *buffer, RenderFormat format);
         ~MetalBufferFormattedView() override;
-    };
-
-    struct ExtendedRenderTexture: RenderTexture {
-        RenderTextureDesc desc;
-        virtual MTL::Texture* getTexture() const = 0;
     };
 
     struct MetalDrawable : ExtendedRenderTexture {

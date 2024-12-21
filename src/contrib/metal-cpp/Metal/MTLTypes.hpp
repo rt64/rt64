@@ -90,6 +90,14 @@ struct SamplePosition
 
     float                 x;
     float                 y;
+    
+    bool operator==(const SamplePosition& other) const {
+        return x == other.x && y == other.y;
+    }
+    
+    bool operator!=(const SamplePosition& other) const {
+        return !(*this == other);
+    }
 } _MTL_PACKED;
 
 struct ResourceID

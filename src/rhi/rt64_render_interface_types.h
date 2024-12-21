@@ -696,6 +696,14 @@ namespace RT64 {
         // Valid range is [-8, 7].
         int8_t x = 0;
         int8_t y = 0;
+        
+        bool operator==(const RenderMultisamplingLocation& other) const {
+            return x == other.x && y == other.y;
+        }
+        
+        bool operator!=(const RenderMultisamplingLocation& other) const {
+            return !(*this == other);
+        }
     };
 
     struct RenderMultisampling {

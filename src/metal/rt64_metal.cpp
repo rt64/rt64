@@ -536,7 +536,6 @@ namespace RT64 {
         state->winding = MTL::WindingClockwise;
         state->sampleCount = desc.multisampling.sampleCount;
         if (desc.multisampling.sampleCount > 1) {
-            state->samplePositions = new MTL::SamplePosition[desc.multisampling.sampleCount];
             for (uint32_t i = 0; i < desc.multisampling.sampleCount; i++) {
                 state->samplePositions[i] = { (float)desc.multisampling.sampleLocations[i].x, (float)desc.multisampling.sampleLocations[i].y };
             }
@@ -562,8 +561,6 @@ namespace RT64 {
     MetalGraphicsPipeline::~MetalGraphicsPipeline() {
         state->renderPipelineState->release();
         state->depthStencilState->release();
-        // TODO: better way to dispose of sample positions
-        delete[] state->samplePositions;
         delete state;
     }
 
@@ -1195,8 +1192,15 @@ namespace RT64 {
             case MetalPipeline::Type::Graphics: {
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
                 if (activeRenderState) {
-                    if (activeRenderState->samplePositions != graphicsPipeline->state->samplePositions || activeRenderState->sampleCount != graphicsPipeline->state->sampleCount) {
+                    if (activeRenderState->sampleCount != graphicsPipeline->state->sampleCount) {
                         endActiveRenderEncoder();
+                    } else if (activeRenderState->sampleCount > 1) {
+                        for (uint32_t i = 0; i < activeRenderState->sampleCount; i++) {
+                            if (activeRenderState->samplePositions[i] != graphicsPipeline->state->samplePositions[i]) {
+                                endActiveRenderEncoder();
+                                break;
+                            }
+                        }
                     }
                 }
 
@@ -1400,17 +1404,23 @@ namespace RT64 {
     }
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
-        // If we're changing framebuffers, we need to end current encoder and reset state
-        if (targetFramebuffer != framebuffer) {
-            endOtherEncoders(EncoderType::Render);
-            endActiveRenderEncoder();
-
-            targetFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
-
-            // Mark all state as needing update with the new encoder
-            if (targetFramebuffer != nullptr) {
-                dirtyGraphicsState.setAll();
+        endOtherEncoders(EncoderType::Render);
+        
+        if (framebuffer != nullptr) {
+            auto incomingFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
+            
+            // check if we need to end the current encoder
+            if (targetFramebuffer == nullptr || *targetFramebuffer != *incomingFramebuffer) {
+                endActiveRenderEncoder();
+                targetFramebuffer = incomingFramebuffer;
+                
+                // Mark all state as needing update with the new encoder
+                if (targetFramebuffer != nullptr) {
+                    dirtyGraphicsState.setAll();
+                }
             }
+        } else {
+            targetFramebuffer = nullptr;
         }
     }
 
