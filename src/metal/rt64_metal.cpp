@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <xxHash/xxh3.h>
+#include <mutex>
 
 #include "rt64_metal.h"
 #include "rt64_metal_helpers.h"
@@ -2432,22 +2433,26 @@ namespace RT64 {
 
     MTL::RenderPipelineState* MetalInterface::getOrCreateClearRenderPipelineState(MTL::RenderPipelineDescriptor *pipelineDesc, bool depthWriteEnabled) {
         auto hash = metal::hashForRenderPipelineDescriptor(pipelineDesc, depthWriteEnabled);
-
-        auto it = clearRenderPipelineStates.find(hash);
-        if (it != clearRenderPipelineStates.end()) {
-            return it->second;
-        } else {
+        
+        // First check if pipeline state exists
+        {
+            std::lock_guard<std::mutex> lock(clearPipelineStateMutex);
+            auto it = clearRenderPipelineStates.find(hash);
+            if (it != clearRenderPipelineStates.end()) {
+                return it->second;
+            }
+            
+            // If not found, create new pipeline state while holding the lock
             NS::Error *error = nullptr;
             auto clearPipelineState = device->newRenderPipelineState(pipelineDesc, &error);
-
+            
             if (error != nullptr) {
                 fprintf(stderr, "Failed to create render pipeline state: %s\n", error->localizedDescription()->utf8String());
                 return nullptr;
             }
-
-            clearRenderPipelineStates.insert(std::make_pair(hash, clearPipelineState));
-
-            return clearPipelineState;
+            
+            auto [inserted_it, success] = clearRenderPipelineStates.insert(std::make_pair(hash, clearPipelineState));
+            return inserted_it->second;
         }
     }
 

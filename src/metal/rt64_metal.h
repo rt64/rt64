@@ -555,6 +555,8 @@ namespace RT64 {
         MTL::Function* clearColorFunction;
         MTL::Function* clearDepthFunction;
         MTL::DepthStencilState *clearDepthStencilState;
+        
+        std::mutex clearPipelineStateMutex;
         std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
 
         MetalInterface();
