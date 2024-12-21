@@ -767,14 +767,21 @@ namespace RT64 {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
             presentBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
         }
+        
+        // According to Apple, presenting via scheduled handler is more performant than using the presentDrawable method.
+        // We grab the underlying drawable because we might've acquired a new one by now and the old one would have been released.
+        auto drawableMtl = drawable.mtl->retain();
+        presentBuffer->addScheduledHandler([drawableMtl](MTL::CommandBuffer* cmdBuffer) {
+            drawableMtl->present();
+            drawableMtl->release();
+        });
 
-        presentBuffer->presentDrawable(drawable.mtl);
         presentBuffer->addCompletedHandler([waitSemaphoreCount, waitSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
             currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % MAX_DRAWABLES;
         });
+        
         presentBuffer->commit();
 
-        drawable.mtl->release();
         releasePool->release();
 
         return true;
