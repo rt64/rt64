@@ -112,12 +112,7 @@ namespace RT64 {
         argumentEncoder = device->mtl->newArgumentEncoder(pArray);
         
         // Create the argument buffer once to be reused on updates
-        auto argumentBufferStorageMode =
-#if TARGET_OS_IOS
-        MTL::ResourceStorageModeShared;
-#else
-        MTL::ResourceStorageModeManaged;
-#endif
+        auto argumentBufferStorageMode = MTL::ResourceStorageModeShared;
         
         if (!descriptorBuffer) {
             descriptorBuffer = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, argumentBufferStorageMode);
