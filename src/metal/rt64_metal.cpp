@@ -761,16 +761,15 @@ namespace RT64 {
         // Create a new command buffer just for presenting
         auto presentBuffer = commandQueue->mtl->commandBuffer();
         presentBuffer->setLabel(MTLSTR("Present Command Buffer"));
+        presentBuffer->enqueue();
 
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
-            presentBuffer->enqueue();
             presentBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
         }
 
         presentBuffer->presentDrawable(drawable.mtl);
         presentBuffer->addCompletedHandler([waitSemaphoreCount, waitSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
-            dispatch_semaphore_signal(commandQueue->device->renderInterface->drawables_semaphore);
             currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % MAX_DRAWABLES;
         });
         presentBuffer->commit();
@@ -827,15 +826,14 @@ namespace RT64 {
         assert(signalSemaphore != nullptr);
         assert(textureIndex != nullptr);
         assert(*textureIndex < MAX_DRAWABLES);
-
-        dispatch_semaphore_wait(commandQueue->device->renderInterface->drawables_semaphore, DISPATCH_TIME_FOREVER);
         
         NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
-
+        
         // Create a command buffer just to encode the signal
         auto acquireBuffer = commandQueue->mtl->commandBuffer();
         acquireBuffer->setLabel(MTLSTR("Acquire Drawable Command Buffer"));
         MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphore);
+        acquireBuffer->enqueue();
         acquireBuffer->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
         acquireBuffer->commit();
 
@@ -2044,13 +2042,14 @@ namespace RT64 {
         // Create a new command buffer to encode the wait semaphores into
         MTL::CommandBuffer* cmdBuffer = mtl->commandBuffer();
         cmdBuffer->setLabel(MTLSTR("Wait Command Buffer"));
+        cmdBuffer->enqueue();
 
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
-            cmdBuffer->enqueue();
             cmdBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
-            cmdBuffer->commit();
         }
+
+        cmdBuffer->commit();
         
         // Commit all command lists except the last one
 
@@ -2065,6 +2064,7 @@ namespace RT64 {
 
         // Use the last command list to mark the end and signal the fence
         auto *interfaceCommandList = static_cast<const MetalCommandList *>(commandLists[commandListCount - 1]);
+        interfaceCommandList->mtl->enqueue();
 
         if (signalFence != nullptr) {
             interfaceCommandList->mtl->addCompletedHandler([signalFence, signalSemaphoreCount, signalSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
@@ -2074,7 +2074,6 @@ namespace RT64 {
 
         for (uint32_t i = 0; i < signalSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphores[i]);
-            interfaceCommandList->mtl->enqueue();
             interfaceCommandList->mtl->encodeSignalEvent(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue);
         }
 
@@ -2259,8 +2258,6 @@ namespace RT64 {
 
         createClearShaderLibrary();
         createResolvePipelineState();
-
-        drawables_semaphore = dispatch_semaphore_create(MAX_DRAWABLES);
 
         releasePool->release();
     }

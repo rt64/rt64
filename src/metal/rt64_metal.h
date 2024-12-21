@@ -547,7 +547,6 @@ namespace RT64 {
 
     struct MetalInterface : RenderInterface {
         MTL::Device* device;
-        dispatch_semaphore_t drawables_semaphore;
         RenderInterfaceCapabilities capabilities;
         MTL::ComputePipelineState *resolveTexturePipelineState;
         
