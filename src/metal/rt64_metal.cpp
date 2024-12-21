@@ -760,7 +760,7 @@ namespace RT64 {
 
         // Create a new command buffer just for presenting
         auto presentBuffer = commandQueue->mtl->commandBuffer();
-        presentBuffer->setLabel(MTLSTR("PresentCommandBuffer"));
+        presentBuffer->setLabel(MTLSTR("Present Command Buffer"));
 
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
@@ -949,6 +949,7 @@ namespace RT64 {
     void MetalCommandList::begin() {
         assert(mtl == nullptr);
         mtl = queue->mtl->commandBuffer();
+        mtl->setLabel(MTLSTR("RT64 Command List"));
     }
 
     void MetalCommandList::end() {
@@ -2038,13 +2039,19 @@ namespace RT64 {
     void MetalCommandQueue::executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) {
         assert(commandLists != nullptr);
         assert(commandListCount > 0);
+        
+        // Create a new command buffer to encode the wait semaphores into
+        MTL::CommandBuffer* cmdBuffer = mtl->commandBuffer();
+        cmdBuffer->setLabel(MTLSTR("Wait Command Buffer"));
 
-        // Encode waiting into the first command list in the chain
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
             MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(waitSemaphores[i]);
-            const MetalCommandList *interfaceCommandList = static_cast<const MetalCommandList *>(commandLists[0]);
-            interfaceCommandList->mtl->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
+            cmdBuffer->encodeWait(interfaceSemaphore->mtl, interfaceSemaphore->mtlEventValue++);
+            cmdBuffer->enqueue();
+            cmdBuffer->commit();
         }
+        
+        // Commit all command lists except the last one
 
         for (uint32_t i = 0; i < commandListCount - 1; i++) {
             assert(commandLists[i] != nullptr);
