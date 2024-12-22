@@ -556,6 +556,8 @@ if (RT64_BUILD_EXAMPLES)
     target_include_directories(rhi_test PRIVATE ${CMAKE_BINARY_DIR}/examples)
 
     if (APPLE)
+        set_property (TARGET rhi_test APPEND_STRING PROPERTY
+            COMPILE_FLAGS "-fobjc-arc")
         set_target_properties(rhi_test PROPERTIES
             XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
             XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${PROJECT_SOURCE_DIR}/rt64.entitlements

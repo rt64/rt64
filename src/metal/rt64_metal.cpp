@@ -760,7 +760,7 @@ namespace RT64 {
         assert(drawable.mtl != nullptr && "Cannot present without a valid drawable.");
 
         // Create a new command buffer just for presenting
-        auto presentBuffer = commandQueue->mtl->commandBuffer();
+        auto presentBuffer = commandQueue->mtl->commandBufferWithUnretainedReferences();
         presentBuffer->setLabel(MTLSTR("Present Command Buffer"));
         presentBuffer->enqueue();
 
@@ -774,11 +774,11 @@ namespace RT64 {
         auto drawableMtl = drawable.mtl->retain();
         presentBuffer->addScheduledHandler([drawableMtl](MTL::CommandBuffer* cmdBuffer) {
             drawableMtl->present();
-            drawableMtl->release();
         });
 
-        presentBuffer->addCompletedHandler([waitSemaphoreCount, waitSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
+        presentBuffer->addCompletedHandler([drawableMtl, this](MTL::CommandBuffer* cmdBuffer) {
             currentAvailableDrawableIndex = (currentAvailableDrawableIndex + 1) % MAX_DRAWABLES;
+            drawableMtl->release();
         });
         
         presentBuffer->commit();
@@ -838,7 +838,7 @@ namespace RT64 {
         NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
         
         // Create a command buffer just to encode the signal
-        auto acquireBuffer = commandQueue->mtl->commandBuffer();
+        auto acquireBuffer = commandQueue->mtl->commandBufferWithUnretainedReferences();
         acquireBuffer->setLabel(MTLSTR("Acquire Drawable Command Buffer"));
         MetalCommandSemaphore *interfaceSemaphore = static_cast<MetalCommandSemaphore *>(signalSemaphore);
         acquireBuffer->enqueue();
@@ -955,7 +955,7 @@ namespace RT64 {
 
     void MetalCommandList::begin() {
         assert(mtl == nullptr);
-        mtl = queue->mtl->commandBuffer();
+        mtl = queue->mtl->commandBufferWithUnretainedReferences();
         mtl->setLabel(MTLSTR("RT64 Command List"));
     }
 
@@ -1048,6 +1048,8 @@ namespace RT64 {
         }
 
         checkActiveRenderEncoder();
+        
+        NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
 
         // Store state cache
         auto previousCache = stateCache;
@@ -1198,6 +1200,8 @@ namespace RT64 {
         // Restore previous state if we had one
         stateCache = previousCache;
         dirtyGraphicsState.setAll();
+        
+        pool->release();
     }
 
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
@@ -2067,7 +2071,7 @@ namespace RT64 {
         assert(commandListCount > 0);
         
         // Create a new command buffer to encode the wait semaphores into
-        MTL::CommandBuffer* cmdBuffer = mtl->commandBuffer();
+        MTL::CommandBuffer* cmdBuffer = mtl->commandBufferWithUnretainedReferences();
         cmdBuffer->setLabel(MTLSTR("Wait Command Buffer"));
         cmdBuffer->enqueue();
 
