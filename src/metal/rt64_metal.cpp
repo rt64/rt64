@@ -1014,37 +1014,32 @@ namespace RT64 {
         // TODO: Support Metal RT
     }
 
-    void MetalCommandList::setupClearTransform(ClearTransform& transform) {
-        // Convert from screen space to NDC space
-        float sx = 2.0f / float(targetFramebuffer->width);
-        float sy = -2.0f / float(targetFramebuffer->height);
-        float tx = -1.0f;
-        float ty = 1.0f;
+    std::vector<simd::float2> MetalCommandList::prepareClearVertices(const RenderRect& rect) {
+        float attWidth = float(targetFramebuffer->width);
+        float attHeight = float(targetFramebuffer->height);
 
-        transform.ndcTransform = simd::float4x4(
-            (simd::float4){ sx, 0.0f, 0.0f, 0.0f },
-            (simd::float4){ 0.0f, sy, 0.0f, 0.0f },
-            (simd::float4){ 0.0f, 0.0f, 1.0f, 0.0f },
-            (simd::float4){ tx, ty, 0.0f, 1.0f }
-        );
-    }
+        // Convert rect coordinates to normalized space (0 to 1)
+        float leftPos = float(rect.left) / attWidth;
+        float rightPos = float(rect.right) / attWidth;
+        float topPos = float(rect.top) / attHeight;
+        float bottomPos = float(rect.bottom) / attHeight;
 
-    MetalCommandList::ClearRect prepareClearRects[MAX_CLEAR_RECTS];
-    size_t MetalCommandList::prepareClearRectCount(const RenderRect* clearRects, size_t clearRectCount) {
-        if (clearRects == nullptr || clearRectCount == 0) {
-            prepareClearRects[0] = { { 0, 0 }, { float(targetFramebuffer->width), float(targetFramebuffer->height) } };
-            return 1;
-        }
+        // Transform to clip space (-1 to 1)
+        leftPos = (leftPos * 2.0f) - 1.0f;
+        rightPos = (rightPos * 2.0f) - 1.0f;
+        // Flip Y coordinates for Metal's coordinate system
+        topPos = -(topPos * 2.0f - 1.0f);
+        bottomPos = -(bottomPos * 2.0f - 1.0f);
 
-        size_t validRectCount = 0;
-        for (size_t i = 0; i < clearRectCount && validRectCount < MAX_CLEAR_RECTS; i++) {
-            const auto& r = clearRects[i];
-            if (!r.isEmpty()) {
-                prepareClearRects[validRectCount++] = { { float(r.left), float(r.top) }, { float(r.right - r.left), float(r.bottom - r.top) } };
-            }
-        }
-
-        return validRectCount;
+        // Define vertices for a triangle strip (quad)
+        return {
+            (simd::float2){ leftPos,  topPos },  // Top left
+            (simd::float2){ leftPos,  bottomPos },  // Bottom left
+            (simd::float2){ rightPos, bottomPos },  // Bottom right
+            (simd::float2){ rightPos, bottomPos },  // Bottom right (repeated)
+            (simd::float2){ rightPos, topPos },  // Top right
+            (simd::float2){ leftPos,  topPos }   // Top left (repeated)
+        };
     }
 
     void MetalCommandList::processPendingClears() {
@@ -1057,10 +1052,6 @@ namespace RT64 {
         // Store state cache
         auto previousCache = stateCache;
 
-        // Calculate transform matrix once for all clears
-        ClearTransform transform;
-        setupClearTransform(transform);
-
         // Common render state setup (done once)
         auto setupCommonState = [&]() {
             activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
@@ -1068,7 +1059,6 @@ namespace RT64 {
             activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
             activeRenderEncoder->setCullMode(MTL::CullModeNone);
             activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
-            activeRenderEncoder->setVertexBytes(&transform, sizeof(transform), 1);
         };
 
         // Process color clears
@@ -1109,17 +1099,31 @@ namespace RT64 {
                 pipelineDesc->release();
             }
 
-            auto rectCount = prepareClearRectCount(clearOp.clearRectCount > 0 ? clearOp.clearRects : nullptr, clearOp.clearRectCount);
-            activeRenderEncoder->setVertexBytes(prepareClearRects, sizeof(ClearRect) * rectCount, 0);
+            // Generate vertices for each rect
+            std::vector<simd::float2> allVertices;
+            if (clearOp.clearRectCount > 0) {
+                for (uint32_t j = 0; j < clearOp.clearRectCount; j++) {
+                    auto rectVertices = prepareClearVertices(clearOp.clearRects[j]);
+                    allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
+                }
+            } else {
+                // Full screen clear
+                RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
+                allVertices = prepareClearVertices(fullRect);
+            }
+            
+            // Set vertices
+            activeRenderEncoder->setVertexBytes(allVertices.data(), allVertices.size() * sizeof(simd::float2), 0);
 
             // Use stack for clear colors too since we know the max size
             simd::float4 clearColors[MAX_CLEAR_RECTS];
+            uint32_t rectCount = clearOp.clearRectCount > 0 ? clearOp.clearRectCount : 1;
             for (size_t j = 0; j < rectCount; j++) {
                 clearColors[j] = (simd::float4){ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a };
             }
             activeRenderEncoder->setFragmentBytes(clearColors, mem::alignUp(sizeof(simd::float4) * rectCount), 0);
 
-            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, rectCount);
+            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.0, 6 * rectCount);
 
             activeRenderEncoder->popDebugGroup();
         }
@@ -1159,16 +1163,31 @@ namespace RT64 {
                 pipelineDesc->release();
             }
 
-            auto rectCount = prepareClearRectCount(clearOp.clearRectCount > 0 ? clearOp.clearRects : nullptr, clearOp.clearRectCount);
-            activeRenderEncoder->setVertexBytes(prepareClearRects, sizeof(ClearRect) * rectCount, 0);
+            // Generate vertices for each rect
+            std::vector<simd::float2> allVertices;
+            if (clearOp.clearRectCount > 0) {
+                for (uint32_t j = 0; j < clearOp.clearRectCount; j++) {
+                    auto rectVertices = prepareClearVertices(clearOp.clearRects[j]);
+                    allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
+                }
+            } else {
+                // Full screen clear
+                RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
+                allVertices = prepareClearVertices(fullRect);
+            }
+            
+            // Set vertices
+            activeRenderEncoder->setVertexBytes(allVertices.data(), allVertices.size() * sizeof(simd::float2), 0);
+
 
             float clearDepths[MAX_CLEAR_RECTS];
+            uint32_t rectCount = clearOp.clearRectCount > 0 ? clearOp.clearRectCount : 1;
             for (size_t j = 0; j < rectCount; j++) {
                 clearDepths[j] = clearOp.depthValue;
             }
             activeRenderEncoder->setFragmentBytes(clearDepths, mem::alignUp(sizeof(float) * rectCount), 0);
 
-            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, rectCount);
+            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.0, 6 * rectCount);
 
             activeRenderEncoder->popDebugGroup();
         }
@@ -2355,39 +2374,13 @@ namespace RT64 {
                 float4 position [[position]];
                 uint rect_index [[flat]];
             };
-
-            struct ClearRect {
-                float2 position;  // x, y
-                float2 size;     // width, height
-            };
-
-            struct ClearTransform {
-                float4x4 ndcTransform;  // Pre-calculated transform matrix that includes scaling and Y-flip
-            };
-
-            // Define quad vertices as a constant buffer to reduce vertex shader work
-            constant float2 quadVertices[] = {
-                float2(0, 0),  // Top-left
-                float2(1, 0),  // Top-right
-                float2(0, 1),  // Bottom-left
-                float2(1, 1)   // Bottom-right
-            };
-
+        
             vertex VertexOutput clearVert(uint vid [[vertex_id]],
                                         uint instance_id [[instance_id]],
-                                        constant ClearRect* rects [[buffer(0)]],
-                                        constant ClearTransform& transform [[buffer(1)]])
+                                        constant float2* vertices [[buffer(0)]])
             {
                 VertexOutput out;
-
-                ClearRect rect = rects[instance_id];
-                float2 pos = quadVertices[vid];
-
-                // Transform to rect space (screen space coordinates)
-                pos = rect.position + (pos * rect.size);
-
-                // Transform from screen space to NDC space using the transform matrix
-                out.position = transform.ndcTransform * float4(pos, 0, 1);
+                out.position = float4(vertices[vid], 0, 1);
                 out.rect_index = instance_id;
                 return out;
             }

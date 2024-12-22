@@ -228,13 +228,8 @@ namespace RT64 {
             }
         };
         
-        struct ClearRect {
-            simd::float2 position;
-            simd::float2 size;
-        };
-
-        struct ClearTransform {
-            simd::float4x4 ndcTransform;
+        struct ClearVertex {
+            simd::float4 position;  // xy = position, z = 0, w = unused
         };
         
         MTL::CommandBuffer *mtl = nullptr;
@@ -339,8 +334,7 @@ namespace RT64 {
         void checkActiveResolveTextureComputeEncoder();
         void endActiveResolveTextureComputeEncoder();
         
-        void setupClearTransform(ClearTransform& transform);
-        size_t prepareClearRectCount(const RenderRect* clearRects, size_t clearRectCount);
+        std::vector<simd::float2> prepareClearVertices(const RenderRect& rect);
         void checkForUpdatesInGraphicsState();
     };
 
