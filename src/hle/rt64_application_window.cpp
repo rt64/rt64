@@ -121,6 +121,8 @@ namespace RT64 {
         SDL_GetWindowWMInfo(sdlWindow, &wmInfo);
 #   if defined(_WIN32)
         windowHandle = wmInfo.info.win.window;
+#   elif defined(RT64_SDL_WINDOW_VULKAN)
+        windowHandle = sdlWindow;
 #   elif defined(__ANDROID__)
         static_assert(false && "Android unimplemented");
 #   elif defined(__linux__)
@@ -236,6 +238,21 @@ namespace RT64 {
         if ((refreshRate % 10) == 9) {
             refreshRate++;
         }
+#   elif defined(RT64_SDL_WINDOW_VULKAN)
+        int displayIndex = SDL_GetWindowDisplayIndex(windowHandle);
+        if (displayIndex < 0) {
+            fprintf(stderr, "SDL_GetWindowDisplayIndex failed. Error: %s.\n", SDL_GetError());
+            return;
+        }
+
+        SDL_DisplayMode displayMode = {};
+        int modeResult = SDL_GetCurrentDisplayMode(displayIndex, &displayMode);
+        if (modeResult != 0) {
+            fprintf(stderr, "SDL_GetCurrentDisplayMode failed. Error: %s.\n", SDL_GetError());
+            return;
+        }
+
+        refreshRate = displayMode.refresh_rate;
 #   elif defined(__linux__)
         // Sourced from: https://stackoverflow.com/a/66865623
         XRRScreenResources *screenResources = XRRGetScreenResources(windowHandle.display, windowHandle.window);
@@ -287,6 +304,8 @@ namespace RT64 {
         GetWindowRect(windowHandle, &rect);
         newWindowLeft = rect.left;
         newWindowTop = rect.top;
+#   elif defined(RT64_SDL_WINDOW_VULKAN)
+        SDL_GetWindowPosition(windowHandle, &newWindowLeft, &newWindowTop);
 #   elif defined(__linux__)
         XWindowAttributes attributes;
         XGetWindowAttributes(windowHandle.display, windowHandle.window, &attributes);

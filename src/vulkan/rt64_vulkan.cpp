@@ -1921,6 +1921,13 @@ namespace RT64 {
             fprintf(stderr, "vkCreateWin32SurfaceKHR failed with error code 0x%X.\n", res);
             return;
         }
+#   elif defined(RT64_SDL_WINDOW_VULKAN)
+        VulkanInterface *renderInterface = commandQueue->device->renderInterface;
+        SDL_bool sdlRes = SDL_Vulkan_CreateSurface(renderWindow, renderInterface->instance, &surface);
+        if (sdlRes == SDL_FALSE) {
+            fprintf(stderr, "SDL_Vulkan_CreateSurface failed with error %s.\n", SDL_GetError());
+            return;
+        }
 #   elif defined(__ANDROID__)
         assert(renderWindow != nullptr);
         VkAndroidSurfaceCreateInfoKHR surfaceCreateInfo = {};
@@ -2056,6 +2063,12 @@ namespace RT64 {
     }
 
     bool VulkanSwapChain::present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) {
+        constexpr uint64_t MaxFrameDelay = 1;
+        if (commandQueue->device->capabilities.presentWait && (currentPresentId > MaxFrameDelay)) {
+            constexpr uint64_t waitTimeout = 100000000;
+            vkWaitForPresentKHR(commandQueue->device->vk, vk, currentPresentId - MaxFrameDelay, waitTimeout);
+        }
+
         thread_local std::vector<VkSemaphore> waitSemaphoresVector;
         waitSemaphoresVector.clear();
         for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
@@ -2070,6 +2083,15 @@ namespace RT64 {
         presentInfo.pImageIndices = &textureIndex;
         presentInfo.pWaitSemaphores = !waitSemaphoresVector.empty() ? waitSemaphoresVector.data() : nullptr;
         presentInfo.waitSemaphoreCount = uint32_t(waitSemaphoresVector.size());
+
+        VkPresentIdKHR presentId = {};
+        if (commandQueue->device->capabilities.presentWait) {
+            currentPresentId++;
+            presentId.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
+            presentId.pPresentIds = &currentPresentId;
+            presentId.swapchainCount = 1;
+            presentInfo.pNext = &presentId;
+        }
         
         VkResult res;
         {
@@ -2228,6 +2250,8 @@ namespace RT64 {
         GetClientRect(renderWindow, &rect);
         dstWidth = rect.right - rect.left;
         dstHeight = rect.bottom - rect.top;
+#   elif defined(RT64_SDL_WINDOW_VULKAN)
+        SDL_GetWindowSize(renderWindow, (int *)(&dstWidth), (int *)(&dstHeight));
 #   elif defined(__ANDROID__)
         dstWidth = ANativeWindow_getWidth(renderWindow);
         dstHeight = ANativeWindow_getHeight(renderWindow);
@@ -3968,7 +3992,11 @@ namespace RT64 {
 
     // VulkanInterface
 
+#if RT64_SDL_WINDOW_VULKAN
+    VulkanInterface::VulkanInterface(RenderWindow sdlWindow) {
+#else
     VulkanInterface::VulkanInterface() {
+#endif
         VkResult res = volkInitialize();
         if (res != VK_SUCCESS) {
             fprintf(stderr, "volkInitialize failed with error code 0x%X.\n", res);
@@ -3995,11 +4023,31 @@ namespace RT64 {
         std::vector<VkExtensionProperties> availableExtensions(extensionCount);
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
 
-        std::unordered_set<std::string> missingRequiredExtensions = RequiredInstanceExtensions;
+        std::unordered_set<std::string> requiredExtensions = RequiredInstanceExtensions;
         std::unordered_set<std::string> supportedOptionalExtensions;
 #   if DLSS_ENABLED
         const std::unordered_set<std::string> dlssExtensions = DLSS::getRequiredInstanceExtensionsVulkan();
 #   endif
+
+#   if RT64_SDL_WINDOW_VULKAN
+        // Push the extensions specified by SDL as required.
+        // SDL2 has this awkward requirement for the window to pull the extensions from.
+        // This can be removed when upgrading to SDL3.
+        if (sdlWindow != nullptr) {
+            uint32_t sdlVulkanExtensionCount = 0;
+            if (SDL_Vulkan_GetInstanceExtensions(sdlWindow, &sdlVulkanExtensionCount, nullptr)) {
+                std::vector<char *> sdlVulkanExtensions;
+                sdlVulkanExtensions.resize(sdlVulkanExtensionCount);
+                if (SDL_Vulkan_GetInstanceExtensions(sdlWindow, &sdlVulkanExtensionCount, (const char **)(sdlVulkanExtensions.data()))) {
+                    for (char *sdlVulkanExtension : sdlVulkanExtensions) {
+                        requiredExtensions.insert(sdlVulkanExtension);
+                    }
+                }
+            }
+        }
+#   endif
+
+        std::unordered_set<std::string> missingRequiredExtensions = requiredExtensions;
         for (uint32_t i = 0; i < extensionCount; i++) {
             const std::string extensionName(availableExtensions[i].extensionName);
             missingRequiredExtensions.erase(extensionName);
@@ -4024,7 +4072,7 @@ namespace RT64 {
         }
 
         std::vector<const char *> enabledExtensions;
-        for (const std::string &extension : RequiredInstanceExtensions) {
+        for (const std::string &extension : requiredExtensions) {
             enabledExtensions.push_back(extension.c_str());
         }
 
@@ -4087,8 +4135,15 @@ namespace RT64 {
 
     // Global creation function.
 
+#if RT64_SDL_WINDOW_VULKAN
+    std::unique_ptr<RenderInterface> CreateVulkanInterface(RenderWindow sdlWindow) {
+        std::unique_ptr<VulkanInterface> createdInterface = std::make_unique<VulkanInterface>(sdlWindow);
+        return createdInterface->isValid() ? std::move(createdInterface) : nullptr;
+    }
+#else
     std::unique_ptr<RenderInterface> CreateVulkanInterface() {
         std::unique_ptr<VulkanInterface> createdInterface = std::make_unique<VulkanInterface>();
         return createdInterface->isValid() ? std::move(createdInterface) : nullptr;
     }
+#endif
 };
