@@ -26,10 +26,16 @@
 typedef struct _NSWindow NSWindow;
 #endif
 
+#ifdef RT64_SDL_WINDOW_VULKAN
+#include <SDL_vulkan.h>
+#endif
+
 namespace RT64 {
 #if defined(_WIN64)
     // Native HWND handle to the target window.
     typedef HWND RenderWindow;
+#elif defined(RT64_SDL_WINDOW_VULKAN)
+    typedef SDL_Window *RenderWindow;
 #elif defined(__ANDROID__)
     typedef ANativeWindow* RenderWindow;
 #elif defined(__linux__)
