@@ -23,6 +23,7 @@ namespace RT64 {
 
     extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
     extern std::unique_ptr<RenderInterface> CreateVulkanInterface();
+    extern std::unique_ptr<RenderInterface> CreateMetalInterface();
 
     // Application::Core
 
@@ -118,7 +119,7 @@ namespace RT64 {
             appWindow->setup(core.window, this, threadId);
         }
         else {
-            appWindow->setup(windowTitle, this);
+            appWindow->setup(windowTitle, renderInterface.get(), this);
         }
 
         // Detect refresh rate from the display the window is located at.
@@ -132,6 +133,14 @@ namespace RT64 {
             break;
 #       else
             fprintf(stderr, "D3D12 is not supported on this platform. Please select a different Graphics API.\n");
+            return SetupResult::InvalidGraphicsAPI;
+#       endif
+        case UserConfiguration::GraphicsAPI::Metal:
+#       ifdef __APPLE__
+            renderInterface = CreateMetalInterface();
+            break;
+#       else
+            fprintf(stderr, "Metal is not supported on this platform. Please select a different Graphics API.\n");
             return SetupResult::InvalidGraphicsAPI;
 #       endif
         case UserConfiguration::GraphicsAPI::Vulkan:

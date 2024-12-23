@@ -183,6 +183,7 @@ namespace RT64 {
 
     struct RenderCommandQueue {
         virtual ~RenderCommandQueue() { }
+        virtual std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) = 0;
         virtual std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) = 0;
         virtual void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores = nullptr, uint32_t waitSemaphoreCount = 0, RenderCommandSemaphore **signalSemaphores = nullptr, uint32_t signalSemaphoreCount = 0, RenderCommandFence *signalFence = nullptr) = 0;
         virtual void waitForCommandFence(RenderCommandFence *fence) = 0;
@@ -201,7 +202,6 @@ namespace RT64 {
 
     struct RenderDevice {
         virtual ~RenderDevice() { }
-        virtual std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) = 0;
         virtual std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) = 0;
         virtual std::unique_ptr<RenderShader> createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) = 0;
         virtual std::unique_ptr<RenderSampler> createSampler(const RenderSamplerDesc &desc) = 0;
@@ -223,6 +223,8 @@ namespace RT64 {
         virtual const RenderDeviceCapabilities &getCapabilities() const = 0;
         virtual const RenderDeviceDescription &getDescription() const = 0;
         virtual RenderSampleCounts getSampleCountsSupported(RenderFormat format) const = 0;
+        virtual bool beginCapture() = 0;
+        virtual bool endCapture() = 0;
     };
 
     struct RenderInterface {

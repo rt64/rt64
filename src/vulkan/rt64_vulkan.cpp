@@ -21,6 +21,12 @@
 //#   define VULKAN_OBJECT_NAMES_ENABLED
 #endif
 
+#ifdef __APPLE__
+#include "vulkan/vulkan_beta.h"
+#include "vulkan/vulkan_metal.h"
+#include "common/rt64_apple.h"
+#endif
+
 // TODO:
 // - Fix resource pools.
 
@@ -35,7 +41,7 @@ namespace RT64 {
 
     // Controls the maximum amount of native queues the backend will create per queue family.
     // Command queues are created as virtual queues on top of the native queues provided by Vulkan,
-    // so they're not under the limit set by the the device or the backend.
+    // so they're not under the limit set by the device or the backend.
     static const uint32_t MaxQueuesPerFamilyCount = 4;
 
     // Required extensions.
@@ -48,6 +54,9 @@ namespace RT64 {
         VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
 #   elif defined(__linux__)
         VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+#   elif defined(__APPLE__)
+        VK_EXT_METAL_SURFACE_EXTENSION_NAME,
+        VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
 #   endif
     };
 
@@ -58,6 +67,10 @@ namespace RT64 {
     static const std::unordered_set<std::string> RequiredDeviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+#   ifdef __APPLE__
+        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+#   endif
 #   ifdef VULKAN_OBJECT_NAMES_ENABLED
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #   endif
@@ -73,6 +86,7 @@ namespace RT64 {
         VK_KHR_PRESENT_ID_EXTENSION_NAME,
         VK_KHR_PRESENT_WAIT_EXTENSION_NAME,
         VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME,
+        VK_EXT_LAYER_SETTINGS_EXTENSION_NAME,
     };
 
     // Common functions.
@@ -550,7 +564,9 @@ namespace RT64 {
             flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
             flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
             flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+#       ifndef __APPLE__
             flags |= VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
+#       endif
             flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
             flags |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
@@ -1246,8 +1262,9 @@ namespace RT64 {
     // VulkanComputePipeline
 
     VulkanComputePipeline::VulkanComputePipeline(VulkanDevice *device, const RenderComputePipelineDesc &desc) : VulkanPipeline(device, Type::Compute) {
-        assert(desc.computeShader != nullptr);
         assert(desc.pipelineLayout != nullptr);
+        assert(desc.computeShader != nullptr);
+        assert((desc.threadGroupSizeX > 0) && (desc.threadGroupSizeY > 0) && (desc.threadGroupSizeZ > 0));
 
         std::vector<VkSpecializationMapEntry> specEntries(desc.specConstantsCount);
         std::vector<uint32_t> specData(desc.specConstantsCount);
@@ -1947,6 +1964,19 @@ namespace RT64 {
             fprintf(stderr, "vkCreateXlibSurfaceKHR failed with error code 0x%X.\n", res);
             return;
         }
+#   elif defined(__APPLE__)
+        assert(renderWindow.window != 0);
+        assert(renderWindow.view != 0);
+        VkMetalSurfaceCreateInfoEXT surfaceCreateInfo = {};
+        surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+        surfaceCreateInfo.pLayer = renderWindow.view;
+
+        VulkanInterface *renderInterface = commandQueue->device->renderInterface;
+        res = vkCreateMetalSurfaceEXT(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
+        if (res != VK_SUCCESS) {
+            fprintf(stderr, "vkCreateMetalSurfaceEXT failed with error code 0x%X.\n", res);
+            return;
+        }
 #   endif
 
         VkBool32 presentSupported = false;
@@ -2078,7 +2108,14 @@ namespace RT64 {
         }
 
         // Handle the error silently.
+#if defined(__APPLE__)
+        // Under MoltenVK, VK_SUBOPTIMAL_KHR does not result in a valid state for rendering. We intentionally
+        // only check for this error during present to avoid having to synchronize manually against the semaphore
+        // signalled by vkAcquireNextImageKHR.
+        if (res != VK_SUCCESS) {
+#else
         if ((res != VK_SUCCESS) && (res != VK_SUBOPTIMAL_KHR)) {
+#endif
             return false;
         }
 
@@ -2235,6 +2272,11 @@ namespace RT64 {
         XWindowAttributes attributes;
         XGetWindowAttributes(renderWindow.display, renderWindow.window, &attributes);
         // The attributes width and height members do not include the border.
+        dstWidth = attributes.width;
+        dstHeight = attributes.height;
+#   elif defined(__APPLE__)
+        CocoaWindowAttributes attributes;
+        GetWindowAttributes(renderWindow.window, &attributes);
         dstWidth = attributes.width;
         dstHeight = attributes.height;
 #   endif
@@ -2407,11 +2449,11 @@ namespace RT64 {
 
     // VulkanCommandList
 
-    VulkanCommandList::VulkanCommandList(VulkanDevice *device, RenderCommandListType type) {
-        assert(device != nullptr);
+    VulkanCommandList::VulkanCommandList(VulkanCommandQueue *queue, RenderCommandListType type) {
+        assert(queue->device != nullptr);
         assert(type != RenderCommandListType::UNKNOWN);
 
-        this->device = device;
+        this->device = queue->device;
         this->type = type;
 
         VkCommandPoolCreateInfo poolInfo = {};
@@ -3179,6 +3221,10 @@ namespace RT64 {
         device->queueFamilies[familyIndex].remove(this);
     }
 
+    std::unique_ptr<RenderCommandList> VulkanCommandQueue::createCommandList(RenderCommandListType type) {
+        return std::make_unique<VulkanCommandList>(this, type);
+    }
+
     std::unique_ptr<RenderSwapChain> VulkanCommandQueue::createSwapChain(RenderWindow renderWindow, uint32_t bufferCount, RenderFormat format) {
         return std::make_unique<VulkanSwapChain>(this, renderWindow, bufferCount, format);
     }
@@ -3670,6 +3716,7 @@ namespace RT64 {
         capabilities.scalarBlockLayout = scalarBlockLayout;
         capabilities.presentWait = presentWait;
         capabilities.displayTiming = supportedOptionalExtensions.find(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME) != supportedOptionalExtensions.end();
+        capabilities.maxTextureSize = physicalDeviceProperties.limits.maxImageDimension2D;
         capabilities.preferHDR = memoryHeapSize > (512 * 1024 * 1024);
 
         // Fill Vulkan-only capabilities.
@@ -3678,10 +3725,6 @@ namespace RT64 {
 
     VulkanDevice::~VulkanDevice() {
         release();
-    }
-
-    std::unique_ptr<RenderCommandList> VulkanDevice::createCommandList(RenderCommandListType type) {
-        return std::make_unique<VulkanCommandList>(this, type);
     }
 
     std::unique_ptr<RenderDescriptorSet> VulkanDevice::createDescriptorSet(const RenderDescriptorSetDesc &desc) {
@@ -3965,6 +4008,14 @@ namespace RT64 {
     bool VulkanDevice::isValid() const {
         return vk != nullptr;
     }
+        
+    bool VulkanDevice::beginCapture() {
+        return false;
+    }
+        
+    bool VulkanDevice::endCapture() {
+        return false;
+    }
 
     // VulkanInterface
 
@@ -3987,6 +4038,10 @@ namespace RT64 {
         createInfo.pApplicationInfo = &appInfo;
         createInfo.ppEnabledLayerNames = nullptr;
         createInfo.enabledLayerCount = 0;
+
+#   ifdef __APPLE__
+        createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#   endif
 
         // Check for extensions.
         uint32_t extensionCount;
