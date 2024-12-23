@@ -247,6 +247,7 @@ namespace RT64 {
             std::vector<MTL::ScissorRect> lastScissors;
             std::vector<MTL::Buffer*> lastVertexBuffers;
             std::vector<uint32_t> lastVertexBufferOffsets;
+            std::vector<uint32_t> lastVertexBufferIndices;
             std::vector<PushConstantData> lastPushConstants;
         } stateCache;
 

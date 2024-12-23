@@ -1382,10 +1382,12 @@ namespace RT64 {
             assert(inputSlots != nullptr);
 
             bool needsUpdate = false;
+            bool indicesUpdated = false;
 
             // First time binding or different count requires full update
             if (this->viewCount != viewCount) {
                 needsUpdate = true;
+                indicesUpdated = true;
             }
 
             // Resize our storage if needed
@@ -1400,7 +1402,8 @@ namespace RT64 {
                 uint32_t newIndex = startSlot + i;
 
                 // Check if this binding differs from current state
-                needsUpdate = i >= stateCache.lastVertexBuffers.size() || interfaceBuffer->mtl != stateCache.lastVertexBuffers[i] || newOffset != stateCache.lastVertexBufferOffsets[i] || newIndex != vertexBufferIndices[i];
+                needsUpdate = i >= stateCache.lastVertexBuffers.size() || interfaceBuffer->mtl != stateCache.lastVertexBuffers[i] || newOffset != stateCache.lastVertexBufferOffsets[i] || newIndex != stateCache.lastVertexBufferIndices[i];
+                indicesUpdated = i >= stateCache.lastVertexBuffers.size() || newIndex != stateCache.lastVertexBufferIndices[i];
 
                 vertexBuffers[i] = interfaceBuffer->mtl;
                 vertexBufferOffsets[i] = newOffset;
@@ -1410,6 +1413,11 @@ namespace RT64 {
             if (needsUpdate) {
                 this->viewCount = viewCount;
                 dirtyGraphicsState.vertexBuffers = 1;
+
+                // Descriptor sets would need to be re-bound in the shader table if the indices have changed.
+                if (indicesUpdated) {
+                    dirtyGraphicsState.descriptorSets = 1;
+                }
             }
         }
     }
@@ -1839,6 +1847,7 @@ namespace RT64 {
 
             stateCache.lastVertexBuffers = vertexBuffers;
             stateCache.lastVertexBufferOffsets = vertexBufferOffsets;
+            stateCache.lastVertexBufferIndices = vertexBufferIndices;
             dirtyGraphicsState.vertexBuffers = 0;
         }
 
@@ -1879,6 +1888,7 @@ namespace RT64 {
             stateCache.lastScissors.clear();
             stateCache.lastVertexBuffers.clear();
             stateCache.lastVertexBufferOffsets.clear();
+            stateCache.lastVertexBufferIndices.clear();
             stateCache.lastPushConstants.clear();
         }
     }
@@ -2019,6 +2029,20 @@ namespace RT64 {
                 static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
             } else {
                 static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
+
+                // Only bind to the vertex shader if the slot is not in use.
+                // If the slot is in use, it was not meant for the vertex shader.
+                bool slotIsEmpty = true;
+                for (unsigned int vertexBufferIndex : vertexBufferIndices) {
+                    if (vertexBufferIndex == i) {
+                        slotIsEmpty = false;
+                        break;
+                    }
+                }
+                if (slotIsEmpty) {
+                    static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(setLayout->descriptorBuffer,
+                                                                                       offsetOfCurrentlyEncodedData, i);
+                }
             }
         }
     }
