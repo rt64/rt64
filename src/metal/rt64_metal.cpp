@@ -1217,7 +1217,7 @@ namespace RT64 {
         checkActiveRenderEncoder();
         checkForUpdatesInGraphicsState();
 
-        activeRenderEncoder->drawIndexedPrimitives(currentPrimitiveType, indexCountPerInstance, currentIndexType, indexBuffer, startIndexLocation, instanceCount, baseVertexLocation, startInstanceLocation);
+        activeRenderEncoder->drawIndexedPrimitives(currentPrimitiveType, indexCountPerInstance, currentIndexType, indexBuffer, startIndexLocation * sizeof(uint32_t), instanceCount, baseVertexLocation, startInstanceLocation);
     }
 
     void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {
