@@ -10,6 +10,8 @@ if (${RT64_BUILD_EXAMPLES})
     set(RT64_STATIC ON)
 endif()
 
+option(RT64_SDL_WINDOW_VULKAN "Build RT64 to expect an SDL Window outside of Windows" OFF)
+
 if (NOT ${RT64_STATIC})
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
@@ -234,6 +236,10 @@ add_compile_definitions(
     FFX_GCC
     IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 )
+
+if (RT64_SDL_WINDOW_VULKAN)
+    add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
+endif()
 
 set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/common/rt64_common.cpp"

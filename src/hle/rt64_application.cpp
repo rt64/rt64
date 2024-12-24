@@ -22,7 +22,20 @@ namespace RT64 {
     // External functions to create the backends.
 
     extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
+
+#ifdef RT64_SDL_WINDOW_VULKAN
+    extern std::unique_ptr<RenderInterface> CreateVulkanInterface(RenderWindow renderWindow);
+#else
     extern std::unique_ptr<RenderInterface> CreateVulkanInterface();
+#endif
+
+    static std::unique_ptr<RenderInterface> CreateVulkanInterfaceWrapper(RenderWindow renderWindow) {
+#ifdef RT64_SDL_WINDOW_VULKAN
+        return CreateVulkanInterface(renderWindow);
+#else
+        return CreateVulkanInterface();
+#endif
+    }
 
     // Application::Core
 
@@ -135,7 +148,7 @@ namespace RT64 {
             return SetupResult::InvalidGraphicsAPI;
 #       endif
         case UserConfiguration::GraphicsAPI::Vulkan:
-            renderInterface = CreateVulkanInterface();
+            renderInterface = CreateVulkanInterfaceWrapper(appWindow->windowHandle);
             break;
         default:
             fprintf(stderr, "Unknown Graphics API specified in configuration.\n");
@@ -182,7 +195,7 @@ namespace RT64 {
             if (isRDNA3 && useHDRinD3D12) {
                 device.reset();
                 renderInterface.reset();
-                renderInterface = CreateVulkanInterface();
+                renderInterface = CreateVulkanInterfaceWrapper(appWindow->windowHandle);
                 if (renderInterface == nullptr) {
                     fprintf(stderr, "Unable to initialize graphics API.\n");
                     return SetupResult::GraphicsAPINotFound;
