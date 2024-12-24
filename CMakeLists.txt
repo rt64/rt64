@@ -237,7 +237,7 @@ add_compile_definitions(
     IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 )
 
-if (RT64_SDL_WINDOW_VULKAN)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
     add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
 endif()
 
