@@ -176,6 +176,12 @@ namespace RT64 {
 
     MetalBuffer::~MetalBuffer() {
         mtl->release();
+
+        for (auto &residence: residenceSets) {
+            auto descriptorSet = residence.first;
+            uint32_t descriptorIndex = residence.second;
+            descriptorSet->indicesToBuffers.erase(descriptorIndex);
+        }
     }
 
     void* MetalBuffer::map(uint32_t subresource, const RenderRange* readRange) {
@@ -222,6 +228,12 @@ namespace RT64 {
 
     MetalBufferFormattedView::~MetalBufferFormattedView() {
         texture->release();
+
+        for (auto &residence: residenceSets) {
+            auto descriptorSet = residence.first;
+            uint32_t descriptorIndex = residence.second;
+            descriptorSet->indicesToBufferFormattedViews.erase(descriptorIndex);
+        }
     }
 
     // MetalTexture
@@ -260,6 +272,12 @@ namespace RT64 {
 
     MetalTexture::~MetalTexture() {
         mtl->release();
+
+        for (auto &residence: residenceSets) {
+            auto descriptorSet = residence.first;
+            uint32_t descriptorIndex = residence.second;
+            descriptorSet->indicesToTextures.erase(descriptorIndex);
+        }
     }
 
     std::unique_ptr<RenderTextureView> MetalTexture::createTextureView(const RenderTextureViewDesc &desc) {
@@ -280,6 +298,12 @@ namespace RT64 {
 
     MetalTextureView::~MetalTextureView() {
         texture->release();
+
+        for (auto &residence: residenceSets) {
+            auto descriptorSet = residence.first;
+            uint32_t descriptorIndex = residence.second;
+            descriptorSet->indicesToTextureViews.erase(descriptorIndex);
+        }
     }
 
     // MetalAccelerationStructure
@@ -614,8 +638,32 @@ namespace RT64 {
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
-        for (auto &buffer : indicesToBuffers) {
-            buffer.second.buffer->release();
+        for (auto &idx_texture: indicesToTextures) {
+            const MetalTexture *texture = idx_texture.second;
+            if (texture) {
+                texture->residenceSets.erase(std::make_pair(this, idx_texture.first));
+            }
+        }
+
+        for (auto &idx_textureView: indicesToTextureViews) {
+            const MetalTextureView *textureView = idx_textureView.second;
+            if (textureView) {
+                textureView->residenceSets.erase(std::make_pair(this, idx_textureView.first));
+            }
+        }
+
+        for (auto &idx_bufferFormattedView: indicesToBufferFormattedViews) {
+            const MetalBufferFormattedView *bufferFormattedView = idx_bufferFormattedView.second;
+            if (bufferFormattedView) {
+                bufferFormattedView->residenceSets.erase(std::make_pair(this, idx_bufferFormattedView.first));
+            }
+        }
+
+        for (auto &idx_buffer: indicesToBuffers) {
+            const MetalBufferBinding &buffer = idx_buffer.second;
+            if (buffer.buffer) {
+                buffer.buffer->residenceSets.erase(std::make_pair(this, idx_buffer.first));
+            }
         }
     }
 
@@ -630,7 +678,8 @@ namespace RT64 {
             case RenderDescriptorRangeType::FORMATTED_BUFFER:
             case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER: {
                 const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
-                indicesToBufferFormattedViews[descriptorIndex] = interfaceBufferFormattedView->texture;
+                indicesToBufferFormattedViews[descriptorIndex] = interfaceBufferFormattedView;
+                interfaceBufferFormattedView->residenceSets.insert(std::make_pair(this, descriptorIndex));
                 break;
             }
             case RenderDescriptorRangeType::CONSTANT_BUFFER:
@@ -645,7 +694,8 @@ namespace RT64 {
                     offset = bufferStructuredView->firstElement * bufferStructuredView->structureByteStride;
                 }
 
-                indicesToBuffers[descriptorIndex] = MetalBufferBinding(interfaceBuffer->mtl, offset);
+                indicesToBuffers[descriptorIndex] = MetalBufferBinding(interfaceBuffer, offset);
+                interfaceBuffer->residenceSets.insert(std::make_pair(this, descriptorIndex));
                 break;
             }
             case RenderDescriptorRangeType::TEXTURE:
@@ -670,9 +720,11 @@ namespace RT64 {
             case RenderDescriptorRangeType::READ_WRITE_TEXTURE: {
                 if (textureView != nullptr) {
                     const MetalTextureView *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
-                    indicesToTextures[descriptorIndex] = interfaceTextureView->texture;
+                    indicesToTextureViews[descriptorIndex] = interfaceTextureView;
+                    interfaceTextureView->residenceSets.insert(std::make_pair(this, descriptorIndex));
                 } else {
-                    indicesToTextures[descriptorIndex] = interfaceTexture->mtl;
+                    indicesToTextures[descriptorIndex] = interfaceTexture;
+                    interfaceTexture->residenceSets.insert(std::make_pair(this, descriptorIndex));
                 }
                 break;
             }
@@ -1960,13 +2012,33 @@ namespace RT64 {
                         auto usageFlags = metal::mapResourceUsage(descriptorType);
 
                         if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, usageFlags);
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture->mtl, usageFlags);
                         } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture->mtl, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
                         }
 
                         uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
+                        setLayout->argumentEncoder->setTexture(texture->mtl, adjustedIndex);
+                    }
+                }
+
+                for (const auto& pair : descriptorSet->indicesToTextureViews) {
+                    uint32_t index = pair.first;
+                    auto* textureView = pair.second;
+
+                    if (textureView != nullptr) {
+                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
+                        auto usageFlags = metal::mapResourceUsage(descriptorType);
+
+                        if (isCompute) {
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(textureView->texture, usageFlags);
+                        } else {
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(textureView->texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        }
+
+                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+                        setLayout->argumentEncoder->setTexture(textureView->texture, adjustedIndex);
                     }
                 }
 
@@ -1980,34 +2052,34 @@ namespace RT64 {
                         auto usageFlags = metal::mapResourceUsage(descriptorType);
 
                         if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(binding.buffer, usageFlags);
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(binding.buffer->mtl, usageFlags);
                         } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(binding.buffer, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(binding.buffer->mtl, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
                         }
 
                         uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setBuffer(binding.buffer, binding.offset, adjustedIndex);
+                        setLayout->argumentEncoder->setBuffer(binding.buffer->mtl, binding.offset, adjustedIndex);
                     }
                 }
 
                 for (const auto& pair : descriptorSet->indicesToBufferFormattedViews) {
                     uint32_t index = pair.first;
-                    auto* texture = pair.second;
+                    auto* bufferView = pair.second;
 
-                    if (texture != nullptr) {
+                    if (bufferView != nullptr) {
                         uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
                         auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
                         auto usageFlags = metal::mapResourceUsage(descriptorType);
 
                         if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture, usageFlags);
+                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(bufferView->texture, usageFlags);
                         } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(bufferView->texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
                         }
                     }
 
                     uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                    setLayout->argumentEncoder->setTexture(texture, adjustedIndex);
+                    setLayout->argumentEncoder->setTexture(bufferView->texture, adjustedIndex);
                 }
 
                 for (const auto& pair : descriptorSet->indicesToSamplers) {

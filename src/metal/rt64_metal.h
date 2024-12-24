@@ -1,5 +1,7 @@
 #pragma once
 
+#include <set>
+
 #include "rhi/rt64_render_interface.h"
 #include <simd/simd.h>
 
@@ -14,6 +16,9 @@ namespace RT64 {
     struct MetalDevice;
     struct MetalCommandQueue;
     struct MetalTexture;
+    struct MetalTextureView;
+    struct MetalBuffer;
+    struct MetalBufferFormattedView;
     struct MetalPipelineLayout;
     struct MetalGraphicsPipeline;
     struct MetalPool;
@@ -96,10 +101,10 @@ namespace RT64 {
     };
 
     struct MetalBufferBinding {
-        MTL::Buffer* buffer;
+        const MetalBuffer *buffer;
         uint32_t offset;
 
-        MetalBufferBinding(MTL::Buffer* buffer = nullptr, uint32_t offset = 0)
+        MetalBufferBinding(const MetalBuffer* buffer = nullptr, uint32_t offset = 0)
             : buffer(buffer), offset(offset) {}
     };
 
@@ -109,9 +114,10 @@ namespace RT64 {
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
-        std::unordered_map<uint32_t, MTL::Texture *> indicesToTextures;
+        std::unordered_map<uint32_t, const MetalTexture *> indicesToTextures;
+        std::unordered_map<uint32_t, const MetalTextureView *> indicesToTextureViews;
         std::unordered_map<uint32_t, MetalBufferBinding> indicesToBuffers;
-        std::unordered_map<uint32_t, MTL::Texture *> indicesToBufferFormattedViews;
+        std::unordered_map<uint32_t, const MetalBufferFormattedView *> indicesToBufferFormattedViews;
         std::unordered_map<uint32_t, MTL::SamplerState *> indicesToSamplers;
         std::vector<MTL::SamplerState *> staticSamplers;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
@@ -372,6 +378,7 @@ namespace RT64 {
         MetalPool *pool = nullptr;
         MetalDevice *device = nullptr;
         RenderBufferDesc desc;
+        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalBuffer() = default;
         MetalBuffer(MetalDevice *device, MetalPool *pool, const RenderBufferDesc &desc);
@@ -385,6 +392,7 @@ namespace RT64 {
     struct MetalBufferFormattedView : RenderBufferFormattedView {
         MetalBuffer *buffer = nullptr;
         MTL::Texture *texture = nullptr;
+        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalBufferFormattedView(MetalBuffer *buffer, RenderFormat format);
         ~MetalBufferFormattedView() override;
@@ -410,6 +418,7 @@ namespace RT64 {
         MetalPool *pool = nullptr;
         uint32_t arrayCount = 1;
         MTL::Drawable *drawable = nullptr;
+        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalTexture() = default;
         MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
@@ -424,6 +433,7 @@ namespace RT64 {
 
     struct MetalTextureView : RenderTextureView {
         MTL::Texture *texture = nullptr;
+        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc);
         ~MetalTextureView() override;
