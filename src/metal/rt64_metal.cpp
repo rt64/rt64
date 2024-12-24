@@ -1217,7 +1217,7 @@ namespace RT64 {
         checkActiveRenderEncoder();
         checkForUpdatesInGraphicsState();
 
-        activeRenderEncoder->drawIndexedPrimitives(currentPrimitiveType, indexCountPerInstance, currentIndexType, indexBuffer, startIndexLocation * sizeof(uint32_t), instanceCount, baseVertexLocation, startInstanceLocation);
+        activeRenderEncoder->drawIndexedPrimitives(currentPrimitiveType, indexCountPerInstance, currentIndexType, indexBuffer, indexBufferOffset + (startIndexLocation * sizeof(uint32_t)), instanceCount, baseVertexLocation, startInstanceLocation);
     }
 
     void MetalCommandList::setPipeline(const RenderPipeline *pipeline) {
@@ -1374,6 +1374,7 @@ namespace RT64 {
         if (view != nullptr) {
             const auto *interfaceBuffer = static_cast<const MetalBuffer *>(view->buffer.ref);
             indexBuffer = interfaceBuffer->mtl;
+            indexBufferOffset = view->buffer.offset;
         }
     }
 
