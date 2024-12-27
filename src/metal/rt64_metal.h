@@ -80,7 +80,6 @@ namespace RT64 {
 
         MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         ~MetalDescriptorSetLayout();
-        void resetArgumentBuffer();
     };
 
     struct MetalComputeState {

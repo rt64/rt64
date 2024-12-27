@@ -119,9 +119,6 @@ namespace RT64 {
             descriptorBuffer = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, argumentBufferStorageMode);
         }
 
-        // Reset the argument buffer to ensure it's in a clean state
-        resetArgumentBuffer();
-
         // Release resources
         pArray->release();
         releasePool->release();
@@ -140,26 +137,6 @@ namespace RT64 {
         for (MTL::SamplerState *sampler : staticSamplers) {
             sampler->release();
         }
-    }
-
-    void MetalDescriptorSetLayout::resetArgumentBuffer() {
-        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
-        
-        // Use current offset and advance
-        size_t requiredSize = argumentEncoder->encodedLength();
-        if (currentArgumentBufferOffset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
-            currentArgumentBufferOffset = 0; // Wrap around
-        }
-        
-        argumentEncoder->setArgumentBuffer(descriptorBuffer, currentArgumentBufferOffset);
-
-        // Set static samplers
-        for (size_t i = 0; i < staticSamplers.size(); i++) {
-            argumentEncoder->setSamplerState(staticSamplers[i], samplerIndices[i]);
-        }
-        
-        currentArgumentBufferOffset += requiredSize;
-        releasePool->release();
     }
 
     // MetalBuffer
@@ -1355,7 +1332,6 @@ namespace RT64 {
 
         auto it = indicesToComputeDescriptorSets.find(setIndex);
         if (it == indicesToComputeDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-            activeComputePipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
             indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
             dirtyComputeState.descriptorSets = 1;
         }
@@ -1403,7 +1379,6 @@ namespace RT64 {
 
         auto it = indicesToRenderDescriptorSets.find(setIndex);
         if (it == indicesToRenderDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-            activeGraphicsPipelineLayout->setLayoutHandles[setIndex]->resetArgumentBuffer();
             indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
             dirtyGraphicsState.descriptorSets = 1;
         }
@@ -1995,10 +1970,26 @@ namespace RT64 {
     }
 
     void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) {
+
         // Encode Descriptor set layouts and mark resources
         for (uint32_t i = 0; i < layout->setCount; i++) {
-            const auto* setLayout = layout->setLayoutHandles[i];
+            auto* setLayout = layout->setLayoutHandles[i];
+            
+            // Check if we still have enough space for the current descriptor set
+            size_t requiredSize = setLayout->argumentEncoder->encodedLength();
+            if (setLayout->currentArgumentBufferOffset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
+                setLayout->currentArgumentBufferOffset = 0; // Wrap around
+            }
+            
+            // Set the argument buffer offset for the current descriptor set
+            setLayout->argumentEncoder->setArgumentBuffer(setLayout->descriptorBuffer, setLayout->currentArgumentBufferOffset);
+            
+            // Bind the static samplers
+            for (size_t i = 0; i < setLayout->staticSamplers.size(); i++) {
+                setLayout->argumentEncoder->setSamplerState(setLayout->staticSamplers[i], setLayout->samplerIndices[i]);
+            }
 
+            // Bind items in the descriptor sets
             if (descriptorSets.count(i) != 0) {
                 const auto* descriptorSet = descriptorSets.at(i);
                 // Mark resources in the argument buffer as resident
@@ -2092,7 +2083,7 @@ namespace RT64 {
                 }
             }
             
-            auto offsetOfCurrentlyEncodedData = setLayout->currentArgumentBufferOffset - setLayout->argumentEncoder->encodedLength();
+            auto offsetOfCurrentlyEncodedData = setLayout->currentArgumentBufferOffset;
             
 #if     TARGET_OS_OSX
             setLayout->descriptorBuffer->didModifyRange({ offsetOfCurrentlyEncodedData, setLayout->argumentEncoder->encodedLength() });
@@ -2113,10 +2104,11 @@ namespace RT64 {
                     }
                 }
                 if (slotIsEmpty) {
-                    static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(setLayout->descriptorBuffer,
-                                                                                       offsetOfCurrentlyEncodedData, i);
+                    static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
                 }
             }
+            
+            setLayout->currentArgumentBufferOffset += requiredSize;
         }
     }
 
