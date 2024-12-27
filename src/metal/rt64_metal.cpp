@@ -270,11 +270,21 @@ namespace RT64 {
     MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
         assert(texture != nullptr);
         assert(texture->desc.dimension == desc.dimension && "Creating a view with a different dimension is currently not supported.");
-        this->texture = texture->mtl->newTextureView(metal::mapPixelFormat(desc.format), texture->mtl->textureType(), { desc.mipSlice, desc.mipLevels }, { 0, texture->arrayCount });
+        this->backingTexture = texture;
+        this->backingTexture->mtl->retain();
+        
+        this->texture = texture->mtl->newTextureView(
+            metal::mapPixelFormat(desc.format),
+            texture->mtl->textureType(),
+            { desc.mipSlice, desc.mipLevels },
+            { 0, texture->arrayCount },
+            metal::mapTextureSwizzleChannels(desc.componentMapping)
+        );
     }
 
     MetalTextureView::~MetalTextureView() {
         texture->release();
+        backingTexture->mtl->release();
 
         for (auto &residence: residenceSets) {
             auto descriptorSet = residence.first;

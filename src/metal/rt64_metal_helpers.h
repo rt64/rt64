@@ -654,4 +654,31 @@ namespace metal {
         
         return usage;
     }
+
+    static MTL::TextureSwizzle mapTextureSwizzle(RT64::RenderSwizzle swizzle) {
+        switch (swizzle) {
+        case RT64::RenderSwizzle::ZERO:
+            return MTL::TextureSwizzleZero;
+        case RT64::RenderSwizzle::ONE:
+            return MTL::TextureSwizzleOne;
+        case RT64::RenderSwizzle::R:
+            return MTL::TextureSwizzleRed;
+        case RT64::RenderSwizzle::G:
+            return MTL::TextureSwizzleGreen;
+        case RT64::RenderSwizzle::B:
+            return MTL::TextureSwizzleBlue;
+        case RT64::RenderSwizzle::A:
+            return MTL::TextureSwizzleAlpha;
+        default:
+            assert(false && "Unknown swizzle type.");
+            return MTL::TextureSwizzleRed;
+        }
+    }
+
+    static MTL::TextureSwizzleChannels mapTextureSwizzleChannels(RT64::RenderComponentMapping mapping) {
+    #define convert(v, d) \
+        v == RT64::RenderSwizzle::IDENTITY ? MTL::TextureSwizzle##d : mapTextureSwizzle(v)
+        return MTL::TextureSwizzleChannels(convert(mapping.r, Red), convert(mapping.g, Green), convert(mapping.b, Blue), convert(mapping.a, Alpha));
+    #undef convert
+    }
 };

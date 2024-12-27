@@ -431,6 +431,7 @@ namespace RT64 {
     };
 
     struct MetalTextureView : RenderTextureView {
+        MetalTexture *backingTexture = nullptr;
         MTL::Texture *texture = nullptr;
         mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
