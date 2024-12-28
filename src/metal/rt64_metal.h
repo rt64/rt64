@@ -8,7 +8,6 @@
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
 
-static constexpr size_t MAX_PENDING_CLEARS = 16;
 static constexpr size_t MAX_CLEAR_RECTS = 16;
 
 namespace RT64 {
@@ -269,11 +268,6 @@ namespace RT64 {
         std::vector<MTL::Viewport> viewportVector;
         std::vector<MTL::ScissorRect> scissorVector;
 
-        uint32_t pendingColorClearCount = 0;
-        PendingColorClear pendingColorClears[MAX_PENDING_CLEARS];
-        uint32_t pendingDepthClearCount = 0;
-        PendingDepthClear pendingDepthClears[MAX_PENDING_CLEARS];
-
         std::vector<PushConstantData> pushConstants;
 
         MetalDevice *device = nullptr;
@@ -301,7 +295,6 @@ namespace RT64 {
         void barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) override;
         void dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) override;
         void traceRays(uint32_t width, uint32_t height, uint32_t depth, RenderBufferReference shaderBindingTable, const RenderShaderBindingGroupsInfo &shaderBindingGroupsInfo) override;
-        void processPendingClears();
         void drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) override;
         void drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) override;
         void setPipeline(const RenderPipeline *pipeline) override;
@@ -343,6 +336,7 @@ namespace RT64 {
         
         std::vector<simd::float2> prepareClearVertices(const RenderRect& rect);
         void checkForUpdatesInGraphicsState();
+        void setCommonClearState();
     };
 
     struct MetalCommandFence : RenderCommandFence {

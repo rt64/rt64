@@ -1081,170 +1081,7 @@ namespace RT64 {
         };
     }
 
-    void MetalCommandList::processPendingClears() {
-        if (pendingColorClearCount == 0 && pendingDepthClearCount == 0) {
-            return;
-        }
-
-        checkActiveRenderEncoder();
-        
-        NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
-
-        // Store state cache
-        auto previousCache = stateCache;
-
-        // Common render state setup (done once)
-        auto setupCommonState = [&]() {
-            activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
-            activeRenderEncoder->setScissorRect({ 0, 0, targetFramebuffer->width, targetFramebuffer->height });
-            activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
-            activeRenderEncoder->setCullMode(MTL::CullModeNone);
-            activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
-        };
-
-        // Process color clears
-        int lastColorAttachmentIndex = -1;
-        for (size_t i = 0; i < pendingColorClearCount; i++) {
-            const auto& clearOp = pendingColorClears[i];
-
-            activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
-
-            if (lastColorAttachmentIndex != clearOp.attachmentIndex) {
-                MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-                pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
-                pipelineDesc->setFragmentFunction(device->renderInterface->clearColorFunction);
-                pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->desc.multisampling.sampleCount);
-
-                auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(clearOp.attachmentIndex);
-                pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[clearOp.attachmentIndex]->getTexture()->pixelFormat());
-                pipelineColorAttachment->setBlendingEnabled(false);
-
-                // Set pixel format for depth attachment if we have one, with write disabled
-                if (targetFramebuffer->depthAttachment != nullptr) {
-                    pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
-                    auto depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
-                    depthStencilDescriptor->setDepthWriteEnabled(false);
-                    auto depthStencilState = device->mtl->newDepthStencilState(depthStencilDescriptor);
-                    activeRenderEncoder->setDepthStencilState(depthStencilState);
-
-                    depthStencilDescriptor->release();
-                }
-
-                auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc);
-                activeRenderEncoder->setRenderPipelineState(pipelineState);
-
-                // We only set these properties once per processing of all clears
-                if (lastColorAttachmentIndex == -1) setupCommonState();
-
-                lastColorAttachmentIndex = clearOp.attachmentIndex;
-                pipelineDesc->release();
-            }
-
-            // Generate vertices for each rect
-            std::vector<simd::float2> allVertices;
-            if (clearOp.clearRectCount > 0) {
-                for (uint32_t j = 0; j < clearOp.clearRectCount; j++) {
-                    auto rectVertices = prepareClearVertices(clearOp.clearRects[j]);
-                    allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
-                }
-            } else {
-                // Full screen clear
-                RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
-                allVertices = prepareClearVertices(fullRect);
-            }
-            
-            // Set vertices
-            activeRenderEncoder->setVertexBytes(allVertices.data(), allVertices.size() * sizeof(simd::float2), 0);
-
-            // Use stack for clear colors too since we know the max size
-            simd::float4 clearColors[MAX_CLEAR_RECTS];
-            uint32_t rectCount = clearOp.clearRectCount > 0 ? clearOp.clearRectCount : 1;
-            for (size_t j = 0; j < rectCount; j++) {
-                clearColors[j] = (simd::float4){ clearOp.colorValue.r, clearOp.colorValue.g, clearOp.colorValue.b, clearOp.colorValue.a };
-            }
-            activeRenderEncoder->setFragmentBytes(clearColors, mem::alignUp(sizeof(simd::float4) * rectCount), 0);
-
-            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.0, 6 * rectCount);
-
-            activeRenderEncoder->popDebugGroup();
-        }
-
-        // Process depth clears
-        bool isFirstDepthClear = true;
-        for (size_t i = 0; i < pendingDepthClearCount; i++) {
-            if (targetFramebuffer->depthAttachment == nullptr) {
-                break;
-            }
-
-            const auto& clearOp = pendingDepthClears[i];
-            activeRenderEncoder->pushDebugGroup(MTLSTR("DepthClear"));
-
-            if (isFirstDepthClear) {
-                MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-                pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
-                pipelineDesc->setFragmentFunction(device->renderInterface->clearDepthFunction);
-                pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
-                pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
-
-                // Set color attachment pixel formats with write disabled
-                for (uint32_t j = 0; j < targetFramebuffer->colorAttachments.size(); j++) {
-                    auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(j);
-                    pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[j]->getTexture()->pixelFormat());
-                    pipelineColorAttachment->setWriteMask(MTL::ColorWriteMaskNone);
-                }
-
-                auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc, true);
-                activeRenderEncoder->setRenderPipelineState(pipelineState);
-                activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
-
-                // Don't set these if we did some color clears, as those would have already set them
-                if (pendingColorClearCount == 0) setupCommonState();
-
-                isFirstDepthClear = false;
-                pipelineDesc->release();
-            }
-
-            // Generate vertices for each rect
-            std::vector<simd::float2> allVertices;
-            if (clearOp.clearRectCount > 0) {
-                for (uint32_t j = 0; j < clearOp.clearRectCount; j++) {
-                    auto rectVertices = prepareClearVertices(clearOp.clearRects[j]);
-                    allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
-                }
-            } else {
-                // Full screen clear
-                RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
-                allVertices = prepareClearVertices(fullRect);
-            }
-            
-            // Set vertices
-            activeRenderEncoder->setVertexBytes(allVertices.data(), allVertices.size() * sizeof(simd::float2), 0);
-
-
-            float clearDepths[MAX_CLEAR_RECTS];
-            uint32_t rectCount = clearOp.clearRectCount > 0 ? clearOp.clearRectCount : 1;
-            for (size_t j = 0; j < rectCount; j++) {
-                clearDepths[j] = clearOp.depthValue;
-            }
-            activeRenderEncoder->setFragmentBytes(clearDepths, mem::alignUp(sizeof(float) * rectCount), 0);
-
-            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.0, 6 * rectCount);
-
-            activeRenderEncoder->popDebugGroup();
-        }
-
-        pendingColorClearCount = 0;
-        pendingDepthClearCount = 0;
-
-        // Restore previous state if we had one
-        stateCache = previousCache;
-        dirtyGraphicsState.setAll();
-        
-        pool->release();
-    }
-
     void MetalCommandList::drawInstanced(uint32_t vertexCountPerInstance, uint32_t instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation) {
-        processPendingClears();
         checkActiveRenderEncoder();
         checkForUpdatesInGraphicsState();
 
@@ -1252,7 +1089,6 @@ namespace RT64 {
     }
 
     void MetalCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
-        processPendingClears();
         checkActiveRenderEncoder();
         checkForUpdatesInGraphicsState();
 
@@ -1514,42 +1350,159 @@ namespace RT64 {
         }
     }
 
+    void MetalCommandList::setCommonClearState() {
+        activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
+        activeRenderEncoder->setScissorRect({ 0, 0, targetFramebuffer->width, targetFramebuffer->height });
+        activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
+        activeRenderEncoder->setCullMode(MTL::CullModeNone);
+        activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
+    }
+
     void MetalCommandList::clearColor(uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(attachmentIndex < targetFramebuffer->colorAttachments.size());
-        assert(pendingColorClearCount < MAX_PENDING_CLEARS && "Too many pending color clears");
         assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
+        
+        checkActiveRenderEncoder();
+        
+        NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+        
+        // Store state cache
+        auto previousCache = stateCache;
+        
+        // Process clears
+        activeRenderEncoder->pushDebugGroup(MTLSTR("ColorClear"));
+        
+        MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
+        pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
+        pipelineDesc->setFragmentFunction(device->renderInterface->clearColorFunction);
+        pipelineDesc->setRasterSampleCount(targetFramebuffer->colorAttachments[attachmentIndex]->desc.multisampling.sampleCount);
 
-        PendingColorClear& clearOp = pendingColorClears[pendingColorClearCount];
-        clearOp.attachmentIndex = attachmentIndex;
-        clearOp.colorValue = colorValue;
-        if (clearRects && clearRectsCount > 0) {
-            for (uint32_t i = 0; i < clearRectsCount; i++) {
-                clearOp.clearRects[i] = clearRects[i];
-            }
-            clearOp.clearRectCount = clearRectsCount;
+        auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(attachmentIndex);
+        pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[attachmentIndex]->getTexture()->pixelFormat());
+        pipelineColorAttachment->setBlendingEnabled(false);
+
+        // Set pixel format for depth attachment if we have one, with write disabled
+        if (targetFramebuffer->depthAttachment != nullptr) {
+            pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
+            auto depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
+            depthStencilDescriptor->setDepthWriteEnabled(false);
+            auto depthStencilState = device->mtl->newDepthStencilState(depthStencilDescriptor);
+            activeRenderEncoder->setDepthStencilState(depthStencilState);
+
+            depthStencilDescriptor->release();
         }
 
-        pendingColorClearCount++;
+        auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc);
+        activeRenderEncoder->setRenderPipelineState(pipelineState);
+
+        setCommonClearState();
+        pipelineDesc->release();
+        
+        // Generate vertices for each rect
+        std::vector<simd::float2> allVertices;
+        if (clearRectsCount > 0) {
+            for (uint32_t j = 0; j < clearRectsCount; j++) {
+                auto rectVertices = prepareClearVertices(clearRects[j]);
+                allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
+            }
+        } else {
+            // Full screen clear
+            RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
+            allVertices = prepareClearVertices(fullRect);
+        }
+        
+        // Set vertices
+        activeRenderEncoder->setVertexBytes(allVertices.data(), allVertices.size() * sizeof(simd::float2), 0);
+        
+        // Use stack for clear colors too since we know the max size
+        simd::float4 clearColors[MAX_CLEAR_RECTS];
+        uint32_t rectCount = clearRectsCount > 0 ? clearRectsCount : 1;
+        for (size_t j = 0; j < rectCount; j++) {
+            clearColors[j] = (simd::float4){ colorValue.r, colorValue.g, colorValue.b, colorValue.a };
+        }
+        activeRenderEncoder->setFragmentBytes(clearColors, mem::alignUp(sizeof(simd::float4) * rectCount), 0);
+
+        activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.0, 6 * rectCount);
+
+        activeRenderEncoder->popDebugGroup();
+        
+        // Restore previous state if we had one
+        stateCache = previousCache;
+        dirtyGraphicsState.setAll();
+        
+        pool->release();
     }
 
     void MetalCommandList::clearDepth(bool clearDepth, float depthValue, const RenderRect *clearRects, uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(targetFramebuffer->depthAttachment != nullptr);
-        assert(pendingDepthClearCount < MAX_PENDING_CLEARS && "Too many pending color clears");
         assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
 
         if (clearDepth) {
-            PendingDepthClear& clearOp = pendingDepthClears[pendingDepthClearCount];
-            clearOp.depthValue = depthValue;
-            if (clearRects && clearRectsCount > 0) {
-                for (uint32_t i = 0; i < clearRectsCount; i++) {
-                    clearOp.clearRects[i] = clearRects[i];
-                }
-                clearOp.clearRectCount = clearRectsCount;
-            }
+            checkActiveRenderEncoder();
+            
+            NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+            
+            // Store state cache
+            auto previousCache = stateCache;
+            
+            // Process clears
+            activeRenderEncoder->pushDebugGroup(MTLSTR("DepthClear"));
 
-            pendingDepthClearCount++;
+            MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
+            pipelineDesc->setVertexFunction(device->renderInterface->clearVertexFunction);
+            pipelineDesc->setFragmentFunction(device->renderInterface->clearDepthFunction);
+            pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
+            pipelineDesc->setRasterSampleCount(targetFramebuffer->depthAttachment->desc.multisampling.sampleCount);
+            
+            // Set color attachment pixel formats with write disabled
+            for (uint32_t j = 0; j < targetFramebuffer->colorAttachments.size(); j++) {
+                auto pipelineColorAttachment = pipelineDesc->colorAttachments()->object(j);
+                pipelineColorAttachment->setPixelFormat(targetFramebuffer->colorAttachments[j]->getTexture()->pixelFormat());
+                pipelineColorAttachment->setWriteMask(MTL::ColorWriteMaskNone);
+            }
+            
+            auto pipelineState = device->renderInterface->getOrCreateClearRenderPipelineState(pipelineDesc, true);
+            activeRenderEncoder->setRenderPipelineState(pipelineState);
+            activeRenderEncoder->setDepthStencilState(device->renderInterface->clearDepthStencilState);
+            
+            setCommonClearState();
+            pipelineDesc->release();
+
+            // Generate vertices for each rect
+            std::vector<simd::float2> allVertices;
+            if (clearRectsCount > 0) {
+                for (uint32_t j = 0; j < clearRectsCount; j++) {
+                    auto rectVertices = prepareClearVertices(clearRects[j]);
+                    allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
+                }
+            } else {
+                // Full screen clear
+                RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
+                allVertices = prepareClearVertices(fullRect);
+            }
+            
+            // Set vertices
+            activeRenderEncoder->setVertexBytes(allVertices.data(), allVertices.size() * sizeof(simd::float2), 0);
+
+
+            float clearDepths[MAX_CLEAR_RECTS];
+            uint32_t rectCount = clearRectsCount > 0 ? clearRectsCount : 1;
+            for (size_t j = 0; j < rectCount; j++) {
+                clearDepths[j] = depthValue;
+            }
+            activeRenderEncoder->setFragmentBytes(clearDepths, mem::alignUp(sizeof(float) * rectCount), 0);
+
+            activeRenderEncoder->drawPrimitives(MTL::PrimitiveTypeTriangle, 0.0, 6 * rectCount);
+
+            activeRenderEncoder->popDebugGroup();
+            
+            // Restore previous state if we had one
+            stateCache = previousCache;
+            dirtyGraphicsState.setAll();
+            
+            pool->release();
         }
     }
 
@@ -1682,7 +1635,6 @@ namespace RT64 {
         const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
 
         // For full texture resolves, use the more efficient render pass resolve
-        processPendingClears();
         endOtherEncoders(EncoderType::Render);
         endActiveRenderEncoder();
 
@@ -1775,11 +1727,6 @@ namespace RT64 {
     }
 
     void MetalCommandList::checkActiveComputeEncoder() {
-        // before switching pipelines see if we have any pending clears to process
-        if (targetFramebuffer != nullptr) {
-            processPendingClears();
-        }
-
         endOtherEncoders(EncoderType::Compute);
 
         if (activeComputeEncoder == nullptr) {
@@ -1932,11 +1879,6 @@ namespace RT64 {
     }
 
     void MetalCommandList::checkActiveBlitEncoder() {
-        // before switching pipelines see if we have any pending clears to process
-        if (targetFramebuffer != nullptr) {
-            processPendingClears();
-        }
-        
         endOtherEncoders(EncoderType::Blit);
 
         if (activeBlitEncoder == nullptr) {
@@ -1960,8 +1902,6 @@ namespace RT64 {
     void MetalCommandList::checkActiveResolveTextureComputeEncoder() {
         assert(targetFramebuffer != nullptr);
 
-        // before switching pipelines see if we have any pending clears to process
-        processPendingClears();
         endOtherEncoders(EncoderType::Resolve);
 
         if (activeResolveComputeEncoder == nullptr) {
