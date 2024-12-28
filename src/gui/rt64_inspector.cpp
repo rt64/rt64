@@ -15,7 +15,7 @@
 // Volk must be included before the ImGui Vulkan backend.
 #include "vulkan/rt64_vulkan.h"
 
-#include "imgui/backends/imgui_impl_sdl2.h"
+#include "imgui/imgui_impl_sdl2_custom.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 
 #if defined(_WIN32)
@@ -78,9 +78,6 @@ namespace RT64 {
 
         if (sdlWindow != nullptr) {
             ImGui_ImplSDL2_InitForOther(sdlWindow);
-
-            // Disable Gamepad polling as it's not used at all and it has the potential to cause deadlocks with some controllers.
-            ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_Manual);
         }
         else {
 #       ifdef _WIN32

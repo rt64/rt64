@@ -301,6 +301,8 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/hle/rt64_workload.cpp"
     "${PROJECT_SOURCE_DIR}/src/hle/rt64_workload_queue.cpp"
 
+    "${PROJECT_SOURCE_DIR}/src/imgui/imgui_impl_sdl2_custom.cpp"
+
     "${PROJECT_SOURCE_DIR}/src/render/rt64_buffer_uploader.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_framebuffer_renderer.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_geometry_mode.cpp"
@@ -339,7 +341,6 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_draw.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_tables.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_widgets.cpp"
-    "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_sdl2.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_vulkan.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/im3d/im3d.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot.cpp"

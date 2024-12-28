@@ -93,7 +93,7 @@ namespace RT64 {
         wineDetected = false;
 #   endif
     }
-    
+
     Application::SetupResult Application::setup(uint32_t threadId) {
 #   ifdef _WIN64
         if (!DynamicLibraries::load()) {
@@ -116,7 +116,7 @@ namespace RT64 {
         // Create the script API and library and check if there's a compatible game script with the current ROM.
         scriptAPI = std::make_unique<ScriptAPI>(this);
         if (!userPaths.isEmpty() && checkDirectoryCreated(userPaths.gamesPath)) {
-            currentScript = std::move(scriptLibrary.loadGameScript(scriptAPI.get()));
+            currentScript = scriptLibrary.loadGameScript(scriptAPI.get());
             if ((currentScript != nullptr) && !currentScript->initialize()) {
                 fprintf(stderr, "Failed to initialize game script.\n");
                 currentScript.reset();
@@ -136,7 +136,7 @@ namespace RT64 {
 
         // Detect refresh rate from the display the window is located at.
         appWindow->detectRefreshRate();
-        
+
         // Create a render interface with the preferred backend.
         switch (userConfig.graphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12:
@@ -248,7 +248,7 @@ namespace RT64 {
         // Create the swap chain with the buffer count specified from the configuration.
         const uint32_t bufferCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
         swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM);
-        
+
         // Before configuring multisampling, make sure the device actually supports it for the formats we'll use. If it doesn't, turn off antialiasing in the configuration.
         const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR));
         const RenderSampleCounts depthSampleCounts = device->getSampleCountsSupported(RenderTarget::depthBufferFormat());
@@ -262,7 +262,7 @@ namespace RT64 {
         shaderLibrary = std::make_unique<ShaderLibrary>(usesHDR, usesHardwareResolve);
         shaderLibrary->setupCommonShaders(renderInterface.get(), device.get());
         shaderLibrary->setupMultisamplingShaders(renderInterface.get(), device.get(), multisampling);
-        
+
         // Create the shader caches.
         // Estimate the amount of shader compiler threads by trying to use about half of the system's available threads.
         // We need the ubershader pipelines done as soon as possible, so we use a different thread count that demands more of the system.
@@ -296,7 +296,7 @@ namespace RT64 {
 
         blueNoiseUploadBuffer.reset();
 #   endif
-        
+
         // Create the queues.
         workloadQueue = std::make_unique<WorkloadQueue>();
         presentQueue = std::make_unique<PresentQueue>();
@@ -372,8 +372,8 @@ namespace RT64 {
 
         return SetupResult::Success;
     }
-    
-    Application::~Application() { }
+
+    Application::~Application() {}
 
     void Application::processDisplayLists(uint8_t *memory, uint32_t dlStartAddress, uint32_t dlEndAddress, bool isHLE) {
         if (state->debuggerInspector.paused) {
@@ -423,7 +423,7 @@ namespace RT64 {
             state->configurationSaveQueued = false;
         }
     }
-    
+
     void Application::updateScreen() {
         appWindow->sdlCheckFilterInstallation();
         screenApiProfiler.logAndRestart();
@@ -438,7 +438,7 @@ namespace RT64 {
         rasterShaderCache->waitForAll();
         rasterShaderCache->destroyAll();
     }
-    
+
     void Application::updateMultisampling() {
 #   if SAMPLE_LOCATIONS_REQUIRED
         // This operation does nothing if sample locations isn't supported.
@@ -453,10 +453,10 @@ namespace RT64 {
         // Recreate the multisampling shaders on the shader library.
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(userConfig.msaaSampleCount(), device->getCapabilities().sampleLocations);
         shaderLibrary->setupMultisamplingShaders(renderInterface.get(), device.get(), multisampling);
-        
+
         // Set up shader cache again with new ubershaders.
         rasterShaderCache->setup(device.get(), renderInterface->getCapabilities().shaderFormat, shaderLibrary.get(), multisampling);
-        
+
         // Destroy the render target managers for both the state and the queues and configure them with the new multisampling.
         // This also implies the destruction of the contents of the framebuffer managers too.
         sharedQueueResources->updateMultisampling(multisampling);
@@ -470,7 +470,7 @@ namespace RT64 {
 #ifdef _WIN32
     bool Application::windowMessageFilter(unsigned int message, WPARAM wParam, LPARAM lParam) {
         if (userConfig.developerMode && (presentQueue != nullptr) && (state != nullptr) && !FileDialog::isOpen) {
-            const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
+            const std::lock_guard lock(presentQueue->inspectorMutex);
             if ((presentQueue->inspector != nullptr) && presentQueue->inspector->handleMessage(message, wParam, lParam)) {
                 return true;
             }
@@ -497,14 +497,14 @@ namespace RT64 {
             }
         }
         };
-        
+
         return false;
     }
 #endif
 
     bool Application::sdlEventFilter(SDL_Event *event) {
         if (userConfig.developerMode && (presentQueue != nullptr) && (state != nullptr) && !FileDialog::isOpen) {
-            const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
+            const std::lock_guard lock(presentQueue->inspectorMutex);
             if ((presentQueue->inspector != nullptr) && presentQueue->inspector->handleSdlEvent(event)) {
                 return true;
             }
@@ -541,7 +541,7 @@ namespace RT64 {
         switch (developerShortcut) {
         case DeveloperShortcut::Inspector: {
             if (userConfig.developerMode) {
-                const std::lock_guard<std::mutex> lock(presentQueue->inspectorMutex);
+                const std::lock_guard lock(presentQueue->inspectorMutex);
                 if (presentQueue->inspector == nullptr) {
                     presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI, appWindow->sdlWindow);
                     if (!userPaths.isEmpty()) {
@@ -619,7 +619,7 @@ namespace RT64 {
 
         FileDialog::finish();
     }
-    
+
     bool Application::loadConfiguration() {
         if (!appConfig.useConfigurationFile || userPaths.isEmpty()) {
             return false;
@@ -648,7 +648,7 @@ namespace RT64 {
         return ConfigurationJSON::write(userConfig, cfgStream);
     }
 
-    bool Application::checkDirectoryCreated(const std::filesystem::path& path) {
+    bool Application::checkDirectoryCreated(const std::filesystem::path &path) {
         std::filesystem::path dirPath(path);
         return std::filesystem::is_directory(dirPath) || std::filesystem::create_directories(dirPath);
     }
