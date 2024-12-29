@@ -560,7 +560,7 @@ if (RT64_BUILD_EXAMPLES)
             COMPILE_FLAGS "-fobjc-arc")
         set_target_properties(rhi_test PROPERTIES
             XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
-            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${PROJECT_SOURCE_DIR}/rt64.entitlements
+            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${CMAKE_CURRENT_SOURCE_DIR}/rt64.entitlements
         )
     endif()
 endif()

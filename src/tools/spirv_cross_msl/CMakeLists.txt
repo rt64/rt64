@@ -16,6 +16,6 @@ target_link_libraries(spirv_cross_msl spirv-cross-core spirv-cross-msl)
 if (APPLE)
     set_target_properties(spirv_cross_msl PROPERTIES
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
-        XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${CMAKE_SOURCE_DIR}/rt64.entitlements
+        XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${CMAKE_CURRENT_SOURCE_DIR}/../../../rt64.entitlements
     )
 endif()
