@@ -39,10 +39,13 @@ _MTL_ENUM(NS::Integer, LogLevel) {
     LogLevelFault = 5,
 };
 
+using LogHandlerFunction = std::function<void(NS::String* subsystem, NS::String* category, MTL::LogLevel logLevel, NS::String* message)>;
+
 class LogState : public NS::Referencing<LogState>
 {
 public:
     void addLogHandler(void (^block)(NS::String*, NS::String*, MTL::LogLevel, NS::String*));
+    void addLogHandler(const LogHandlerFunction& handler);
 };
 
 class LogStateDescriptor : public NS::Copying<LogStateDescriptor>
@@ -74,6 +77,15 @@ _MTL_PRIVATE_DEF_WEAK_CONST(NS::ErrorDomain, LogStateErrorDomain);
 _MTL_INLINE void MTL::LogState::addLogHandler(void (^block)(NS::String*, NS::String*, MTL::LogLevel, NS::String*))
 {
     Object::sendMessage<void>(this, _MTL_PRIVATE_SEL(addLogHandler_), block);
+}
+
+_MTL_INLINE void MTL::LogState::addLogHandler(const MTL::LogHandlerFunction& handler)
+{
+    __block LogHandlerFunction function = handler;
+
+    addLogHandler(^void(NS::String* subsystem, NS::String* category, MTL::LogLevel logLevel, NS::String* message){
+        function(subsystem, category, logLevel, message);
+	});
 }
 
 // static method: alloc

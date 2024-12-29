@@ -28,6 +28,8 @@
 
 namespace MTL
 {
+_MTL_CONST(NS::ErrorDomain, BinaryArchiveDomain);
+
 _MTL_ENUM(NS::UInteger, BinaryArchiveError) {
     BinaryArchiveErrorNone = 0,
     BinaryArchiveErrorInvalidFile = 1,
@@ -71,6 +73,8 @@ public:
 };
 
 }
+
+_MTL_PRIVATE_DEF_STR(NS::ErrorDomain, BinaryArchiveDomain);
 
 // static method: alloc
 _MTL_INLINE MTL::BinaryArchiveDescriptor* MTL::BinaryArchiveDescriptor::alloc()
