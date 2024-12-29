@@ -541,12 +541,6 @@ namespace RT64 {
         state->cullMode = metal::mapCullMode(desc.cullMode);
         state->depthClipMode = (desc.depthClipEnabled) ? MTL::DepthClipModeClip : MTL::DepthClipModeClamp;
         state->winding = MTL::WindingClockwise;
-        state->sampleCount = desc.multisampling.sampleCount;
-        if (desc.multisampling.sampleCount > 1) {
-            for (uint32_t i = 0; i < desc.multisampling.sampleCount; i++) {
-                state->samplePositions[i] = { (float)desc.multisampling.sampleLocations[i].x, (float)desc.multisampling.sampleLocations[i].y };
-            }
-        }
 
         NS::Error *error = nullptr;
 
@@ -958,6 +952,17 @@ namespace RT64 {
             }
         }
 
+        // get sample count and sample positions from either the color or depth attachment
+        auto texture = (desc.colorAttachmentsCount > 0) ? desc.colorAttachments[0] : desc.depthAttachment;
+        const MetalTexture* metalTexture = static_cast<const MetalTexture*>(texture);
+
+        sampleCount = metalTexture->desc.multisampling.sampleCount;
+        if (metalTexture->desc.multisampling.sampleCount > 1) {
+            for (uint32_t i = 0; i < metalTexture->desc.multisampling.sampleCount; i++) {
+                samplePositions[i] = { (float)metalTexture->desc.multisampling.sampleLocations[i].x, (float)metalTexture->desc.multisampling.sampleLocations[i].y };
+            }
+        }
+        
         releasePool->release();
     }
 
@@ -1011,28 +1016,6 @@ namespace RT64 {
         mtl->commit();
         mtl->release();
         mtl = nullptr;
-    }
-
-    void MetalCommandList::configureRenderDescriptor(MTL::RenderPassDescriptor *renderDescriptor) {
-        assert(targetFramebuffer != nullptr && "Cannot encode render commands without a target framebuffer");
-
-        for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-            auto colorAttachment = renderDescriptor->colorAttachments()->object(i);
-            colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
-            colorAttachment->setLoadAction(MTL::LoadActionLoad);
-            colorAttachment->setStoreAction(MTL::StoreActionStore);
-        }
-
-        if (targetFramebuffer->depthAttachment != nullptr) {
-            auto depthAttachment = renderDescriptor->depthAttachment();
-            depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
-            depthAttachment->setLoadAction(MTL::LoadActionLoad);
-            depthAttachment->setStoreAction(MTL::StoreActionStore);
-        }
-
-        if (activeRenderState && activeRenderState->sampleCount > 1) {
-            renderDescriptor->setSamplePositions(activeRenderState->samplePositions, activeRenderState->sampleCount);
-        }
     }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
@@ -1110,19 +1093,6 @@ namespace RT64 {
             }
             case MetalPipeline::Type::Graphics: {
                 const auto *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
-                if (activeRenderState) {
-                    if (activeRenderState->sampleCount != graphicsPipeline->state->sampleCount) {
-                        endActiveRenderEncoder();
-                    } else if (activeRenderState->sampleCount > 1) {
-                        for (uint32_t i = 0; i < activeRenderState->sampleCount; i++) {
-                            if (activeRenderState->samplePositions[i] != graphicsPipeline->state->samplePositions[i]) {
-                                endActiveRenderEncoder();
-                                break;
-                            }
-                        }
-                    }
-                }
-
                 // TODO: Can we be more granular here?
                 if (activeRenderState != graphicsPipeline->state) {
                     activeRenderState = graphicsPipeline->state;
@@ -1787,7 +1757,25 @@ namespace RT64 {
 
             // target frame buffer & sample positions affect the descriptor
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
-            configureRenderDescriptor(renderDescriptor);
+            
+            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+                auto colorAttachment = renderDescriptor->colorAttachments()->object(i);
+                colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
+                colorAttachment->setLoadAction(MTL::LoadActionLoad);
+                colorAttachment->setStoreAction(MTL::StoreActionStore);
+            }
+
+            if (targetFramebuffer->depthAttachment != nullptr) {
+                auto depthAttachment = renderDescriptor->depthAttachment();
+                depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
+                depthAttachment->setLoadAction(MTL::LoadActionLoad);
+                depthAttachment->setStoreAction(MTL::StoreActionStore);
+            }
+
+            if (targetFramebuffer->sampleCount > 1) {
+                renderDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
+            }
+            
             activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
             activeRenderEncoder->setLabel(MTLSTR("Graphics Render Encoder"));
 

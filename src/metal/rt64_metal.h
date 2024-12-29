@@ -94,8 +94,6 @@ namespace RT64 {
         MTL::CullMode cullMode = MTL::CullModeNone;
         MTL::DepthClipMode depthClipMode = MTL::DepthClipModeClip;
         MTL::Winding winding = MTL::WindingClockwise;
-        MTL::SamplePosition samplePositions[16] = {};
-        uint32_t sampleCount = 0;
     };
 
     struct MetalBufferBinding {
@@ -167,6 +165,9 @@ namespace RT64 {
         uint32_t height = 0;
         std::vector<const ExtendedRenderTexture *> colorAttachments;
         const MetalTexture *depthAttachment = nullptr;
+        
+        MTL::SamplePosition samplePositions[16] = {};
+        uint32_t sampleCount = 0;
 
         MetalFramebuffer(MetalDevice *device, const RenderFramebufferDesc &desc);
         ~MetalFramebuffer() override;
@@ -323,7 +324,6 @@ namespace RT64 {
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
         void bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute);
-        void configureRenderDescriptor(MTL::RenderPassDescriptor *descriptor);
         void endOtherEncoders(EncoderType type);
         void checkActiveComputeEncoder();
         void endActiveComputeEncoder();
