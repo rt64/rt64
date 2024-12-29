@@ -524,7 +524,7 @@ namespace RT64 {
             blendDescriptor->setSourceAlphaBlendFactor(metal::mapBlendFactor(blendDesc.srcBlendAlpha));
             blendDescriptor->setDestinationAlphaBlendFactor(metal::mapBlendFactor(blendDesc.dstBlendAlpha));
             blendDescriptor->setAlphaBlendOperation(metal::mapBlendOperation(blendDesc.blendOpAlpha));
-            blendDescriptor->setWriteMask(blendDesc.renderTargetWriteMask);
+            blendDescriptor->setWriteMask(metal::mapColorWriteMask(blendDesc.renderTargetWriteMask));
             blendDescriptor->setPixelFormat(metal::mapPixelFormat(desc.renderTargetFormat[i]));
         }
 

@@ -641,7 +641,7 @@ namespace metal {
     static MTL::TextureUsage mapTextureUsageFromBufferFlags(RT64::RenderBufferFlags flags) {
         MTL::TextureUsage usage = MTL::TextureUsageShaderRead;
         usage |= (flags & RT64::RenderBufferFlag::UNORDERED_ACCESS) ? MTL::TextureUsageShaderWrite : MTL::TextureUsageUnknown;
-        
+
         return usage;
     }
 
@@ -651,7 +651,7 @@ namespace metal {
         usage |= (flags & RT64::RenderTextureFlag::RENDER_TARGET) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
         usage |= (flags & RT64::RenderTextureFlag::DEPTH_TARGET) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
         usage |= (flags & RT64::RenderTextureFlag::UNORDERED_ACCESS) ? MTL::TextureUsageShaderWrite : MTL::TextureUsageUnknown;
-        
+
         return usage;
     }
 
@@ -680,5 +680,20 @@ namespace metal {
         v == RT64::RenderSwizzle::IDENTITY ? MTL::TextureSwizzle##d : mapTextureSwizzle(v)
         return MTL::TextureSwizzleChannels(convert(mapping.r, Red), convert(mapping.g, Green), convert(mapping.b, Blue), convert(mapping.a, Alpha));
     #undef convert
+    }
+
+    static MTL::ColorWriteMask mapColorWriteMask(uint8_t mask) {
+        MTL::ColorWriteMask metalMask = MTL::ColorWriteMaskNone;
+        
+        if (mask & static_cast<uint8_t>(RT64::RenderColorWriteEnable::RED))
+            metalMask |= MTL::ColorWriteMaskRed;
+        if (mask & static_cast<uint8_t>(RT64::RenderColorWriteEnable::GREEN))
+            metalMask |= MTL::ColorWriteMaskGreen;
+        if (mask & static_cast<uint8_t>(RT64::RenderColorWriteEnable::BLUE))
+            metalMask |= MTL::ColorWriteMaskBlue;
+        if (mask & static_cast<uint8_t>(RT64::RenderColorWriteEnable::ALPHA))
+            metalMask |= MTL::ColorWriteMaskAlpha;
+        
+        return metalMask;
     }
 };
