@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.23)
 project(rt64 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -43,6 +43,7 @@ if (WIN32)
     configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
     configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxil.dll" "dxil.dll" COPYONLY)
 elseif (APPLE)
+    set (METALSHADERCONV "metal-shaderconverter")
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         # find zlib and include in dyld path
         find_library(ZLIB_LIBRARY NAMES z)
@@ -119,22 +120,16 @@ function(build_shader_dxil_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
 endfunction()
 
 function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
-    add_custom_command(OUTPUT ${OUTNAME}.spv
-            COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
-            DEPENDS ${FILENAME})
-    add_custom_command(OUTPUT ${OUTNAME}.metal
-            COMMAND spirv_cross_msl ${OUTNAME}.spv ${OUTNAME}.metal
-            DEPENDS ${OUTNAME}.spv spirv_cross_msl)
-    add_custom_command(OUTPUT ${OUTNAME}.ir
-            COMMAND xcrun -sdk macosx metal -o ${OUTNAME}.ir -c ${OUTNAME}.metal $<$<CONFIG:Debug>:-frecord-sources>
-            DEPENDS ${OUTNAME}.metal)
+    add_custom_command(OUTPUT ${OUTNAME}.dxil
+        COMMAND ${DXC} ${DXC_DXIL_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.dxil
+        DEPENDS ${FILENAME})
     add_custom_command(OUTPUT ${OUTNAME}.metallib
-            COMMAND xcrun -sdk macosx metallib ${OUTNAME}.ir -o ${OUTNAME}.metallib
-            DEPENDS ${OUTNAME}.ir)
+        COMMAND ${METALSHADERCONV} ${OUTNAME}.dxil -o ${OUTNAME}.metallib --output-reflection-file=${OUTNAME}.metal.json
+        DEPENDS ${OUTNAME}.dxil)
     add_custom_command(OUTPUT ${OUTNAME}.metal.c
-            COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metal.c ${OUTNAME}.metal.h
-            DEPENDS ${OUTNAME}.metallib file_to_c
-            BYPRODUCTS ${OUTNAME}.metal.h)
+        COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metal.c ${OUTNAME}.metal.h
+        DEPENDS ${OUTNAME}.metallib file_to_c
+        BYPRODUCTS ${OUTNAME}.metal.h)
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metal.c)
 endfunction()
 
@@ -437,6 +432,7 @@ if (APPLE)
         "${PROJECT_SOURCE_DIR}/src/common/rt64_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
+    target_include_directories(rt64 PRIVATE "/usr/local/include")
     target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
 endif()
 
@@ -546,10 +542,7 @@ if (RT64_BUILD_EXAMPLES)
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
     build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
     build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestAsyncCS.hlsl")
-    if (NOT APPLE)
-        # TODO: Enable when RT is added to Metal.
-        build_ray_shader(rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
-    endif()
+    build_ray_shader(rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPostPS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestPostVS.hlsl")
 

@@ -4,6 +4,9 @@
 
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
+#define IR_RUNTIME_METALCPP
+#define IR_PRIVATE_IMPLEMENTATION
+#include <metal_irconverter_runtime/metal_irconverter_runtime.h>
 #include <QuartzCore/QuartzCore.hpp>
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -496,7 +499,7 @@ namespace RT64 {
         for (uint32_t i = 0; i < desc.inputElementsCount; i++) {
             const RenderInputElement &inputElement = desc.inputElements[i];
 
-            auto attributeDescriptor = vertexDescriptor->attributes()->object(i);
+            auto attributeDescriptor = vertexDescriptor->attributes()->object(kIRStageInAttributeStartIndex + i);
             attributeDescriptor->setOffset(inputElement.alignedByteOffset);
             attributeDescriptor->setBufferIndex(inputElement.slotIndex);
             attributeDescriptor->setFormat(metal::mapVertexFormat(inputElement.format));
