@@ -75,17 +75,15 @@ namespace RT64 {
         lerpPerspective = (perspInterpolation == G_EX_COMPONENT_INTERPOLATE);
     }
 
-    void RigidBody::updateDecomposition(const hlslpp::float4x4 &curTransform, bool decompose) {
-        uint8_t newTransformIndex = transformIndex ^ 1;
-        if (decompose) {
-            transforms[newTransformIndex] = DecomposedTransform(curTransform);
-        } else {
-            transforms[newTransformIndex] = DecomposedTransform();
+    void RigidBody::updateDecomposition(const hlslpp::float4x4 &prevTransform, const hlslpp::float4x4 &curTransform, bool decompose, bool overridePrevTransform) {
+        if (overridePrevTransform) {
+            transforms[transformIndex] = decompose ? DecomposedTransform(prevTransform) : DecomposedTransform();
         }
-        transformIndex = newTransformIndex;
+
+        transformIndex = transformIndex ^ 1;
+        transforms[transformIndex] = decompose ? DecomposedTransform(curTransform) : DecomposedTransform();
         lerpDecompose = decompose;
     }
-
     
     hlslpp::float4x4 RigidBody::lerp(float weight, const hlslpp::float4x4& fallbackPrev, const hlslpp::float4x4& fallbackCur, bool slerp) const {
         // Return a linear component-wise interpolation of the fallback matrices if decomposition is disabled or if either decomposition is invalid.
