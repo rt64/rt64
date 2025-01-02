@@ -5,7 +5,6 @@
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
-#include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <algorithm>
@@ -14,6 +13,7 @@
 
 #include "rt64_metal.h"
 #include "rt64_metal_helpers.h"
+#include "rt64_metal_env.h"
 #include "common/rt64_apple.h"
 
 namespace RT64 {
@@ -124,6 +124,18 @@ namespace RT64 {
         releasePool->release();
     }
 
+    MetalDescriptorSetLayout::DescriptorSetLayoutBinding* MetalDescriptorSetLayout::getBinding(uint32_t binding, uint32_t bindingIndexOffset) {
+        auto it = bindingToIndex.find(binding);
+        if (it != bindingToIndex.end()) {
+            uint32_t bindingIndex = it->second + bindingIndexOffset;
+            if (bindingIndex < bindings.size()) {
+                return &bindings[bindingIndex];
+            }
+        }
+        
+        return nullptr;
+    }
+
     MetalDescriptorSetLayout::~MetalDescriptorSetLayout() {
         argumentEncoder->release();
         descriptorBuffer->release();
@@ -200,11 +212,13 @@ namespace RT64 {
         auto descriptor = MTL::TextureDescriptor::textureBufferDescriptor(pixelFormat, width, options, usage);
         this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
 
+        this->buffer->mtl->retain();
         descriptor->release();
     }
 
     MetalBufferFormattedView::~MetalBufferFormattedView() {
         texture->release();
+        buffer->mtl->release();
 
         for (auto &residence: residenceSets) {
             auto descriptorSet = residence.first;
@@ -574,13 +588,22 @@ namespace RT64 {
 
     MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc) {
         assert(device != nullptr);
-
-        entryCount = 0;
+        
+        this->device = device;
+        
+        thread_local std::unordered_map<RenderDescriptorRangeType, uint32_t> typeCounts;
+        typeCounts.clear();
 
         // Figure out the total amount of entries that will be required.
         uint32_t rangeCount = desc.descriptorRangesCount;
         if (desc.lastRangeIsBoundless) {
             assert((desc.descriptorRangesCount > 0) && "There must be at least one descriptor set to define the last range as boundless.");
+            
+            // Ensure at least one entry is created for boundless ranges.
+            boundlessRangeSize = std::max(desc.boundlessRangeSize, 1U);
+
+            const RenderDescriptorRange &lastDescriptorRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
+            typeCounts[lastDescriptorRange.type] += boundlessRangeSize;
             rangeCount--;
         }
 
@@ -591,31 +614,14 @@ namespace RT64 {
         });
 
         for (uint32_t i = 0; i < rangeCount; i++) {
-            const RenderDescriptorRange &range = sortedRanges[i];
-            for (uint32_t j = 0; j < range.count; j++) {
-                descriptorTypes.emplace_back(range.type);
-                entryCount++;
-            }
+            const RenderDescriptorRange &descriptorRange = sortedRanges[i];
+            typeCounts[descriptorRange.type] += descriptorRange.count;
         }
-
-        if (desc.lastRangeIsBoundless) {
-            const RenderDescriptorRange &lastDescriptorRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
-            descriptorTypes.emplace_back(lastDescriptorRange.type);
-
-            // Ensure at least one entry is created for boundless ranges.
-            entryCount += std::max(desc.boundlessRangeSize, 1U);
-        }
-
-        if (!descriptorTypes.empty()) {
-            descriptorTypeMaxIndex = uint32_t(descriptorTypes.size()) - 1;
-        }
-    }
-
-    MetalDescriptorSet::MetalDescriptorSet(MetalDevice *device, uint32_t entryCount) {
-        assert(device != nullptr);
-        assert(entryCount > 0);
-
-        this->entryCount = entryCount;
+        
+        setLayout = new MetalDescriptorSetLayout(device, desc);
+        
+        // Create the descriptor set layout
+        
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
@@ -652,89 +658,76 @@ namespace RT64 {
         if (buffer == nullptr) {
             return;
         }
+        
+        const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer *>(buffer);
+        
+        if (bufferFormattedView != nullptr) {
+            assert((bufferStructuredView == nullptr) && "Can't use structured views and formatted views at the same time.");
 
-        uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
-        RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
-        switch (descriptorType) {
-            case RenderDescriptorRangeType::FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER: {
-                const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
-                indicesToBufferFormattedViews[descriptorIndex] = interfaceBufferFormattedView;
-                interfaceBufferFormattedView->residenceSets.insert(std::make_pair(this, descriptorIndex));
-                break;
+            const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
+            TextureDescriptor descriptor = { interfaceBufferFormattedView->texture };
+            setDescriptor(descriptorIndex, descriptor);
+        } else {
+            uint32_t offset = 0;
+            
+            if (bufferStructuredView != nullptr) {
+                assert((bufferFormattedView == nullptr) && "Can't use structured views and formatted views at the same time.");
+                assert(bufferStructuredView->structureByteStride > 0);
+                
+                offset = bufferStructuredView->firstElement * bufferStructuredView->structureByteStride;
             }
-            case RenderDescriptorRangeType::CONSTANT_BUFFER:
-            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER: {
-                const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer*>(buffer);
-                uint32_t offset = 0;
-
-                if (bufferStructuredView != nullptr) {
-                    offset = bufferStructuredView->firstElement * bufferStructuredView->structureByteStride;
-                }
-
-                indicesToBuffers[descriptorIndex] = MetalBufferBinding(interfaceBuffer, offset);
-                interfaceBuffer->residenceSets.insert(std::make_pair(this, descriptorIndex));
-                break;
-            }
-            case RenderDescriptorRangeType::TEXTURE:
-            case RenderDescriptorRangeType::READ_WRITE_TEXTURE:
-            case RenderDescriptorRangeType::SAMPLER:
-            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
-                assert(false && "Incompatible descriptor type.");
-                break;
-            default:
-                assert(false && "Unknown descriptor type.");
-                break;
+            
+            BufferDescriptor descriptor = { interfaceBuffer->mtl, offset };
+            setDescriptor(descriptorIndex, descriptor);
         }
     }
 
     void MetalDescriptorSet::setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) {
+        if (texture == nullptr) {
+            return;
+        }
+        
         const MetalTexture *interfaceTexture = static_cast<const MetalTexture *>(texture);
-        const auto nativeResource = (interfaceTexture != nullptr) ? interfaceTexture->mtl : nullptr;
-        uint32_t descriptorIndexClamped = std::min(descriptorIndex, descriptorTypeMaxIndex);
-        RenderDescriptorRangeType descriptorType = descriptorTypes[descriptorIndexClamped];
-        switch (descriptorType) {
-            case RenderDescriptorRangeType::TEXTURE:
-            case RenderDescriptorRangeType::READ_WRITE_TEXTURE: {
-                if (textureView != nullptr) {
-                    const MetalTextureView *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
-                    indicesToTextureViews[descriptorIndex] = interfaceTextureView;
-                    interfaceTextureView->residenceSets.insert(std::make_pair(this, descriptorIndex));
-                } else {
-                    indicesToTextures[descriptorIndex] = interfaceTexture;
-                    interfaceTexture->residenceSets.insert(std::make_pair(this, descriptorIndex));
-                }
-                break;
-            }
-            case RenderDescriptorRangeType::CONSTANT_BUFFER:
-            case RenderDescriptorRangeType::FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_FORMATTED_BUFFER:
-            case RenderDescriptorRangeType::STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::BYTE_ADDRESS_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_STRUCTURED_BUFFER:
-            case RenderDescriptorRangeType::READ_WRITE_BYTE_ADDRESS_BUFFER:
-            case RenderDescriptorRangeType::SAMPLER:
-            case RenderDescriptorRangeType::ACCELERATION_STRUCTURE:
-                assert(false && "Incompatible descriptor type.");
-                break;
-            default:
-                assert(false && "Unknown descriptor type.");
-                break;
+        
+        if (textureView != nullptr) {
+            const MetalTextureView *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
+            
+            TextureDescriptor descriptor = { interfaceTextureView->texture };
+            setDescriptor(descriptorIndex, descriptor);
+        }
+        else {
+            TextureDescriptor descriptor = { interfaceTexture->mtl };
+            setDescriptor(descriptorIndex, descriptor);
         }
     }
 
     void MetalDescriptorSet::setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) {
-        if (sampler != nullptr) {
-            const MetalSampler *interfaceSampler = static_cast<const MetalSampler *>(sampler);
-            indicesToSamplers[descriptorIndex] = interfaceSampler->state;
+        if (sampler == nullptr) {
+            return;
         }
+        
+        const MetalSampler *interfaceSampler = static_cast<const MetalSampler *>(sampler);
+        SamplerDescriptor descriptor = { interfaceSampler->state };
+        setDescriptor(descriptorIndex, descriptor);
     }
 
     void MetalDescriptorSet::setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
         // TODO: Unimplemented.
+    }
+
+    void MetalDescriptorSet::setDescriptor(uint32_t descriptorIndex, const Descriptor *descriptor) {
+        assert(descriptorIndex < setLayout->descriptorBindingIndices.size());
+        
+        const uint32_t indexBase = setLayout->descriptorIndexBases[descriptorIndex];
+        const uint32_t bindingIndex = setLayout->descriptorBindingIndices[descriptorIndex];
+        const auto &setLayoutBinding = setLayout->setBindings[bindingIndex];
+        
+        // TODO: This is where I left off
+        
+    }
+
+    RenderDescriptorRangeType MetalDescriptorSet::getDescriptorType(uint32_t binding) {
+        layout->getBinding(binding)->descriptorType;
     }
 
     // MetalDrawable
@@ -1910,7 +1903,7 @@ namespace RT64 {
     void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) {
 
         // Encode Descriptor set layouts and mark resources
-        for (uint32_t i = 0; i < layout->setCount; i++) {
+        for (uint32_t i = 0; i < layout->setLayoutCount; i++) {
             auto* setLayout = layout->setLayoutHandles[i];
             
             // Check if we still have enough space for the current descriptor set
@@ -2023,9 +2016,9 @@ namespace RT64 {
             
             auto offsetOfCurrentlyEncodedData = setLayout->currentArgumentBufferOffset;
             
-#if     TARGET_OS_OSX
-            setLayout->descriptorBuffer->didModifyRange({ offsetOfCurrentlyEncodedData, setLayout->argumentEncoder->encodedLength() });
-#endif
+//#if     RT64_MACOS
+//            setLayout->descriptorBuffer->didModifyRange({ offsetOfCurrentlyEncodedData, setLayout->argumentEncoder->encodedLength() });
+//#endif
 
             if (isCompute) {
                 static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
@@ -2149,7 +2142,7 @@ namespace RT64 {
     MetalPipelineLayout::MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc) {
         assert(device != nullptr);
 
-        this->setCount = desc.descriptorSetDescsCount;
+        this->setLayoutCount = desc.descriptorSetDescsCount;
 
         pushConstantRanges.resize(desc.pushConstantRangesCount);
         memcpy(pushConstantRanges.data(), desc.pushConstantRanges, sizeof(RenderPushConstantRange) * desc.pushConstantRangesCount);
@@ -2175,7 +2168,7 @@ namespace RT64 {
         //        capabilities.raytracing = [this->renderInterface->device supportsFamily:MTLGPUFamilyApple9];
         capabilities.maxTextureSize = mtl->supportsFamily(MTL::GPUFamilyApple3) ? 16384 : 8192;
         capabilities.sampleLocations = mtl->programmableSamplePositionsSupported();
-#if TARGET_OS_IPHONE
+#if RT64_IOS
         capabilities.descriptorIndexing = mtl->supportsFamily(MTL::GPUFamilyApple3);
 #else
         capabilities.descriptorIndexing = true;
