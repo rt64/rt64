@@ -10,7 +10,7 @@ namespace RT64 {
 #if defined(_WIN32)
     UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::D3D12;
 #elif defined(__APPLE__)
-    UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::Metal;
 #else
     UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
 #endif
