@@ -215,6 +215,7 @@ namespace RT64 {
         VkPresentModeKHR requiredPresentMode = VK_PRESENT_MODE_FIFO_KHR;
         VkCompositeAlphaFlagBitsKHR pickedAlphaFlag = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         std::vector<VulkanTexture> textures;
+        uint64_t currentPresentId = 0;
         bool immediatePresentModeSupported = false;
 
         VulkanSwapChain(VulkanCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
@@ -406,7 +407,11 @@ namespace RT64 {
         VkApplicationInfo appInfo = {};
         RenderInterfaceCapabilities capabilities;
 
+#   if RT64_SDL_WINDOW_VULKAN
+        VulkanInterface(RenderWindow sdlWindow);
+    #else
         VulkanInterface();
+#   endif
         ~VulkanInterface() override;
         std::unique_ptr<RenderDevice> createDevice() override;
         const RenderInterfaceCapabilities &getCapabilities() const override;

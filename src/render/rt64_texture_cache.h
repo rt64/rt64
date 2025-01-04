@@ -234,6 +234,7 @@ namespace RT64 {
         bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, bool &textureReplaced, bool &hasMipmaps);
         bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex);
         bool addReplacement(uint64_t hash, const std::string &relativePath);
+        bool hasReplacement(uint64_t hash);
         void clearReplacementDirectories();
         bool loadReplacementDirectory(const ReplacementDirectory &replacementDirectory);
         bool loadReplacementDirectories(const std::vector<ReplacementDirectory> &replacementDirectories);

@@ -58,7 +58,6 @@ namespace RT64 {
         unusedTextureList.clear();
         resolvedPathMap.clear();
         lowMipCacheTextures.clear();
-        resolvedPathMap.clear();
         replacementDirectories.clear();
 
         usedTexturePoolSize = 0;
@@ -1062,12 +1061,14 @@ namespace RT64 {
                     newTexture->format = RenderFormat::R8_UINT;
                     newTexture->width = upload.width;
                     newTexture->height = upload.height;
-                    newTexture->tmem = copyWorker->device->createTexture(RenderTextureDesc::Texture1D(uint32_t(upload.bytesTMEM.size()), 1, newTexture->format));
+                    newTexture->tmem = copyWorker->device->createTexture(RenderTextureDesc::Texture1D(std::max(uint32_t(upload.bytesTMEM.size()), 1U), 1, newTexture->format));
                     newTexture->tmem->setName("Texture Cache TMEM #" + std::to_string(TMEMGlobalCounter++));
 
-                    void *dstData = tmemUploadResources[i]->map();
-                    memcpy(dstData, upload.bytesTMEM.data(), upload.bytesTMEM.size());
-                    tmemUploadResources[i]->unmap();
+                    if (!upload.bytesTMEM.empty()) {
+                        void *dstData = tmemUploadResources[i]->map();
+                        memcpy(dstData, upload.bytesTMEM.data(), upload.bytesTMEM.size());
+                        tmemUploadResources[i]->unmap();
+                    }
 
                     beforeCopyBarriers.emplace_back(newTexture->tmem.get(), RenderTextureLayout::COPY_DEST);
                 }
@@ -1078,10 +1079,12 @@ namespace RT64 {
                     const TextureUpload &upload = queueCopy[i];
                     const uint32_t byteCount = uint32_t(upload.bytesTMEM.size());
                     Texture *dstTexture = textureMapAdditions[i].texture;
-                    copyWorker->commandList->copyTextureRegion(
-                        RenderTextureCopyLocation::Subresource(dstTexture->tmem.get()),
-                        RenderTextureCopyLocation::PlacedFootprint(tmemUploadResources[i].get(), RenderFormat::R8_UINT, byteCount, 1, 1, byteCount)
-                    );
+                    if (byteCount > 0) {
+                        copyWorker->commandList->copyTextureRegion(
+                            RenderTextureCopyLocation::Subresource(dstTexture->tmem.get()),
+                            RenderTextureCopyLocation::PlacedFootprint(tmemUploadResources[i].get(), RenderFormat::R8_UINT, byteCount, 1, 1, byteCount)
+                        );
+                    }
 
                     beforeDecodeBarriers.emplace_back(dstTexture->tmem.get(), RenderTextureLayout::SHADER_READ);
 
@@ -1259,8 +1262,6 @@ namespace RT64 {
     }
 
     void TextureCache::queueGPUUploadTMEM(uint64_t hash, uint64_t creationFrame, const uint8_t *bytes, int bytesCount, int width, int height, uint32_t tlut, const LoadTile &loadTile, bool decodeTMEM) {
-        assert(bytes != nullptr);
-        assert(bytesCount > 0);
         assert(!decodeTMEM || ((width > 0) && (height > 0)));
 
         TextureUpload newUpload;
@@ -1270,7 +1271,7 @@ namespace RT64 {
         newUpload.height = height;
         newUpload.tlut = tlut;
         newUpload.loadTile = loadTile;
-        newUpload.bytesTMEM = std::vector<uint8_t>(bytes, bytes + bytesCount);
+        newUpload.bytesTMEM = (bytes != nullptr) ? std::vector<uint8_t>(bytes, bytes + bytesCount) : std::vector<uint8_t>();
         newUpload.decodeTMEM = decodeTMEM;
 
         {
@@ -1357,6 +1358,11 @@ namespace RT64 {
         uploadQueueChanged.notify_all();
 
         return true;
+    }
+
+    bool TextureCache::hasReplacement(uint64_t hash) {
+        std::unique_lock lock(textureMapMutex);
+        return (textureMap.replacementMap.resolvedPathMap.find(hash) != textureMap.replacementMap.resolvedPathMap.end());
     }
 
     void TextureCache::clearReplacementDirectories() {

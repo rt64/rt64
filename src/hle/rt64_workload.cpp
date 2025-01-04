@@ -24,6 +24,7 @@ namespace RT64 {
         extended.ditherNoiseStrength = 1.0f;
 
         commandWarnings.clear();
+        spriteCommands.clear();
         pointLights.clear();
         fbChangePool.reset();
         fbStorage.reset();

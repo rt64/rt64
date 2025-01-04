@@ -41,7 +41,7 @@ namespace RT64 {
         std::thread *presentThread = nullptr;
         std::mutex threadMutex;
         std::atomic<bool> presentThreadRunning = false;
-        std::mutex inspectorMutex;
+        std::recursive_mutex inspectorMutex;
         std::mutex screenFbChangePoolMutex;
         Framebuffer scratchFb;
         FramebufferChangePool scratchFbChangePool;

@@ -16,6 +16,13 @@
 namespace RT64 {
     // TextureManager
 
+    void TextureManager::uploadEmpty(State *state, TextureCache *textureCache, uint64_t creationFrame, uint16_t width, uint16_t height, uint64_t replacementHash) {
+        if (hashSet.find(replacementHash) == hashSet.end()) {
+            hashSet.insert(replacementHash);
+            textureCache->queueGPUUploadTMEM(replacementHash, creationFrame, nullptr, 0, width, height, 0, LoadTile(), false);
+        }
+    }
+
     uint64_t TextureManager::uploadTMEM(State *state, const LoadTile &loadTile, TextureCache *textureCache, uint64_t creationFrame, uint16_t byteOffset, uint16_t byteCount, uint16_t width, uint16_t height, uint32_t tlut) {
         XXH3_state_t xxh3;
         XXH3_64bits_reset(&xxh3);

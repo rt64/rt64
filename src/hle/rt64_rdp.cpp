@@ -330,6 +330,18 @@ namespace RT64 {
         t.lrt = lrt;
         state->updateDrawStatusAttribute(DrawAttribute::Texture);
     }
+
+    void RDP::clearTileReplacementHash(uint8_t tile) {
+        assert(tile < RDP_TILES);
+        tileReplacementHashes[tile] = 0;
+        state->updateDrawStatusAttribute(DrawAttribute::Texture);
+    }
+
+    void RDP::setTileReplacementHash(uint8_t tile, uint64_t replacementHash) {
+        assert(tile < RDP_TILES);
+        tileReplacementHashes[tile] = replacementHash;
+        state->updateDrawStatusAttribute(DrawAttribute::Texture);
+    }
     
     template<bool RGBA32 = false, bool TLUT = false>
     __forceinline void loadWord(uint8_t *TMEM, uint32_t tmemAddress, uint32_t tmemXorMask, const uint8_t *RDRAM, uint32_t textureAddress) {
@@ -603,14 +615,9 @@ namespace RT64 {
 
     bool RDP::loadTileCopyCheck(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt) {
         assert(tile < RDP_TILES);
-        auto &t = tiles[tile];
-        t.uls = uls;
-        t.ult = ult;
-        t.lrs = lrs;
-        t.lrt = lrt;
 
         // Ignored by the hardware.
-        if (t.uls > t.lrs) {
+        if (uls > lrs) {
             return false;
         }
 
@@ -619,15 +626,16 @@ namespace RT64 {
             return false;
         }
 
-        const uint32_t bytesOffset = (t.uls >> 2) << texture.siz >> 1;
-        const uint32_t bytesPerRow = texture.width << texture.siz >> 1;
-        const uint32_t textureStart = texture.address + bytesOffset + bytesPerRow * (t.ult >> 2);
-        const uint32_t rowCount = 1 + ((t.lrt >> 2) - (t.ult >> 2));
-        const uint32_t tileWidth = ((t.lrs >> 2) - (t.uls >> 2));
-        const uint32_t wordsPerRow = (tileWidth >> (4 - t.siz)) + 1;
-        const uint32_t textureEnd = textureStart + (rowCount - 1) * bytesPerRow + (wordsPerRow << 3);
-
         // Current framebuffer pair must be flushed if we wish to do a tile copy with any of the bytes it uses.
+        const auto &t = tiles[tile];
+        const uint32_t bytesOffset = (uls >> 2) << texture.siz >> 1;
+        const uint32_t bytesPerRow = texture.width << texture.siz >> 1;
+        const uint32_t textureStart = texture.address + bytesOffset + bytesPerRow * (ult >> 2);
+        const uint32_t rowCount = 1 + ((lrt >> 2) - (ult >> 2));
+        const uint32_t tileWidth = ((lrs >> 2) - (uls >> 2));
+        const uint32_t wordsPerRow = (tileWidth >> (4 - t.siz)) + 1;
+        const uint32_t textureSize = (rowCount - 1) * bytesPerRow + (wordsPerRow << 3);
+        const uint32_t textureEnd = textureStart + textureSize;
         checkImageOverlap(textureStart, textureEnd);
 
         Framebuffer *framebuffer = state->framebufferManager.findMostRecentContaining(textureStart, textureEnd);
@@ -641,6 +649,37 @@ namespace RT64 {
         else {
             return false;
         }
+    }
+
+    bool RDP::loadTileReplacementCheck(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt, uint8_t imageSiz, uint8_t imageFmt, uint16_t imageLoad, uint16_t imagePal, uint64_t &replacementHash) {
+        assert(tile < RDP_TILES);
+
+        // Ignored by the hardware.
+        if (uls > lrs) {
+            return false;
+        }
+
+        const auto &t = tiles[tile];
+        const uint32_t bytesOffset = (uls >> 2) << texture.siz >> 1;
+        const uint32_t bytesPerRow = texture.width << texture.siz >> 1;
+        const uint32_t textureStart = texture.address + bytesOffset + bytesPerRow * (ult >> 2);
+        const uint32_t rowCount = 1 + ((lrt >> 2) - (ult >> 2));
+        const uint32_t tileWidth = ((lrs >> 2) - (uls >> 2));
+        const uint32_t wordsPerRow = (tileWidth >> (4 - t.siz)) + 1;
+        const uint32_t textureSize = (rowCount - 1) * bytesPerRow + (wordsPerRow << 3);
+
+        // Hash the entire texture's memory along with the parameters that affect its format.
+        XXH3_state_t xxh3;
+        XXH3_64bits_reset(&xxh3);
+        XXH3_64bits_update(&xxh3, &state->RDRAM[textureStart], textureSize);
+        XXH3_64bits_update(&xxh3, &imageSiz, sizeof(imageSiz));
+        XXH3_64bits_update(&xxh3, &imageFmt, sizeof(imageFmt));
+        XXH3_64bits_update(&xxh3, &imageLoad, sizeof(imageLoad));
+        XXH3_64bits_update(&xxh3, &imagePal, sizeof(imagePal));
+        replacementHash = XXH3_64bits_digest(&xxh3);
+
+        // Return whether a replacement exists for this hash or not.
+        return state->ext.textureCache->hasReplacement(replacementHash);
     }
 
     void RDP::loadBlock(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t dxt) {

@@ -69,9 +69,10 @@ namespace RT64 {
             None
         };
 
-        uint64_t TMEM[RDP_TMEM_WORDS];
-        LoadTexture texture;
-        LoadTile tiles[RDP_TILES];
+        uint64_t TMEM[RDP_TMEM_WORDS] = {};
+        LoadTexture texture = {};
+        LoadTile tiles[RDP_TILES] = {};
+        uint64_t tileReplacementHashes[RDP_TILES] = {};
 
         struct {
             uint32_t address = 0;
@@ -155,11 +156,14 @@ namespace RT64 {
         void popCombine();
         void setTile(uint8_t tile, uint8_t fmt, uint8_t siz, uint16_t line, uint16_t tmem, uint8_t palette, uint8_t cmt, uint8_t cms, uint8_t maskt, uint8_t masks, uint8_t shiftt, uint8_t shifts);
         void setTileSize(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
+        void clearTileReplacementHash(uint8_t tile);
+        void setTileReplacementHash(uint8_t tile, uint64_t replacementHash);
         void loadTileOperation(const LoadTile &loadTile, const LoadTexture &loadTexture, bool deferred);
         void loadBlockOperation(const LoadTile &loadTile, const LoadTexture &loadTexture, bool deferred);
         void loadTLUTOperation(const LoadTile &loadTile, const LoadTexture &loadTexture, bool deferred);
         void loadTile(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
         bool loadTileCopyCheck(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
+        bool loadTileReplacementCheck(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt, uint8_t imageSiz, uint8_t imageFmt, uint16_t imageLoad, uint16_t imagePal, uint64_t &replacementHash);
         void loadBlock(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t dxt);
         void loadTLUT(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
         void setEnvColor(uint32_t color);
