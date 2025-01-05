@@ -29,11 +29,13 @@ namespace RT64 {
 
         NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
+        thread_local std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
+
         // Pre-allocate vectors with known size
         const uint32_t totalDescriptors = desc.descriptorRangesCount + (desc.lastRangeIsBoundless ? desc.boundlessRangeSize : 0);
-        descriptorTypes.reserve(totalDescriptors);
         descriptorIndexBases.reserve(totalDescriptors);
-        descriptorRangeBinding.reserve(totalDescriptors);
+        descriptorBindingIndices.reserve(totalDescriptors);
+        setBindings.reserve(desc.descriptorRangesCount);
         argumentDescriptors.reserve(totalDescriptors);
 
         // First pass: Calculate descriptor bases and bindings
@@ -42,7 +44,7 @@ namespace RT64 {
             uint32_t indexBase = uint32_t(descriptorIndexBases.size());
 
             descriptorIndexBases.resize(descriptorIndexBases.size() + range.count, indexBase);
-            descriptorRangeBinding.resize(descriptorRangeBinding.size() + range.count, range.binding);
+            descriptorBindingIndices.resize(descriptorBindingIndices.size() + range.count, range.binding);
         }
 
         // Sort ranges by binding due to how spirv-cross orders them
@@ -51,24 +53,32 @@ namespace RT64 {
             return a.binding < b.binding;
         });
 
-        // Second pass: Create argument descriptors and handle immutable samplers
+        // Second pass: Create argument descriptors and set bindings
         uint32_t rangeCount = desc.lastRangeIsBoundless ? desc.descriptorRangesCount - 1 : desc.descriptorRangesCount;
+
+        auto createBinding = [&](const RenderDescriptorRange &range) {
+            thread_local std::vector<MTL::SamplerState *> staticSamplers(range.count);
+            for (uint32_t j = 0; j < range.count; j++) {
+                const MetalSampler *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
+                staticSamplers[j] = sampler->state;
+            }
+
+            MetalDescriptorSetLayout::DescriptorSetLayoutBinding binding = {
+                    .binding = range.binding,
+                    .descriptorCount = range.count,
+                    .descriptorType = range.type,
+                    .immutableSamplers = staticSamplers
+            };
+            return binding;
+        };
 
         for (uint32_t i = 0; i < rangeCount; i++) {
             const RenderDescriptorRange &range = sortedRanges[i];
 
-            // Add descriptor types
-            descriptorTypes.resize(descriptorTypes.size() + range.count, range.type);
-            entryCount += range.count;
+            descriptorTypeMaxIndex += range.count;
 
-            // Handle immutable samplers
-            if (range.immutableSampler) {
-                for (uint32_t j = 0; j < range.count; j++) {
-                    const auto *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
-                    staticSamplers.push_back(sampler->state);
-                    samplerIndices.push_back(range.binding + j);
-                }
-            }
+            bindingToIndex[range.binding] = setBindings.size();
+            setBindings.push_back(createBinding(range));
 
             // Create argument descriptor
             MTL::ArgumentDescriptor *argumentDesc = MTL::ArgumentDescriptor::alloc()->init();
@@ -87,14 +97,17 @@ namespace RT64 {
 
         // Handle boundless range if present
         if (desc.lastRangeIsBoundless) {
-            const RenderDescriptorRange &lastRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
-            descriptorTypes.push_back(lastRange.type);
-            entryCount += std::max(desc.boundlessRangeSize, 1U);
+            const RenderDescriptorRange &lastRange = sortedRanges[desc.descriptorRangesCount - 1];
+
+            descriptorTypeMaxIndex++;
+
+            bindingToIndex[lastRange.binding] = setBindings.size();
+            setBindings.push_back(createBinding(lastRange));
 
             MTL::ArgumentDescriptor *argumentDesc = MTL::ArgumentDescriptor::alloc()->init();
             argumentDesc->setDataType(metal::mapDataType(lastRange.type));
             argumentDesc->setIndex(lastRange.binding);
-            argumentDesc->setArrayLength(8192); // Fixed upper bound for Metal
+            argumentDesc->setArrayLength(device->capabilities.maxTextureSize);
 
             if (lastRange.type == RenderDescriptorRangeType::TEXTURE) {
                 argumentDesc->setTextureType(MTL::TextureType2D);
@@ -106,30 +119,25 @@ namespace RT64 {
         }
 
         assert(argumentDescriptors.size() > 0);
-        descriptorTypeMaxIndex = descriptorTypes.empty() ? 0 : uint32_t(descriptorTypes.size() - 1);
-        
+
         // Create and initialize argument encoder
         NS::Array* pArray = (NS::Array*)CFArrayCreate(kCFAllocatorDefault, (const void **)argumentDescriptors.data(), argumentDescriptors.size(), &kCFTypeArrayCallBacks);
         argumentEncoder = device->mtl->newArgumentEncoder(pArray);
         
-        // Create the argument buffer once to be reused on updates
-        auto argumentBufferStorageMode = MTL::ResourceStorageModeManaged;
-        
-        if (!descriptorBuffer) {
-            descriptorBuffer = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, argumentBufferStorageMode);
-        }
-
         // Release resources
         pArray->release();
         releasePool->release();
+        for (auto &argumentDesc: argumentDescriptors) {
+            argumentDesc->release();
+        }
     }
 
     MetalDescriptorSetLayout::DescriptorSetLayoutBinding* MetalDescriptorSetLayout::getBinding(uint32_t binding, uint32_t bindingIndexOffset) {
         auto it = bindingToIndex.find(binding);
         if (it != bindingToIndex.end()) {
             uint32_t bindingIndex = it->second + bindingIndexOffset;
-            if (bindingIndex < bindings.size()) {
-                return &bindings[bindingIndex];
+            if (bindingIndex < setBindings.size()) {
+                return &setBindings[bindingIndex];
             }
         }
         
@@ -138,17 +146,6 @@ namespace RT64 {
 
     MetalDescriptorSetLayout::~MetalDescriptorSetLayout() {
         argumentEncoder->release();
-        descriptorBuffer->release();
-
-        // Release argument descriptors
-        for (MTL::ArgumentDescriptor *desc : argumentDescriptors) {
-            desc->release();
-        }
-
-        // Release samplers
-        for (MTL::SamplerState *sampler : staticSamplers) {
-            sampler->release();
-        }
     }
 
     // MetalBuffer
@@ -600,7 +597,7 @@ namespace RT64 {
             assert((desc.descriptorRangesCount > 0) && "There must be at least one descriptor set to define the last range as boundless.");
             
             // Ensure at least one entry is created for boundless ranges.
-            boundlessRangeSize = std::max(desc.boundlessRangeSize, 1U);
+            uint32_t boundlessRangeSize = std::max(desc.boundlessRangeSize, 1U);
 
             const RenderDescriptorRange &lastDescriptorRange = desc.descriptorRanges[desc.descriptorRangesCount - 1];
             typeCounts[lastDescriptorRange.type] += boundlessRangeSize;
@@ -619,9 +616,21 @@ namespace RT64 {
         }
         
         setLayout = new MetalDescriptorSetLayout(device, desc);
-        
-        // Create the descriptor set layout
-        
+
+        auto argumentBufferStorageMode = MTL::ResourceStorageModeManaged;
+
+        argumentBuffer = {
+                .mtl = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, argumentBufferStorageMode),
+                .argumentEncoder = setLayout->argumentEncoder,
+                .offset = 0,
+                .encodedSize = setLayout->argumentEncoder->encodedLength()
+        };
+
+        for (auto &binding: setLayout->setBindings) {
+            for (uint32_t i = 0; i < binding.immutableSamplers.size(); i++) {
+                argumentBuffer.argumentEncoder->setSamplerState(binding.immutableSamplers[i], binding.binding + i);
+            }
+        }
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
@@ -665,8 +674,8 @@ namespace RT64 {
             assert((bufferStructuredView == nullptr) && "Can't use structured views and formatted views at the same time.");
 
             const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
-            TextureDescriptor descriptor = { interfaceBufferFormattedView->texture };
-            setDescriptor(descriptorIndex, descriptor);
+            TextureDescriptor descriptor = { .texture = interfaceBufferFormattedView->texture };
+            setDescriptor(descriptorIndex, &descriptor);
         } else {
             uint32_t offset = 0;
             
@@ -677,8 +686,9 @@ namespace RT64 {
                 offset = bufferStructuredView->firstElement * bufferStructuredView->structureByteStride;
             }
             
-            BufferDescriptor descriptor = { interfaceBuffer->mtl, offset };
-            setDescriptor(descriptorIndex, descriptor);
+            BufferDescriptor descriptor = { .buffer = interfaceBuffer->mtl,
+                                            .offset = offset };
+            setDescriptor(descriptorIndex, &descriptor);
         }
     }
 
@@ -692,12 +702,12 @@ namespace RT64 {
         if (textureView != nullptr) {
             const MetalTextureView *interfaceTextureView = static_cast<const MetalTextureView *>(textureView);
             
-            TextureDescriptor descriptor = { interfaceTextureView->texture };
-            setDescriptor(descriptorIndex, descriptor);
+            TextureDescriptor descriptor = { .texture = interfaceTextureView->texture };
+            setDescriptor(descriptorIndex, &descriptor);
         }
         else {
-            TextureDescriptor descriptor = { interfaceTexture->mtl };
-            setDescriptor(descriptorIndex, descriptor);
+            TextureDescriptor descriptor = { .texture = interfaceTexture->mtl };
+            setDescriptor(descriptorIndex, &descriptor);
         }
     }
 
@@ -707,8 +717,8 @@ namespace RT64 {
         }
         
         const MetalSampler *interfaceSampler = static_cast<const MetalSampler *>(sampler);
-        SamplerDescriptor descriptor = { interfaceSampler->state };
-        setDescriptor(descriptorIndex, descriptor);
+        SamplerDescriptor descriptor = { .state = interfaceSampler->state };
+        setDescriptor(descriptorIndex, &descriptor);
     }
 
     void MetalDescriptorSet::setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) {
@@ -721,13 +731,30 @@ namespace RT64 {
         const uint32_t indexBase = setLayout->descriptorIndexBases[descriptorIndex];
         const uint32_t bindingIndex = setLayout->descriptorBindingIndices[descriptorIndex];
         const auto &setLayoutBinding = setLayout->setBindings[bindingIndex];
-        
+        MTL::DataType dtype = metal::mapDataType(setLayoutBinding.descriptorType);
+
         // TODO: This is where I left off
-        
+        switch (dtype) {
+            case MTL::DataTypeTexture: {
+                const TextureDescriptor *textureDescriptor = static_cast<const TextureDescriptor *>(descriptor);
+                argumentBuffer.argumentEncoder->setTexture(textureDescriptor->texture, descriptorIndex - indexBase + bindingIndex);
+                break;
+            }
+            case MTL::DataTypePointer: {
+                const BufferDescriptor *bufferDescriptor = static_cast<const BufferDescriptor *>(descriptor);
+                argumentBuffer.argumentEncoder->setBuffer(bufferDescriptor->buffer, bufferDescriptor->offset, descriptorIndex - indexBase + bindingIndex);
+                break;
+            }
+            case MTL::DataTypeSampler: {
+                const SamplerDescriptor *samplerDescriptor = static_cast<const SamplerDescriptor *>(descriptor);
+                argumentBuffer.argumentEncoder->setSamplerState(samplerDescriptor->state, descriptorIndex - indexBase + bindingIndex);
+                break;
+            }
+        }
     }
 
     RenderDescriptorRangeType MetalDescriptorSet::getDescriptorType(uint32_t binding) {
-        layout->getBinding(binding)->descriptorType;
+        return setLayout->getBinding(binding)->descriptorType;
     }
 
     // MetalDrawable
