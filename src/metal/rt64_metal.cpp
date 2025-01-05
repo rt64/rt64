@@ -732,16 +732,19 @@ namespace RT64 {
         const uint32_t bindingIndex = setLayout->descriptorBindingIndices[descriptorIndex];
         const auto &setLayoutBinding = setLayout->setBindings[bindingIndex];
         MTL::DataType dtype = metal::mapDataType(setLayoutBinding.descriptorType);
+        MTL::Resource *nativeResource = nullptr;
 
         // TODO: This is where I left off
         switch (dtype) {
             case MTL::DataTypeTexture: {
                 const TextureDescriptor *textureDescriptor = static_cast<const TextureDescriptor *>(descriptor);
-                argumentBuffer.argumentEncoder->setTexture(textureDescriptor->texture, descriptorIndex - indexBase + bindingIndex);
+                nativeResource = textureDescriptor->texture;
+                argumentBuffer.argumentEncoder->setTexture(nativeResource, descriptorIndex - indexBase + bindingIndex);
                 break;
             }
             case MTL::DataTypePointer: {
                 const BufferDescriptor *bufferDescriptor = static_cast<const BufferDescriptor *>(descriptor);
+                nativeResource = bufferDescriptor->buffer;
                 argumentBuffer.argumentEncoder->setBuffer(bufferDescriptor->buffer, bufferDescriptor->offset, descriptorIndex - indexBase + bindingIndex);
                 break;
             }
@@ -750,6 +753,10 @@ namespace RT64 {
                 argumentBuffer.argumentEncoder->setSamplerState(samplerDescriptor->state, descriptorIndex - indexBase + bindingIndex);
                 break;
             }
+        }
+
+        if (nativeResource) {
+            resources.insert(nativeResource);
         }
     }
 
@@ -1927,146 +1934,198 @@ namespace RT64 {
         }
     }
 
-    void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) {
+//    void MetalCommandList::bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) {
+//
+//        // Encode Descriptor set layouts and mark resources
+//        for (uint32_t i = 0; i < layout->setLayoutCount; i++) {
+//            auto* setLayout = layout->setLayoutHandles[i];
+//
+//            // Check if we still have enough space for the current descriptor set
+//            size_t requiredSize = setLayout->argumentEncoder->encodedLength();
+//            if (setLayout->currentArgumentBufferOffset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
+//                setLayout->currentArgumentBufferOffset = 0; // Wrap around
+//            }
+//
+//            // Set the argument buffer offset for the current descriptor set
+//            setLayout->argumentEncoder->setArgumentBuffer(setLayout->descriptorBuffer, setLayout->currentArgumentBufferOffset);
+//
+//            // Bind the static samplers
+//            for (size_t i = 0; i < setLayout->staticSamplers.size(); i++) {
+//                setLayout->argumentEncoder->setSamplerState(setLayout->staticSamplers[i], setLayout->samplerIndices[i]);
+//            }
+//
+//            // Bind items in the descriptor sets
+//            if (descriptorSets.count(i) != 0) {
+//                const auto* descriptorSet = descriptorSets.at(i);
+//                // Mark resources in the argument buffer as resident
+//                for (const auto& pair : descriptorSet->indicesToTextures) {
+//                    uint32_t index = pair.first;
+//                    auto* texture = pair.second;
+//
+//                    if (texture != nullptr) {
+//                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+//                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
+//                        auto usageFlags = metal::mapResourceUsage(descriptorType);
+//
+//                        if (isCompute) {
+//                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture->mtl, usageFlags);
+//                        } else {
+//                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture->mtl, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+//                        }
+//
+//                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+//                        setLayout->argumentEncoder->setTexture(texture->mtl, adjustedIndex);
+//                    }
+//                }
+//
+//                for (const auto& pair : descriptorSet->indicesToTextureViews) {
+//                    uint32_t index = pair.first;
+//                    auto* textureView = pair.second;
+//
+//                    if (textureView != nullptr) {
+//                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+//                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
+//                        auto usageFlags = metal::mapResourceUsage(descriptorType);
+//
+//                        if (isCompute) {
+//                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(textureView->texture, usageFlags);
+//                        } else {
+//                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(textureView->texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+//                        }
+//
+//                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+//                        setLayout->argumentEncoder->setTexture(textureView->texture, adjustedIndex);
+//                    }
+//                }
+//
+//                for (const auto& pair : descriptorSet->indicesToBuffers) {
+//                    uint32_t index = pair.first;
+//                    const auto& binding = pair.second;
+//
+//                    if (binding.buffer != nullptr) {
+//                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+//                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
+//                        auto usageFlags = metal::mapResourceUsage(descriptorType);
+//
+//                        if (isCompute) {
+//                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(binding.buffer->mtl, usageFlags);
+//                        } else {
+//                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(binding.buffer->mtl, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+//                        }
+//
+//                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+//                        setLayout->argumentEncoder->setBuffer(binding.buffer->mtl, binding.offset, adjustedIndex);
+//                    }
+//                }
+//
+//                for (const auto& pair : descriptorSet->indicesToBufferFormattedViews) {
+//                    uint32_t index = pair.first;
+//                    auto* bufferView = pair.second;
+//
+//                    if (bufferView != nullptr) {
+//                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
+//                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
+//                        auto usageFlags = metal::mapResourceUsage(descriptorType);
+//
+//                        if (isCompute) {
+//                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(bufferView->texture, usageFlags);
+//                        } else {
+//                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(bufferView->texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+//                        }
+//                    }
+//
+//                    uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+//                    setLayout->argumentEncoder->setTexture(bufferView->texture, adjustedIndex);
+//                }
+//
+//                for (const auto& pair : descriptorSet->indicesToSamplers) {
+//                    uint32_t index = pair.first;
+//                    auto* sampler = pair.second;
+//                    if (sampler != nullptr) {
+//                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
+//                        setLayout->argumentEncoder->setSamplerState(sampler, adjustedIndex);
+//                    }
+//                }
+//            }
+//
+//            auto offsetOfCurrentlyEncodedData = setLayout->currentArgumentBufferOffset;
+//
+////#if     RT64_MACOS
+////            setLayout->descriptorBuffer->didModifyRange({ offsetOfCurrentlyEncodedData, setLayout->argumentEncoder->encodedLength() });
+////#endif
+//
+//            if (isCompute) {
+//                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
+//            } else {
+//                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
+//
+//                // Only bind to the vertex shader if the slot is not in use.
+//                // If the slot is in use, it was not meant for the vertex shader.
+//                bool slotIsEmpty = true;
+//                for (unsigned int vertexBufferIndex : vertexBufferIndices) {
+//                    if (vertexBufferIndex == i) {
+//                        slotIsEmpty = false;
+//                        break;
+//                    }
+//                }
+//                if (slotIsEmpty) {
+//                    static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
+//                }
+//            }
+//
+//            setLayout->currentArgumentBufferOffset += requiredSize;
+//        }
+//    }
 
-        // Encode Descriptor set layouts and mark resources
+    void MetalCommandList::bindDescriptorSetLayout(const RT64::MetalPipelineLayout *layout, MTL::CommandEncoder *encoder,
+                                                   const std::unordered_map<uint32_t, MetalDescriptorSet *> &descriptorSets,
+                                                   bool isCompute) {
         for (uint32_t i = 0; i < layout->setLayoutCount; i++) {
-            auto* setLayout = layout->setLayoutHandles[i];
-            
-            // Check if we still have enough space for the current descriptor set
-            size_t requiredSize = setLayout->argumentEncoder->encodedLength();
-            if (setLayout->currentArgumentBufferOffset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
-                setLayout->currentArgumentBufferOffset = 0; // Wrap around
-            }
-            
-            // Set the argument buffer offset for the current descriptor set
-            setLayout->argumentEncoder->setArgumentBuffer(setLayout->descriptorBuffer, setLayout->currentArgumentBufferOffset);
-            
-            // Bind the static samplers
-            for (size_t i = 0; i < setLayout->staticSamplers.size(); i++) {
-                setLayout->argumentEncoder->setSamplerState(setLayout->staticSamplers[i], setLayout->samplerIndices[i]);
-            }
-
-            // Bind items in the descriptor sets
             if (descriptorSets.count(i) != 0) {
-                const auto* descriptorSet = descriptorSets.at(i);
-                // Mark resources in the argument buffer as resident
-                for (const auto& pair : descriptorSet->indicesToTextures) {
-                    uint32_t index = pair.first;
-                    auto* texture = pair.second;
+                auto *descriptorSet = descriptorSets.at(i);
+                auto &descriptorBuffer = descriptorSet->argumentBuffer;
 
-                    if (texture != nullptr) {
-                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
-                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
-                        auto usageFlags = metal::mapResourceUsage(descriptorType);
+                size_t requiredSize = descriptorBuffer.encodedSize;
+                if (descriptorBuffer.offset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
+                    descriptorBuffer.offset = 0; // Wrap around
+                }
 
-                        if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(texture->mtl, usageFlags);
-                        } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(texture->mtl, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
-                        }
+                descriptorBuffer.argumentEncoder->setArgumentBuffer(descriptorBuffer.mtl, descriptorBuffer.offset);
 
-                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setTexture(texture->mtl, adjustedIndex);
+                for (auto &resource: descriptorSet->resources) {
+                    if (isCompute) {
+                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource,
+                                                                                       MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
+                    } else {
+                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource,
+                                                                                      MTL::ResourceUsageRead | MTL::ResourceUsageWrite,
+                                                                                      MTL::RenderStageVertex | MTL::RenderStageFragment);
                     }
                 }
 
-                for (const auto& pair : descriptorSet->indicesToTextureViews) {
-                    uint32_t index = pair.first;
-                    auto* textureView = pair.second;
+                auto offsetOfCurrentlyEncodedData = descriptorBuffer.offset;
 
-                    if (textureView != nullptr) {
-                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
-                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
-                        auto usageFlags = metal::mapResourceUsage(descriptorType);
+                if (isCompute) {
+                    static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, offsetOfCurrentlyEncodedData, i);
+                } else {
+                    static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, offsetOfCurrentlyEncodedData, i);
 
-                        if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(textureView->texture, usageFlags);
-                        } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(textureView->texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
-                        }
-
-                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setTexture(textureView->texture, adjustedIndex);
-                    }
-                }
-
-                for (const auto& pair : descriptorSet->indicesToBuffers) {
-                    uint32_t index = pair.first;
-                    const auto& binding = pair.second;
-
-                    if (binding.buffer != nullptr) {
-                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
-                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
-                        auto usageFlags = metal::mapResourceUsage(descriptorType);
-
-                        if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(binding.buffer->mtl, usageFlags);
-                        } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(binding.buffer->mtl, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
-                        }
-
-                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setBuffer(binding.buffer->mtl, binding.offset, adjustedIndex);
-                    }
-                }
-
-                for (const auto& pair : descriptorSet->indicesToBufferFormattedViews) {
-                    uint32_t index = pair.first;
-                    auto* bufferView = pair.second;
-
-                    if (bufferView != nullptr) {
-                        uint32_t descriptorIndexClamped = std::min(index, setLayout->descriptorTypeMaxIndex);
-                        auto descriptorType = setLayout->descriptorTypes[descriptorIndexClamped];
-                        auto usageFlags = metal::mapResourceUsage(descriptorType);
-
-                        if (isCompute) {
-                            static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(bufferView->texture, usageFlags);
-                        } else {
-                            static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(bufferView->texture, usageFlags, MTL::RenderStageVertex | MTL::RenderStageFragment);
+                    // Only bind to the vertex shader if the slot is not in use.
+                    // If the slot is in use, it was not meant for the vertex shader.
+                    bool slotIsEmpty = true;
+                    for (unsigned int vertexBufferIndex : vertexBufferIndices) {
+                        if (vertexBufferIndex == i) {
+                            slotIsEmpty = false;
+                            break;
                         }
                     }
-
-                    uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                    setLayout->argumentEncoder->setTexture(bufferView->texture, adjustedIndex);
-                }
-
-                for (const auto& pair : descriptorSet->indicesToSamplers) {
-                    uint32_t index = pair.first;
-                    auto* sampler = pair.second;
-                    if (sampler != nullptr) {
-                        uint32_t adjustedIndex = index - setLayout->descriptorIndexBases[index] + setLayout->descriptorRangeBinding[index];
-                        setLayout->argumentEncoder->setSamplerState(sampler, adjustedIndex);
+                    if (slotIsEmpty) {
+                        static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(descriptorBuffer.mtl, offsetOfCurrentlyEncodedData, i);
                     }
                 }
+
+                descriptorBuffer.offset += requiredSize;
             }
-            
-            auto offsetOfCurrentlyEncodedData = setLayout->currentArgumentBufferOffset;
-            
-//#if     RT64_MACOS
-//            setLayout->descriptorBuffer->didModifyRange({ offsetOfCurrentlyEncodedData, setLayout->argumentEncoder->encodedLength() });
-//#endif
-
-            if (isCompute) {
-                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
-            } else {
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
-
-                // Only bind to the vertex shader if the slot is not in use.
-                // If the slot is in use, it was not meant for the vertex shader.
-                bool slotIsEmpty = true;
-                for (unsigned int vertexBufferIndex : vertexBufferIndices) {
-                    if (vertexBufferIndex == i) {
-                        slotIsEmpty = false;
-                        break;
-                    }
-                }
-                if (slotIsEmpty) {
-                    static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(setLayout->descriptorBuffer, offsetOfCurrentlyEncodedData, i);
-                }
-            }
-            
-            setLayout->currentArgumentBufferOffset += requiredSize;
         }
     }
 
