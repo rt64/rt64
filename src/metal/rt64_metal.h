@@ -63,15 +63,15 @@ namespace RT64 {
     };
 
     struct MetalArgumentBuffer {
+        MTL::Buffer *mtl;
         MTL::ArgumentEncoder *argumentEncoder;
-        MTL::Buffer *argumentBuffer;
-        uint32_t argumentBufferOffset;
-        uint32_t argumentBufferEncodedSize;
+        uint32_t offset;
+        uint64_t encodedSize;
         
         void setBuffer(MTL::Buffer *buffer, uint32_t offset, uint32_t index);
         void setTexture(MTL::Texture *texture, uint32_t index);
         void setSamplerState(MTL::SamplerState *sampler, uint32_t index);
-    };MetalArgumentBuffer
+    };
 
     struct Descriptor {};
 
@@ -99,22 +99,11 @@ namespace RT64 {
         MetalDevice *device = nullptr;
         std::vector<DescriptorSetLayoutBinding> setBindings;
         std::unordered_map<uint32_t, uint32_t> bindingToIndex;
-        
+        MTL::ArgumentEncoder *argumentEncoder = nullptr;
+
         std::vector<uint32_t> descriptorIndexBases;
         std::vector<uint32_t> descriptorBindingIndices;
-
-//        std::vector<MTL::SamplerState *> staticSamplers;
-//        std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
-//        MTL::ArgumentEncoder *argumentEncoder = nullptr;
-//        MTL::Buffer *descriptorBuffer = nullptr;
-//        std::vector<RenderDescriptorRangeType> descriptorTypes;
-//        std::vector<uint32_t> descriptorToRangeIndex;
-//        std::vector<uint32_t> descriptorIndexBases;
-//        std::vector<uint32_t> descriptorRangeBinding;
-//        std::vector<uint32_t> samplerIndices;
-//        uint32_t currentArgumentBufferOffset = 0;
-//        uint32_t entryCount = 0;
-//        uint32_t descriptorTypeMaxIndex = 0;
+        uint32_t descriptorTypeMaxIndex = 0;
 
         MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         ~MetalDescriptorSetLayout();
@@ -151,17 +140,6 @@ namespace RT64 {
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
-//        std::unordered_map<uint32_t, const MetalTexture *> indicesToTextures;
-//        std::unordered_map<uint32_t, const MetalTextureView *> indicesToTextureViews;
-//        std::unordered_map<uint32_t, MetalBufferBinding> indicesToBuffers;
-//        std::unordered_map<uint32_t, const MetalBufferFormattedView *> indicesToBufferFormattedViews;
-//        std::unordered_map<uint32_t, MTL::SamplerState *> indicesToSamplers;
-//        std::vector<MTL::SamplerState *> staticSamplers;
-//        std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
-//        uint32_t entryCount = 0;
-//        uint32_t descriptorTypeMaxIndex = 0;
-//        std::vector<RenderDescriptorRangeType> descriptorTypes;
-        
         MetalDevice *device = nullptr;
         MetalDescriptorSetLayout *setLayout = nullptr;
         std::vector<Descriptor> descriptors;
@@ -176,7 +154,7 @@ namespace RT64 {
         virtual void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) override;
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
         
-        void setDescriptor(uint32_t descriptorIndex, const MetalBuffer *buffer, const MetalTexture *texture, const MetalTextureView *textureView);
+        void setDescriptor(uint32_t descriptorIndex, const Descriptor *descriptor);
         RenderDescriptorRangeType getDescriptorType(uint32_t binding);
     };
 
