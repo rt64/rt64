@@ -100,6 +100,7 @@ namespace RT64 {
         std::vector<DescriptorSetLayoutBinding> setBindings;
         std::unordered_map<uint32_t, uint32_t> bindingToIndex;
         MTL::ArgumentEncoder *argumentEncoder = nullptr;
+        std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
 
         std::vector<uint32_t> descriptorIndexBases;
         std::vector<uint32_t> descriptorBindingIndices;
