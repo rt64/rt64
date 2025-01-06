@@ -157,6 +157,7 @@ namespace RT64 {
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
         
         void setDescriptor(uint32_t descriptorIndex, const Descriptor *descriptor);
+        void bindImmutableSamplers();
         RenderDescriptorRangeType getDescriptorType(uint32_t binding);
     };
 

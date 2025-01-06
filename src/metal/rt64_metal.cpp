@@ -54,22 +54,21 @@ namespace RT64 {
         // Second pass: Create argument descriptors and set bindings
         uint32_t rangeCount = desc.lastRangeIsBoundless ? desc.descriptorRangesCount - 1 : desc.descriptorRangesCount;
 
-        auto createBinding = [&](const RenderDescriptorRange &range) {
-            thread_local std::vector<MTL::SamplerState *> staticSamplers;
-            if (range.immutableSampler != nullptr) {
-                staticSamplers.resize(range.count);
-                for (uint32_t j = 0; j < range.count; j++) {
-                    const MetalSampler *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
-                    staticSamplers[j] = sampler->state;
-                }
-            }
-
+        auto createBinding = [](const RenderDescriptorRange &range) {
             MetalDescriptorSetLayout::DescriptorSetLayoutBinding binding = {
                     .binding = range.binding,
                     .descriptorCount = range.count,
                     .descriptorType = range.type,
-                    .immutableSamplers = staticSamplers
             };
+
+            if (range.immutableSampler != nullptr) {
+                binding.immutableSamplers.resize(range.count);
+                for (uint32_t j = 0; j < range.count; j++) {
+                    const MetalSampler *sampler = static_cast<const MetalSampler *>(range.immutableSampler[j]);
+                    binding.immutableSamplers[j] = sampler->state;
+                }
+            }
+
             return binding;
         };
 
@@ -625,11 +624,8 @@ namespace RT64 {
                 .encodedSize = setLayout->argumentEncoder->encodedLength()
         };
 
-        for (auto &binding: setLayout->setBindings) {
-            for (uint32_t i = 0; i < binding.immutableSamplers.size(); i++) {
-                argumentBuffer.argumentEncoder->setSamplerState(binding.immutableSamplers[i], binding.binding + i);
-            }
-        }
+        argumentBuffer.argumentEncoder->setArgumentBuffer(argumentBuffer.mtl, argumentBuffer.offset);
+        bindImmutableSamplers();
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
@@ -660,6 +656,14 @@ namespace RT64 {
 //                buffer.buffer->residenceSets.erase(std::make_pair(this, idx_buffer.first));
 //            }
 //        }
+    }
+
+    void MetalDescriptorSet::bindImmutableSamplers() {
+        for (auto &binding: setLayout->setBindings) {
+            for (uint32_t i = 0; i < binding.immutableSamplers.size(); i++) {
+                argumentBuffer.argumentEncoder->setSamplerState(binding.immutableSamplers[i], binding.binding + i);
+            }
+        }
     }
 
     void MetalDescriptorSet::setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
@@ -2096,6 +2100,7 @@ namespace RT64 {
                 }
 
                 descriptorBuffer.argumentEncoder->setArgumentBuffer(descriptorBuffer.mtl, descriptorBuffer.offset);
+                descriptorSet->bindImmutableSamplers();
 
                 for (auto &resource: descriptorSet->resources) {
                     if (isCompute) {
