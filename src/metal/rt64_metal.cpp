@@ -167,7 +167,7 @@ namespace RT64 {
             descriptorSet->resources.erase(mtl);
         }
 
-        mtl->release();
+//        mtl->release();
     }
 
     void* MetalBuffer::map(uint32_t subresource, const RenderRange* readRange) {
@@ -219,7 +219,6 @@ namespace RT64 {
             uint32_t descriptorIndex = residence.second;
             descriptorSet->resources.erase(texture);
         }
-        texture->release();
         buffer->mtl->release();
     }
 
@@ -737,7 +736,7 @@ namespace RT64 {
         
         const uint32_t indexBase = setLayout->descriptorIndexBases[descriptorIndex];
         const uint32_t bindingIndex = setLayout->descriptorBindingIndices[descriptorIndex];
-        const auto &setLayoutBinding = setLayout->setBindings[bindingIndex];
+        const auto &setLayoutBinding = setLayout->setBindings[indexBase];
         MTL::DataType dtype = metal::mapDataType(setLayoutBinding.descriptorType);
         MTL::Resource *nativeResource = nullptr;
 
@@ -762,6 +761,9 @@ namespace RT64 {
                 argumentBuffer.argumentEncoder->setSamplerState(samplerDescriptor->state, descriptorIndex - indexBase + bindingIndex);
                 break;
             }
+
+            default:
+                assert(false && "Unsupported descriptor type.");
         }
 
         if (nativeResource) {
@@ -2094,13 +2096,15 @@ namespace RT64 {
                 auto *descriptorSet = descriptorSets.at(i);
                 auto &descriptorBuffer = descriptorSet->argumentBuffer;
 
-                size_t requiredSize = descriptorBuffer.encodedSize;
-                if (descriptorBuffer.offset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
-                    descriptorBuffer.offset = 0; // Wrap around
-                }
+                descriptorBuffer.mtl->didModifyRange({0, DESCRIPTOR_RING_BUFFER_SIZE});
 
-                descriptorBuffer.argumentEncoder->setArgumentBuffer(descriptorBuffer.mtl, descriptorBuffer.offset);
-                descriptorSet->bindImmutableSamplers();
+//                size_t requiredSize = descriptorBuffer.encodedSize;
+//                if (descriptorBuffer.offset + requiredSize > DESCRIPTOR_RING_BUFFER_SIZE) {
+//                    descriptorBuffer.offset = 0; // Wrap around
+//                }
+
+//                descriptorBuffer.argumentEncoder->setArgumentBuffer(descriptorBuffer.mtl, descriptorBuffer.offset);
+//                descriptorSet->bindImmutableSamplers();
 
                 for (auto &resource: descriptorSet->resources) {
                     if (isCompute) {
@@ -2113,12 +2117,12 @@ namespace RT64 {
                     }
                 }
 
-                auto offsetOfCurrentlyEncodedData = descriptorBuffer.offset;
+//                auto offsetOfCurrentlyEncodedData = descriptorBuffer.offset;
 
                 if (isCompute) {
-                    static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, offsetOfCurrentlyEncodedData, i);
+                    static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, 0, i);
                 } else {
-                    static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, offsetOfCurrentlyEncodedData, i);
+                    static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, 0, i);
 
                     // Only bind to the vertex shader if the slot is not in use.
                     // If the slot is in use, it was not meant for the vertex shader.
@@ -2130,11 +2134,11 @@ namespace RT64 {
                         }
                     }
                     if (slotIsEmpty) {
-                        static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(descriptorBuffer.mtl, offsetOfCurrentlyEncodedData, i);
+                        static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(descriptorBuffer.mtl, 0, i);
                     }
                 }
 
-                descriptorBuffer.offset += requiredSize;
+//                descriptorBuffer.offset += requiredSize;
             }
         }
     }
