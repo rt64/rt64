@@ -161,13 +161,13 @@ namespace RT64 {
     }
 
     MetalBuffer::~MetalBuffer() {
-        for (auto &residence: residenceSets) {
-            auto descriptorSet = residence.first;
-            uint32_t descriptorIndex = residence.second;
-            descriptorSet->resources.erase(mtl);
-        }
+//        for (auto &residence: residenceSets) {
+//            auto descriptorSet = residence.first;
+//            uint32_t descriptorIndex = residence.second;
+//            descriptorSet->resources.erase(mtl);
+//        }
 
-//        mtl->release();
+        mtl->release();
     }
 
     void* MetalBuffer::map(uint32_t subresource, const RenderRange* readRange) {
@@ -214,11 +214,12 @@ namespace RT64 {
     }
 
     MetalBufferFormattedView::~MetalBufferFormattedView() {
-        for (auto &residence: residenceSets) {
-            auto descriptorSet = residence.first;
-            uint32_t descriptorIndex = residence.second;
-            descriptorSet->resources.erase(texture);
-        }
+//        for (auto &residence: residenceSets) {
+//            auto descriptorSet = residence.first;
+//            uint32_t descriptorIndex = residence.second;
+//            descriptorSet->resources.erase(texture);
+//        }
+        texture->release();
         buffer->mtl->release();
     }
 
@@ -257,11 +258,11 @@ namespace RT64 {
     }
 
     MetalTexture::~MetalTexture() {
-        for (auto &residence: residenceSets) {
-            auto descriptorSet = residence.first;
-            uint32_t descriptorIndex = residence.second;
-            descriptorSet->resources.erase(mtl);
-        }
+//        for (auto &residence: residenceSets) {
+//            auto descriptorSet = residence.first;
+//            uint32_t descriptorIndex = residence.second;
+//            descriptorSet->resources.erase(mtl);
+//        }
         mtl->release();
     }
 
@@ -291,11 +292,11 @@ namespace RT64 {
     }
 
     MetalTextureView::~MetalTextureView() {
-        for (auto &residence: residenceSets) {
-            auto descriptorSet = residence.first;
-            uint32_t descriptorIndex = residence.second;
-            descriptorSet->resources.erase(texture);
-        }
+//        for (auto &residence: residenceSets) {
+//            auto descriptorSet = residence.first;
+//            uint32_t descriptorIndex = residence.second;
+//            descriptorSet->resources.erase(texture);
+//        }
 
         texture->release();
         backingTexture->mtl->release();
@@ -739,6 +740,7 @@ namespace RT64 {
         const auto &setLayoutBinding = setLayout->setBindings[indexBase];
         MTL::DataType dtype = metal::mapDataType(setLayoutBinding.descriptorType);
         MTL::Resource *nativeResource = nullptr;
+        auto descriptorType = getDescriptorType(bindingIndex);
 
         // TODO: This is where I left off
         switch (dtype) {
@@ -767,7 +769,8 @@ namespace RT64 {
         }
 
         if (nativeResource) {
-            resources.insert(nativeResource);
+            nativeResource->retain();
+            resources.insert(std::make_pair(nativeResource, descriptorType));
         }
     }
 
@@ -2108,12 +2111,9 @@ namespace RT64 {
 
                 for (auto &resource: descriptorSet->resources) {
                     if (isCompute) {
-                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource,
-                                                                                       MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
+                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second));
                     } else {
-                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource,
-                                                                                      MTL::ResourceUsageRead | MTL::ResourceUsageWrite,
-                                                                                      MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second), MTL::RenderStageVertex | MTL::RenderStageFragment);
                     }
                 }
 
