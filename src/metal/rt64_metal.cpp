@@ -245,6 +245,16 @@ namespace RT64 {
         descriptor->setSampleCount(desc.multisampling.sampleCount);
 
         MTL::TextureUsage usage = metal::mapTextureUsage(desc.flags);
+        // Add shader write usage if this texture might be used as a resolve target
+        if (desc.multisampling.sampleCount == 1) {  // Non-MSAA textures could be resolve targets
+            usage |= MTL::TextureUsageShaderWrite;
+        }
+
+        // Add shader read usage if this texture might be used as a resolve source
+        if (desc.multisampling.sampleCount > 1) { // MSAA textures could be resolve sources
+            usage |= MTL::TextureUsageShaderRead;
+        }
+            
         descriptor->setUsage(usage);
 
         if (pool != nullptr) {
@@ -999,7 +1009,10 @@ namespace RT64 {
         sampleCount = metalTexture->desc.multisampling.sampleCount;
         if (metalTexture->desc.multisampling.sampleCount > 1) {
             for (uint32_t i = 0; i < metalTexture->desc.multisampling.sampleCount; i++) {
-                samplePositions[i] = { (float)metalTexture->desc.multisampling.sampleLocations[i].x, (float)metalTexture->desc.multisampling.sampleLocations[i].y };
+                // Normalize from [-8, 7] to [0,1) range
+                float normalizedX = metalTexture->desc.multisampling.sampleLocations[i].x / 16.0f + 0.5f;
+                float normalizedY = metalTexture->desc.multisampling.sampleLocations[i].y / 16.0f + 0.5f;
+                samplePositions[i] = { normalizedX, normalizedY };
             }
         }
         
@@ -1668,12 +1681,28 @@ namespace RT64 {
     void MetalCommandList::resolveTextureRegion(const RT64::RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RT64::RenderTexture *srcTexture, const RT64::RenderRect *srcRect) {
         assert(dstTexture != nullptr);
         assert(srcTexture != nullptr);
+        
+        const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
+        const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
+        
+        // Check if we can use full texture resolve
+        bool canUseFullResolve =
+        (dst->desc.width == src->desc.width) &&
+        (dst->desc.height == src->desc.height) &&
+        (dstX == 0) && (dstY == 0) &&
+        (srcRect == nullptr ||
+         (srcRect->left == 0 &&
+          srcRect->top == 0 &&
+          srcRect->right == src->desc.width &&
+          srcRect->bottom == src->desc.height));
+        
+        if (canUseFullResolve) {
+            resolveTexture(dstTexture, srcTexture);
+            return;
+        }
 
         endOtherEncoders(EncoderType::Resolve);
         checkActiveResolveTextureComputeEncoder();
-
-        const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
-        const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
 
         // Calculate source region
         uint32_t srcX = 0;
