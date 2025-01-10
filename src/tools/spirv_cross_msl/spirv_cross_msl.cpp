@@ -75,6 +75,7 @@ int main(int argc, char* argv[]) {
         msl_options.msl_version = spirv_cross::CompilerMSL::Options::make_msl_version(2, 1);
         msl_options.argument_buffers = true;
         msl_options.texture_buffer_native = true;
+        msl_options.enable_decoration_binding = true;
         msl.set_msl_options(msl_options);
 
         spirv_cross::MSLResourceBinding msl_binding_vert;
