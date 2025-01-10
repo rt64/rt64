@@ -769,8 +769,7 @@ namespace RT64 {
         }
 
         if (nativeResource) {
-            nativeResource->retain();
-            resources.insert(std::make_pair(nativeResource, descriptorType));
+            resources[descriptorIndex] = std::make_pair(NS::RetainPtr(nativeResource), descriptorType);
         }
     }
 
@@ -2109,11 +2108,11 @@ namespace RT64 {
 //                descriptorBuffer.argumentEncoder->setArgumentBuffer(descriptorBuffer.mtl, descriptorBuffer.offset);
 //                descriptorSet->bindImmutableSamplers();
 
-                for (auto &resource: descriptorSet->resources) {
+                for (const auto& [descriptorIndex, resource] : descriptorSet->resources) {
                     if (isCompute) {
-                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second));
+                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource.first.get(), metal::mapResourceUsage(resource.second));
                     } else {
-                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second), MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource.first.get(), metal::mapResourceUsage(resource.second), MTL::RenderStageVertex | MTL::RenderStageFragment);
                     }
                 }
 

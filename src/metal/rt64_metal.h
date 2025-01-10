@@ -146,7 +146,8 @@ namespace RT64 {
         std::vector<Descriptor> descriptors;
         
         MetalArgumentBuffer argumentBuffer;
-        std::set<std::pair<MTL::Resource *, RenderDescriptorRangeType>> resources;
+        
+        std::unordered_map<uint32_t, std::pair<NS::SharedPtr<MTL::Resource>, RenderDescriptorRangeType>> resources;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
