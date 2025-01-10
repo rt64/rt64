@@ -442,7 +442,7 @@ namespace RT64 {
         MetalPool *pool = nullptr;
         uint32_t arrayCount = 1;
         MTL::Drawable *drawable = nullptr;
-        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
+        MetalDevice *device = nullptr;
 
         MetalTexture() = default;
         MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
@@ -546,6 +546,8 @@ namespace RT64 {
         MetalInterface *renderInterface = nullptr;
         RenderDeviceCapabilities capabilities;
         RenderDeviceDescription description;
+
+        std::unordered_set<MTL::Resource *> evictionCache;
 
         explicit MetalDevice(MetalInterface *renderInterface);
         ~MetalDevice() override;
