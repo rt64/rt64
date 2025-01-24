@@ -96,15 +96,6 @@ float4 sampleTMEMI16(uint pixelValue0, uint pixelValue1) {
     return float4(intensity / 255.0f, alpha / 255.0f, intensity / 255.0f, alpha / 255.0f);
 }
 
-float4 sampleTMEMCI16(uint paletteValue, uint tlut) {
-    switch (tlut) {
-    case G_TT_RGBA16:
-    case G_TT_IA16:
-    default:
-        return float4(0.0f, 0.0f, 0.0f, 1.0f);
-    }
-}
-
 float4 sampleTMEM16b(uint pixelValue0, uint pixelValue1, uint fmt) {
     uint pixelValue16bit = pixelValue1 | (pixelValue0 << 8);
     switch (fmt) {
@@ -139,15 +130,6 @@ float4 sampleTMEMI32(bool oddColumn, uint pixelValue0, uint pixelValue1, uint pi
     return select(oddColumn,
         float4(r / 255.0f, g / 255.0f, r / 255.0f, g / 255.0f),
         float4(b / 255.0f, a / 255.0f, b / 255.0f, a / 255.0f));
-}
-
-float4 sampleTMEMCI32(uint paletteValue, uint tlut) {
-    switch (tlut) {
-    case G_TT_RGBA16:
-    case G_TT_IA16:
-    default:
-        return float4(0.0f, 0.0f, 0.0f, 1.0f);
-    }
 }
 
 float4 sampleTMEM32b(bool oddColumn, uint pixelValue0, uint pixelValue1, uint pixelValue2, uint pixelValue3, uint fmt) {
@@ -195,22 +177,11 @@ float4 sampleTMEM(int2 texelInt, uint siz, uint fmt, uint address, uint stride, 
             RDP_TMEM_PALETTE + (palette << 7) + ((pixelValue4bit) << 3),
             RDP_TMEM_PALETTE + (pixelValue0 << 3));
         const uint paletteValue = loadTLUT(paletteAddress + 1) | (loadTLUT(paletteAddress) << 8);
-
-        switch (siz) {
-        case G_IM_SIZ_4b:
-        case G_IM_SIZ_8b:
-            switch (tlut) {
-            case G_TT_RGBA16:
-                return RGBA16ToFloat4(paletteValue);
-            case G_TT_IA16:
-                return IA16ToFloat4(paletteValue);
-            default:
-                return float4(0.0f, 0.0f, 0.0f, 1.0f);
-            }
-        case G_IM_SIZ_16b:
-            return sampleTMEMCI16(paletteValue, tlut);
-        case G_IM_SIZ_32b:
-            return sampleTMEMCI32(paletteValue, tlut);
+        switch (tlut) {
+        case G_TT_RGBA16:
+            return RGBA16ToFloat4(paletteValue);
+        case G_TT_IA16:
+            return IA16ToFloat4(paletteValue);
         default:
             return float4(0.0f, 0.0f, 0.0f, 1.0f);
         }
