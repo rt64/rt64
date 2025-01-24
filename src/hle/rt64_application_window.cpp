@@ -112,7 +112,11 @@ namespace RT64 {
 #   endif
 
         // Create window.
-        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, SDL_WINDOW_RESIZABLE);
+        uint32_t flags = SDL_WINDOW_RESIZABLE;
+        #if defined(RT64_SDL_WINDOW_VULKAN)
+        flags |= SDL_WINDOW_VULKAN;
+        #endif
+        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, flags);
         assert((sdlWindow != nullptr) && "Failed to open window with SDL");
 
         // Get native window handles from the window.
