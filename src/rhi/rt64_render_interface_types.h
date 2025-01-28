@@ -22,6 +22,7 @@
 #undef LockMask
 #undef ControlMask
 #undef Success
+#undef Always
 #elif defined(__APPLE__)
 typedef struct _NSWindow NSWindow;
 #endif
