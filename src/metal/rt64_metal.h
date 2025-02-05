@@ -454,7 +454,6 @@ namespace RT64 {
     };
 
     struct MetalTextureView : RenderTextureView {
-        MetalTexture *backingTexture = nullptr;
         MTL::Texture *texture = nullptr;
 
         MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc);

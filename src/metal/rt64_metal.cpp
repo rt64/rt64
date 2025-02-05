@@ -271,7 +271,6 @@ namespace RT64 {
     MetalTextureView::MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc) {
         assert(texture != nullptr);
         assert(texture->desc.dimension == desc.dimension && "Creating a view with a different dimension is currently not supported.");
-        this->backingTexture = texture;
 
         this->texture = texture->mtl->newTextureView(
             metal::mapPixelFormat(desc.format),
