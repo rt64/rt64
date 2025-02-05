@@ -161,12 +161,6 @@ namespace RT64 {
     }
 
     MetalBuffer::~MetalBuffer() {
-//        for (auto &residence: residenceSets) {
-//            auto descriptorSet = residence.first;
-//            uint32_t descriptorIndex = residence.second;
-//            descriptorSet->resources.erase(mtl);
-//        }
-
         mtl->release();
     }
 
@@ -209,18 +203,11 @@ namespace RT64 {
         auto descriptor = MTL::TextureDescriptor::textureBufferDescriptor(pixelFormat, width, options, usage);
         this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
 
-        this->buffer->mtl->retain();
         descriptor->release();
     }
 
     MetalBufferFormattedView::~MetalBufferFormattedView() {
-//        for (auto &residence: residenceSets) {
-//            auto descriptorSet = residence.first;
-//            uint32_t descriptorIndex = residence.second;
-//            descriptorSet->resources.erase(texture);
-//        }
         texture->release();
-        buffer->mtl->release();
     }
 
     // MetalTexture
@@ -268,11 +255,6 @@ namespace RT64 {
     }
 
     MetalTexture::~MetalTexture() {
-//        for (auto &residence: residenceSets) {
-//            auto descriptorSet = residence.first;
-//            uint32_t descriptorIndex = residence.second;
-//            descriptorSet->resources.erase(mtl);
-//        }
         mtl->release();
     }
 
@@ -290,8 +272,7 @@ namespace RT64 {
         assert(texture != nullptr);
         assert(texture->desc.dimension == desc.dimension && "Creating a view with a different dimension is currently not supported.");
         this->backingTexture = texture;
-        this->backingTexture->mtl->retain();
-        
+
         this->texture = texture->mtl->newTextureView(
             metal::mapPixelFormat(desc.format),
             texture->mtl->textureType(),
@@ -302,14 +283,7 @@ namespace RT64 {
     }
 
     MetalTextureView::~MetalTextureView() {
-//        for (auto &residence: residenceSets) {
-//            auto descriptorSet = residence.first;
-//            uint32_t descriptorIndex = residence.second;
-//            descriptorSet->resources.erase(texture);
-//        }
-
         texture->release();
-        backingTexture->mtl->release();
     }
 
     // MetalAccelerationStructure
@@ -639,33 +613,9 @@ namespace RT64 {
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
-//        for (auto &idx_texture: indicesToTextures) {
-//            const MetalTexture *texture = idx_texture.second;
-//            if (texture) {
-//                texture->residenceSets.erase(std::make_pair(this, idx_texture.first));
-//            }
-//        }
-//
-//        for (auto &idx_textureView: indicesToTextureViews) {
-//            const MetalTextureView *textureView = idx_textureView.second;
-//            if (textureView) {
-//                textureView->residenceSets.erase(std::make_pair(this, idx_textureView.first));
-//            }
-//        }
-//
-//        for (auto &idx_bufferFormattedView: indicesToBufferFormattedViews) {
-//            const MetalBufferFormattedView *bufferFormattedView = idx_bufferFormattedView.second;
-//            if (bufferFormattedView) {
-//                bufferFormattedView->residenceSets.erase(std::make_pair(this, idx_bufferFormattedView.first));
-//            }
-//        }
-//
-//        for (auto &idx_buffer: indicesToBuffers) {
-//            const MetalBufferBinding &buffer = idx_buffer.second;
-//            if (buffer.buffer) {
-//                buffer.buffer->residenceSets.erase(std::make_pair(this, idx_buffer.first));
-//            }
-//        }
+        for (auto &resource: resources) {
+            resource.second.first->release();
+        }
     }
 
     void MetalDescriptorSet::bindImmutableSamplers() {
@@ -689,7 +639,6 @@ namespace RT64 {
             const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
             TextureDescriptor descriptor = { .texture = interfaceBufferFormattedView->texture };
             setDescriptor(descriptorIndex, &descriptor);
-            interfaceBufferFormattedView->residenceSets.insert(std::make_pair(this, descriptorIndex));
         } else {
             uint32_t offset = 0;
             
@@ -703,7 +652,6 @@ namespace RT64 {
             BufferDescriptor descriptor = { .buffer = interfaceBuffer->mtl,
                                             .offset = offset };
             setDescriptor(descriptorIndex, &descriptor);
-            interfaceBuffer->residenceSets.insert(std::make_pair(this, descriptorIndex));
         }
     }
 
@@ -719,12 +667,10 @@ namespace RT64 {
             
             TextureDescriptor descriptor = { .texture = interfaceTextureView->texture };
             setDescriptor(descriptorIndex, &descriptor);
-            interfaceTextureView->residenceSets.insert(std::make_pair(this, descriptorIndex));
         }
         else {
             TextureDescriptor descriptor = { .texture = interfaceTexture->mtl };
             setDescriptor(descriptorIndex, &descriptor);
-            interfaceTexture->residenceSets.insert(std::make_pair(this, descriptorIndex));
         }
     }
 
@@ -752,6 +698,14 @@ namespace RT64 {
         MTL::Resource *nativeResource = nullptr;
         auto descriptorType = getDescriptorType(bindingIndex);
 
+        if (dtype != MTL::DataTypeSampler) {
+            if (resources.find(descriptorIndex) != resources.end()) {
+                auto &resource = resources[descriptorIndex];
+                resource.first->release();
+                resources.erase(descriptorIndex);
+            }
+        }
+
         // TODO: This is where I left off
         switch (dtype) {
             case MTL::DataTypeTexture: {
@@ -759,6 +713,7 @@ namespace RT64 {
                 nativeResource = textureDescriptor->texture;
                 const auto nativeTexture = static_cast<MTL::Texture *>(nativeResource);
                 argumentBuffer.argumentEncoder->setTexture(nativeTexture, descriptorIndex - indexBase + bindingIndex);
+                nativeTexture->retain();
                 break;
             }
             case MTL::DataTypePointer: {
@@ -766,6 +721,7 @@ namespace RT64 {
                 nativeResource = bufferDescriptor->buffer;
                 const auto nativeBuffer = static_cast<MTL::Buffer *>(nativeResource);
                 argumentBuffer.argumentEncoder->setBuffer(nativeBuffer, bufferDescriptor->offset, descriptorIndex - indexBase + bindingIndex);
+                nativeBuffer->retain();
                 break;
             }
             case MTL::DataTypeSampler: {
@@ -779,7 +735,7 @@ namespace RT64 {
         }
 
         if (nativeResource) {
-            resources[descriptorIndex] = std::make_pair(NS::RetainPtr(nativeResource), descriptorType);
+            resources[descriptorIndex] = std::make_pair(nativeResource, descriptorType);
         }
     }
 
@@ -1988,9 +1944,9 @@ namespace RT64 {
 
                 for (const auto& [descriptorIndex, resource] : descriptorSet->resources) {
                     if (isCompute) {
-                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource.first.get(), metal::mapResourceUsage(resource.second));
+                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second));
                     } else {
-                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource.first.get(), metal::mapResourceUsage(resource.second), MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second), MTL::RenderStageVertex | MTL::RenderStageFragment);
                     }
                 }
 

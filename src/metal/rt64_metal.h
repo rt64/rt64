@@ -144,10 +144,10 @@ namespace RT64 {
         MetalDevice *device = nullptr;
         MetalDescriptorSetLayout *setLayout = nullptr;
         std::vector<Descriptor> descriptors;
-        
+
         MetalArgumentBuffer argumentBuffer;
         
-        std::unordered_map<uint32_t, std::pair<NS::SharedPtr<MTL::Resource>, RenderDescriptorRangeType>> resources;
+        std::unordered_map<uint32_t, std::pair<MTL::Resource*, RenderDescriptorRangeType>> resources;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);
@@ -403,7 +403,6 @@ namespace RT64 {
         MetalPool *pool = nullptr;
         MetalDevice *device = nullptr;
         RenderBufferDesc desc;
-        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalBuffer() = default;
         MetalBuffer(MetalDevice *device, MetalPool *pool, const RenderBufferDesc &desc);
@@ -417,7 +416,6 @@ namespace RT64 {
     struct MetalBufferFormattedView : RenderBufferFormattedView {
         MetalBuffer *buffer = nullptr;
         MTL::Texture *texture = nullptr;
-        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalBufferFormattedView(MetalBuffer *buffer, RenderFormat format);
         ~MetalBufferFormattedView() override;
@@ -443,7 +441,6 @@ namespace RT64 {
         MetalPool *pool = nullptr;
         uint32_t arrayCount = 1;
         MTL::Drawable *drawable = nullptr;
-        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalTexture() = default;
         MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
@@ -459,7 +456,6 @@ namespace RT64 {
     struct MetalTextureView : RenderTextureView {
         MetalTexture *backingTexture = nullptr;
         MTL::Texture *texture = nullptr;
-        mutable std::set<std::pair<MetalDescriptorSet *, uint32_t>> residenceSets;
 
         MetalTextureView(MetalTexture *texture, const RenderTextureViewDesc &desc);
         ~MetalTextureView() override;
