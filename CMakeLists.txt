@@ -80,7 +80,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     else()
         add_compile_options(-Wall -Wextra)
     endif()
-    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers -Wno-error=misleading-indentation)
+    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers -Wno-error=misleading-indentation -Wno-error=deprecated-declarations)
     add_compile_options(-Werror)
 endif()
 
