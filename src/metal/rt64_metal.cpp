@@ -1648,8 +1648,8 @@ namespace RT64 {
         (srcRect == nullptr ||
          (srcRect->left == 0 &&
           srcRect->top == 0 &&
-          srcRect->right == src->desc.width &&
-          srcRect->bottom == src->desc.height));
+          static_cast<uint32_t>(srcRect->right) == src->desc.width &&
+          static_cast<uint32_t>(srcRect->bottom) == src->desc.height));
         
         if (canUseFullResolve) {
             resolveTexture(dstTexture, srcTexture);
@@ -2046,7 +2046,7 @@ namespace RT64 {
         interfaceCommandList->mtl->enqueue();
 
         if (signalFence != nullptr) {
-            interfaceCommandList->mtl->addCompletedHandler([signalFence, signalSemaphoreCount, signalSemaphores, this](MTL::CommandBuffer* cmdBuffer) {
+            interfaceCommandList->mtl->addCompletedHandler([signalFence](MTL::CommandBuffer* cmdBuffer) {
                 dispatch_semaphore_signal(static_cast<MetalCommandFence *>(signalFence)->semaphore);
             });
         }
@@ -2215,11 +2215,13 @@ namespace RT64 {
     bool MetalDevice::beginCapture() {
         auto manager = MTL::CaptureManager::sharedCaptureManager();
         manager->startCapture(mtl);
+        return true;
     }
 
     bool MetalDevice::endCapture() {
         auto manager = MTL::CaptureManager::sharedCaptureManager();
         manager->stopCapture();
+        return true;
     }
 
     // MetalInterface
