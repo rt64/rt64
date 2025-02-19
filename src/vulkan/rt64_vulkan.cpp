@@ -3,7 +3,7 @@
 //
 
 #define VMA_IMPLEMENTATION
-#define VOLK_IMPLEMENTATION 
+#define VOLK_IMPLEMENTATION
 
 #include "rt64_vulkan.h"
 
@@ -63,7 +63,7 @@ namespace RT64 {
     static const std::unordered_set<std::string> OptionalInstanceExtensions = {
         // No optional instance extensions yet.
     };
-    
+
     static const std::unordered_set<std::string> RequiredDeviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
@@ -75,7 +75,7 @@ namespace RT64 {
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #   endif
     };
-    
+
     static const std::unordered_set<std::string> OptionalDeviceExtensions = {
         VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
         VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
@@ -556,7 +556,7 @@ namespace RT64 {
             return VK_ACCELERATION_STRUCTURE_TYPE_MAX_ENUM_KHR;
         }
     }
-    
+
     static VkPipelineStageFlags toStageFlags(RenderBarrierStages stages, bool rtSupported) {
         VkPipelineStageFlags flags = 0;
 
@@ -644,7 +644,7 @@ namespace RT64 {
         flags |= preferFastTrace ? VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR : 0;
         return flags;
     }
-    
+
     static VkImageLayout toImageLayout(RenderTextureLayout layout) {
         switch (layout) {
         case RenderTextureLayout::UNKNOWN:
@@ -941,7 +941,7 @@ namespace RT64 {
             vmaDestroyImage(device->allocator, vk, allocation);
         }
     }
-    
+
     void VulkanTexture::createImageView(VkFormat format) {
         VkImageView view = VK_NULL_HANDLE;
         VkImageViewCreateInfo viewInfo = {};
@@ -954,7 +954,7 @@ namespace RT64 {
         viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
         viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
         viewInfo.subresourceRange = imageSubresourceRange;
-        
+
         VkResult res = vkCreateImageView(device->vk, &viewInfo, nullptr, &imageView);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateImageView failed with error code 0x%X.\n", res);
@@ -969,7 +969,7 @@ namespace RT64 {
     void VulkanTexture::setName(const std::string &name) {
         setObjectName(device->vk, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, uint64_t(vk), name);
     }
-    
+
     void VulkanTexture::fillSubresourceRange() {
         imageSubresourceRange.aspectMask = (desc.flags & RenderTextureFlag::DEPTH_TARGET) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
         imageSubresourceRange.baseMipLevel = 0;
@@ -1064,7 +1064,7 @@ namespace RT64 {
                 }
             }
         }
-        
+
         // Create bindings.
         uint32_t immutableSamplerIndex = 0;
         for (uint32_t i = 0; i < descriptorSetDesc.descriptorRangesCount; i++) {
@@ -1093,7 +1093,7 @@ namespace RT64 {
         setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         setLayoutInfo.pBindings = !setBindings.empty() ? setBindings.data() : nullptr;
         setLayoutInfo.bindingCount = uint32_t(setBindings.size());
-        
+
         thread_local std::vector<VkDescriptorBindingFlags> bindingFlags;
         VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo = {};
         if (descriptorSetDesc.lastRangeIsBoundless && (descriptorSetDesc.descriptorRangesCount > 0)) {
@@ -1106,7 +1106,7 @@ namespace RT64 {
             flagsInfo.bindingCount = uint32_t(bindingFlags.size());
             setLayoutInfo.pNext = &flagsInfo;
         }
-        
+
         VkResult res = vkCreateDescriptorSetLayout(device->vk, &setLayoutInfo, nullptr, &vk);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateDescriptorSetLayout failed with error code 0x%X.\n", res);
@@ -1456,7 +1456,7 @@ namespace RT64 {
         colorBlend.logicOp = toVk(desc.logicOp);
         colorBlend.pAttachments = !colorBlendAttachments.empty() ? colorBlendAttachments.data() : nullptr;
         colorBlend.attachmentCount = uint32_t(colorBlendAttachments.size());
-        
+
         VkPipelineDepthStencilStateCreateInfo depthStencil = {};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depthStencil.depthTestEnable = desc.depthEnabled;
@@ -1509,7 +1509,7 @@ namespace RT64 {
             return;
         }
     }
-    
+
     VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
         if (vk != VK_NULL_HANDLE) {
             vkDestroyPipeline(device->vk, vk, nullptr);
@@ -1713,7 +1713,7 @@ namespace RT64 {
 
         groupCount = pipelineInfo.groupCount;
     }
-    
+
     VulkanRaytracingPipeline::~VulkanRaytracingPipeline() {
         if (vk != VK_NULL_HANDLE) {
             vkDestroyPipeline(device->vk, vk, nullptr);
@@ -1735,7 +1735,7 @@ namespace RT64 {
 
         thread_local std::unordered_map<VkDescriptorType, uint32_t> typeCounts;
         typeCounts.clear();
-        
+
         uint32_t boundlessRangeSize = 0;
         uint32_t rangeCount = desc.descriptorRangesCount;
         if (desc.lastRangeIsBoundless) {
@@ -1789,7 +1789,7 @@ namespace RT64 {
 
         delete setLayout;
     }
-    
+
     void VulkanDescriptorSet::setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
         if (buffer == nullptr) {
             return;
@@ -2122,7 +2122,7 @@ namespace RT64 {
             presentId.swapchainCount = 1;
             presentInfo.pNext = &presentId;
         }
-        
+
         VkResult res;
         {
             const std::scoped_lock queueLock(*commandQueue->queue->mutex);
@@ -2335,7 +2335,7 @@ namespace RT64 {
     }
 
     // VulkanFramebuffer
-    
+
     VulkanFramebuffer::VulkanFramebuffer(VulkanDevice *device, const RenderFramebufferDesc &desc) {
         assert(device != nullptr);
 
@@ -2424,7 +2424,7 @@ namespace RT64 {
             fprintf(stderr, "vkCreateRenderPass failed with error code 0x%X.\n", res);
             return;
         }
-        
+
         VkFramebufferCreateInfo fbInfo = {};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fbInfo.renderPass = renderPass;
@@ -2597,7 +2597,7 @@ namespace RT64 {
             interfaceTexture->textureLayout = textureBarrier.layout;
             interfaceTexture->barrierStages = stages;
         }
-        
+
         if (bufferMemoryBarriers.empty() && imageMemoryBarriers.empty()) {
             return;
         }
@@ -2647,7 +2647,7 @@ namespace RT64 {
 
         vkCmdDraw(vk, vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
     }
-    
+
     void VulkanCommandList::drawIndexedInstanced(uint32_t indexCountPerInstance, uint32_t instanceCount, uint32_t startIndexLocation, int32_t baseVertexLocation, uint32_t startInstanceLocation) {
         checkActiveRenderPass();
 
@@ -2689,7 +2689,7 @@ namespace RT64 {
     void VulkanCommandList::setComputePushConstants(uint32_t rangeIndex, const void *data) {
         assert(activeComputePipelineLayout != nullptr);
         assert(rangeIndex < activeComputePipelineLayout->pushConstantRanges.size());
-        
+
         const VkPushConstantRange &range = activeComputePipelineLayout->pushConstantRanges[rangeIndex];
         vkCmdPushConstants(vk, activeComputePipelineLayout->vk, range.stageFlags & VK_SHADER_STAGE_COMPUTE_BIT, range.offset, range.size, data);
     }
@@ -2968,7 +2968,7 @@ namespace RT64 {
         assert(srcBuffer != nullptr);
 
         endActiveRenderPass();
-        
+
         const VulkanBuffer *interfaceDstBuffer = static_cast<const VulkanBuffer *>(dstBuffer);
         const VulkanBuffer *interfaceSrcBuffer = static_cast<const VulkanBuffer *>(srcBuffer);
         VkBufferCopy bufferCopy = {};
@@ -3064,7 +3064,7 @@ namespace RT64 {
 
         vkCmdResolveImage(vk, src->vk, srcLayout, dst->vk, dstLayout, uint32_t(imageResolves.size()), imageResolves.data());
     }
-    
+
     void VulkanCommandList::buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) {
         assert(dstAccelerationStructure != nullptr);
         assert(scratchBuffer.ref != nullptr);
@@ -3154,7 +3154,7 @@ namespace RT64 {
 
     void VulkanCommandList::checkActiveRenderPass() {
         assert(targetFramebuffer != nullptr);
-        
+
         if (activeRenderPass == VK_NULL_HANDLE) {
             VkRenderPassBeginInfo beginInfo = {};
             beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -3315,7 +3315,7 @@ namespace RT64 {
             return;
         }
     }
-    
+
     void VulkanCommandQueue::waitForCommandFence(RenderCommandFence *fence) {
         assert(fence != nullptr);
 
@@ -3385,7 +3385,7 @@ namespace RT64 {
     std::unique_ptr<RenderTexture> VulkanPool::createTexture(const RenderTextureDesc &desc) {
         return std::make_unique<VulkanTexture>(device, this, desc);
     }
-    
+
     // VulkanQueueFamily
 
     void VulkanQueueFamily::add(VulkanCommandQueue *virtualQueue) {
@@ -3418,7 +3418,7 @@ namespace RT64 {
     }
 
     // VulkanDevice
-    
+
     VulkanDevice::VulkanDevice(VulkanInterface *renderInterface) {
         assert(renderInterface != nullptr);
 
@@ -3430,7 +3430,7 @@ namespace RT64 {
             fprintf(stderr, "Unable to find devices that support Vulkan.\n");
             return;
         }
-        
+
         std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
         vkEnumeratePhysicalDevices(renderInterface->instance, &deviceCount, physicalDevices.data());
 
@@ -3494,7 +3494,7 @@ namespace RT64 {
             }
 #       endif
         }
-        
+
         if (!missingRequiredExtensions.empty()) {
             for (const std::string &extension : missingRequiredExtensions) {
                 fprintf(stderr, "Missing required extension: %s.\n", extension.c_str());
@@ -3564,7 +3564,7 @@ namespace RT64 {
             accelerationStructureFeatures.accelerationStructure = true;
             createDeviceChain = &accelerationStructureFeatures;
         }
-        
+
         const bool sampleLocationsSupported = supportedOptionalExtensions.find(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME) != supportedOptionalExtensions.end();
         if (sampleLocationsSupported) {
             sampleLocationProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT;
@@ -3937,7 +3937,7 @@ namespace RT64 {
         buildInfo.scratchSize = roundUp(buildSizesInfo.buildScratchSize, AccelerationStructureBufferAlignment);
         buildInfo.accelerationStructureSize = roundUp(buildSizesInfo.accelerationStructureSize, AccelerationStructureBufferAlignment);
     }
-    
+
     void VulkanDevice::setShaderBindingTableInfo(RenderShaderBindingTableInfo &tableInfo, const RenderShaderBindingGroups &groups, const RenderPipeline *pipeline, RenderDescriptorSet **descriptorSets, uint32_t descriptorSetCount) {
         assert(pipeline != nullptr);
         assert((descriptorSets != nullptr) && "Vulkan doesn't require descriptor sets, but they should be passed to keep consistency with D3D12.");
@@ -3955,7 +3955,7 @@ namespace RT64 {
             fprintf(stderr, "vkGetRayTracingShaderGroupHandlesKHR failed with error code 0x%X.\n", res);
             return;
         }
-        
+
         const uint32_t handleSizeAligned = roundUp(handleSize, rtPipelineProperties.shaderGroupHandleAlignment);
         const uint32_t regionAlignment = roundUp(handleSizeAligned, rtPipelineProperties.shaderGroupBaseAlignment);
         uint64_t tableSize = 0;
@@ -4006,7 +4006,7 @@ namespace RT64 {
     const RenderDeviceDescription &VulkanDevice::getDescription() const {
         return description;
     }
-    
+
     RenderSampleCounts VulkanDevice::getSampleCountsSupported(RenderFormat format) const {
         const bool isDepthFormat = (format == RenderFormat::D16_UNORM) || (format == RenderFormat::D32_FLOAT);
         if (isDepthFormat) {
@@ -4032,11 +4032,11 @@ namespace RT64 {
     bool VulkanDevice::isValid() const {
         return vk != nullptr;
     }
-        
+
     bool VulkanDevice::beginCapture() {
         return false;
     }
-        
+
     bool VulkanDevice::endCapture() {
         return false;
     }
@@ -4145,7 +4145,7 @@ namespace RT64 {
 
         std::vector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-        
+
         const char validationLayerName[] = "VK_LAYER_KHRONOS_validation";
         const char *enabledLayerNames[] = { validationLayerName };
         for (const VkLayerProperties &layerProperties : availableLayers) {
@@ -4156,7 +4156,7 @@ namespace RT64 {
             }
         }
 #   endif
-        
+
         res = vkCreateInstance(&createInfo, nullptr, &instance);
         if (res != VK_SUCCESS) {
             fprintf(stderr, "vkCreateInstance failed with error code 0x%X.\n", res);

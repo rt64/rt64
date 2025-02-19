@@ -25,7 +25,7 @@ namespace RT64 {
     // ApplicationWindow
 
     ApplicationWindow *ApplicationWindow::HookedApplicationWindow = nullptr;
-    
+
     ApplicationWindow::ApplicationWindow() {
         // Empty.
     }
@@ -41,14 +41,14 @@ namespace RT64 {
         }
 #   endif
     }
-    
+
     void ApplicationWindow::setup(RenderWindow window, Listener *listener, uint32_t threadId) {
         assert(listener != nullptr);
 
         this->listener = listener;
 
         windowHandle = window;
-        
+
         if (listener->usesWindowMessageFilter()) {
             if ((sdlWindow == nullptr) && SDL_WasInit(SDL_INIT_VIDEO)) {
                 // We'd normally install the event filter here, but Mupen does not set its own event filter
@@ -120,7 +120,13 @@ namespace RT64 {
 #   endif
 
         // Create window.
-        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, createFlags);
+        uint32_t flags = SDL_WINDOW_RESIZABLE;
+        # if defined(__APPLE__)
+        flags |= SDL_WINDOW_METAL;
+        # elif defined(RT64_SDL_WINDOW_VULKAN)
+        flags |= SDL_WINDOW_VULKAN;
+        #endif
+        sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, flags);
         assert((sdlWindow != nullptr) && "Failed to open window with SDL");
 
         // Get native window handles from the window.
@@ -215,7 +221,7 @@ namespace RT64 {
         WindowToggleFullscreen(windowHandle.window);
 #   endif
     }
-    
+
     void ApplicationWindow::makeResizable() {
 #   ifdef _WIN32
         LONG_PTR lStyle = GetWindowLongPtr(windowHandle, GWL_STYLE);
@@ -376,7 +382,7 @@ namespace RT64 {
             sdlEventFilterInstalled = true;
         }
     }
-    
+
     int ApplicationWindow::sdlEventFilter(void *userdata, SDL_Event *event) {
         // Run it through the listener's event filter. If it's processed by the listener, the event should be filtered.
         ApplicationWindow *appWindow = reinterpret_cast<ApplicationWindow *>(userdata);

@@ -375,7 +375,7 @@ namespace RT64 {
 #   endif
         state->setup(stateExt);
 
-        // Set up the RDP 
+        // Set up the RDP
         state->rdp->setGBI();
 
         return SetupResult::Success;

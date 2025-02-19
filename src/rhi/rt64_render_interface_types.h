@@ -22,9 +22,14 @@
 #undef LockMask
 #undef ControlMask
 #undef Success
+#undef Always
 #elif defined(__APPLE__)
 //typedef struct _NSWindow NSWindow;
 #include <SDL.h>
+#endif
+
+#ifdef RT64_SDL_WINDOW_VULKAN
+#include <SDL_vulkan.h>
 #endif
 
 #ifdef RT64_SDL_WINDOW_VULKAN
