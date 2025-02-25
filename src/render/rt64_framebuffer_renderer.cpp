@@ -603,26 +603,26 @@ namespace RT64 {
                 worker->commandList->clearColor(0, clearRect.color, &clearRect.rect, 1);
                 break;
             };
-//            case InstanceDrawCall::Type::VertexTestZ: {
-//                assert(testZIndexBuffer != nullptr);
-//
-//                const interop::RSPVertexTestZCB &testZCB = drawCall.vertexTestZ;
-//                switchToDepthRead();
-//
-//                const bool useMSAA = (fbStorage->colorTarget->multisampling.sampleCount > 0);
-//                const auto &rspVertexTestZ = useMSAA ? shaderLibrary->rspVertexTestZMS : shaderLibrary->rspVertexTestZ;
-//                worker->commandList->barriers(RenderBarrierStage::COMPUTE, RenderBufferBarrier(testZIndexBuffer, RenderBufferAccess::WRITE));
-//                worker->commandList->setPipeline(rspVertexTestZ.pipeline.get());
-//                worker->commandList->setComputePipelineLayout(rspVertexTestZ.pipelineLayout.get());
-//                worker->commandList->setComputePushConstants(0, &testZCB);
-//                worker->commandList->setComputeDescriptorSet(vertexTestZSet->get(), 0);
-//                worker->commandList->setComputeDescriptorSet(descRealFbSet, 1);
-//                worker->commandList->dispatch(1, 1, 1);
-//                worker->commandList->barriers(RenderBarrierStage::GRAPHICS, RenderBufferBarrier(testZIndexBuffer, RenderBufferAccess::READ));
-//
-//                switchToGraphicsPipeline();
-//                break;
-//            };
+            case InstanceDrawCall::Type::VertexTestZ: {
+                assert(testZIndexBuffer != nullptr);
+
+                const interop::RSPVertexTestZCB &testZCB = drawCall.vertexTestZ;
+                switchToDepthRead();
+
+                const bool useMSAA = (fbStorage->colorTarget->multisampling.sampleCount > 0);
+                const auto &rspVertexTestZ = useMSAA ? shaderLibrary->rspVertexTestZMS : shaderLibrary->rspVertexTestZ;
+                worker->commandList->barriers(RenderBarrierStage::COMPUTE, RenderBufferBarrier(testZIndexBuffer, RenderBufferAccess::WRITE));
+                worker->commandList->setPipeline(rspVertexTestZ.pipeline.get());
+                worker->commandList->setComputePipelineLayout(rspVertexTestZ.pipelineLayout.get());
+                worker->commandList->setComputePushConstants(0, &testZCB);
+                worker->commandList->setComputeDescriptorSet(vertexTestZSet->get(), 0);
+                worker->commandList->setComputeDescriptorSet(descRealFbSet, 1);
+                worker->commandList->dispatch(1, 1, 1);
+                worker->commandList->barriers(RenderBarrierStage::GRAPHICS, RenderBufferBarrier(testZIndexBuffer, RenderBufferAccess::READ));
+
+                switchToGraphicsPipeline();
+                break;
+            };
             default:
                 // Do nothing.
                 break;

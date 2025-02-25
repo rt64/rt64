@@ -124,9 +124,12 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     add_custom_command(OUTPUT ${OUTNAME}.spv
             COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
             DEPENDS ${FILENAME})
-    add_custom_command(OUTPUT ${OUTNAME}.metal
-            COMMAND spirv_cross_msl ${OUTNAME}.spv ${OUTNAME}.metal
+    add_custom_command(OUTPUT ${OUTNAME}.tmp.metal
+            COMMAND spirv_cross_msl ${OUTNAME}.spv ${OUTNAME}.tmp.metal
             DEPENDS ${OUTNAME}.spv spirv_cross_msl)
+    add_custom_command(OUTPUT ${OUTNAME}.metal
+            COMMAND pad_desc_sets_msl ${OUTNAME}.tmp.metal ${OUTNAME}.metal
+            DEPENDS ${OUTNAME}.tmp.metal pad_desc_sets_msl)
     add_custom_command(OUTPUT ${OUTNAME}.ir
             COMMAND xcrun -sdk macosx metal -o ${OUTNAME}.ir -c ${OUTNAME}.metal $<$<CONFIG:Debug>:-frecord-sources>
             DEPENDS ${OUTNAME}.metal)
@@ -438,6 +441,7 @@ add_subdirectory(src/tools/texture_packer)
 # Add any Apple-specific source files and libraries
 if (APPLE)
     add_subdirectory(src/tools/spirv_cross_msl)
+    add_subdirectory(src/tools/pad_desc_sets_msl)
 
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"

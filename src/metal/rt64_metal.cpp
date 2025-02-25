@@ -72,6 +72,8 @@ namespace RT64 {
             return binding;
         };
 
+        uint32_t curBinding = 0;
+
         for (uint32_t i = 0; i < rangeCount; i++) {
             const RenderDescriptorRange &range = sortedRanges[i];
 
@@ -79,6 +81,20 @@ namespace RT64 {
 
             bindingToIndex[range.binding] = setBindings.size();
             setBindings.push_back(createBinding(range));
+
+            while (curBinding < range.binding) {
+                // exhaust curBinding with padding till we reach the actual current binding
+                MTL::ArgumentDescriptor *argumentDesc = MTL::ArgumentDescriptor::alloc()->init();
+                argumentDesc->setDataType(MTL::DataTypePointer);
+                argumentDesc->setIndex(curBinding);
+                argumentDesc->setArrayLength(0);
+
+                argumentDescriptors.push_back(argumentDesc);
+                curBinding++;
+            }
+
+            // Include the current binding
+            curBinding++;
 
             // Create argument descriptor
             MTL::ArgumentDescriptor *argumentDesc = MTL::ArgumentDescriptor::alloc()->init();
@@ -467,6 +483,7 @@ namespace RT64 {
         MTL::RenderPipelineDescriptor *descriptor = MTL::RenderPipelineDescriptor::alloc()->init();
         descriptor->setInputPrimitiveTopology(metal::mapPrimitiveTopologyClass(desc.primitiveTopology));
         descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
+        descriptor->setAlphaToCoverageEnabled(desc.alphaToCoverageEnabled);
 
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
         const auto *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
@@ -543,7 +560,7 @@ namespace RT64 {
             return;
         }
 
-        // Releae resources
+        // Release resources
         vertexDescriptor->release();
         vertexFunction->release();
         descriptor->release();
@@ -1226,6 +1243,7 @@ namespace RT64 {
             const auto *interfaceBuffer = static_cast<const MetalBuffer *>(view->buffer.ref);
             indexBuffer = interfaceBuffer->mtl;
             indexBufferOffset = view->buffer.offset;
+            currentIndexType = metal::mapIndexFormat(view->format);
         }
     }
 
