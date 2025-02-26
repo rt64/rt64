@@ -1044,7 +1044,8 @@ namespace RT64 {
     }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
-        // TODO: Ignore for now, Metal should handle most of this itself.
+        // End render passes on all barriers
+        endActiveRenderEncoder();
     }
 
     void MetalCommandList::dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) {
