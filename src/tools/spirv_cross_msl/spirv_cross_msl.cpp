@@ -1,8 +1,9 @@
 #include "spirv_msl.hpp"
 #include "spirv_parser.hpp"
-#include <fstream>
 #include <iostream>
 #include <vector>
+#include <regex>
+#include <sstream>
 
 static std::vector<uint32_t> read_spirv_file_stdin() {
 #ifdef _WIN32
@@ -53,6 +54,59 @@ static bool write_string_to_file(const char *path, const char *string) {
 	fprintf(file, "%s", string);
 	fclose(file);
 	return true;
+}
+
+int extract_id(const std::string& line) {
+    std::regex id_regex("\\[\\[id\\((\\d+)\\)\\]\\]");
+    std::smatch match;
+    
+    if (std::regex_search(line, match, id_regex) && match.size() > 1) {
+        return std::stoi(match[1].str());
+    }
+    return -1;
+}
+
+std::string pad_descriptor_sets(const std::string& source) {
+    std::stringstream result;
+    std::stringstream current_line;
+    std::string line;
+    
+    bool inside_set = false;
+    uint32_t current_id = 0;
+    std::string default_resource_prefix = "\tconstant float* _PadResource";
+    
+    std::istringstream source_stream(source);
+    
+    while (std::getline(source_stream, line)) {
+        if (line.find("struct spvDescriptorSetBuffer") != std::string::npos) {
+            inside_set = true;
+            current_id = 0;
+            result << line << std::endl;
+            std::getline(source_stream, line); // the starting brace '{'
+            result << line << std::endl;
+            continue;
+        } else if (inside_set) {
+            if (line == "};") {
+                inside_set = false;
+                result << line << std::endl;
+                continue;
+            }
+            int line_id = extract_id(line);
+            if (line_id == -1) {
+                throw std::runtime_error("Could not extract id from line: " + line);
+            }
+            while (current_id != line_id) {
+                result << default_resource_prefix << current_id << " [[id(" << current_id << ")]];" << std::endl;
+                current_id++;
+            }
+            // Current line id consumes the current id
+            current_id++;
+        }
+        
+        result << line << std::endl;
+    }
+    
+    return result.str();
 }
 
 int main(int argc, char* argv[]) {
@@ -106,7 +160,10 @@ int main(int argc, char* argv[]) {
 
         // Generate MSL source
         std::string source = msl.compile();
-        write_string_to_file(argv[2], source.c_str());
+        
+        std::string padded_source = pad_descriptor_sets(source);
+        
+        write_string_to_file(argv[2], padded_source.c_str());
         
         return 0;
     } catch (const std::exception& e) {
