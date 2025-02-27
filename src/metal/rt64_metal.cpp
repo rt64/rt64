@@ -1044,6 +1044,13 @@ namespace RT64 {
     }
 
     void MetalCommandList::barriers(RenderBarrierStages stages, const RenderBufferBarrier *bufferBarriers, uint32_t bufferBarriersCount, const RenderTextureBarrier *textureBarriers, uint32_t textureBarriersCount) {
+        assert((bufferBarriersCount == 0) || (bufferBarriers != nullptr));
+        assert((textureBarriersCount == 0) || (textureBarriers != nullptr));
+        
+        if ((bufferBarriersCount == 0) && (textureBarriersCount == 0)) {
+            return;
+        }
+        
         // End render passes on all barriers
         endActiveRenderEncoder();
     }
@@ -1958,7 +1965,7 @@ namespace RT64 {
                 auto *descriptorSet = descriptorSets.at(i);
                 auto &descriptorBuffer = descriptorSet->argumentBuffer;
 
-                descriptorBuffer.mtl->didModifyRange({0, DESCRIPTOR_RING_BUFFER_SIZE});
+//                descriptorBuffer.mtl->didModifyRange({0, DESCRIPTOR_RING_BUFFER_SIZE});
 
                 for (const auto& [descriptorIndex, resource] : descriptorSet->resources) {
                     if (isCompute) {

@@ -180,6 +180,35 @@ namespace metal {
                     return RT64::RenderFormat::R8_SNORM;
                 case MTL::PixelFormatR8Sint:
                     return RT64::RenderFormat::R8_SINT;
+                // Block compressed formats
+                case MTL::PixelFormatBC1_RGBA:
+                    return RT64::RenderFormat::BC1_UNORM;
+                case MTL::PixelFormatBC1_RGBA_sRGB:
+                    return RT64::RenderFormat::BC1_UNORM_SRGB;
+                case MTL::PixelFormatBC2_RGBA:
+                    return RT64::RenderFormat::BC2_UNORM;
+                case MTL::PixelFormatBC2_RGBA_sRGB:
+                    return RT64::RenderFormat::BC2_UNORM_SRGB;
+                case MTL::PixelFormatBC3_RGBA:
+                    return RT64::RenderFormat::BC3_UNORM;
+                case MTL::PixelFormatBC3_RGBA_sRGB:
+                    return RT64::RenderFormat::BC3_UNORM_SRGB;
+                case MTL::PixelFormatBC4_RUnorm:
+                    return RT64::RenderFormat::BC4_UNORM;
+                case MTL::PixelFormatBC4_RSnorm:
+                    return RT64::RenderFormat::BC4_SNORM;
+                case MTL::PixelFormatBC5_RGUnorm:
+                    return RT64::RenderFormat::BC5_UNORM;
+                case MTL::PixelFormatBC5_RGSnorm:
+                    return RT64::RenderFormat::BC5_SNORM;
+                case MTL::PixelFormatBC6H_RGBFloat:
+                    return RT64::RenderFormat::BC6H_SF16;
+                case MTL::PixelFormatBC6H_RGBUfloat:
+                    return RT64::RenderFormat::BC6H_UF16;
+                case MTL::PixelFormatBC7_RGBAUnorm:
+                    return RT64::RenderFormat::BC7_UNORM;
+                case MTL::PixelFormatBC7_RGBAUnorm_sRGB:
+                    return RT64::RenderFormat::BC7_UNORM_SRGB;
                 default:
                     assert(false && "Unknown Metal format.");
                     return RT64::RenderFormat::UNKNOWN;
@@ -294,6 +323,49 @@ namespace metal {
                 return MTL::PixelFormatR8Snorm;
             case RT64::RenderFormat::R8_SINT:
                 return MTL::PixelFormatR8Sint;
+            // Block compressed formats
+           case RT64::RenderFormat::BC1_TYPELESS:
+               return MTL::PixelFormatBC1_RGBA;
+           case RT64::RenderFormat::BC1_UNORM:
+               return MTL::PixelFormatBC1_RGBA;
+           case RT64::RenderFormat::BC1_UNORM_SRGB:
+               return MTL::PixelFormatBC1_RGBA_sRGB;
+           case RT64::RenderFormat::BC2_TYPELESS:
+               return MTL::PixelFormatBC2_RGBA;
+           case RT64::RenderFormat::BC2_UNORM:
+               return MTL::PixelFormatBC2_RGBA;
+           case RT64::RenderFormat::BC2_UNORM_SRGB:
+               return MTL::PixelFormatBC2_RGBA_sRGB;
+           case RT64::RenderFormat::BC3_TYPELESS:
+               return MTL::PixelFormatBC3_RGBA;
+           case RT64::RenderFormat::BC3_UNORM:
+               return MTL::PixelFormatBC3_RGBA;
+           case RT64::RenderFormat::BC3_UNORM_SRGB:
+               return MTL::PixelFormatBC3_RGBA_sRGB;
+           case RT64::RenderFormat::BC4_TYPELESS:
+               return MTL::PixelFormatBC4_RUnorm;
+           case RT64::RenderFormat::BC4_UNORM:
+               return MTL::PixelFormatBC4_RUnorm;
+           case RT64::RenderFormat::BC4_SNORM:
+               return MTL::PixelFormatBC4_RSnorm;
+           case RT64::RenderFormat::BC5_TYPELESS:
+               return MTL::PixelFormatBC5_RGUnorm;
+           case RT64::RenderFormat::BC5_UNORM:
+               return MTL::PixelFormatBC5_RGUnorm;
+           case RT64::RenderFormat::BC5_SNORM:
+               return MTL::PixelFormatBC5_RGSnorm;
+           case RT64::RenderFormat::BC6H_TYPELESS:
+               return MTL::PixelFormatBC6H_RGBFloat;
+           case RT64::RenderFormat::BC6H_UF16:
+               return MTL::PixelFormatBC6H_RGBUfloat;
+           case RT64::RenderFormat::BC6H_SF16:
+               return MTL::PixelFormatBC6H_RGBFloat;
+           case RT64::RenderFormat::BC7_TYPELESS:
+               return MTL::PixelFormatBC7_RGBAUnorm;
+           case RT64::RenderFormat::BC7_UNORM:
+               return MTL::PixelFormatBC7_RGBAUnorm;
+           case RT64::RenderFormat::BC7_UNORM_SRGB:
+               return MTL::PixelFormatBC7_RGBAUnorm_sRGB;
             default:
                 assert(false && "Unknown format.");
                 return MTL::PixelFormatInvalid;
