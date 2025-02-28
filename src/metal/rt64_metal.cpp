@@ -1545,17 +1545,10 @@ namespace RT64 {
             // Use actual dimensions for the copy size
             MTL::Size size = { srcLocation.placedFootprint.width, srcLocation.placedFootprint.height, srcLocation.placedFootprint.depth};
 
-            // Calculate padded row width for buffer layout
-            uint32_t paddedRowWidth = ((srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth) * blockWidth;
-            uint32_t bytesPerRow = paddedRowWidth * RenderFormatSize(dstTexture->desc.format);
-
-            // Verify alignment requirements
-            assert((srcLocation.placedFootprint.offset % 256) == 0 && "Buffer offset must be aligned");
-            assert((bytesPerRow % 256) == 0 && "Bytes per row must be aligned");
-
-            // Calculate bytes per image using the padded height
-            uint32_t paddedHeight = ((srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
-            uint32_t bytesPerImage = bytesPerRow * paddedHeight;
+            uint32_t horizontalBlocks = (srcLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth;
+            uint32_t verticalBlocks = (srcLocation.placedFootprint.height + blockWidth - 1) / blockWidth;
+            uint32_t bytesPerRow = horizontalBlocks * RenderFormatSize(dstTexture->desc.format);
+            uint32_t bytesPerImage = bytesPerRow * verticalBlocks;
 
             MTL::Origin dstOrigin = { dstX, dstY, dstZ };
 
