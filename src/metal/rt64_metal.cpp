@@ -1567,8 +1567,8 @@ namespace RT64 {
                 bytesPerImage,
                 size,
                 dstTexture->mtl,
+                0, // slice
                 dstLocation.subresource.index,
-                0,  // slice
                 dstOrigin
             );
             activeBlitEncoder->popDebugGroup();
@@ -1591,13 +1591,13 @@ namespace RT64 {
 
             activeBlitEncoder->copyFromTexture(
                 srcTexture->mtl,                  // source texture
-                srcLocation.subresource.index,    // source mipmap level
                 0,                                // source slice (baseArrayLayer)
+                srcLocation.subresource.index,    // source mipmap level
                 srcOrigin,                        // source origin
                 size,                             // copy size
                 dstTexture->mtl,                 // destination texture
-                dstLocation.subresource.index,   // destination mipmap level
                 0,                               // destination slice (baseArrayLayer)
+                dstLocation.subresource.index,   // destination mipmap level
                 dstOrigin                        // destination origin
             );
           }
