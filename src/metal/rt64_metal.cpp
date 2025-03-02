@@ -1574,10 +1574,10 @@ namespace RT64 {
 
             if (srcBox != nullptr) {
                 srcOrigin = { NS::UInteger(srcBox->left), NS::UInteger(srcBox->top), NS::UInteger(srcBox->front) };
-                MTL::Size size = { NS::UInteger(srcBox->right - srcBox->left), NS::UInteger(srcBox->bottom - srcBox->top), NS::UInteger(srcBox->back - srcBox->front) };
+                size = { NS::UInteger(srcBox->right - srcBox->left), NS::UInteger(srcBox->bottom - srcBox->top), NS::UInteger(srcBox->back - srcBox->front) };
             } else {
                 srcOrigin = { 0, 0, 0 };
-                MTL::Size size = { srcTexture->desc.width, srcTexture->desc.height, srcTexture->desc.depth };
+                size = { srcTexture->desc.width, srcTexture->desc.height, srcTexture->desc.depth };
             }
 
             MTL::Origin dstOrigin = { dstX, dstY, dstZ };
