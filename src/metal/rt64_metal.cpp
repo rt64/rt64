@@ -18,8 +18,9 @@
 
 namespace RT64 {
     static constexpr size_t MAX_DRAWABLES = 3;
-    static constexpr size_t MAX_DESCRIPTOR_SET_COUNT = 8;
-    static constexpr size_t VERTEX_BUFFER_START_INDEX = 4;
+    static constexpr size_t DESCRIPTOR_SET_MAX_INDEX = 7;
+    static constexpr size_t PUSH_CONSTANT_MAX_INDEX = 15;
+    static constexpr size_t VERTEX_BUFFER_MAX_INDEX = 30;
     static constexpr size_t DESCRIPTOR_RING_BUFFER_SIZE = 1024 * 1024; // 1MB
 
     // MARK: - Helper Structures
@@ -497,7 +498,9 @@ namespace RT64 {
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
             const RenderInputSlot &inputSlot = desc.inputSlots[i];
 
-            auto layout = vertexDescriptor->layouts()->object(inputSlot.index + VERTEX_BUFFER_START_INDEX);
+            // Set index right after push constants, clamp at Metal's limit of 31
+            uint32_t vertexBufferIndex = std::min(PUSH_CONSTANT_MAX_INDEX + 1 + inputSlot.index, VERTEX_BUFFER_MAX_INDEX);
+            auto layout = vertexDescriptor->layouts()->object(vertexBufferIndex);
             layout->setStride(inputSlot.stride);
             layout->setStepFunction(metal::mapVertexStepFunction(inputSlot.classification));
             layout->setStepRate((layout->stepFunction() == MTL::VertexStepFunctionPerInstance) ? inputSlot.stride : 1);
@@ -508,7 +511,9 @@ namespace RT64 {
 
             auto attributeDescriptor = vertexDescriptor->attributes()->object(i);
             attributeDescriptor->setOffset(inputElement.alignedByteOffset);
-            attributeDescriptor->setBufferIndex(inputElement.slotIndex + VERTEX_BUFFER_START_INDEX);
+
+            uint32_t vertexBufferIndex = std::min(PUSH_CONSTANT_MAX_INDEX + 1 + inputElement.slotIndex, VERTEX_BUFFER_MAX_INDEX);
+            attributeDescriptor->setBufferIndex(vertexBufferIndex);
             attributeDescriptor->setFormat(metal::mapVertexFormat(inputElement.format));
         }
 
@@ -1770,7 +1775,9 @@ namespace RT64 {
         if (dirtyComputeState.pushConstants) {
             for (const auto& pushConstant : pushConstants) {
                 if (pushConstant.stageFlags & RenderShaderStageFlag::COMPUTE) {
-                    activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT + pushConstant.set);
+                    // Bind right after the descriptor sets, up till the max push constant index
+                    uint32_t bindIndex = std::min(DESCRIPTOR_SET_MAX_INDEX + 1 + pushConstant.binding, PUSH_CONSTANT_MAX_INDEX);
+                    activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, bindIndex);
                 }
             }
             stateCache.lastPushConstants = pushConstants;
@@ -1859,7 +1866,9 @@ namespace RT64 {
 
         if (dirtyGraphicsState.vertexBuffers) {
             for (uint32_t i = 0; i < viewCount; i++) {
-                activeRenderEncoder->setVertexBuffer(vertexBuffers[i], vertexBufferOffsets[i], vertexBufferIndices[i] + VERTEX_BUFFER_START_INDEX);
+                // Bind right after the push constants, up till the max vertex buffer index
+                uint32_t bindIndex = std::min(PUSH_CONSTANT_MAX_INDEX + 1 + vertexBufferIndices[i], VERTEX_BUFFER_MAX_INDEX);
+                activeRenderEncoder->setVertexBuffer(vertexBuffers[i], vertexBufferOffsets[i], bindIndex);
             }
 
             stateCache.lastVertexBuffers = vertexBuffers;
@@ -1877,11 +1886,13 @@ namespace RT64 {
 
         if (dirtyGraphicsState.pushConstants) {
             for (const auto& pushConstant : pushConstants) {
+                // Bind right after the descriptor sets, up till the max push constant index
+                uint32_t bindIndex = std::min(DESCRIPTOR_SET_MAX_INDEX + 1 + pushConstant.binding, PUSH_CONSTANT_MAX_INDEX);
                 if (pushConstant.stageFlags & RenderShaderStageFlag::VERTEX) {
-                    activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT + pushConstant.binding);
+                    activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, bindIndex);
                 }
                 if (pushConstant.stageFlags & RenderShaderStageFlag::PIXEL) {
-                    activeRenderEncoder->setFragmentBytes(pushConstant.data.data(), pushConstant.size, MAX_DESCRIPTOR_SET_COUNT + pushConstant.binding);
+                    activeRenderEncoder->setFragmentBytes(pushConstant.data.data(), pushConstant.size, bindIndex);
                 }
             }
 
