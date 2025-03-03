@@ -19,6 +19,7 @@
 namespace RT64 {
     static constexpr size_t MAX_DRAWABLES = 3;
     static constexpr size_t MAX_DESCRIPTOR_SET_COUNT = 8;
+    static constexpr size_t VERTEX_BUFFER_START_INDEX = 4;
     static constexpr size_t DESCRIPTOR_RING_BUFFER_SIZE = 1024 * 1024; // 1MB
 
     // MARK: - Helper Structures
@@ -496,7 +497,7 @@ namespace RT64 {
         for (uint32_t i = 0; i < desc.inputSlotsCount; i++) {
             const RenderInputSlot &inputSlot = desc.inputSlots[i];
 
-            auto layout = vertexDescriptor->layouts()->object(i);
+            auto layout = vertexDescriptor->layouts()->object(inputSlot.index + VERTEX_BUFFER_START_INDEX);
             layout->setStride(inputSlot.stride);
             layout->setStepFunction(metal::mapVertexStepFunction(inputSlot.classification));
             layout->setStepRate((layout->stepFunction() == MTL::VertexStepFunctionPerInstance) ? inputSlot.stride : 1);
@@ -507,7 +508,7 @@ namespace RT64 {
 
             auto attributeDescriptor = vertexDescriptor->attributes()->object(i);
             attributeDescriptor->setOffset(inputElement.alignedByteOffset);
-            attributeDescriptor->setBufferIndex(inputElement.slotIndex);
+            attributeDescriptor->setBufferIndex(inputElement.slotIndex + VERTEX_BUFFER_START_INDEX);
             attributeDescriptor->setFormat(metal::mapVertexFormat(inputElement.format));
         }
 
@@ -1858,7 +1859,7 @@ namespace RT64 {
 
         if (dirtyGraphicsState.vertexBuffers) {
             for (uint32_t i = 0; i < viewCount; i++) {
-                activeRenderEncoder->setVertexBuffer(vertexBuffers[i], vertexBufferOffsets[i], vertexBufferIndices[i]);
+                activeRenderEncoder->setVertexBuffer(vertexBuffers[i], vertexBufferOffsets[i], vertexBufferIndices[i] + VERTEX_BUFFER_START_INDEX);
             }
 
             stateCache.lastVertexBuffers = vertexBuffers;
@@ -1972,19 +1973,7 @@ namespace RT64 {
                     static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, 0, i);
                 } else {
                     static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, 0, i);
-
-                    // Only bind to the vertex shader if the slot is not in use.
-                    // If the slot is in use, it was not meant for the vertex shader.
-                    bool slotIsEmpty = true;
-                    for (unsigned int vertexBufferIndex : vertexBufferIndices) {
-                        if (vertexBufferIndex == i) {
-                            slotIsEmpty = false;
-                            break;
-                        }
-                    }
-                    if (slotIsEmpty) {
-                        static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(descriptorBuffer.mtl, 0, i);
-                    }
+                    static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(descriptorBuffer.mtl, 0, i);
                 }
             }
         }
