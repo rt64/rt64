@@ -1324,11 +1324,14 @@ namespace RT64 {
         scissorVector.resize(count);
 
         for (uint32_t i = 0; i < count; i++) {
+            NS::UInteger width = std::max(0, scissorRects[i].right - scissorRects[i].left);
+            NS::UInteger height = std::max(0, scissorRects[i].bottom - scissorRects[i].top);
+
             MTL::ScissorRect scissor {
                 static_cast<NS::UInteger>(scissorRects[i].left),
                 static_cast<NS::UInteger>(scissorRects[i].top),
-                static_cast<NS::UInteger>(scissorRects[i].right - scissorRects[i].left),
-                static_cast<NS::UInteger>(scissorRects[i].bottom - scissorRects[i].top)
+                width,
+                height
             };
             scissorVector[i] = scissor;
         }
