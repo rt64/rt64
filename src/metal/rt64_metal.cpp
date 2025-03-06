@@ -1316,16 +1316,15 @@ namespace RT64 {
         scissorVector.resize(count);
 
         for (uint32_t i = 0; i < count; i++) {
-            NS::UInteger width = std::max(0, scissorRects[i].right - scissorRects[i].left);
-            NS::UInteger height = std::max(0, scissorRects[i].bottom - scissorRects[i].top);
+            const NS::UInteger width = std::max(0, scissorRects[i].right - scissorRects[i].left);
+            const NS::UInteger height = std::max(0, scissorRects[i].bottom - scissorRects[i].top);
 
-            MTL::ScissorRect scissor {
+            scissorVector[i] = metal::clampScissorRectIfNecessary({
                 static_cast<NS::UInteger>(scissorRects[i].left),
                 static_cast<NS::UInteger>(scissorRects[i].top),
                 width,
                 height
-            };
-            scissorVector[i] = scissor;
+            }, targetFramebuffer);
         }
 
         // Since scissors are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
@@ -1338,7 +1337,7 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Render);
 
         if (framebuffer != nullptr) {
-            auto incomingFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
+            const auto incomingFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
 
             // check if we need to end the current encoder
             if (targetFramebuffer == nullptr || *targetFramebuffer != *incomingFramebuffer) {
@@ -1357,7 +1356,7 @@ namespace RT64 {
 
     void MetalCommandList::setCommonClearState() {
         activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
-        activeRenderEncoder->setScissorRect({ 0, 0, targetFramebuffer->width, targetFramebuffer->height });
+        activeRenderEncoder->setScissorRect(metal::clampScissorRectIfNecessary({ 0, 0, targetFramebuffer->width, targetFramebuffer->height }, targetFramebuffer));
         activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
         activeRenderEncoder->setCullMode(MTL::CullModeNone);
         activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);

@@ -19,11 +19,11 @@ namespace metal {
 
     // MARK: - Constants
 
-    const constexpr uint32_t MAX_COLOR_ATTACHMENT_COUNT = 8;
-    const constexpr uint32_t COLOR_COUNT = MAX_COLOR_ATTACHMENT_COUNT;
-    const constexpr uint32_t DEPTH_INDEX = COLOR_COUNT;
-    const constexpr uint32_t STENCIL_INDEX = DEPTH_INDEX + 1;
-    const constexpr uint32_t ATTACHMENT_COUNT = STENCIL_INDEX + 1;
+    constexpr uint32_t MAX_COLOR_ATTACHMENT_COUNT = 8;
+    constexpr uint32_t COLOR_COUNT = MAX_COLOR_ATTACHMENT_COUNT;
+    constexpr uint32_t DEPTH_INDEX = COLOR_COUNT;
+    constexpr uint32_t STENCIL_INDEX = DEPTH_INDEX + 1;
+    constexpr uint32_t ATTACHMENT_COUNT = STENCIL_INDEX + 1;
 
     // MARK: - Helpers
 
@@ -67,6 +67,43 @@ namespace metal {
     #endif
 
         return deviceAlignment ? deviceAlignment : minTexelBufferOffsetAligment;
+    }
+
+    static MTL::ScissorRect clampScissorRectIfNecessary(MTL::ScissorRect rect, const RT64::MetalFramebuffer* targetFramebuffer) {
+        if (!targetFramebuffer || targetFramebuffer->colorAttachments.empty()) {
+            return rect;
+        }
+
+        // Only clamp if at least one attachment is a swapchain texture
+        bool hasSwapchainTexture = false;
+        uint32_t maxWidth = targetFramebuffer->width;
+        uint32_t maxHeight = targetFramebuffer->height;
+
+        for (const auto& attachment : targetFramebuffer->colorAttachments) {
+            if (attachment->isSwapchainTexture()) {
+                const auto texture = attachment->getTexture();
+                maxWidth = texture->width();
+                maxHeight = texture->height();
+                hasSwapchainTexture = true;
+
+                break;
+            }
+        }
+
+        if (!hasSwapchainTexture) {
+            return rect;
+        }
+
+        // Clamp the scissor rect to the texture dimensions
+        MTL::ScissorRect clampedRect = rect;
+        if (rect.x + rect.width > maxWidth) {
+            clampedRect.width = maxWidth > rect.x ? maxWidth - rect.x : 0;
+        }
+        if (rect.y + rect.height > maxHeight) {
+            clampedRect.height = maxHeight > rect.y ? maxHeight - rect.y : 0;
+        }
+
+        return clampedRect;
     }
 
     // MARK: - Mapping RHI <> Metal

@@ -138,6 +138,7 @@ namespace RT64 {
     struct ExtendedRenderTexture: RenderTexture {
         RenderTextureDesc desc;
         virtual MTL::Texture* getTexture() const = 0;
+        virtual bool isSwapchainTexture() const { return false; }
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
@@ -430,9 +431,8 @@ namespace RT64 {
         std::unique_ptr<RenderTextureView> createTextureView(const RenderTextureViewDesc &desc) override;
         void setName(const std::string &name) override;
 
-        MTL::Texture* getTexture() const override {
-            return mtl->texture();
-        }
+        MTL::Texture* getTexture() const override { return mtl->texture(); }
+        bool isSwapchainTexture() const override { return true; }
     };
 
     struct MetalTexture : ExtendedRenderTexture {
@@ -448,9 +448,7 @@ namespace RT64 {
         std::unique_ptr<RenderTextureView> createTextureView(const RenderTextureViewDesc &desc) override;
         void setName(const std::string &name) override;
         
-        MTL::Texture* getTexture() const override {
-            return mtl;
-        }
+        MTL::Texture* getTexture() const override { return mtl; }
     };
 
     struct MetalTextureView : RenderTextureView {
