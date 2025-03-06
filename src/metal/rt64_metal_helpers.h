@@ -110,15 +110,6 @@ namespace metal {
             clampedRect.height = maxHeight > clampedRect.y ? maxHeight - clampedRect.y : 0;
         }
 
-        // Only log if we actually had to clamp something
-        if (clampedRect.x != rect.x || clampedRect.y != rect.y ||
-            clampedRect.width != rect.width || clampedRect.height != rect.height) {
-            fprintf(stderr, "Clamping scissor rect from (%lu,%lu,%lu,%lu) to (%lu,%lu,%lu,%lu) for render target size %u x %u\n",
-                    rect.x, rect.y, rect.width, rect.height,
-                    clampedRect.x, clampedRect.y, clampedRect.width, clampedRect.height,
-                    maxWidth, maxHeight);
-        }
-
         return clampedRect;
     }
 

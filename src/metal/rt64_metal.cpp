@@ -852,16 +852,20 @@ namespace RT64 {
     bool MetalSwapChain::resize() {
         getWindowSize(width, height);
 
-        if ((width == 0) || (height == 0)) {
-            fprintf(stderr, "Swap chain cannot be resized to 0x0.\n");
+        if (width == 0 || height == 0) {
             return false;
         }
 
-        fprintf(stderr, "Resizing swap chain to %dx%d.\n", width, height);
         const auto drawableSize = CGSizeMake(width, height);
         const auto current = layer->drawableSize();
         if (!CGSizeEqualToSize(current, drawableSize)) {
             layer->setDrawableSize(drawableSize);
+
+            for (uint32_t i = 0; i < MAX_DRAWABLES; i++) {
+                auto& drawable = drawables[i];
+                drawable.desc.width = width;
+                drawable.desc.height = height;
+            }
         }
 
         return true;
@@ -870,10 +874,7 @@ namespace RT64 {
     bool MetalSwapChain::needsResize() const {
         uint32_t windowWidth, windowHeight;
         getWindowSize(windowWidth, windowHeight);
-        fprintf(stderr, "Window size: %dx%d - Swap chain size: %dx%d\n", windowWidth, windowHeight, width, height);
-        const auto needsResize = (layer == nullptr) || (width != windowWidth) || (height != windowHeight);
-        fprintf(stderr, "Needs resize: %d\n", needsResize);
-        return needsResize;
+        return (layer == nullptr) || (width != windowWidth) || (height != windowHeight);
     }
 
     void MetalSwapChain::setVsyncEnabled(bool vsyncEnabled) {
@@ -1321,7 +1322,6 @@ namespace RT64 {
         scissorVector.resize(count);
 
         for (uint32_t i = 0; i < count; i++) {
-            fprintf(stderr, "Storing Scissor rect: %d %d %d %d\n", scissorRects[i].left, scissorRects[i].top, scissorRects[i].right, scissorRects[i].bottom);
             scissorVector[i] = metal::clampScissorRectIfNecessary({
                 static_cast<NS::UInteger>(scissorRects[i].left),
                 static_cast<NS::UInteger>(scissorRects[i].top),
@@ -1340,22 +1340,12 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Render);
 
         if (framebuffer != nullptr) {
-            const auto incomingFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
+            const auto oldFramebufferWidth = targetFramebuffer != nullptr ? targetFramebuffer->width : 0;
+            const auto oldFramebufferHeight = targetFramebuffer != nullptr ? targetFramebuffer->height : 0;
 
-            // check if we need to end the current encoder
-            if (targetFramebuffer == nullptr || *targetFramebuffer != *incomingFramebuffer) {
-                const auto oldFramebufferWidth = targetFramebuffer != nullptr ? targetFramebuffer->width : 0;
-                const auto oldFramebufferHeight = targetFramebuffer != nullptr ? targetFramebuffer->height : 0;
-
-                endActiveRenderEncoder();
-                targetFramebuffer = incomingFramebuffer;
-                fprintf(stderr, "Setting framebuffer with size %d %d - previous size %d %d\n", targetFramebuffer->width, targetFramebuffer->height, oldFramebufferWidth, oldFramebufferHeight);
-
-                // Mark all state as needing update with the new encoder
-                if (targetFramebuffer != nullptr) {
-                    dirtyGraphicsState.setAll();
-                }
-            }
+            const auto interfaceFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
+            targetFramebuffer = interfaceFramebuffer;
+            dirtyGraphicsState.setAll();
         } else {
             targetFramebuffer = nullptr;
         }
@@ -1363,7 +1353,6 @@ namespace RT64 {
 
     void MetalCommandList::setCommonClearState() {
         activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
-        fprintf(stderr, "Setting clear scissor rect: %d %d %d %d\n", 0, 0, targetFramebuffer->width, targetFramebuffer->height);
         activeRenderEncoder->setScissorRect(metal::clampScissorRectIfNecessary({ 0, 0, targetFramebuffer->width, targetFramebuffer->height }, targetFramebuffer));
         activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
         activeRenderEncoder->setCullMode(MTL::CullModeNone);
@@ -1861,7 +1850,6 @@ namespace RT64 {
         if (dirtyGraphicsState.scissors) {
             if (scissorVector.size() < 1) return;
 
-            fprintf(stderr, "Applying scissors\n");
             activeRenderEncoder->setScissorRects(scissorVector.data(), scissorVector.size());
             stateCache.lastScissors = scissorVector;
             dirtyGraphicsState.scissors = 0;
