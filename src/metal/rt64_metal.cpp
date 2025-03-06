@@ -1316,14 +1316,11 @@ namespace RT64 {
         scissorVector.resize(count);
 
         for (uint32_t i = 0; i < count; i++) {
-            const NS::UInteger width = std::max(0, scissorRects[i].right - scissorRects[i].left);
-            const NS::UInteger height = std::max(0, scissorRects[i].bottom - scissorRects[i].top);
-
             scissorVector[i] = metal::clampScissorRectIfNecessary({
                 static_cast<NS::UInteger>(scissorRects[i].left),
                 static_cast<NS::UInteger>(scissorRects[i].top),
-                width,
-                height
+                static_cast<NS::UInteger>(scissorRects[i].right - scissorRects[i].left),
+                static_cast<NS::UInteger>(scissorRects[i].bottom - scissorRects[i].top)
             }, targetFramebuffer);
         }
 

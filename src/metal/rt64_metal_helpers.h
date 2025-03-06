@@ -74,33 +74,40 @@ namespace metal {
             return rect;
         }
 
-        // Only clamp if at least one attachment is a swapchain texture
-        bool hasSwapchainTexture = false;
-        uint32_t maxWidth = targetFramebuffer->width;
-        uint32_t maxHeight = targetFramebuffer->height;
+        // Always clamp to the attachment dimensions, to avoid Metal API error
+        uint32_t maxWidth = 0;
+        uint32_t maxHeight = 0;
+        bool hasAttachments = false;
 
         for (const auto& attachment : targetFramebuffer->colorAttachments) {
-            if (attachment->isSwapchainTexture()) {
-                const auto texture = attachment->getTexture();
-                maxWidth = texture->width();
-                maxHeight = texture->height();
-                hasSwapchainTexture = true;
-
-                break;
+            if (attachment) {
+                if (const auto texture = attachment->getTexture()) {
+                    maxWidth = std::max(static_cast<NS::UInteger>(maxWidth), texture->width());
+                    maxHeight = std::max(static_cast<NS::UInteger>(maxHeight), texture->height());
+                    hasAttachments = true;
+                }
             }
         }
 
-        if (!hasSwapchainTexture) {
+        // If no valid attachments found, return original rect
+        if (!hasAttachments) {
             return rect;
         }
 
-        // Clamp the scissor rect to the texture dimensions
+        // Always clamp the scissor rect to the render target dimensions
         MTL::ScissorRect clampedRect = rect;
-        if (rect.x + rect.width > maxWidth) {
-            clampedRect.width = maxWidth > rect.x ? maxWidth - rect.x : 0;
+
+        // Ensure x and y are not negative (Metal doesn't support negative offsets)
+        clampedRect.x = std::max(static_cast<NS::UInteger>(0u), clampedRect.x);
+        clampedRect.y = std::max(static_cast<NS::UInteger>(0u), clampedRect.y);
+
+        // Clamp width and height to fit within the render target
+        if (clampedRect.x + clampedRect.width > maxWidth) {
+            clampedRect.width = maxWidth > clampedRect.x ? maxWidth - clampedRect.x : 0;
         }
-        if (rect.y + rect.height > maxHeight) {
-            clampedRect.height = maxHeight > rect.y ? maxHeight - rect.y : 0;
+
+        if (clampedRect.y + clampedRect.height > maxHeight) {
+            clampedRect.height = maxHeight > clampedRect.y ? maxHeight - clampedRect.y : 0;
         }
 
         return clampedRect;
