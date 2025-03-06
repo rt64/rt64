@@ -8,9 +8,9 @@
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
 
-static constexpr size_t MAX_CLEAR_RECTS = 16;
-
 namespace RT64 {
+    static constexpr size_t MAX_CLEAR_RECTS = 16;
+
     struct MetalInterface;
     struct MetalDevice;
     struct MetalCommandQueue;

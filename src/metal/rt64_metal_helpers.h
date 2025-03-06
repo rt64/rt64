@@ -27,7 +27,7 @@ namespace metal {
 
     // MARK: - Helpers
 
-    static uint64_t hashForRenderPipelineDescriptor(MTL::RenderPipelineDescriptor *pipelineDesc, bool depthWriteEnabled) {
+    uint64_t hashForRenderPipelineDescriptor(MTL::RenderPipelineDescriptor *pipelineDesc, bool depthWriteEnabled) {
         XXH3_state_t xxh3;
         XXH3_64bits_reset(&xxh3);
 
@@ -49,7 +49,7 @@ namespace metal {
         return XXH3_64bits_digest(&xxh3);
     }
 
-    static NS::UInteger alignmentForRenderFormat(MTL::Device *device, RT64::RenderFormat format) {
+    NS::UInteger alignmentForRenderFormat(MTL::Device *device, RT64::RenderFormat format) {
         auto deviceAlignment = device->minimumLinearTextureAlignmentForPixelFormat(mapPixelFormat(format));
 
     #if TARGET_OS_TV
@@ -69,21 +69,21 @@ namespace metal {
         return deviceAlignment ? deviceAlignment : minTexelBufferOffsetAligment;
     }
 
-    static MTL::ScissorRect clampScissorRectIfNecessary(MTL::ScissorRect rect, const RT64::MetalFramebuffer* targetFramebuffer) {
+    MTL::ScissorRect clampScissorRectIfNecessary(const MTL::ScissorRect& rect, const RT64::MetalFramebuffer* targetFramebuffer) {
         if (!targetFramebuffer || targetFramebuffer->colorAttachments.empty()) {
             return rect;
         }
 
         // Always clamp to the attachment dimensions, to avoid Metal API error
-        uint32_t maxWidth = 0;
-        uint32_t maxHeight = 0;
+        uint32_t maxWidth = INT_MAX;
+        uint32_t maxHeight = INT_MAX;
         bool hasAttachments = false;
 
         for (const auto& attachment : targetFramebuffer->colorAttachments) {
             if (attachment) {
                 if (const auto texture = attachment->getTexture()) {
-                    maxWidth = std::max(static_cast<NS::UInteger>(maxWidth), texture->width());
-                    maxHeight = std::max(static_cast<NS::UInteger>(maxHeight), texture->height());
+                    maxWidth = std::min(static_cast<NS::UInteger>(maxWidth), texture->width());
+                    maxHeight = std::min(static_cast<NS::UInteger>(maxHeight), texture->height());
                     hasAttachments = true;
                 }
             }
@@ -416,7 +416,7 @@ namespace metal {
         }
     }
 
-    static MTL::VertexFormat mapVertexFormat(RT64::RenderFormat format) {
+    MTL::VertexFormat mapVertexFormat(RT64::RenderFormat format) {
         switch (format) {
             case RT64::RenderFormat::UNKNOWN:
                 return MTL::VertexFormatInvalid;
@@ -504,7 +504,7 @@ namespace metal {
         }
     }
 
-    static MTL::IndexType mapIndexFormat(RT64::RenderFormat format) {
+    MTL::IndexType mapIndexFormat(RT64::RenderFormat format) {
         switch (format) {
             case RT64::RenderFormat::R16_UINT:
                 return MTL::IndexTypeUInt16;
@@ -516,7 +516,7 @@ namespace metal {
         }
     }
 
-    static MTL::TextureType mapTextureType(RT64::RenderTextureDimension dimension, RT64::RenderSampleCounts sampleCount) {
+    MTL::TextureType mapTextureType(RT64::RenderTextureDimension dimension, RT64::RenderSampleCounts sampleCount) {
         switch (dimension) {
             case RT64::RenderTextureDimension::TEXTURE_1D:
                 assert(sampleCount <= 1 && "Multisampling not supported for 1D textures");
@@ -532,7 +532,7 @@ namespace metal {
         }
     }
 
-    static MTL::CullMode mapCullMode(RT64::RenderCullMode cullMode) {
+    MTL::CullMode mapCullMode(RT64::RenderCullMode cullMode) {
         switch (cullMode) {
             case RT64::RenderCullMode::NONE:
                 return MTL::CullModeNone;
@@ -546,7 +546,7 @@ namespace metal {
         }
     }
 
-    static MTL::PrimitiveTopologyClass mapPrimitiveTopologyClass(RT64::RenderPrimitiveTopology topology) {
+    MTL::PrimitiveTopologyClass mapPrimitiveTopologyClass(RT64::RenderPrimitiveTopology topology) {
         switch (topology) {
             case RT64::RenderPrimitiveTopology::POINT_LIST:
                 return MTL::PrimitiveTopologyClassPoint;
@@ -560,7 +560,7 @@ namespace metal {
         }
     }
 
-    static MTL::VertexStepFunction mapVertexStepFunction(RT64::RenderInputSlotClassification classification) {
+    MTL::VertexStepFunction mapVertexStepFunction(RT64::RenderInputSlotClassification classification) {
         switch (classification) {
             case RT64::RenderInputSlotClassification::PER_VERTEX_DATA:
                 return MTL::VertexStepFunctionPerVertex;
@@ -572,7 +572,7 @@ namespace metal {
         }
     }
 
-    static MTL::BlendFactor mapBlendFactor(RT64::RenderBlend blend) {
+    MTL::BlendFactor mapBlendFactor(RT64::RenderBlend blend) {
         switch (blend) {
             case RT64::RenderBlend::ZERO:
                 return MTL::BlendFactorZero;
@@ -614,7 +614,7 @@ namespace metal {
         }
     }
 
-    static MTL::BlendOperation mapBlendOperation(RT64::RenderBlendOperation operation) {
+    MTL::BlendOperation mapBlendOperation(RT64::RenderBlendOperation operation) {
         switch (operation) {
             case RT64::RenderBlendOperation::ADD:
                 return MTL::BlendOperationAdd;
@@ -634,7 +634,7 @@ namespace metal {
 
     // Metal does not support Logic Operations in the public API.
 
-    static MTL::CompareFunction mapCompareFunction(RT64::RenderComparisonFunction function) {
+    MTL::CompareFunction mapCompareFunction(RT64::RenderComparisonFunction function) {
         switch (function) {
             case RT64::RenderComparisonFunction::NEVER:
                 return MTL::CompareFunctionNever;
@@ -658,7 +658,7 @@ namespace metal {
         }
     }
 
-    static MTL::SamplerMinMagFilter mapSamplerMinMagFilter(RT64::RenderFilter filter) {
+    MTL::SamplerMinMagFilter mapSamplerMinMagFilter(RT64::RenderFilter filter) {
         switch (filter) {
             case RT64::RenderFilter::NEAREST:
                 return MTL::SamplerMinMagFilterNearest;
@@ -670,7 +670,7 @@ namespace metal {
         }
     }
 
-    static MTL::SamplerMipFilter mapSamplerMipFilter(RT64::RenderMipmapMode mode) {
+    MTL::SamplerMipFilter mapSamplerMipFilter(RT64::RenderMipmapMode mode) {
         switch (mode) {
             case RT64::RenderMipmapMode::NEAREST:
                 return MTL::SamplerMipFilterNearest;
@@ -682,7 +682,7 @@ namespace metal {
         }
     }
 
-    static MTL::SamplerAddressMode mapSamplerAddressMode(RT64::RenderTextureAddressMode mode) {
+    MTL::SamplerAddressMode mapSamplerAddressMode(RT64::RenderTextureAddressMode mode) {
         switch (mode) {
             case RT64::RenderTextureAddressMode::WRAP:
                 return MTL::SamplerAddressModeRepeat;
@@ -700,7 +700,7 @@ namespace metal {
         }
     }
 
-    static MTL::SamplerBorderColor mapSamplerBorderColor(RT64::RenderBorderColor color) {
+    MTL::SamplerBorderColor mapSamplerBorderColor(RT64::RenderBorderColor color) {
         switch (color) {
             case RT64::RenderBorderColor::TRANSPARENT_BLACK:
                 return MTL::SamplerBorderColorTransparentBlack;
@@ -714,7 +714,7 @@ namespace metal {
         }
     }
 
-    static MTL::ResourceOptions mapResourceOption(RT64::RenderHeapType heapType) {
+    MTL::ResourceOptions mapResourceOption(RT64::RenderHeapType heapType) {
         switch (heapType) {
             case RT64::RenderHeapType::DEFAULT:
                 return MTL::ResourceStorageModePrivate;
@@ -728,11 +728,11 @@ namespace metal {
         }
     }
 
-    static MTL::ClearColor mapClearColor(RT64::RenderColor color) {
+    MTL::ClearColor mapClearColor(RT64::RenderColor color) {
         return MTL::ClearColor(color.r, color.g, color.b, color.a);
     }
 
-    static MTL::ResourceUsage mapResourceUsage(RT64::RenderDescriptorRangeType type) {
+    MTL::ResourceUsage mapResourceUsage(RT64::RenderDescriptorRangeType type) {
         switch (type) {
             case RT64::RenderDescriptorRangeType::TEXTURE:
             case RT64::RenderDescriptorRangeType::FORMATTED_BUFFER:
@@ -754,14 +754,14 @@ namespace metal {
         }
     }
 
-    static MTL::TextureUsage mapTextureUsageFromBufferFlags(RT64::RenderBufferFlags flags) {
+    MTL::TextureUsage mapTextureUsageFromBufferFlags(RT64::RenderBufferFlags flags) {
         MTL::TextureUsage usage = MTL::TextureUsageShaderRead;
         usage |= (flags & RT64::RenderBufferFlag::UNORDERED_ACCESS) ? MTL::TextureUsageShaderWrite : MTL::TextureUsageUnknown;
 
         return usage;
     }
 
-    static MTL::TextureUsage mapTextureUsage(RT64::RenderTextureFlags flags) {
+    MTL::TextureUsage mapTextureUsage(RT64::RenderTextureFlags flags) {
         MTL::TextureUsage usage = MTL::TextureUsageUnknown;
 
         usage |= (flags & RT64::RenderTextureFlag::RENDER_TARGET) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
@@ -771,7 +771,7 @@ namespace metal {
         return usage;
     }
 
-    static MTL::TextureSwizzle mapTextureSwizzle(RT64::RenderSwizzle swizzle) {
+    MTL::TextureSwizzle mapTextureSwizzle(RT64::RenderSwizzle swizzle) {
         switch (swizzle) {
         case RT64::RenderSwizzle::ZERO:
             return MTL::TextureSwizzleZero;
@@ -791,14 +791,14 @@ namespace metal {
         }
     }
 
-    static MTL::TextureSwizzleChannels mapTextureSwizzleChannels(RT64::RenderComponentMapping mapping) {
+    MTL::TextureSwizzleChannels mapTextureSwizzleChannels(RT64::RenderComponentMapping mapping) {
     #define convert(v, d) \
         v == RT64::RenderSwizzle::IDENTITY ? MTL::TextureSwizzle##d : mapTextureSwizzle(v)
         return MTL::TextureSwizzleChannels(convert(mapping.r, Red), convert(mapping.g, Green), convert(mapping.b, Blue), convert(mapping.a, Alpha));
     #undef convert
     }
 
-    static MTL::ColorWriteMask mapColorWriteMask(uint8_t mask) {
+    MTL::ColorWriteMask mapColorWriteMask(uint8_t mask) {
         MTL::ColorWriteMask metalMask = MTL::ColorWriteMaskNone;
         
         if (mask & static_cast<uint8_t>(RT64::RenderColorWriteEnable::RED))
