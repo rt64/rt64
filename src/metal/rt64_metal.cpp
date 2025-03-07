@@ -179,7 +179,11 @@ namespace RT64 {
         this->desc = desc;
         this->device = device;
 
-        this->mtl = device->mtl->newBuffer(desc.size, metal::mapResourceOption(desc.heapType));
+        if (pool != nullptr) {
+            this->mtl = pool->heap->newBuffer(desc.size, metal::mapResourceOption(desc.heapType));
+        } else {
+            this->mtl = device->mtl->newBuffer(desc.size, metal::mapResourceOption(desc.heapType));
+        }
     }
 
     MetalBuffer::~MetalBuffer() {
