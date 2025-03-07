@@ -31,6 +31,9 @@ namespace RT64 {
 
         NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
+        // Initialize binding vector with -1 (invalid index)
+        bindingToIndex.resize(MAX_BINDING_NUMBER, -1);
+
         // Pre-allocate vectors with known size
         const uint32_t totalDescriptors = desc.descriptorRangesCount + (desc.lastRangeIsBoundless ? desc.boundlessRangeSize : 0);
         descriptorIndexBases.reserve(totalDescriptors);
@@ -148,9 +151,10 @@ namespace RT64 {
     }
 
     MetalDescriptorSetLayout::DescriptorSetLayoutBinding* MetalDescriptorSetLayout::getBinding(uint32_t binding, uint32_t bindingIndexOffset) {
-        auto it = bindingToIndex.find(binding);
-        if (it != bindingToIndex.end()) {
-            uint32_t bindingIndex = it->second + bindingIndexOffset;
+        assert(binding < MAX_BINDING_NUMBER);
+
+        if (binding < MAX_BINDING_NUMBER && bindingToIndex[binding] >= 0) {
+            uint32_t bindingIndex = bindingToIndex[binding] + bindingIndexOffset;
             if (bindingIndex < setBindings.size()) {
                 return &setBindings[bindingIndex];
             }

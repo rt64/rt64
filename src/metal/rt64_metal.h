@@ -10,6 +10,7 @@
 
 namespace RT64 {
     static constexpr size_t MAX_CLEAR_RECTS = 16;
+    static constexpr uint32_t MAX_BINDING_NUMBER = 64;
 
     struct MetalInterface;
     struct MetalDevice;
@@ -34,7 +35,7 @@ namespace RT64 {
         uint32_t pipelineState : 1;
         uint32_t descriptorSets : 1;
         uint32_t pushConstants : 1;
-        
+
         void setAll() {
             pipelineState = 1;
             descriptorSets = 1;
@@ -50,7 +51,7 @@ namespace RT64 {
         uint32_t scissors : 1;
         uint32_t vertexBuffers : 1;
         uint32_t indexBuffer : 1;
-        
+
         void setAll() {
             pipelineState = 1;
             descriptorSets = 1;
@@ -67,7 +68,7 @@ namespace RT64 {
         MTL::ArgumentEncoder *argumentEncoder;
         uint32_t offset;
         uint64_t encodedSize;
-        
+
         void setBuffer(MTL::Buffer *buffer, uint32_t offset, uint32_t index);
         void setTexture(MTL::Texture *texture, uint32_t index);
         void setSamplerState(MTL::SamplerState *sampler, uint32_t index);
@@ -95,10 +96,10 @@ namespace RT64 {
             RenderDescriptorRangeType descriptorType;
             std::vector<MTL::SamplerState *> immutableSamplers;
         };
-        
+
         MetalDevice *device = nullptr;
         std::vector<DescriptorSetLayoutBinding> setBindings;
-        std::unordered_map<uint32_t, uint32_t> bindingToIndex;
+        std::vector<int32_t> bindingToIndex;
         MTL::ArgumentEncoder *argumentEncoder = nullptr;
         std::vector<MTL::ArgumentDescriptor *> argumentDescriptors;
 
@@ -108,7 +109,7 @@ namespace RT64 {
 
         MetalDescriptorSetLayout(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         ~MetalDescriptorSetLayout();
-        
+
         DescriptorSetLayoutBinding* getBinding(uint32_t binding, uint32_t bindingIndexOffset = 0);
     };
 
@@ -147,7 +148,7 @@ namespace RT64 {
         std::vector<Descriptor> descriptors;
 
         MetalArgumentBuffer argumentBuffer;
-        
+
         std::unordered_map<uint32_t, std::pair<MTL::Resource*, RenderDescriptorRangeType>> resources;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
@@ -157,7 +158,7 @@ namespace RT64 {
         void setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) override;
         virtual void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) override;
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
-        
+
         void setDescriptor(uint32_t descriptorIndex, const Descriptor *descriptor);
         void bindImmutableSamplers();
         RenderDescriptorRangeType getDescriptorType(uint32_t binding);
@@ -198,7 +199,7 @@ namespace RT64 {
         uint32_t height = 0;
         std::vector<const ExtendedRenderTexture *> colorAttachments;
         const MetalTexture *depthAttachment = nullptr;
-        
+
         MTL::SamplePosition samplePositions[16] = {};
         uint32_t sampleCount = 0;
 
@@ -206,19 +207,19 @@ namespace RT64 {
         ~MetalFramebuffer() override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
-        
+
         // this comparison is tailored towards whether we'll require a new encoder
         bool operator==(const MetalFramebuffer& other) const {
             if (colorAttachments.size() != other.colorAttachments.size()) {
                 return false;
             }
-            
+
             for (size_t i = 0; i < colorAttachments.size(); i++) {
                 if (colorAttachments[i]->getTexture() != other.colorAttachments[i]->getTexture() ||
                     colorAttachments[i]->desc.multisampling.sampleCount != other.colorAttachments[i]->desc.multisampling.sampleCount) {
                     return false;
                 }
-                
+
                 // Compare individual sample locations if multisampling is enabled
                 if (colorAttachments[i]->desc.multisampling.sampleCount > 1) {
                     for (uint32_t s = 0; s < colorAttachments[i]->desc.multisampling.sampleCount; s++) {
@@ -230,14 +231,14 @@ namespace RT64 {
                     }
                 }
             }
-            
+
             return depthAttachment == other.depthAttachment;
         }
-        
+
         bool operator!=(const MetalFramebuffer& other) const {
             return !(*this == other);
         }
-        
+
     };
 
     struct MetalCommandList : RenderCommandList {
@@ -253,32 +254,32 @@ namespace RT64 {
             RenderRect clearRects[MAX_CLEAR_RECTS];
             uint32_t clearRectCount;
         };
-        
+
         struct PushConstantData : RenderPushConstantRange {
             std::vector<uint8_t> data;
-            
+
             bool operator==(const PushConstantData& other) const {
                 return offset == other.offset && size == other.size && stageFlags == other.stageFlags && data == other.data;
             }
-            
+
             bool operator!=(const PushConstantData& other) const {
                 return !(*this == other);
             }
         };
-        
+
         struct ClearVertex {
             simd::float4 position;  // xy = position, z = 0, w = unused
         };
-        
+
         MTL::CommandBuffer *mtl = nullptr;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
         MTL::ComputeCommandEncoder *activeComputeEncoder = nullptr;
         MTL::BlitCommandEncoder *activeBlitEncoder = nullptr;
         MTL::ComputeCommandEncoder *activeResolveComputeEncoder = nullptr;
-        
+
         ComputeStateFlags dirtyComputeState{};
         GraphicsStateFlags dirtyGraphicsState{};
-        
+
         struct {
             MTL::RenderPipelineState* lastPipelineState = nullptr;
             std::vector<MTL::Viewport> lastViewports;
@@ -366,7 +367,7 @@ namespace RT64 {
         void endActiveBlitEncoder();
         void checkActiveResolveTextureComputeEncoder();
         void endActiveResolveTextureComputeEncoder();
-        
+
         std::vector<simd::float2> prepareClearVertices(const RenderRect& rect);
         void checkForUpdatesInGraphicsState();
         void setCommonClearState();
@@ -424,7 +425,7 @@ namespace RT64 {
 
     struct MetalDrawable : ExtendedRenderTexture {
         CA::MetalDrawable *mtl = nullptr;
-        
+
         MetalDrawable() = default;
         MetalDrawable(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
         ~MetalDrawable() override;
@@ -447,7 +448,7 @@ namespace RT64 {
         ~MetalTexture() override;
         std::unique_ptr<RenderTextureView> createTextureView(const RenderTextureViewDesc &desc) override;
         void setName(const std::string &name) override;
-        
+
         MTL::Texture* getTexture() const override { return mtl; }
     };
 
@@ -574,13 +575,13 @@ namespace RT64 {
         MTL::Device* device;
         RenderInterfaceCapabilities capabilities;
         MTL::ComputePipelineState *resolveTexturePipelineState;
-        
+
         // Clear functionality
         MTL::Function* clearVertexFunction;
         MTL::Function* clearColorFunction;
         MTL::Function* clearDepthFunction;
         MTL::DepthStencilState *clearDepthStencilState;
-        
+
         std::mutex clearPipelineStateMutex;
         std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
 
@@ -593,7 +594,7 @@ namespace RT64 {
         // Shader libraries and pipeline states used for emulated operations
         void createResolvePipelineState();
         void createClearShaderLibrary();
-        
+
         MTL::RenderPipelineState* getOrCreateClearRenderPipelineState(MTL::RenderPipelineDescriptor *pipelineDesc, bool depthWriteEnabled = false);
     };
 }

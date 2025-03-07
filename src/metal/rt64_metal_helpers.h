@@ -50,23 +50,23 @@ namespace metal {
     }
 
     NS::UInteger alignmentForRenderFormat(MTL::Device *device, RT64::RenderFormat format) {
-        auto deviceAlignment = device->minimumLinearTextureAlignmentForPixelFormat(mapPixelFormat(format));
+        const auto deviceAlignment = device->minimumLinearTextureAlignmentForPixelFormat(mapPixelFormat(format));
 
     #if TARGET_OS_TV
-        auto minTexelBufferOffsetAligment = 64;
+        auto minTexelBufferOffsetAlignment = 64;
     #elif TARGET_OS_IPHONE
-        auto minTexelBufferOffsetAligment = 64;
+        auto minTexelBufferOffsetAlignment = 64;
         if (device->supportsFamily(MTL::GPUFamilyApple3)) {
-            minTexelBufferOffsetAligment = 16;
+            minTexelBufferOffsetAlignment = 16;
         }
     #elif TARGET_OS_MAC
-        auto minTexelBufferOffsetAligment = 256;
+        auto minTexelBufferOffsetAlignment = 256;
         if (device->supportsFamily(MTL::GPUFamilyApple3)) {
-            minTexelBufferOffsetAligment = 16;
+            minTexelBufferOffsetAlignment = 16;
         }
     #endif
 
-        return deviceAlignment ? deviceAlignment : minTexelBufferOffsetAligment;
+        return deviceAlignment ? deviceAlignment : minTexelBufferOffsetAlignment;
     }
 
     MTL::ScissorRect clampScissorRectIfNecessary(const MTL::ScissorRect& rect, const RT64::MetalFramebuffer* targetFramebuffer) {
