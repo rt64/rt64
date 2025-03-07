@@ -350,7 +350,7 @@ namespace RT64 {
         this->format = format;
         this->functionName = (entryPointName != nullptr) ? NS::String::string(entryPointName, NS::UTF8StringEncoding) : MTLSTR("");
 
-        NS::Error *error;
+        NS::Error *error = nullptr;
         dispatch_data_t dispatchData = dispatch_data_create(data, size, dispatch_get_main_queue(), ^{});
         library = device->mtl->newLibrary(dispatchData, &error);
 
@@ -373,19 +373,19 @@ namespace RT64 {
                 values->setConstantValue(&specConstant.value, MTL::DataTypeUInt, specConstant.index);
             }
 
-            NS::Error *error;
-            auto function = library->newFunction(functionName, values, &error);
+            NS::Error *error = nullptr;
+            const auto function = library->newFunction(functionName, values, &error);
             values->release();
 
             if (error != nullptr) {
-                fprintf(stderr, "MTLLibrary newFunction: failed with error: %ld.\n", error->code());
+                fprintf(stderr, "MTLLibrary newFunction: failed with error: %s.\n", error->localizedDescription()->utf8String());
                 return nullptr;
             }
 
             return function;
-        } else {
-            return library->newFunction(functionName);
         }
+
+        return library->newFunction(functionName);
     }
 
     // MetalSampler
