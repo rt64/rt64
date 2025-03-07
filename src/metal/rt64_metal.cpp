@@ -254,16 +254,6 @@ namespace RT64 {
         descriptor->setSampleCount(desc.multisampling.sampleCount);
 
         MTL::TextureUsage usage = metal::mapTextureUsage(desc.flags);
-        // Add shader write usage if this texture might be used as a resolve target
-        if (desc.multisampling.sampleCount == 1) {  // Non-MSAA textures could be resolve targets
-            usage |= MTL::TextureUsageShaderWrite;
-        }
-
-        // Add shader read usage if this texture might be used as a resolve source
-        if (desc.multisampling.sampleCount > 1) { // MSAA textures could be resolve sources
-            usage |= MTL::TextureUsageShaderRead;
-        }
-
         descriptor->setUsage(usage);
 
         if (pool != nullptr) {

@@ -762,11 +762,16 @@ namespace metal {
     }
 
     MTL::TextureUsage mapTextureUsage(RT64::RenderTextureFlags flags) {
-        MTL::TextureUsage usage = MTL::TextureUsageUnknown;
+        MTL::TextureUsage usage = MTL::TextureUsageShaderRead;
 
-        usage |= (flags & RT64::RenderTextureFlag::RENDER_TARGET) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
-        usage |= (flags & RT64::RenderTextureFlag::DEPTH_TARGET) ? MTL::TextureUsageRenderTarget : MTL::TextureUsageUnknown;
-        usage |= (flags & RT64::RenderTextureFlag::UNORDERED_ACCESS) ? MTL::TextureUsageShaderWrite : MTL::TextureUsageUnknown;
+        if (flags & RT64::RenderTextureFlag::RENDER_TARGET)
+            usage |= MTL::TextureUsageRenderTarget | MTL::TextureUsageShaderWrite;
+
+        if (flags & RT64::RenderTextureFlag::DEPTH_TARGET)
+            usage |= MTL::TextureUsageRenderTarget | MTL::TextureUsageShaderRead;
+
+        if (flags & RT64::RenderTextureFlag::UNORDERED_ACCESS)
+            usage |= MTL::TextureUsageShaderWrite;
 
         return usage;
     }
