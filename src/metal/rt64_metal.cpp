@@ -321,6 +321,10 @@ namespace RT64 {
         descriptor->setType(MTL::HeapTypeAutomatic);
         descriptor->setStorageMode(metal::mapStorageMode(desc.heapType));
 
+        // Heap requires a minimum size.
+        // Setting to 1KB as desc.minBlockSize is not translated to a minimum size requirement.
+        descriptor->setSize(1024);
+
         this->heap = device->mtl->newHeap(descriptor);
 
         // Release resources
