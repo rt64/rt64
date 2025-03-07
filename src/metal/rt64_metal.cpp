@@ -317,18 +317,18 @@ namespace RT64 {
         assert(device != nullptr);
         this->device = device;
 
-//        MTL::HeapDescriptor *descriptor = MTL::HeapDescriptor::alloc()->init();
-//        // TODO: Set Descriptor properties correctly
-//        descriptor->setType(MTL::HeapTypeAutomatic);
-//
-//        this->heap = device->mtl->newHeap(descriptor);
-//
-//        // Release resources
-//        descriptor->release();
+        MTL::HeapDescriptor *descriptor = MTL::HeapDescriptor::alloc()->init();
+        descriptor->setType(MTL::HeapTypeAutomatic);
+        descriptor->setStorageMode(metal::mapStorageMode(desc.heapType));
+
+        this->heap = device->mtl->newHeap(descriptor);
+
+        // Release resources
+        descriptor->release();
     }
 
     MetalPool::~MetalPool() {
-        // heap->release();
+         heap->release();
     }
 
     std::unique_ptr<RenderBuffer> MetalPool::createBuffer(const RenderBufferDesc &desc) {
@@ -375,7 +375,7 @@ namespace RT64 {
 
             NS::Error *error;
             auto function = library->newFunction(functionName, values, &error);
-//            values->release();
+            values->release();
 
             if (error != nullptr) {
                 fprintf(stderr, "MTLLibrary newFunction: failed with error: %ld.\n", error->code());

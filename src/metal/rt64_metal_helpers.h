@@ -728,6 +728,20 @@ namespace metal {
         }
     }
 
+    MTL::StorageMode mapStorageMode(RT64::RenderHeapType heapType) {
+        switch (heapType) {
+            case RT64::RenderHeapType::DEFAULT:
+                return MTL::StorageModePrivate;
+            case RT64::RenderHeapType::UPLOAD:
+                return MTL::StorageModeShared;
+            case RT64::RenderHeapType::READBACK:
+                return MTL::StorageModeShared;
+            default:
+                assert(false && "Unknown heap type.");
+                return MTL::StorageModePrivate;
+        }
+    }
+
     MTL::ClearColor mapClearColor(RT64::RenderColor color) {
         return MTL::ClearColor(color.r, color.g, color.b, color.a);
     }
