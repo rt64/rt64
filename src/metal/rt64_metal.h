@@ -542,6 +542,8 @@ namespace RT64 {
         RenderDeviceCapabilities capabilities;
         RenderDeviceDescription description;
 
+        MTL::BlitPassDescriptor *reusableBlitDescriptor = nullptr;
+
         explicit MetalDevice(MetalInterface *renderInterface);
         ~MetalDevice() override;
         std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) override;

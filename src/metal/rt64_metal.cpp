@@ -726,7 +726,6 @@ namespace RT64 {
             }
         }
 
-        // TODO: This is where I left off
         switch (dtype) {
             case MTL::DataTypeTexture: {
                 const TextureDescriptor *textureDescriptor = static_cast<const TextureDescriptor *>(descriptor);
@@ -1253,7 +1252,6 @@ namespace RT64 {
 
     void MetalCommandList::setRaytracingDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
         // TODO: Metal RT
-        // setDescriptorSet();
     }
 
     void MetalCommandList::setIndexBuffer(const RenderIndexBufferView *view) {
@@ -1909,12 +1907,8 @@ namespace RT64 {
         endOtherEncoders(EncoderType::Blit);
 
         if (activeBlitEncoder == nullptr) {
-            // TODO: We don't specialize this descriptor, so it could be reused.
-            auto blitDescriptor = MTL::BlitPassDescriptor::alloc()->init();
-            activeBlitEncoder = mtl->blitCommandEncoder(blitDescriptor);
+            activeBlitEncoder = mtl->blitCommandEncoder(device->reusableBlitDescriptor);
             activeBlitEncoder->setLabel(MTLSTR("Copy Blit Encoder"));
-
-            blitDescriptor->release();
         }
     }
 
@@ -2108,10 +2102,14 @@ namespace RT64 {
         capabilities.presentWait = true;
         capabilities.preferHDR = mtl->recommendedMaxWorkingSetSize() > (512 * 1024 * 1024);
         description.name = "Metal";
+
+        // We do not specialize the blit descriptor, so create one and use it for all blit passes
+        reusableBlitDescriptor = MTL::BlitPassDescriptor::alloc()->init();
     }
 
     MetalDevice::~MetalDevice() {
         mtl->release();
+        reusableBlitDescriptor->release();
     }
 
     std::unique_ptr<RenderDescriptorSet> MetalDevice::createDescriptorSet(const RenderDescriptorSetDesc &desc) {
