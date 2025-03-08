@@ -69,9 +69,28 @@ namespace metal {
         return deviceAlignment ? deviceAlignment : minTexelBufferOffsetAlignment;
     }
 
-    MTL::ScissorRect clampScissorRectIfNecessary(const MTL::ScissorRect& rect, const RT64::MetalFramebuffer* targetFramebuffer) {
+    MTL::ScissorRect clampScissorRectIfNecessary(const RT64::RenderRect& rect, const RT64::MetalFramebuffer* targetFramebuffer) {
+        // Always clamp the scissor rect to the render target dimensions.
+        // RenderRect is signed, but Metal's rect is not. Use a signed max function, then cast to unsigned.
+        NS::UInteger left = static_cast<NS::UInteger>(std::max(0, rect.left));
+        NS::UInteger top = static_cast<NS::UInteger>(std::max(0, rect.top));
+        NS::UInteger right = static_cast<NS::UInteger>(std::max(0, rect.right));
+        NS::UInteger bottom = static_cast<NS::UInteger>(std::max(0, rect.bottom));
+
+        if (left >= right || top >= bottom) {
+            return MTL::ScissorRect({0u, 0u, 0u, 0u});
+        }
+
+        MTL::ScissorRect clampedRect = {
+            left,
+            top,
+            right - left,
+            top - bottom
+        };
+
         if (!targetFramebuffer || targetFramebuffer->colorAttachments.empty()) {
-            return rect;
+            // No need to clamp
+            return clampedRect;
         }
 
         // Always clamp to the attachment dimensions, to avoid Metal API error
@@ -91,15 +110,8 @@ namespace metal {
 
         // If no valid attachments found, return original rect
         if (!hasAttachments) {
-            return rect;
+            return clampedRect;
         }
-
-        // Always clamp the scissor rect to the render target dimensions
-        MTL::ScissorRect clampedRect = rect;
-
-        // Ensure x and y are not negative (Metal doesn't support negative offsets)
-        clampedRect.x = std::max(static_cast<NS::UInteger>(0u), clampedRect.x);
-        clampedRect.y = std::max(static_cast<NS::UInteger>(0u), clampedRect.y);
 
         // Clamp width and height to fit within the render target
         if (clampedRect.x + clampedRect.width > maxWidth) {

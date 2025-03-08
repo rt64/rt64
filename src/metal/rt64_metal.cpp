@@ -1320,12 +1320,7 @@ namespace RT64 {
         scissorVector.resize(count);
 
         for (uint32_t i = 0; i < count; i++) {
-            scissorVector[i] = metal::clampScissorRectIfNecessary({
-                static_cast<NS::UInteger>(scissorRects[i].left),
-                static_cast<NS::UInteger>(scissorRects[i].top),
-                static_cast<NS::UInteger>(scissorRects[i].right - scissorRects[i].left),
-                static_cast<NS::UInteger>(scissorRects[i].bottom - scissorRects[i].top)
-            }, targetFramebuffer);
+            scissorVector[i] = metal::clampScissorRectIfNecessary(scissorRects[i], targetFramebuffer);
         }
 
         // Since scissors are set at the encoder level, we mark it as dirty so it'll be updated on next active encoder check
@@ -1351,7 +1346,7 @@ namespace RT64 {
 
     void MetalCommandList::setCommonClearState() {
         activeRenderEncoder->setViewport({ 0, 0, float(targetFramebuffer->width), float(targetFramebuffer->height), 0.0f, 1.0f });
-        activeRenderEncoder->setScissorRect(metal::clampScissorRectIfNecessary({ 0, 0, targetFramebuffer->width, targetFramebuffer->height }, targetFramebuffer));
+        activeRenderEncoder->setScissorRect(metal::clampScissorRectIfNecessary({ 0, 0, int32_t(targetFramebuffer->width), int32_t(targetFramebuffer->height) }, targetFramebuffer));
         activeRenderEncoder->setTriangleFillMode(MTL::TriangleFillModeFill);
         activeRenderEncoder->setCullMode(MTL::CullModeNone);
         activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
