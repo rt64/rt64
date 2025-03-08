@@ -161,7 +161,7 @@ namespace RT64 {
 
         void setDescriptor(uint32_t descriptorIndex, const Descriptor *descriptor);
         void bindImmutableSamplers();
-        RenderDescriptorRangeType getDescriptorType(uint32_t binding);
+        RenderDescriptorRangeType getDescriptorType(uint32_t binding) const;
     };
 
     struct MetalSwapChain : RenderSwapChain {

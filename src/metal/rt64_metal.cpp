@@ -60,7 +60,10 @@ namespace RT64 {
         uint32_t rangeCount = desc.lastRangeIsBoundless ? desc.descriptorRangesCount - 1 : desc.descriptorRangesCount;
 
         auto createBinding = [](const RenderDescriptorRange &range) {
-            MetalDescriptorSetLayout::DescriptorSetLayoutBinding binding = {
+            // The binding exceeds our fixed binding vec limit, increase MAX_BINDING_NUMBER if necessary
+            assert(range.binding < MAX_BINDING_NUMBER);
+
+            DescriptorSetLayoutBinding binding = {
                     .binding = range.binding,
                     .descriptorCount = range.count,
                     .descriptorType = range.type,
@@ -150,14 +153,9 @@ namespace RT64 {
         releasePool->release();
     }
 
-    MetalDescriptorSetLayout::DescriptorSetLayoutBinding* MetalDescriptorSetLayout::getBinding(uint32_t binding, uint32_t bindingIndexOffset) {
-        assert(binding < MAX_BINDING_NUMBER);
-
-        if (binding < MAX_BINDING_NUMBER && bindingToIndex[binding] >= 0) {
-            uint32_t bindingIndex = bindingToIndex[binding] + bindingIndexOffset;
-            if (bindingIndex < setBindings.size()) {
-                return &setBindings[bindingIndex];
-            }
+    MetalDescriptorSetLayout::DescriptorSetLayoutBinding* MetalDescriptorSetLayout::getBinding(const uint32_t binding, const uint32_t bindingIndexOffset) {
+        if (const uint32_t bindingIndex = bindingToIndex[binding] + bindingIndexOffset; bindingIndex < setBindings.size()) {
+            return &setBindings[bindingIndex];
         }
 
         return nullptr;
@@ -165,7 +163,7 @@ namespace RT64 {
 
     MetalDescriptorSetLayout::~MetalDescriptorSetLayout() {
         argumentEncoder->release();
-        for (auto &argumentDesc: argumentDescriptors) {
+        for (const auto &argumentDesc: argumentDescriptors) {
             argumentDesc->release();
         }
     }
@@ -217,12 +215,12 @@ namespace RT64 {
         const auto bytesPerRow = mem::alignUp(buffer->desc.size, rowAlignment);
 
         // Configure texture properties
-        auto pixelFormat = metal::mapPixelFormat(format);
-        auto usage = metal::mapTextureUsageFromBufferFlags(buffer->desc.flags);
-        auto options = metal::mapResourceOption(buffer->desc.heapType);
+        const auto pixelFormat = metal::mapPixelFormat(format);
+        const auto usage = metal::mapTextureUsageFromBufferFlags(buffer->desc.flags);
+        const auto options = metal::mapResourceOption(buffer->desc.heapType);
 
         // Create texture with configured descriptor and alignment
-        auto descriptor = MTL::TextureDescriptor::textureBufferDescriptor(pixelFormat, width, options, usage);
+        const auto descriptor = MTL::TextureDescriptor::textureBufferDescriptor(pixelFormat, width, options, usage);
         this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
 
         descriptor->release();
@@ -240,8 +238,8 @@ namespace RT64 {
         this->pool = pool;
         this->desc = desc;
 
-        auto descriptor = MTL::TextureDescriptor::alloc()->init();
-        auto textureType = metal::mapTextureType(desc.dimension, desc.multisampling.sampleCount);
+        const auto descriptor = MTL::TextureDescriptor::alloc()->init();
+        const auto textureType = metal::mapTextureType(desc.dimension, desc.multisampling.sampleCount);
 
         descriptor->setTextureType(textureType);
         descriptor->setStorageMode(MTL::StorageModePrivate);
@@ -714,14 +712,14 @@ namespace RT64 {
         const uint32_t indexBase = setLayout->descriptorIndexBases[descriptorIndex];
         const uint32_t bindingIndex = setLayout->descriptorBindingIndices[descriptorIndex];
         const auto &setLayoutBinding = setLayout->setBindings[indexBase];
-        MTL::DataType dtype = metal::mapDataType(setLayoutBinding.descriptorType);
+        const MTL::DataType dtype = metal::mapDataType(setLayoutBinding.descriptorType);
         MTL::Resource *nativeResource = nullptr;
         auto descriptorType = getDescriptorType(bindingIndex);
 
         if (dtype != MTL::DataTypeSampler) {
             if (resources.find(descriptorIndex) != resources.end()) {
-                auto &resource = resources[descriptorIndex];
-                resource.first->release();
+                auto & [fst, _snd] = resources[descriptorIndex];
+                fst->release();
                 resources.erase(descriptorIndex);
             }
         }
@@ -758,7 +756,7 @@ namespace RT64 {
         }
     }
 
-    RenderDescriptorRangeType MetalDescriptorSet::getDescriptorType(uint32_t binding) {
+    RenderDescriptorRangeType MetalDescriptorSet::getDescriptorType(const uint32_t binding) const {
         return setLayout->getBinding(binding)->descriptorType;
     }
 
