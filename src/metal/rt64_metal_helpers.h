@@ -791,10 +791,10 @@ namespace metal {
         MTL::TextureUsage usage = MTL::TextureUsageShaderRead;
 
         if (flags & RT64::RenderTextureFlag::RENDER_TARGET)
-            usage |= MTL::TextureUsageRenderTarget | MTL::TextureUsageShaderWrite;
+            usage |= MTL::TextureUsageRenderTarget;
 
         if (flags & RT64::RenderTextureFlag::DEPTH_TARGET)
-            usage |= MTL::TextureUsageRenderTarget | MTL::TextureUsageShaderRead;
+            usage |= MTL::TextureUsageRenderTarget;
 
         if (flags & RT64::RenderTextureFlag::UNORDERED_ACCESS)
             usage |= MTL::TextureUsageShaderWrite;
