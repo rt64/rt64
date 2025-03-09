@@ -160,7 +160,7 @@ namespace RT64 {
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
 
         void setDescriptor(uint32_t descriptorIndex, const Descriptor *descriptor);
-        void bindImmutableSamplers();
+        void bindImmutableSamplers() const;
         RenderDescriptorRangeType getDescriptorType(uint32_t binding) const;
     };
 
@@ -203,7 +203,7 @@ namespace RT64 {
         MTL::SamplePosition samplePositions[16] = {};
         uint32_t sampleCount = 0;
 
-        MetalFramebuffer(MetalDevice *device, const RenderFramebufferDesc &desc);
+        MetalFramebuffer(const MetalDevice *device, const RenderFramebufferDesc &desc);
         ~MetalFramebuffer() override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
@@ -318,7 +318,7 @@ namespace RT64 {
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
         std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
 
-        MetalCommandList(MetalCommandQueue *queue, RenderCommandListType type);
+        MetalCommandList(const MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
         void begin() override;
         void end() override;
@@ -357,7 +357,7 @@ namespace RT64 {
         void resolveTextureRegion(const RenderTexture *dstTexture, uint32_t dstX, uint32_t dstY, const RenderTexture *srcTexture, const RenderRect *srcRect) override;
         void buildBottomLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, const RenderBottomLevelASBuildInfo &buildInfo) override;
         void buildTopLevelAS(const RenderAccelerationStructure *dstAccelerationStructure, RenderBufferReference scratchBuffer, RenderBufferReference instancesBuffer, const RenderTopLevelASBuildInfo &buildInfo) override;
-        void bindDescriptorSetLayout(const MetalPipelineLayout* layout, MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute);
+
         void endOtherEncoders(EncoderType type);
         void checkActiveComputeEncoder();
         void endActiveComputeEncoder();
@@ -367,10 +367,9 @@ namespace RT64 {
         void endActiveBlitEncoder();
         void checkActiveResolveTextureComputeEncoder();
         void endActiveResolveTextureComputeEncoder();
-
         std::vector<simd::float2> prepareClearVertices(const RenderRect& rect);
         void checkForUpdatesInGraphicsState();
-        void setCommonClearState();
+        void setCommonClearState() const;
     };
 
     struct MetalCommandFence : RenderCommandFence {
@@ -384,7 +383,7 @@ namespace RT64 {
         MTL::Event *mtl;
         std::atomic<uint64_t> mtlEventValue;
 
-        MetalCommandSemaphore(MetalDevice *device);
+        MetalCommandSemaphore(const MetalDevice *device);
         ~MetalCommandSemaphore() override;
     };
 
@@ -444,7 +443,7 @@ namespace RT64 {
         MTL::Drawable *drawable = nullptr;
 
         MetalTexture() = default;
-        MetalTexture(MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
+        MetalTexture(const MetalDevice *device, MetalPool *pool, const RenderTextureDesc &desc);
         ~MetalTexture() override;
         std::unique_ptr<RenderTextureView> createTextureView(const RenderTextureViewDesc &desc) override;
         void setName(const std::string &name) override;
@@ -485,7 +484,7 @@ namespace RT64 {
         RenderShaderFormat format = RenderShaderFormat::UNKNOWN;
         MTL::Library *library = nullptr;
 
-        MetalShader(MetalDevice *device, const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format);
+        MetalShader(const MetalDevice *device, const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format);
         ~MetalShader() override;
         MTL::Function* createFunction(const RenderSpecConstant *specConstants, uint32_t specConstantsCount) const;
     };
@@ -495,7 +494,7 @@ namespace RT64 {
         RenderBorderColor borderColor = RenderBorderColor::UNKNOWN;
         RenderShaderVisibility shaderVisibility = RenderShaderVisibility::UNKNOWN;
 
-        MetalSampler(MetalDevice *device, const RenderSamplerDesc &desc);
+        MetalSampler(const MetalDevice *device, const RenderSamplerDesc &desc);
         ~MetalSampler() override;
     };
 
@@ -509,20 +508,20 @@ namespace RT64 {
 
         Type type = Type::Unknown;
 
-        MetalPipeline(MetalDevice *device, Type type);
+        MetalPipeline(const MetalDevice *device, Type type);
         virtual ~MetalPipeline() override;
     };
 
     struct MetalComputePipeline : MetalPipeline {
         MetalComputeState *state;
-        MetalComputePipeline(MetalDevice *device, const RenderComputePipelineDesc &desc);
+        MetalComputePipeline(const MetalDevice *device, const RenderComputePipelineDesc &desc);
         ~MetalComputePipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
     };
 
     struct MetalGraphicsPipeline : MetalPipeline {
         MetalRenderState *state;
-        MetalGraphicsPipeline(MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
+        MetalGraphicsPipeline(const MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
     };
@@ -534,6 +533,8 @@ namespace RT64 {
 
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
+
+        void bindDescriptorSets(MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) const;
     };
 
     struct MetalDevice : RenderDevice {
@@ -541,8 +542,6 @@ namespace RT64 {
         MetalInterface *renderInterface = nullptr;
         RenderDeviceCapabilities capabilities;
         RenderDeviceDescription description;
-
-        MTL::BlitPassDescriptor *reusableBlitDescriptor = nullptr;
 
         explicit MetalDevice(MetalInterface *renderInterface);
         ~MetalDevice() override;
@@ -586,6 +585,9 @@ namespace RT64 {
 
         std::mutex clearPipelineStateMutex;
         std::unordered_map<uint64_t, MTL::RenderPipelineState *> clearRenderPipelineStates;
+
+        // Blit functionality
+        MTL::BlitPassDescriptor *reusableBlitDescriptor = nullptr;
 
         MetalInterface();
         ~MetalInterface() override;
