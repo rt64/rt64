@@ -604,7 +604,7 @@ namespace RT64 {
                 entry.resource->release();
             }
         }
-        
+
         if (argumentBuffer.mtl != nullptr) {
             argumentBuffer.mtl->release();
         }
@@ -1046,8 +1046,7 @@ namespace RT64 {
         // TODO: Support Metal RT
     }
 
-    std::vector<simd::float2> MetalCommandList::prepareClearVertices(const RenderRect& rect) {
-        // TODO: Can we get away without creating new vectors every time?
+    void MetalCommandList::prepareClearVertices(const RenderRect& rect, simd::float2* outVertices) {
         const float attWidth = static_cast<float>(targetFramebuffer->width);
         const float attHeight = static_cast<float>(targetFramebuffer->height);
 
@@ -1064,15 +1063,13 @@ namespace RT64 {
         topPos = -(topPos * 2.0f - 1.0f);
         bottomPos = -(bottomPos * 2.0f - 1.0f);
 
-        // Define vertices for a triangle strip (quad)
-        return {
-            (simd::float2){ leftPos,  topPos },  // Top left
-            (simd::float2){ leftPos,  bottomPos },  // Bottom left
-            (simd::float2){ rightPos, bottomPos },  // Bottom right
-            (simd::float2){ rightPos, bottomPos },  // Bottom right (repeated)
-            (simd::float2){ rightPos, topPos },  // Top right
-            (simd::float2){ leftPos,  topPos }   // Top left (repeated)
-        };
+        // Write vertices directly to the output array
+        outVertices[0] = (simd::float2){ leftPos,  topPos };     // Top left
+        outVertices[1] = (simd::float2){ leftPos,  bottomPos };  // Bottom left
+        outVertices[2] = (simd::float2){ rightPos, bottomPos };  // Bottom right
+        outVertices[3] = (simd::float2){ rightPos, bottomPos };  // Bottom right (repeated)
+        outVertices[4] = (simd::float2){ rightPos, topPos };     // Top right
+        outVertices[5] = (simd::float2){ leftPos,  topPos };     // Top left (repeated)
     }
 
     void MetalCommandList::drawInstanced(const uint32_t vertexCountPerInstance, const uint32_t instanceCount, const uint32_t startVertexLocation, const uint32_t startInstanceLocation) {
@@ -1359,16 +1356,21 @@ namespace RT64 {
         pipelineDesc->release();
 
         // Generate vertices for each rect
-        std::vector<simd::float2> allVertices;
+        const uint32_t rectCount = clearRectsCount > 0 ? clearRectsCount : 1;
+        const size_t totalVertices = 6 * rectCount;  // 6 vertices per rect
+
+        thread_local std::vector<simd::float2> allVertices;
+        allVertices.resize(totalVertices);
+
         if (clearRectsCount > 0) {
+            // Process each clear rect
             for (uint32_t j = 0; j < clearRectsCount; j++) {
-                std::vector<simd::float2> rectVertices = prepareClearVertices(clearRects[j]);
-                allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
+                prepareClearVertices(clearRects[j], allVertices.data() + (j * 6));
             }
         } else {
             // Full screen clear
             const RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
-            allVertices = prepareClearVertices(fullRect);
+            prepareClearVertices(fullRect, allVertices.data());
         }
 
         // Set vertices
@@ -1376,7 +1378,6 @@ namespace RT64 {
 
         // Use stack for clear colors too since we know the max size
         simd::float4 clearColors[MAX_CLEAR_RECTS];
-        uint32_t rectCount = clearRectsCount > 0 ? clearRectsCount : 1;
         for (size_t j = 0; j < rectCount; j++) {
             clearColors[j] = (simd::float4){ colorValue.r, colorValue.g, colorValue.b, colorValue.a };
         }
@@ -1430,24 +1431,27 @@ namespace RT64 {
             pipelineDesc->release();
 
             // Generate vertices for each rect
-            std::vector<simd::float2> allVertices;
+            const uint32_t rectCount = clearRectsCount > 0 ? clearRectsCount : 1;
+            const size_t totalVertices = 6 * rectCount;  // 6 vertices per rect
+
+            thread_local std::vector<simd::float2> allVertices;
+            allVertices.resize(totalVertices);
+
             if (clearRectsCount > 0) {
+                // Process each clear rect
                 for (uint32_t j = 0; j < clearRectsCount; j++) {
-                    std::vector<simd::float2> rectVertices = prepareClearVertices(clearRects[j]);
-                    allVertices.insert(allVertices.end(), rectVertices.begin(), rectVertices.end());
+                    prepareClearVertices(clearRects[j], allVertices.data() + (j * 6));
                 }
             } else {
                 // Full screen clear
                 const RenderRect fullRect = { 0, 0, static_cast<int32_t>(targetFramebuffer->width), static_cast<int32_t>(targetFramebuffer->height) };
-                allVertices = prepareClearVertices(fullRect);
+                prepareClearVertices(fullRect, allVertices.data());
             }
 
             // Set vertices
             activeRenderEncoder->setVertexBytes(allVertices.data(), allVertices.size() * sizeof(simd::float2), 0);
 
-
             float clearDepths[MAX_CLEAR_RECTS];
-            const uint32_t rectCount = clearRectsCount > 0 ? clearRectsCount : 1;
             for (size_t j = 0; j < rectCount; j++) {
                 clearDepths[j] = depthValue;
             }

@@ -374,7 +374,7 @@ namespace RT64 {
         void endActiveBlitEncoder();
         void checkActiveResolveTextureComputeEncoder();
         void endActiveResolveTextureComputeEncoder();
-        std::vector<simd::float2> prepareClearVertices(const RenderRect& rect);
+        void prepareClearVertices(const RenderRect& rect, simd::float2* outVertices);
         void checkForUpdatesInGraphicsState();
         void setCommonClearState() const;
     };
