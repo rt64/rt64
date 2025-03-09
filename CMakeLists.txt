@@ -80,7 +80,11 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     else()
         add_compile_options(-Wall -Wextra)
     endif()
-    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers -Wno-error=misleading-indentation -Wno-error=deprecated-declarations)
+    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers)
+    # imgui currently triggers some compiler warnings on clang 19 for function casts which leads to a failed build, so disable that warning on clang 19+
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.0)
+        add_compile_options(-Wno-cast-function-type-mismatch)
+    endif()
     add_compile_options(-Werror)
 endif()
 

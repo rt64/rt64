@@ -36,6 +36,10 @@
 #include <SDL_vulkan.h>
 #endif
 
+#ifdef RT64_SDL_WINDOW_VULKAN
+#include <SDL_vulkan.h>
+#endif
+
 namespace RT64 {
 #if defined(_WIN64)
     // Native HWND handle to the target window.
