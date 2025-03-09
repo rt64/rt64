@@ -25,6 +25,7 @@ namespace RT64 {
     struct MetalDrawable;
 
     enum class EncoderType {
+        None,
         Render,
         Compute,
         Blit,
@@ -277,6 +278,7 @@ namespace RT64 {
         };
 
         MTL::CommandBuffer *mtl = nullptr;
+        EncoderType activeType = EncoderType::None;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
         MTL::ComputeCommandEncoder *activeComputeEncoder = nullptr;
         MTL::BlitCommandEncoder *activeBlitEncoder = nullptr;

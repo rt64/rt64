@@ -1298,6 +1298,7 @@ namespace RT64 {
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
         endOtherEncoders(EncoderType::Render);
         endActiveRenderEncoder();
+        activeType = EncoderType::Render;
 
         if (framebuffer != nullptr) {
             const MetalFramebuffer *interfaceFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
@@ -1470,6 +1471,7 @@ namespace RT64 {
 
         endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
+        activeType = EncoderType::Blit;
 
         const MetalBuffer *interfaceDstBuffer = static_cast<const MetalBuffer *>(dstBuffer.ref);
         const MetalBuffer *interfaceSrcBuffer = static_cast<const MetalBuffer *>(srcBuffer.ref);
@@ -1483,6 +1485,7 @@ namespace RT64 {
 
         endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
+        activeType = EncoderType::Blit;
 
         const MetalTexture *dstTexture = static_cast<const MetalTexture *>(dstLocation.texture);
         const MetalTexture *srcTexture = static_cast<const MetalTexture *>(srcLocation.texture);
@@ -1556,6 +1559,7 @@ namespace RT64 {
 
         endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
+        activeType = EncoderType::Blit;
 
         const MetalBuffer *dst = static_cast<const MetalBuffer *>(dstBuffer);
         const MetalBuffer *src = static_cast<const MetalBuffer *>(srcBuffer);
@@ -1571,6 +1575,7 @@ namespace RT64 {
 
         endOtherEncoders(EncoderType::Blit);
         checkActiveBlitEncoder();
+        activeType = EncoderType::Blit;
 
         const MetalTexture *dst = static_cast<const MetalTexture *>(dstTexture);
         const MetalTexture *src = static_cast<const MetalTexture *>(srcTexture);
@@ -1588,6 +1593,7 @@ namespace RT64 {
         // For full texture resolves, use the more efficient render pass resolve
         endOtherEncoders(EncoderType::Render);
         endActiveRenderEncoder();
+        activeType = EncoderType::Render;
 
         NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
 
@@ -1631,6 +1637,7 @@ namespace RT64 {
 
         endOtherEncoders(EncoderType::Resolve);
         checkActiveResolveTextureComputeEncoder();
+        activeType = EncoderType::Resolve;
 
         // Calculate source region
         uint32_t srcX = 0;
@@ -1678,23 +1685,37 @@ namespace RT64 {
         // TODO: Unimplemented.
     }
 
-    void MetalCommandList::endOtherEncoders(const EncoderType type) {
-        if (type != EncoderType::Render) {
-            endActiveRenderEncoder();
+    void MetalCommandList::endOtherEncoders(EncoderType type) {
+        if (activeType == type) {
+          // Early return for the most likely case.
+          return;
         }
-        if (type != EncoderType::Compute) {
-            endActiveComputeEncoder();
-        }
-        if (type != EncoderType::Blit) {
-            endActiveBlitEncoder();
-        }
-        if (type != EncoderType::Resolve) {
-            endActiveResolveTextureComputeEncoder();
+
+        switch (activeType) {
+        case EncoderType::None:
+          // Do nothing.
+          break;
+        case EncoderType::Render:
+          endActiveRenderEncoder();
+          break;
+        case EncoderType::Compute:
+          endActiveComputeEncoder();
+          break;
+        case EncoderType::Blit:
+          endActiveBlitEncoder();
+          break;
+        case EncoderType::Resolve:
+          endActiveResolveTextureComputeEncoder();
+          break;
+        default:
+          assert(false && "Unknown encoder type.");
+          break;
         }
     }
 
     void MetalCommandList::checkActiveComputeEncoder() {
         endOtherEncoders(EncoderType::Compute);
+        activeType = EncoderType::Compute;
 
         if (activeComputeEncoder == nullptr) {
             NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
@@ -1750,6 +1771,7 @@ namespace RT64 {
     void MetalCommandList::checkActiveRenderEncoder() {
         assert(targetFramebuffer != nullptr);
         endOtherEncoders(EncoderType::Render);
+        activeType = EncoderType::Render;
 
         if (activeRenderEncoder == nullptr) {
             NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
@@ -1871,6 +1893,7 @@ namespace RT64 {
 
     void MetalCommandList::checkActiveBlitEncoder() {
         endOtherEncoders(EncoderType::Blit);
+        activeType = EncoderType::Blit;
 
         if (activeBlitEncoder == nullptr) {
             activeBlitEncoder = mtl->blitCommandEncoder(device->renderInterface->reusableBlitDescriptor);
@@ -1890,6 +1913,7 @@ namespace RT64 {
         assert(targetFramebuffer != nullptr);
 
         endOtherEncoders(EncoderType::Resolve);
+        activeType = EncoderType::Resolve;
 
         if (activeResolveComputeEncoder == nullptr) {
             activeResolveComputeEncoder = mtl->computeCommandEncoder();
