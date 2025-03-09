@@ -254,11 +254,7 @@ namespace RT64 {
         const MTL::TextureUsage usage = metal::mapTextureUsage(desc.flags);
         descriptor->setUsage(usage);
 
-        if (pool != nullptr) {
-            this->mtl = pool->heap->newTexture(descriptor);
-        } else {
-            this->mtl = device->mtl->newTexture(descriptor);
-        }
+        this->mtl = device->mtl->newTexture(descriptor);
 
         // Release resources
         descriptor->release();
@@ -305,9 +301,7 @@ namespace RT64 {
         this->type = desc.type;
     }
 
-    MetalAccelerationStructure::~MetalAccelerationStructure() {
-        // TODO: Should be handled by ARC
-    }
+    MetalAccelerationStructure::~MetalAccelerationStructure() { }
 
     // MetalPool
 
@@ -315,23 +309,10 @@ namespace RT64 {
         assert(device != nullptr);
         this->device = device;
 
-        MTL::HeapDescriptor *descriptor = MTL::HeapDescriptor::alloc()->init();
-        descriptor->setType(MTL::HeapTypeAutomatic);
-        descriptor->setStorageMode(metal::mapStorageMode(desc.heapType));
-
-        // Heap requires a minimum size.
-        // Setting to 1KB as desc.minBlockSize is not translated to a minimum size requirement.
-        descriptor->setSize(1024);
-
-        this->heap = device->mtl->newHeap(descriptor);
-
-        // Release resources
-        descriptor->release();
+        fprintf(stderr, "RenderPool in Metal is not implemented currently. Resources are created directly on device.\n");
     }
 
-    MetalPool::~MetalPool() {
-         heap->release();
-    }
+    MetalPool::~MetalPool() { }
 
     std::unique_ptr<RenderBuffer> MetalPool::createBuffer(const RenderBufferDesc &desc) {
         return std::make_unique<MetalBuffer>(device, this, desc);
