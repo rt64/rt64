@@ -1327,11 +1327,9 @@ namespace RT64 {
 
     void MetalCommandList::setFramebuffer(const RenderFramebuffer *framebuffer) {
         endOtherEncoders(EncoderType::Render);
+        endActiveRenderEncoder();
 
         if (framebuffer != nullptr) {
-            const auto oldFramebufferWidth = targetFramebuffer != nullptr ? targetFramebuffer->width : 0;
-            const auto oldFramebufferHeight = targetFramebuffer != nullptr ? targetFramebuffer->height : 0;
-
             const auto interfaceFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
             targetFramebuffer = interfaceFramebuffer;
             dirtyGraphicsState.setAll();
