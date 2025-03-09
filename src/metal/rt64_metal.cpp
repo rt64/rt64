@@ -425,13 +425,11 @@ namespace RT64 {
         descriptor->setLabel(computeShader->functionName);
 
         // State variables, initialized here to be reused in encoder re-binding
-        state = new MetalComputeState();
-
         NS::Error *error = nullptr;
-        this->state->pipelineState = device->mtl->newComputePipelineState(descriptor, MTL::PipelineOptionNone, nullptr, &error);
-        this->state->threadGroupSizeX = desc.threadGroupSizeX;
-        this->state->threadGroupSizeY = desc.threadGroupSizeY;
-        this->state->threadGroupSizeZ = desc.threadGroupSizeZ;
+        state.pipelineState = device->mtl->newComputePipelineState(descriptor, MTL::PipelineOptionNone, nullptr, &error);
+        state.threadGroupSizeX = desc.threadGroupSizeX;
+        state.threadGroupSizeY = desc.threadGroupSizeY;
+        state.threadGroupSizeZ = desc.threadGroupSizeZ;
 
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newComputePipelineStateWithDescriptor: failed with error %s.\n", error->localizedDescription()->utf8String());
@@ -444,8 +442,7 @@ namespace RT64 {
     }
 
     MetalComputePipeline::~MetalComputePipeline() {
-        state->pipelineState->release();
-        delete state;
+        if (state.pipelineState) state.pipelineState->release();
     }
 
     RenderPipelineProgram MetalComputePipeline::getProgram(const std::string &name) const {
@@ -528,15 +525,12 @@ namespace RT64 {
         depthStencilDescriptor->setDepthWriteEnabled(desc.depthWriteEnabled);
         depthStencilDescriptor->setDepthCompareFunction(desc.depthEnabled ? metal::mapCompareFunction(desc.depthFunction) : MTL::CompareFunctionAlways);
 
-        state = new MetalRenderState();
-        state->depthStencilState = device->mtl->newDepthStencilState(depthStencilDescriptor);
-        state->cullMode = metal::mapCullMode(desc.cullMode);
-        state->depthClipMode = (desc.depthClipEnabled) ? MTL::DepthClipModeClip : MTL::DepthClipModeClamp;
-        state->winding = MTL::WindingClockwise;
-
         NS::Error *error = nullptr;
-
-        this->state->renderPipelineState = device->mtl->newRenderPipelineState(descriptor, &error);
+        state.depthStencilState = device->mtl->newDepthStencilState(depthStencilDescriptor);
+        state.cullMode = metal::mapCullMode(desc.cullMode);
+        state.depthClipMode = (desc.depthClipEnabled) ? MTL::DepthClipModeClip : MTL::DepthClipModeClamp;
+        state.winding = MTL::WindingClockwise;
+        state.renderPipelineState = device->mtl->newRenderPipelineState(descriptor, &error);
 
         if (error != nullptr) {
             fprintf(stderr, "MTLDevice newRenderPipelineState: failed with error %s.\n", error->localizedDescription()->utf8String());
@@ -552,9 +546,8 @@ namespace RT64 {
     }
 
     MetalGraphicsPipeline::~MetalGraphicsPipeline() {
-        state->renderPipelineState->release();
-        state->depthStencilState->release();
-        delete state;
+        if (state.renderPipelineState) state.renderPipelineState->release();
+        if (state.depthStencilState) state.depthStencilState->release();
     }
 
     RenderPipelineProgram MetalGraphicsPipeline::getProgram(const std::string &name) const {
@@ -596,7 +589,7 @@ namespace RT64 {
             typeCounts[descriptorRange.type] += descriptorRange.count;
         }
 
-        setLayout = new MetalDescriptorSetLayout(device, desc);
+        setLayout = std::make_unique<MetalDescriptorSetLayout>(device, desc);
 
         argumentBuffer = {
                 .mtl = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, MTL::ResourceStorageModeManaged),
@@ -1102,16 +1095,16 @@ namespace RT64 {
         switch (interfacePipeline->type) {
             case MetalPipeline::Type::Compute: {
                 const MetalComputePipeline *computePipeline = static_cast<const MetalComputePipeline *>(interfacePipeline);
-                if (activeComputeState != computePipeline->state) {
-                    activeComputeState = computePipeline->state;
+                if (activeComputeState != &computePipeline->state) {
+                    activeComputeState = &computePipeline->state;
                     dirtyComputeState.pipelineState = 1;
                 }
                 break;
             }
             case MetalPipeline::Type::Graphics: {
                 const MetalGraphicsPipeline *graphicsPipeline = static_cast<const MetalGraphicsPipeline *>(interfacePipeline);
-                if (activeRenderState != graphicsPipeline->state) {
-                    activeRenderState = graphicsPipeline->state;
+                if (activeRenderState != &graphicsPipeline->state) {
+                    activeRenderState = &graphicsPipeline->state;
                     dirtyGraphicsState.pipelineState = 1;
                 }
                 break;
@@ -2015,12 +2008,6 @@ namespace RT64 {
 
         pushConstantRanges.resize(desc.pushConstantRangesCount);
         memcpy(pushConstantRanges.data(), desc.pushConstantRanges, sizeof(RenderPushConstantRange) * desc.pushConstantRangesCount);
-
-        // Create Descriptor Set Layouts
-        for (uint32_t i = 0; i < desc.descriptorSetDescsCount; i++) {
-            const RenderDescriptorSetDesc &setDesc = desc.descriptorSetDescs[i];
-            setLayoutHandles.emplace_back(new MetalDescriptorSetLayout(device, setDesc));
-        }
     }
 
     MetalPipelineLayout::~MetalPipelineLayout() {}

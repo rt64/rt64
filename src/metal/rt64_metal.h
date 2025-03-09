@@ -144,7 +144,7 @@ namespace RT64 {
 
     struct MetalDescriptorSet : RenderDescriptorSet {
         MetalDevice *device = nullptr;
-        MetalDescriptorSetLayout *setLayout = nullptr;
+        std::unique_ptr<MetalDescriptorSetLayout> setLayout;
         std::vector<Descriptor> descriptors;
 
         MetalArgumentBuffer argumentBuffer;
@@ -513,14 +513,14 @@ namespace RT64 {
     };
 
     struct MetalComputePipeline : MetalPipeline {
-        MetalComputeState *state;
+        MetalComputeState state;
         MetalComputePipeline(const MetalDevice *device, const RenderComputePipelineDesc &desc);
         ~MetalComputePipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
     };
 
     struct MetalGraphicsPipeline : MetalPipeline {
-        MetalRenderState *state;
+        MetalRenderState state;
         MetalGraphicsPipeline(const MetalDevice *device, const RenderGraphicsPipelineDesc &desc);
         ~MetalGraphicsPipeline() override;
         RenderPipelineProgram getProgram(const std::string &name) const override;
@@ -529,7 +529,6 @@ namespace RT64 {
     struct MetalPipelineLayout : RenderPipelineLayout {
         std::vector<RenderPushConstantRange> pushConstantRanges;
         uint32_t setLayoutCount = 0;
-        std::vector<MetalDescriptorSetLayout *> setLayoutHandles;
 
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
