@@ -776,7 +776,6 @@ namespace RT64 {
 
     MetalSwapChain::~MetalSwapChain() {
         layer->release();
-        delete commandQueue;
     }
 
     bool MetalSwapChain::present(const uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, const uint32_t waitSemaphoreCount) {
