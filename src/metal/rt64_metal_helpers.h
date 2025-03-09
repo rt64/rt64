@@ -85,7 +85,7 @@ namespace metal {
             left,
             top,
             right - left,
-            top - bottom
+            bottom - top
         };
 
         if (!targetFramebuffer || targetFramebuffer->colorAttachments.empty()) {
