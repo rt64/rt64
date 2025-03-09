@@ -1760,9 +1760,6 @@ namespace RT64 {
             activeComputeEncoder->release();
             activeComputeEncoder = nullptr;
 
-            // Mark all state as needing rebind for next encoder
-            dirtyComputeState.setAll();
-
             // Clear state cache for compute
             stateCache.lastPushConstants.clear();
         }
