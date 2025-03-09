@@ -578,14 +578,8 @@ namespace RT64 {
             rangeCount--;
         }
 
-        // Spirv-cross orders by binding number, so we sort
-        std::vector sortedRanges(desc.descriptorRanges, desc.descriptorRanges + desc.descriptorRangesCount);
-        std::sort(sortedRanges.begin(), sortedRanges.end(), [](const RenderDescriptorRange &a, const RenderDescriptorRange &b) {
-            return a.binding < b.binding;
-        });
-
-        for (uint32_t i = 0; i < rangeCount; i++) {
-            const RenderDescriptorRange &descriptorRange = sortedRanges[i];
+        for (uint32_t i = 0; i < desc.descriptorRangesCount; i++) {
+            const RenderDescriptorRange &descriptorRange = desc.descriptorRanges[i];
             typeCounts[descriptorRange.type] += descriptorRange.count;
         }
 
