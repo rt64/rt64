@@ -736,7 +736,7 @@ namespace RT64 {
     // MetalDrawable
 
     MetalDrawable::MetalDrawable(MetalDevice* device, MetalPool* pool, const RenderTextureDesc& desc) {
-        assert(false && "MetalDrawable shoudl not be constructed directly from device - use fromDrawable() instead");
+        assert(false && "MetalDrawable should not be constructed directly from device - use fromDrawable() instead");
     }
 
     MetalDrawable::~MetalDrawable() {
