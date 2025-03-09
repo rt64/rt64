@@ -143,13 +143,18 @@ namespace RT64 {
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
+        struct ResourceEntry {
+            MTL::Resource* resource = nullptr;
+            RenderDescriptorRangeType type = RenderDescriptorRangeType::UNKNOWN;
+        };
+
         MetalDevice *device = nullptr;
         std::unique_ptr<MetalDescriptorSetLayout> setLayout;
         std::vector<Descriptor> descriptors;
 
         MetalArgumentBuffer argumentBuffer;
 
-        std::unordered_map<uint32_t, std::pair<MTL::Resource*, RenderDescriptorRangeType>> resources;
+        std::vector<ResourceEntry> resourceEntries;
 
         MetalDescriptorSet(MetalDevice *device, const RenderDescriptorSetDesc &desc);
         MetalDescriptorSet(MetalDevice *device, uint32_t entryCount);

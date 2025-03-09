@@ -594,11 +594,19 @@ namespace RT64 {
 
         argumentBuffer.argumentEncoder->setArgumentBuffer(argumentBuffer.mtl, argumentBuffer.offset);
         bindImmutableSamplers();
+
+        resourceEntries.resize(setLayout->descriptorBindingIndices.size());
     }
 
     MetalDescriptorSet::~MetalDescriptorSet() {
-        for (const auto &resource: resources) {
-            resource.second.first->release();
+        for (const auto &entry : resourceEntries) {
+            if (entry.resource != nullptr) {
+                entry.resource->release();
+            }
+        }
+        
+        if (argumentBuffer.mtl != nullptr) {
+            argumentBuffer.mtl->release();
         }
     }
 
@@ -682,10 +690,9 @@ namespace RT64 {
         RenderDescriptorRangeType descriptorType = getDescriptorType(bindingIndex);
 
         if (dtype != MTL::DataTypeSampler) {
-            if (resources.find(descriptorIndex) != resources.end()) {
-                const auto &resource = resources[descriptorIndex];
-                resource.first->release();
-                resources.erase(descriptorIndex);
+            if (resourceEntries[descriptorIndex].resource != nullptr) {
+                resourceEntries[descriptorIndex].resource->release();
+                resourceEntries[descriptorIndex].resource = nullptr;
             }
         }
 
@@ -717,7 +724,8 @@ namespace RT64 {
         }
 
         if (nativeResource) {
-            resources[descriptorIndex] = std::make_pair(nativeResource, descriptorType);
+            resourceEntries[descriptorIndex].resource = nativeResource;
+            resourceEntries[descriptorIndex].type = descriptorType;
         }
     }
 
@@ -2011,13 +2019,16 @@ namespace RT64 {
                 MetalDescriptorSet *descriptorSet = descriptorSets.at(i);
                 const MetalArgumentBuffer descriptorBuffer = descriptorSet->argumentBuffer;
 
-                //                descriptorBuffer.mtl->didModifyRange({0, DESCRIPTOR_RING_BUFFER_SIZE});
+                for (uint32_t descriptorIndex = 0; descriptorIndex < descriptorSet->resourceEntries.size(); descriptorIndex++) {
+                    const auto& entry = descriptorSet->resourceEntries[descriptorIndex];
+                    if (entry.resource == nullptr) {
+                        continue;
+                    }
 
-                for (const auto& [descriptorIndex, resource] : descriptorSet->resources) {
                     if (isCompute) {
-                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second));
+                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(entry.resource, metal::mapResourceUsage(entry.type));
                     } else {
-                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(resource.first, metal::mapResourceUsage(resource.second), MTL::RenderStageVertex | MTL::RenderStageFragment);
+                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(entry.resource, metal::mapResourceUsage(entry.type), MTL::RenderStageVertex | MTL::RenderStageFragment);
                     }
                 }
 
