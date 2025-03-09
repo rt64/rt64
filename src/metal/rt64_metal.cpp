@@ -1816,7 +1816,7 @@ namespace RT64 {
         }
 
         if (dirtyGraphicsState.viewports) {
-            if (viewportVector.size() < 1) return;
+            if (viewportVector.empty()) return;
 
             activeRenderEncoder->setViewports(viewportVector.data(), viewportVector.size());
             stateCache.lastViewports = viewportVector;
@@ -1824,7 +1824,7 @@ namespace RT64 {
         }
 
         if (dirtyGraphicsState.scissors) {
-            if (scissorVector.size() < 1) return;
+            if (scissorVector.empty()) return;
 
             activeRenderEncoder->setScissorRects(scissorVector.data(), scissorVector.size());
             stateCache.lastScissors = scissorVector;
