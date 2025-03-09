@@ -24,7 +24,6 @@
 #undef Success
 #undef Always
 #elif defined(__APPLE__)
-//typedef struct _NSWindow NSWindow;
 #include <SDL.h>
 #endif
 
@@ -468,7 +467,7 @@ namespace RT64 {
         RESOLVE_DEST,
         PRESENT
     };
-    
+
     namespace RenderSampleCount {
         enum Bits : uint32_t {
             COUNT_0 = 0x0,
@@ -706,16 +705,16 @@ namespace RT64 {
             this->depth = depth;
         }
     };
-    
+
     struct RenderMultisamplingLocation {
         // Valid range is [-8, 7].
         int8_t x = 0;
         int8_t y = 0;
-        
+
         bool operator==(const RenderMultisamplingLocation& other) const {
             return x == other.x && y == other.y;
         }
-        
+
         bool operator!=(const RenderMultisamplingLocation& other) const {
             return !(*this == other);
         }
@@ -1304,7 +1303,7 @@ namespace RT64 {
             this->immutableSampler = immutableSampler;
         }
     };
-    
+
     struct RenderDescriptorSetDesc {
         const RenderDescriptorRange *descriptorRanges = nullptr;
         uint32_t descriptorRangesCount = 0;
@@ -1312,7 +1311,7 @@ namespace RT64 {
         uint32_t boundlessRangeSize = 0;
 
         RenderDescriptorSetDesc() = default;
-        
+
         RenderDescriptorSetDesc(const RenderDescriptorRange *descriptorRanges, uint32_t descriptorRangesCount, bool lastRangeIsBoundless = false, uint32_t boundlessRangeSize = 0) {
             this->descriptorRanges = descriptorRanges;
             this->descriptorRangesCount = descriptorRangesCount;
