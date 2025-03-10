@@ -1131,6 +1131,7 @@ namespace RT64 {
             // Mark compute states as dirty that need to be rebound
             dirtyComputeState.descriptorSets = 1;
             dirtyComputeState.pushConstants = 1;
+            dirtyComputeState.descriptorSetDirtyIndex = 0;
         }
     }
 
@@ -1158,6 +1159,7 @@ namespace RT64 {
         if (computeDescriptorSets[setIndex] != interfaceDescriptorSet) {
             computeDescriptorSets[setIndex] = interfaceDescriptorSet;
             dirtyComputeState.descriptorSets = 1;
+            dirtyComputeState.descriptorSetDirtyIndex = std::min(dirtyComputeState.descriptorSetDirtyIndex, setIndex);
         }
     }
 
@@ -1180,6 +1182,7 @@ namespace RT64 {
             // Mark graphics states as dirty that need to be rebound
             dirtyGraphicsState.descriptorSets = 1;
             dirtyGraphicsState.pushConstants = 1;
+            dirtyGraphicsState.descriptorSetDirtyIndex = 0;
         }
     }
 
@@ -1207,6 +1210,7 @@ namespace RT64 {
         if (renderDescriptorSets[setIndex] != interfaceDescriptorSet) {
             renderDescriptorSets[setIndex] = interfaceDescriptorSet;
             dirtyGraphicsState.descriptorSets = 1;
+            dirtyGraphicsState.descriptorSetDirtyIndex = std::min(dirtyGraphicsState.descriptorSetDirtyIndex, setIndex);
         }
     }
 
@@ -1744,7 +1748,7 @@ namespace RT64 {
         }
 
         if (dirtyComputeState.descriptorSets) {
-            activeComputePipelineLayout->bindDescriptorSets(activeComputeEncoder, computeDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, true);
+            activeComputePipelineLayout->bindDescriptorSets(activeComputeEncoder, computeDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, true, dirtyComputeState.descriptorSetDirtyIndex);
             dirtyComputeState.descriptorSets = 0;
         }
 
@@ -1853,7 +1857,7 @@ namespace RT64 {
 
         if (dirtyGraphicsState.descriptorSets) {
             if (activeGraphicsPipelineLayout) {
-                activeGraphicsPipelineLayout->bindDescriptorSets(activeRenderEncoder, renderDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, false);
+                activeGraphicsPipelineLayout->bindDescriptorSets(activeRenderEncoder, renderDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, false, dirtyGraphicsState.descriptorSetDirtyIndex);
             }
             dirtyGraphicsState.descriptorSets = 0;
         }
@@ -2041,8 +2045,8 @@ namespace RT64 {
 
     MetalPipelineLayout::~MetalPipelineLayout() {}
 
-    void MetalPipelineLayout::bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute) const {
-        for (uint32_t i = 0; i < setLayoutCount; i++) {
+    void MetalPipelineLayout::bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex = 0) const {
+        for (uint32_t i = startIndex; i < setLayoutCount; i++) {
             if (i >= descriptorSetCount || descriptorSets[i] == nullptr) {
                 continue;
             }

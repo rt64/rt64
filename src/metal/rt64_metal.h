@@ -38,10 +38,15 @@ namespace RT64 {
         uint32_t descriptorSets : 1;
         uint32_t pushConstants : 1;
 
+        // marks from which descriptor set we'll invalide from
+        uint32_t descriptorSetDirtyIndex : 5;
+
         void setAll() {
             pipelineState = 1;
             descriptorSets = 1;
             pushConstants = 1;
+
+            descriptorSetDirtyIndex = 0;
         }
     };
 
@@ -54,6 +59,9 @@ namespace RT64 {
         uint32_t vertexBuffers : 1;
         uint32_t indexBuffer : 1;
 
+        // marks from which descriptor set we'll invalide from
+        uint32_t descriptorSetDirtyIndex : 5;
+
         void setAll() {
             pipelineState = 1;
             descriptorSets = 1;
@@ -62,6 +70,8 @@ namespace RT64 {
             scissors = 1;
             vertexBuffers = 1;
             indexBuffer = 1;
+
+            descriptorSetDirtyIndex = 0;
         }
     };
 
@@ -322,7 +332,7 @@ namespace RT64 {
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
         const MetalRenderState *activeRenderState = nullptr;
         const MetalComputeState *activeComputeState = nullptr;
-        
+
         const MetalDescriptorSet* renderDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
         const MetalDescriptorSet* computeDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
 
@@ -540,8 +550,8 @@ namespace RT64 {
 
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
-        
-        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute) const;
+
+        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex) const;
     };
 
     struct MetalDevice : RenderDevice {
