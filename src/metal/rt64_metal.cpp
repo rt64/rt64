@@ -1453,27 +1453,28 @@ namespace RT64 {
 
     void MetalDescriptorSet::setBuffer(const uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) {
         if (buffer == nullptr) {
+            setDescriptor(descriptorIndex, nullptr);
             return;
         }
-
+        
         const MetalBuffer *interfaceBuffer = static_cast<const MetalBuffer *>(buffer);
-
+        
         if (bufferFormattedView != nullptr) {
             assert((bufferStructuredView == nullptr) && "Can't use structured views and formatted views at the same time.");
-
+            
             const MetalBufferFormattedView *interfaceBufferFormattedView = static_cast<const MetalBufferFormattedView *>(bufferFormattedView);
             const TextureDescriptor descriptor = { .texture = interfaceBufferFormattedView->texture };
             setDescriptor(descriptorIndex, &descriptor);
         } else {
             uint32_t offset = 0;
-
+            
             if (bufferStructuredView != nullptr) {
                 assert((bufferFormattedView == nullptr) && "Can't use structured views and formatted views at the same time.");
                 assert(bufferStructuredView->structureByteStride > 0);
-
+                
                 offset = bufferStructuredView->firstElement * bufferStructuredView->structureByteStride;
             }
-
+            
             const BufferDescriptor descriptor = { .buffer = interfaceBuffer->mtl, .offset = offset };
             setDescriptor(descriptorIndex, &descriptor);
         }
@@ -1481,6 +1482,7 @@ namespace RT64 {
 
     void MetalDescriptorSet::setTexture(const uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) {
         if (texture == nullptr) {
+            setDescriptor(descriptorIndex, nullptr);
             return;
         }
 
@@ -1500,6 +1502,7 @@ namespace RT64 {
 
     void MetalDescriptorSet::setSampler(const uint32_t descriptorIndex, const RenderSampler *sampler) {
         if (sampler == nullptr) {
+            setDescriptor(descriptorIndex, nullptr);
             return;
         }
 
@@ -1529,37 +1532,37 @@ namespace RT64 {
             }
         }
 
-        switch (dtype) {
-            case MTL::DataTypeTexture: {
-                const TextureDescriptor *textureDescriptor = static_cast<const TextureDescriptor *>(descriptor);
-                nativeResource = textureDescriptor->texture;
-                MTL::Texture *nativeTexture = static_cast<MTL::Texture *>(nativeResource);
-                argumentBuffer.argumentEncoder->setTexture(nativeTexture, descriptorIndex - indexBase + bindingIndex);
-                nativeTexture->retain();
-                break;
+        if (descriptor != nullptr) {
+            switch (dtype) {
+                case MTL::DataTypeTexture: {
+                    const TextureDescriptor *textureDescriptor = static_cast<const TextureDescriptor *>(descriptor);
+                    nativeResource = textureDescriptor->texture;
+                    MTL::Texture *nativeTexture = static_cast<MTL::Texture *>(nativeResource);
+                    argumentBuffer.argumentEncoder->setTexture(nativeTexture, descriptorIndex - indexBase + bindingIndex);
+                    nativeTexture->retain();
+                    break;
+                }
+                case MTL::DataTypePointer: {
+                    const BufferDescriptor *bufferDescriptor = static_cast<const BufferDescriptor *>(descriptor);
+                    nativeResource = bufferDescriptor->buffer;
+                    MTL::Buffer *nativeBuffer = static_cast<MTL::Buffer *>(nativeResource);
+                    argumentBuffer.argumentEncoder->setBuffer(nativeBuffer, bufferDescriptor->offset, descriptorIndex - indexBase + bindingIndex);
+                    nativeBuffer->retain();
+                    break;
+                }
+                case MTL::DataTypeSampler: {
+                    const SamplerDescriptor *samplerDescriptor = static_cast<const SamplerDescriptor *>(descriptor);
+                    argumentBuffer.argumentEncoder->setSamplerState(samplerDescriptor->state, descriptorIndex - indexBase + bindingIndex);
+                    break;
+                }
+                    
+                default:
+                    assert(false && "Unsupported descriptor type.");
             }
-            case MTL::DataTypePointer: {
-                const BufferDescriptor *bufferDescriptor = static_cast<const BufferDescriptor *>(descriptor);
-                nativeResource = bufferDescriptor->buffer;
-                MTL::Buffer *nativeBuffer = static_cast<MTL::Buffer *>(nativeResource);
-                argumentBuffer.argumentEncoder->setBuffer(nativeBuffer, bufferDescriptor->offset, descriptorIndex - indexBase + bindingIndex);
-                nativeBuffer->retain();
-                break;
-            }
-            case MTL::DataTypeSampler: {
-                const SamplerDescriptor *samplerDescriptor = static_cast<const SamplerDescriptor *>(descriptor);
-                argumentBuffer.argumentEncoder->setSamplerState(samplerDescriptor->state, descriptorIndex - indexBase + bindingIndex);
-                break;
-            }
-
-            default:
-                assert(false && "Unsupported descriptor type.");
         }
 
-        if (nativeResource) {
-            resourceEntries[descriptorIndex].resource = nativeResource;
-            resourceEntries[descriptorIndex].type = descriptorType;
-        }
+        resourceEntries[descriptorIndex].resource = nativeResource;
+        resourceEntries[descriptorIndex].type = descriptorType;
     }
 
     RenderDescriptorRangeType MetalDescriptorSet::getDescriptorType(const uint32_t binding) const {
