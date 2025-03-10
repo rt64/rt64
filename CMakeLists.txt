@@ -8,6 +8,8 @@ if (APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15")
 endif()
 
+option(RT64_STATIC "Build RT64 as a static library" OFF)
+
 option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
 if (${RT64_BUILD_EXAMPLES})
     set(RT64_STATIC ON)
