@@ -18,7 +18,6 @@
 
 namespace RT64 {
     static constexpr size_t MAX_DRAWABLES = 3;
-    static constexpr size_t DESCRIPTOR_SET_MAX_INDEX = 7;
     static constexpr size_t PUSH_CONSTANT_MAX_INDEX = 15;
     static constexpr size_t VERTEX_BUFFER_MAX_INDEX = 30;
     static constexpr size_t DESCRIPTOR_RING_BUFFER_SIZE = 1024 * 1024; // 1MB
@@ -1121,7 +1120,9 @@ namespace RT64 {
 
         if (oldLayout != activeComputePipelineLayout) {
             // Clear descriptor set bindings since they're no longer valid with the new layout
-            indicesToComputeDescriptorSets.clear();
+            for (uint32_t i = 0; i < DESCRIPTOR_SET_MAX_INDEX; i++) {
+                computeDescriptorSets[i] = nullptr;
+            }
 
             // Clear push constants since they might have different layouts/ranges
             pushConstants.clear();
@@ -1150,12 +1151,12 @@ namespace RT64 {
         dirtyComputeState.pushConstants = 1;
     }
 
-    void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, const uint32_t setIndex) {
-        MetalDescriptorSet *interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
+    void MetalCommandList::setComputeDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
+        assert(setIndex < DESCRIPTOR_SET_MAX_INDEX && "Descriptor set index out of range");
 
-        const auto it = indicesToComputeDescriptorSets.find(setIndex);
-        if (it == indicesToComputeDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-            indicesToComputeDescriptorSets[setIndex] = interfaceDescriptorSet;
+        MetalDescriptorSet *interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
+        if (computeDescriptorSets[setIndex] != interfaceDescriptorSet) {
+            computeDescriptorSets[setIndex] = interfaceDescriptorSet;
             dirtyComputeState.descriptorSets = 1;
         }
     }
@@ -1168,7 +1169,9 @@ namespace RT64 {
 
         if (oldLayout != activeGraphicsPipelineLayout) {
             // Clear descriptor set bindings since they're no longer valid with the new layout
-            indicesToRenderDescriptorSets.clear();
+            for (uint32_t i = 0; i < DESCRIPTOR_SET_MAX_INDEX; i++) {
+                renderDescriptorSets[i] = nullptr;
+            }
 
             // Clear push constants since they might have different layouts/ranges
             pushConstants.clear();
@@ -1198,11 +1201,11 @@ namespace RT64 {
     }
 
     void MetalCommandList::setGraphicsDescriptorSet(RenderDescriptorSet *descriptorSet, uint32_t setIndex) {
-        MetalDescriptorSet *interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
+        assert(setIndex < DESCRIPTOR_SET_MAX_INDEX && "Descriptor set index out of range");
 
-        const auto it = indicesToRenderDescriptorSets.find(setIndex);
-        if (it == indicesToRenderDescriptorSets.end() || it->second != interfaceDescriptorSet) {
-            indicesToRenderDescriptorSets[setIndex] = interfaceDescriptorSet;
+        MetalDescriptorSet *interfaceDescriptorSet = static_cast<MetalDescriptorSet*>(descriptorSet);
+        if (renderDescriptorSets[setIndex] != interfaceDescriptorSet) {
+            renderDescriptorSets[setIndex] = interfaceDescriptorSet;
             dirtyGraphicsState.descriptorSets = 1;
         }
     }
@@ -1741,7 +1744,7 @@ namespace RT64 {
         }
 
         if (dirtyComputeState.descriptorSets) {
-            activeComputePipelineLayout->bindDescriptorSets(activeComputeEncoder, indicesToComputeDescriptorSets, true);
+            activeComputePipelineLayout->bindDescriptorSets(activeComputeEncoder, computeDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, true);
             dirtyComputeState.descriptorSets = 0;
         }
 
@@ -1749,7 +1752,7 @@ namespace RT64 {
             for (const PushConstantData &pushConstant : pushConstants) {
                 if (pushConstant.stageFlags & RenderShaderStageFlag::COMPUTE) {
                     // Bind right after the descriptor sets, up till the max push constant index
-                    const uint32_t bindIndex = std::min(DESCRIPTOR_SET_MAX_INDEX + 1 + pushConstant.binding, PUSH_CONSTANT_MAX_INDEX);
+                    const uint32_t bindIndex = std::min(DESCRIPTOR_SET_MAX_INDEX + pushConstant.binding, PUSH_CONSTANT_MAX_INDEX);
                     activeComputeEncoder->setBytes(pushConstant.data.data(), pushConstant.size, bindIndex);
                 }
             }
@@ -1850,7 +1853,7 @@ namespace RT64 {
 
         if (dirtyGraphicsState.descriptorSets) {
             if (activeGraphicsPipelineLayout) {
-                activeGraphicsPipelineLayout->bindDescriptorSets(activeRenderEncoder, indicesToRenderDescriptorSets, false);
+                activeGraphicsPipelineLayout->bindDescriptorSets(activeRenderEncoder, renderDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, false);
             }
             dirtyGraphicsState.descriptorSets = 0;
         }
@@ -1858,7 +1861,7 @@ namespace RT64 {
         if (dirtyGraphicsState.pushConstants) {
             for (const PushConstantData &pushConstant : pushConstants) {
                 // Bind right after the descriptor sets, up till the max push constant index
-                const uint32_t bindIndex = std::min(DESCRIPTOR_SET_MAX_INDEX + 1 + pushConstant.binding, PUSH_CONSTANT_MAX_INDEX);
+                const uint32_t bindIndex = std::min(DESCRIPTOR_SET_MAX_INDEX + pushConstant.binding, PUSH_CONSTANT_MAX_INDEX);
                 if (pushConstant.stageFlags & RenderShaderStageFlag::VERTEX) {
                     activeRenderEncoder->setVertexBytes(pushConstant.data.data(), pushConstant.size, bindIndex);
                 }
@@ -2038,31 +2041,35 @@ namespace RT64 {
 
     MetalPipelineLayout::~MetalPipelineLayout() {}
 
-    void MetalPipelineLayout::bindDescriptorSets(MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, const bool isCompute) const {
+    void MetalPipelineLayout::bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute) const {
         for (uint32_t i = 0; i < setLayoutCount; i++) {
-            if (descriptorSets.count(i) != 0) {
-                MetalDescriptorSet *descriptorSet = descriptorSets.at(i);
-                const MetalArgumentBuffer descriptorBuffer = descriptorSet->argumentBuffer;
+            if (i >= descriptorSetCount || descriptorSets[i] == nullptr) {
+                continue;
+            }
 
-                for (uint32_t descriptorIndex = 0; descriptorIndex < descriptorSet->resourceEntries.size(); descriptorIndex++) {
-                    const auto& entry = descriptorSet->resourceEntries[descriptorIndex];
-                    if (entry.resource == nullptr) {
-                        continue;
-                    }
+            const MetalDescriptorSet* descriptorSet = descriptorSets[i];
+            const MetalArgumentBuffer& descriptorBuffer = descriptorSet->argumentBuffer;
 
-                    if (isCompute) {
-                        static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(entry.resource, metal::mapResourceUsage(entry.type));
-                    } else {
-                        static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(entry.resource, metal::mapResourceUsage(entry.type), MTL::RenderStageVertex | MTL::RenderStageFragment);
-                    }
+            // Bind resources
+            for (uint32_t descriptorIndex = 0; descriptorIndex < descriptorSet->resourceEntries.size(); descriptorIndex++) {
+                const auto& entry = descriptorSet->resourceEntries[descriptorIndex];
+                if (entry.resource == nullptr) {
+                    continue;
                 }
 
                 if (isCompute) {
-                    static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, 0, i);
+                    static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(entry.resource, metal::mapResourceUsage(entry.type));
                 } else {
-                    static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, 0, i);
-                    static_cast<MTL::RenderCommandEncoder *>(encoder)->setVertexBuffer(descriptorBuffer.mtl, 0, i);
+                    static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(entry.resource, metal::mapResourceUsage(entry.type), MTL::RenderStageVertex | MTL::RenderStageFragment);
                 }
+            }
+
+            // Bind argument buffer
+            if (isCompute) {
+                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, 0, i);
+            } else {
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, 0, i);
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setVertexBuffer(descriptorBuffer.mtl, 0, i);
             }
         }
     }

@@ -11,6 +11,7 @@
 namespace RT64 {
     static constexpr size_t MAX_CLEAR_RECTS = 16;
     static constexpr uint32_t MAX_BINDING_NUMBER = 64;
+    static constexpr size_t DESCRIPTOR_SET_MAX_INDEX = 8;
 
     struct MetalInterface;
     struct MetalDevice;
@@ -321,9 +322,9 @@ namespace RT64 {
         const MetalGraphicsPipeline *activeGraphicsPipeline = nullptr;
         const MetalRenderState *activeRenderState = nullptr;
         const MetalComputeState *activeComputeState = nullptr;
-
-        std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToRenderDescriptorSets;
-        std::unordered_map<uint32_t, MetalDescriptorSet *> indicesToComputeDescriptorSets;
+        
+        const MetalDescriptorSet* renderDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
+        const MetalDescriptorSet* computeDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
 
         MetalCommandList(const MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
@@ -539,8 +540,8 @@ namespace RT64 {
 
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
-
-        void bindDescriptorSets(MTL::CommandEncoder* encoder, const std::unordered_map<uint32_t, MetalDescriptorSet*>& descriptorSets, bool isCompute) const;
+        
+        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute) const;
     };
 
     struct MetalDevice : RenderDevice {
