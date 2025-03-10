@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
 
 struct CocoaWindowAttributes {
     int x, y;
@@ -16,13 +17,10 @@ const char* GetHomeDirectory();
 class CocoaWindow {
 private:
     void* windowHandle;
-    std::atomic<int> cachedX;
-    std::atomic<int> cachedY;
-    std::atomic<int> cachedWidth;
-    std::atomic<int> cachedHeight;
+    CocoaWindowAttributes cachedAttributes;
     std::atomic<int> cachedRefreshRate;
+    mutable std::mutex attributesMutex;
 
-    // Helper methods to update cached values
     void updateWindowAttributesInternal(bool forceSync = false);
     void updateRefreshRateInternal(bool forceSync = false);
 public:
@@ -31,10 +29,10 @@ public:
 
     // Get cached window attributes, may trigger async update
     void getWindowAttributes(CocoaWindowAttributes* attributes) const;
-    
+
     // Get cached refresh rate, may trigger async update
     int getRefreshRate() const;
-    
+
     // Toggle fullscreen
     void toggleFullscreen();
 };
