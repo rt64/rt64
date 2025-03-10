@@ -20,7 +20,6 @@ namespace RT64 {
     static constexpr size_t MAX_DRAWABLES = 3;
     static constexpr size_t PUSH_CONSTANT_MAX_INDEX = 15;
     static constexpr size_t VERTEX_BUFFER_MAX_INDEX = 30;
-    static constexpr size_t DESCRIPTOR_RING_BUFFER_SIZE = 1024 * 1024; // 1MB
 
     // MARK: - Helper Structures
 
@@ -584,11 +583,14 @@ namespace RT64 {
 
         setLayout = std::make_unique<MetalDescriptorSetLayout>(device, desc);
 
+        uint64_t requiredSize = setLayout->argumentEncoder->encodedLength();
+        requiredSize = mem::alignUp(requiredSize, 256);
+
         argumentBuffer = {
-                .mtl = device->mtl->newBuffer(DESCRIPTOR_RING_BUFFER_SIZE, MTL::ResourceStorageModeManaged),
-                .argumentEncoder = setLayout->argumentEncoder,
-                .offset = 0,
-                .encodedSize = setLayout->argumentEncoder->encodedLength()
+            .mtl = device->mtl->newBuffer(requiredSize, MTL::ResourceStorageModeManaged),
+            .argumentEncoder = setLayout->argumentEncoder,
+            .offset = 0,
+            .encodedSize = requiredSize
         };
 
         argumentBuffer.argumentEncoder->setArgumentBuffer(argumentBuffer.mtl, argumentBuffer.offset);
@@ -2070,10 +2072,10 @@ namespace RT64 {
 
             // Bind argument buffer
             if (isCompute) {
-                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, 0, i);
+                static_cast<MTL::ComputeCommandEncoder*>(encoder)->setBuffer(descriptorBuffer.mtl, descriptorBuffer.offset, i);
             } else {
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, 0, i);
-                static_cast<MTL::RenderCommandEncoder*>(encoder)->setVertexBuffer(descriptorBuffer.mtl, 0, i);
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setFragmentBuffer(descriptorBuffer.mtl, descriptorBuffer.offset, i);
+                static_cast<MTL::RenderCommandEncoder*>(encoder)->setVertexBuffer(descriptorBuffer.mtl, descriptorBuffer.offset, i);
             }
         }
     }
