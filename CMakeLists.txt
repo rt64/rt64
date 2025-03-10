@@ -447,7 +447,7 @@ if (APPLE)
 
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"
-        "${PROJECT_SOURCE_DIR}/src/common/rt64_apple.mm"
+        "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
     target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")

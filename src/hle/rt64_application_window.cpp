@@ -16,7 +16,7 @@
 #   include <X11/extensions/Xrandr.h>
 #elif defined(__APPLE__)
 #   include "rt64_application.h"
-#   include "common/rt64_apple.h"
+#   include "apple/rt64_apple.h"
 #endif
 
 #include "common/rt64_common.h"

@@ -8,7 +8,7 @@
 #ifdef _WIN32
 #include <Windows.h>
 #elif defined(__APPLE__)
-#include "common/rt64_apple.h"
+#include "apple/rt64_apple.h"
 #endif
 
 #include "SDL.h"

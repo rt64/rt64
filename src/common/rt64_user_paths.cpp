@@ -10,7 +10,7 @@
 #elif defined(_WIN32)
 #   include <Shlobj.h>
 #elif defined(__APPLE__)
-#   include "common/rt64_apple.h"
+#   include "apple/rt64_apple.h"
 #endif
 
 namespace RT64 {

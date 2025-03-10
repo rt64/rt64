@@ -24,7 +24,7 @@
 #ifdef __APPLE__
 #include "vulkan/vulkan_beta.h"
 #include "vulkan/vulkan_metal.h"
-#include "common/rt64_apple.h"
+#include "apple/rt64_apple.h"
 #endif
 
 // TODO:

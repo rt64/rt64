@@ -3,7 +3,7 @@
 #include <set>
 
 #include "rhi/rt64_render_interface.h"
-#include "common/rt64_apple.h"
+#include "apple/rt64_apple.h"
 
 #include <simd/simd.h>
 #include <Metal/Metal.hpp>
@@ -198,7 +198,7 @@ namespace RT64 {
         uint32_t refreshRate = 0;
         std::vector<MetalDrawable> drawables;
         uint32_t currentAvailableDrawableIndex = 0;
-        
+
         RenderWindow renderWindow = {};
         std::unique_ptr<CocoaWindow> windowWrapper;
 

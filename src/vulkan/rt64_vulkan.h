@@ -19,7 +19,7 @@
 #define VK_USE_PLATFORM_XLIB_KHR
 #elif defined(__APPLE__)
 #define VK_USE_PLATFORM_METAL_EXT
-#include "common/rt64_apple.h"
+#include "apple/rt64_apple.h"
 #endif
 
 #include "volk/volk.h"
@@ -349,7 +349,7 @@ namespace RT64 {
         std::unique_ptr<RenderBuffer> createBuffer(const RenderBufferDesc &desc) override;
         std::unique_ptr<RenderTexture> createTexture(const RenderTextureDesc &desc) override;
     };
-    
+
     struct VulkanQueue {
         VkQueue vk;
         std::unique_ptr<std::mutex> mutex;
