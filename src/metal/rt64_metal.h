@@ -3,6 +3,7 @@
 #include <set>
 
 #include "rhi/rt64_render_interface.h"
+#include "common/rt64_apple.h"
 
 #include <simd/simd.h>
 #include <Metal/Metal.hpp>
@@ -191,13 +192,15 @@ namespace RT64 {
     struct MetalSwapChain : RenderSwapChain {
         CA::MetalLayer *layer = nullptr;
         MetalCommandQueue *commandQueue = nullptr;
-        RenderWindow renderWindow = {};
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t refreshRate = 0;
         std::vector<MetalDrawable> drawables;
         uint32_t currentAvailableDrawableIndex = 0;
+        
+        RenderWindow renderWindow = {};
+        std::unique_ptr<CocoaWindow> windowWrapper;
 
         MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~MetalSwapChain() override;

@@ -7,6 +7,8 @@
 #include "rhi/rt64_render_interface.h"
 #ifdef _WIN32
 #include <Windows.h>
+#elif defined(__APPLE__)
+#include "common/rt64_apple.h"
 #endif
 
 #include "SDL.h"
@@ -32,6 +34,9 @@ namespace RT64 {
         };
 
         RenderWindow windowHandle = {};
+#if defined(__APPLE__)
+        std::unique_ptr<CocoaWindow> windowWrapper;
+#endif
         Listener *listener;
         uint32_t refreshRate = 0;
         bool fullScreen = false;

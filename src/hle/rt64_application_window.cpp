@@ -48,6 +48,9 @@ namespace RT64 {
         this->listener = listener;
 
         windowHandle = window;
+#if defined(__APPLE__)
+        windowWrapper = std::make_unique<CocoaWindow>(window.window);
+#endif
 
         if (listener->usesWindowMessageFilter()) {
             if ((sdlWindow == nullptr) && SDL_WasInit(SDL_INIT_VIDEO)) {
@@ -218,7 +221,7 @@ namespace RT64 {
 
         fullScreen = newFullScreen;
 #   elif defined(__APPLE__)
-        WindowToggleFullscreen(windowHandle.window);
+        windowWrapper->toggleFullscreen();
 #   endif
     }
 
@@ -307,7 +310,7 @@ namespace RT64 {
 
         XRRFreeScreenResources(screenResources);
 #   elif defined(__APPLE__)
-        refreshRate = GetWindowRefreshRate(windowHandle.window);
+        refreshRate = windowWrapper->getRefreshRate();
 #   endif
     }
 
@@ -333,7 +336,7 @@ namespace RT64 {
         newWindowTop = attributes.y;
 #   elif defined(__APPLE__)
         CocoaWindowAttributes attributes;
-        GetWindowAttributes(windowHandle.window, &attributes);
+        windowWrapper->getWindowAttributes(&attributes);
         newWindowLeft = attributes.x;
         newWindowTop = attributes.y;
 #   endif

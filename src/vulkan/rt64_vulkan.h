@@ -19,6 +19,7 @@
 #define VK_USE_PLATFORM_XLIB_KHR
 #elif defined(__APPLE__)
 #define VK_USE_PLATFORM_METAL_EXT
+#include "common/rt64_apple.h"
 #endif
 
 #include "volk/volk.h"
@@ -204,6 +205,9 @@ namespace RT64 {
         VulkanCommandQueue *commandQueue = nullptr;
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         RenderWindow renderWindow = {};
+#if defined(__APPLE__)
+        std::unique_ptr<CocoaWindow> windowWrapper;
+#endif
         uint32_t textureCount = 0;
         uint64_t presentCount = 0;
         RenderFormat format = RenderFormat::UNKNOWN;

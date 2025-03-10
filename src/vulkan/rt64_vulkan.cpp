@@ -1921,6 +1921,9 @@ namespace RT64 {
 
         this->commandQueue = commandQueue;
         this->renderWindow = renderWindow;
+#if defined(__APPLE__)
+        this->windowWrapper = std::make_unique<CocoaWindow>(renderWindow.window);
+#endif
         this->format = format;
 
         VkResult res;
@@ -2300,7 +2303,7 @@ namespace RT64 {
         dstHeight = attributes.height;
 #   elif defined(__APPLE__)
         CocoaWindowAttributes attributes;
-        GetWindowAttributes(renderWindow.window, &attributes);
+        windowWrapper->getWindowAttributes(&attributes);
         dstWidth = attributes.width;
         dstHeight = attributes.height;
 #   endif

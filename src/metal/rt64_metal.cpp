@@ -12,7 +12,6 @@
 #include <mutex>
 
 #include "rt64_metal.h"
-#include "common/rt64_apple.h"
 
 namespace RT64 {
     // MARK: - Constants
@@ -1600,6 +1599,7 @@ namespace RT64 {
         this->drawables.resize(MAX_DRAWABLES);
 
         this->renderWindow = renderWindow;
+        this->windowWrapper = std::make_unique<CocoaWindow>(renderWindow.window);
         getWindowSize(width, height);
 
         // set each of the drawable to have desc.flags = RenderTextureFlag::RENDER_TARGET;
@@ -1748,12 +1748,12 @@ namespace RT64 {
     }
 
     uint32_t MetalSwapChain::getRefreshRate() const {
-        return GetWindowRefreshRate(renderWindow.window);
+        return windowWrapper->getRefreshRate();
     }
 
     void MetalSwapChain::getWindowSize(uint32_t &dstWidth, uint32_t &dstHeight) const {
         CocoaWindowAttributes attributes;
-        GetWindowAttributes(renderWindow.window, &attributes);
+        windowWrapper->getWindowAttributes(&attributes);
         dstWidth = attributes.width;
         dstHeight = attributes.height;
     }
