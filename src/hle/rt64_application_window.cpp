@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <stdio.h>
+#include <SDL.h>
 
 #if defined(_WIN32)
 #   include <Windows.h>
@@ -13,6 +14,9 @@
 #elif defined(__linux__)
 #   define Status int
 #   include <X11/extensions/Xrandr.h>
+#elif defined(__APPLE__)
+#   include "rt64_application.h"
+#   include "apple/rt64_apple.h"
 #endif
 
 #include "common/rt64_common.h"
@@ -21,7 +25,7 @@ namespace RT64 {
     // ApplicationWindow
 
     ApplicationWindow *ApplicationWindow::HookedApplicationWindow = nullptr;
-    
+
     ApplicationWindow::ApplicationWindow() {
         // Empty.
     }
@@ -37,14 +41,17 @@ namespace RT64 {
         }
 #   endif
     }
-    
+
     void ApplicationWindow::setup(RenderWindow window, Listener *listener, uint32_t threadId) {
         assert(listener != nullptr);
 
         this->listener = listener;
 
         windowHandle = window;
-        
+#if defined(__APPLE__)
+        windowWrapper = std::make_unique<CocoaWindow>(window.window);
+#endif
+
         if (listener->usesWindowMessageFilter()) {
             if ((sdlWindow == nullptr) && SDL_WasInit(SDL_INIT_VIDEO)) {
                 // We'd normally install the event filter here, but Mupen does not set its own event filter
@@ -110,10 +117,16 @@ namespace RT64 {
 #   else
         static_assert(false && "Unimplemented");
 #   endif
+        uint32_t createFlags = SDL_WINDOW_RESIZABLE;
+#   if defined(__APPLE__)
+        createFlags |= SDL_WINDOW_METAL;
+#   endif
 
         // Create window.
         uint32_t flags = SDL_WINDOW_RESIZABLE;
-        #if defined(RT64_SDL_WINDOW_VULKAN)
+        # if defined(__APPLE__)
+        flags |= SDL_WINDOW_METAL;
+        # elif defined(RT64_SDL_WINDOW_VULKAN)
         flags |= SDL_WINDOW_VULKAN;
         #endif
         sdlWindow = SDL_CreateWindow(windowTitle, bounds.left, bounds.top, bounds.width, bounds.height, flags);
@@ -133,7 +146,9 @@ namespace RT64 {
         windowHandle.display = wmInfo.info.x11.display;
         windowHandle.window = wmInfo.info.x11.window;
 #   elif defined(__APPLE__)
-        windowHandle.window = wmInfo.info.cocoa.window;
+        windowHandle.window = sdlWindow;
+        SDL_MetalView view = SDL_Metal_CreateView(sdlWindow);
+        windowHandle.view = SDL_Metal_GetLayer(view);
 #   else
         static_assert(false && "Unimplemented");
 #   endif
@@ -205,9 +220,11 @@ namespace RT64 {
         }
 
         fullScreen = newFullScreen;
+#   elif defined(__APPLE__)
+        windowWrapper->toggleFullscreen();
 #   endif
     }
-    
+
     void ApplicationWindow::makeResizable() {
 #   ifdef _WIN32
         LONG_PTR lStyle = GetWindowLongPtr(windowHandle, GWL_STYLE);
@@ -292,6 +309,8 @@ namespace RT64 {
         }
 
         XRRFreeScreenResources(screenResources);
+#   elif defined(__APPLE__)
+        refreshRate = windowWrapper->getRefreshRate();
 #   endif
     }
 
@@ -313,6 +332,11 @@ namespace RT64 {
 #   elif defined(__linux__)
         XWindowAttributes attributes;
         XGetWindowAttributes(windowHandle.display, windowHandle.window, &attributes);
+        newWindowLeft = attributes.x;
+        newWindowTop = attributes.y;
+#   elif defined(__APPLE__)
+        CocoaWindowAttributes attributes;
+        windowWrapper->getWindowAttributes(&attributes);
         newWindowLeft = attributes.x;
         newWindowTop = attributes.y;
 #   endif
@@ -361,7 +385,7 @@ namespace RT64 {
             sdlEventFilterInstalled = true;
         }
     }
-    
+
     int ApplicationWindow::sdlEventFilter(void *userdata, SDL_Event *event) {
         // Run it through the listener's event filter. If it's processed by the listener, the event should be filtered.
         ApplicationWindow *appWindow = reinterpret_cast<ApplicationWindow *>(userdata);

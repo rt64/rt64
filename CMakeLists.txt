@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
-project(rt64)
+project(rt64 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
+if (APPLE)
+    enable_language(OBJC OBJCXX)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15")
+endif()
 
 option(RT64_STATIC "Build RT64 as a static library" OFF)
 
@@ -41,22 +46,24 @@ if (WIN32)
     # Dependencies that must be next to the DLL.
     configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
     configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxil.dll" "dxil.dll" COPYONLY)
+elseif (APPLE)
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        # find zlib and include in dyld path
+        find_library(ZLIB_LIBRARY NAMES z)
+        get_filename_component(ZLIB_PATH ${ZLIB_LIBRARY} DIRECTORY)
+
+        set (DXC "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64:${ZLIB_PATH}" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc-macos")
+        set (SPIRVCROSS "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/spirv-cross/lib/x64:$ENV{DYLD_LIBRARY_PATH}" "${PROJECT_SOURCE_DIR}/src/contrib/spirv-cross/bin/x64/spirv-cross")
+    else()
+        set (DXC "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/arm64:${ZLIB_PATH}" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/arm64/dxc-macos")
+        set (SPIRVCROSS "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/spirv-cross/lib/arm64:$ENV{DYLD_LIBRARY_PATH}" "${PROJECT_SOURCE_DIR}/src/contrib/spirv-cross/bin/arm64/spirv-cross")
+    endif()
 else()
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-        if (APPLE)
-            set (DXC "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc")
-        else()
-            set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc")
-        endif()
+        set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc-linux")
     else()
-        if (APPLE)
-            set (DXC "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/arm64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/arm64/dxc-macos")
-        else()
-            set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/arm64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/arm64/dxc-linux")
-        endif()
+        set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/arm64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/arm64/dxc-linux")
     endif()
-
-    message(STATUS "DXC: ${DXC}")
 endif()
 
 set(ZSTD_LEGACY_SUPPORT OFF)
@@ -119,6 +126,26 @@ function(build_shader_dxil_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
     target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.dxil.c)
 endfunction()
 
+function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
+    add_custom_command(OUTPUT ${OUTNAME}.spv
+            COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
+            DEPENDS ${FILENAME})
+    add_custom_command(OUTPUT ${OUTNAME}.metal
+            COMMAND spirv_cross_msl ${OUTNAME}.spv ${OUTNAME}.metal
+            DEPENDS ${OUTNAME}.spv spirv_cross_msl)
+    add_custom_command(OUTPUT ${OUTNAME}.ir
+            COMMAND xcrun -sdk macosx metal -o ${OUTNAME}.ir -c ${OUTNAME}.metal $<$<CONFIG:Debug>:-frecord-sources>
+            DEPENDS ${OUTNAME}.metal)
+    add_custom_command(OUTPUT ${OUTNAME}.metallib
+            COMMAND xcrun -sdk macosx metallib ${OUTNAME}.ir -o ${OUTNAME}.metallib
+            DEPENDS ${OUTNAME}.ir)
+    add_custom_command(OUTPUT ${OUTNAME}.metal.c
+            COMMAND file_to_c ${OUTNAME}.metallib ${TARGET_NAME}BlobMSL ${OUTNAME}.metal.c ${OUTNAME}.metal.h
+            DEPENDS ${OUTNAME}.metallib file_to_c
+            BYPRODUCTS ${OUTNAME}.metal.h)
+    target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metal.c)
+endfunction()
+
 function(build_shader TARGETOBJ SHADERNAME OPTIONS)
     set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
     if (${ARGC} GREATER 3)
@@ -137,6 +164,10 @@ function(build_shader TARGETOBJ SHADERNAME OPTIONS)
     # Compile DXIL shader binaries if building on Windows
     if (WIN32)
         build_shader_dxil_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+    endif()
+    # Compile Metal shader binaries if building on macOS
+    if (APPLE)
+        build_shader_msl_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
     endif()
     build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
 endfunction()
@@ -178,6 +209,24 @@ function(build_shader_spirv TARGETOBJ SHADERNAME OPTIONS)
     build_shader_spirv_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
 endfunction()
 
+function(build_shader_msl TARGETOBJ SHADERNAME OPTIONS)
+    set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
+    if (${ARGC} GREATER 3)
+        set(OUTNAME "${CMAKE_BINARY_DIR}/${ARGV3}")
+    else()
+        set(OUTNAME "${CMAKE_BINARY_DIR}/${SHADERNAME}")
+    endif()
+    # Get any optional compiler args passed to this function
+    if (${ARGC} GREATER 4)
+        set(EXTRA_ARGS "${ARGN}")
+        list(REMOVE_AT EXTRA_ARGS 0)
+    endif()
+    cmake_path(GET OUTNAME STEM TARGET_NAME)
+    cmake_path(GET OUTNAME PARENT_PATH OUTPUT_DIR)
+    file(MAKE_DIRECTORY ${OUTPUT_DIR})
+    build_shader_msl_impl(${TARGETOBJ} ${FILENAME} ${TARGET_NAME} ${OUTNAME} ${OPTIONS} ${EXTRA_ARGS})
+endfunction()
+
 function(preprocess_shader TARGETOBJ SHADERNAME)
     set(FILENAME "${PROJECT_SOURCE_DIR}/${SHADERNAME}")
     set(OUTNAME "${CMAKE_BINARY_DIR}/${SHADERNAME}")
@@ -204,20 +253,22 @@ function(build_vertex_shader TARGETOBJ SHADERNAME)
     build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
 endfunction()
 
-function(build_pixel_shader_spirv TARGETOBJ SHADERNAME)
+function(build_pixel_shader_spec_constants TARGETOBJ SHADERNAME)
     build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
+    if (APPLE)
+        build_shader_msl(${TARGETOBJ} ${SHADERNAME} "${DXC_PS_OPTS}" ${ARGN})
+    endif()
 endfunction()
 
-function(build_vertex_shader_spirv TARGETOBJ SHADERNAME)
+function(build_vertex_shader_spec_constants TARGETOBJ SHADERNAME)
     build_shader_spirv(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
+    if (APPLE)
+        build_shader_msl(${TARGETOBJ} ${SHADERNAME} "${DXC_VS_OPTS}" ${ARGN})
+    endif()
 endfunction()
 
 function(build_compute_shader TARGETOBJ SHADERNAME)
     build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_CS_OPTS}" ${ARGN})
-endfunction()
-
-function(build_geo_shader TARGETOBJ SHADERNAME)
-    build_shader(${TARGETOBJ} ${SHADERNAME} "${DXC_GS_OPTS}" ${ARGN})
 endfunction()
 
 function(build_ray_shader TARGETOBJ SHADERNAME)
@@ -390,6 +441,18 @@ target_link_libraries(rt64 libzstd_static)
 add_subdirectory(src/tools/texture_hasher)
 add_subdirectory(src/tools/texture_packer)
 
+# Add any Apple-specific source files and libraries
+if (APPLE)
+    add_subdirectory(src/tools/spirv_cross_msl)
+
+    target_sources(rt64 PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"
+        "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
+    )
+    target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
+    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
+endif()
+
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE
@@ -429,15 +492,15 @@ endif()
 
 build_pixel_shader(  rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSDynamic.hlsl" "-D DYNAMIC_RENDER_PARAMS")
 build_pixel_shader(  rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSDynamicMS.hlsl" "-D DYNAMIC_RENDER_PARAMS" "-D MULTISAMPLING")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH")
-build_pixel_shader_spirv(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepth.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH")
+build_pixel_shader_spec_constants(rt64 "src/shaders/RasterPS.hlsl" "src/shaders/RasterPSSpecConstantFlatDepthMS.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR" "-D OUTPUT_DEPTH" "-D MULTISAMPLING")
 build_vertex_shader( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSDynamic.hlsl" "-D DYNAMIC_RENDER_PARAMS")
-build_vertex_shader_spirv( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
-build_vertex_shader_spirv( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
+build_vertex_shader_spec_constants( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstant.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS")
+build_vertex_shader_spec_constants( rt64 "src/shaders/RasterVS.hlsl" "src/shaders/RasterVSSpecConstantFlat.hlsl" "-D SPEC_CONSTANT_RENDER_PARAMS" "-D VERTEX_FLAT_COLOR")
 build_compute_shader(rt64 "src/shaders/FbChangesClearCS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/FbChangesDrawColorPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/FbChangesDrawDepthPS.hlsl")
@@ -477,8 +540,6 @@ build_pixel_shader(  rt64 "src/shaders/VideoInterfacePS.hlsl" "src/shaders/Video
 build_pixel_shader(  rt64 "src/shaders/VideoInterfacePS.hlsl" "src/shaders/VideoInterfacePSPixel.hlsl" "-D PIXEL_ANTIALIASING")
 build_vertex_shader( rt64 "src/shaders/FullScreenVS.hlsl")
 build_vertex_shader( rt64 "src/shaders/Im3DVS.hlsl")
-build_geo_shader(    rt64 "src/shaders/Im3DGSPoints.hlsl")
-build_geo_shader(    rt64 "src/shaders/Im3DGSLines.hlsl")
 build_pixel_shader(  rt64 "src/shaders/ComposePS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/DebugPS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/Im3DPS.hlsl")
@@ -490,12 +551,29 @@ if (RT64_BUILD_EXAMPLES)
     add_executable(rhi_test "examples/rt64_render_interface.cpp" "examples/rhi_test.cpp")
     target_link_libraries(rhi_test rt64)
 
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPS.hlsl")
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestSpecPS.hlsl")
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestColorPS.hlsl")
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestDecalPS.hlsl")
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTextureBindfulPS.hlsl")
+    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTextureBindlessPS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
     build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
-    build_ray_shader(    rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
+    build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestAsyncCS.hlsl")
+    if (NOT APPLE)
+        # TODO: Enable when RT is added to Metal.
+        build_ray_shader(rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
+    endif()
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPostPS.hlsl")
     build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestPostVS.hlsl")
 
     target_include_directories(rhi_test PRIVATE ${CMAKE_BINARY_DIR}/examples)
+
+    if (APPLE)
+        set_property (TARGET rhi_test APPEND_STRING PROPERTY
+            COMPILE_FLAGS "-fobjc-arc")
+        set_target_properties(rhi_test PROPERTIES
+            XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${CMAKE_CURRENT_SOURCE_DIR}/rt64.entitlements
+        )
+    endif()
 endif()

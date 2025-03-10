@@ -22,7 +22,7 @@ namespace RT64 {
     // External functions to create the backends.
 
     extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
-
+    extern std::unique_ptr<RenderInterface> CreateMetalInterface();
 #ifdef RT64_SDL_WINDOW_VULKAN
     extern std::unique_ptr<RenderInterface> CreateVulkanInterface(RenderWindow renderWindow);
 #else
@@ -145,6 +145,14 @@ namespace RT64 {
             break;
 #       else
             fprintf(stderr, "D3D12 is not supported on this platform. Please select a different Graphics API.\n");
+            return SetupResult::InvalidGraphicsAPI;
+#       endif
+        case UserConfiguration::GraphicsAPI::Metal:
+#       ifdef __APPLE__
+            renderInterface = CreateMetalInterface();
+            break;
+#       else
+            fprintf(stderr, "Metal is not supported on this platform. Please select a different Graphics API.\n");
             return SetupResult::InvalidGraphicsAPI;
 #       endif
         case UserConfiguration::GraphicsAPI::Vulkan:
@@ -367,7 +375,7 @@ namespace RT64 {
 #   endif
         state->setup(stateExt);
 
-        // Set up the RDP 
+        // Set up the RDP
         state->rdp->setGBI();
 
         return SetupResult::Success;
