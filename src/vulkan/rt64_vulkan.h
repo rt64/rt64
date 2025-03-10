@@ -17,6 +17,8 @@
 #define VK_USE_PLATFORM_ANDROID_KHR
 #elif defined(__linux__)
 #define VK_USE_PLATFORM_XLIB_KHR
+#elif defined(__APPLE__)
+#define VK_USE_PLATFORM_METAL_EXT
 #endif
 
 #include "volk/volk.h"
@@ -264,7 +266,7 @@ namespace RT64 {
         const VulkanPipelineLayout *activeRaytracingPipelineLayout = nullptr;
         VkRenderPass activeRenderPass = VK_NULL_HANDLE;
 
-        VulkanCommandList(VulkanDevice *device, RenderCommandListType type);
+        VulkanCommandList(VulkanCommandQueue *queue, RenderCommandListType type);
         ~VulkanCommandList() override;
         void begin() override;
         void end() override;
@@ -328,6 +330,7 @@ namespace RT64 {
 
         VulkanCommandQueue(VulkanDevice *device, RenderCommandListType commandListType);
         ~VulkanCommandQueue() override;
+        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t bufferCount, RenderFormat format) override;
         void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) override;
         void waitForCommandFence(RenderCommandFence *fence) override;
@@ -372,7 +375,6 @@ namespace RT64 {
 
         VulkanDevice(VulkanInterface *renderInterface);
         ~VulkanDevice() override;
-        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) override;
         std::unique_ptr<RenderShader> createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) override;
         std::unique_ptr<RenderSampler> createSampler(const RenderSamplerDesc &desc) override;
@@ -396,6 +398,8 @@ namespace RT64 {
         RenderSampleCounts getSampleCountsSupported(RenderFormat format) const override;
         void release();
         bool isValid() const;
+        bool beginCapture() override;
+        bool endCapture() override;
     };
 
     struct VulkanInterface : RenderInterface {

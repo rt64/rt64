@@ -15,6 +15,7 @@ namespace RT64 {
         enum class GraphicsAPI {
             D3D12,
             Vulkan,
+            Metal,
             OptionCount
         };
 
@@ -114,7 +115,8 @@ namespace RT64 {
 
     NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::GraphicsAPI, {
         { UserConfiguration::GraphicsAPI::D3D12, "D3D12" },
-        { UserConfiguration::GraphicsAPI::Vulkan, "Vulkan" }
+        { UserConfiguration::GraphicsAPI::Vulkan, "Vulkan" },
+        { UserConfiguration::GraphicsAPI::Metal, "Metal" }
     });
 
     NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::Resolution, {
