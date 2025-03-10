@@ -61,15 +61,16 @@ namespace RT64 {
     NS::UInteger alignmentForRenderFormat(MTL::Device *device, RT64::RenderFormat format) {
         const auto deviceAlignment = device->minimumLinearTextureAlignmentForPixelFormat(mapPixelFormat(format));
 
+        NS::UInteger minTexelBufferOffsetAlignment = 0;
     #if TARGET_OS_TV
-        auto minTexelBufferOffsetAlignment = 64;
+        minTexelBufferOffsetAlignment = 64;
     #elif TARGET_OS_IPHONE
-        auto minTexelBufferOffsetAlignment = 64;
+        minTexelBufferOffsetAlignment = 64;
         if (device->supportsFamily(MTL::GPUFamilyApple3)) {
             minTexelBufferOffsetAlignment = 16;
         }
     #elif TARGET_OS_MAC
-        auto minTexelBufferOffsetAlignment = 256;
+        minTexelBufferOffsetAlignment = 256;
         if (device->supportsFamily(MTL::GPUFamilyApple3)) {
             minTexelBufferOffsetAlignment = 16;
         }
@@ -1139,6 +1140,7 @@ namespace RT64 {
         assert(device != nullptr);
         this->device = device;
 
+        // TODO: Implement MetalPool
         fprintf(stderr, "RenderPool in Metal is not implemented currently. Resources are created directly on device.\n");
     }
 
@@ -1290,6 +1292,8 @@ namespace RT64 {
         descriptor->setInputPrimitiveTopology(mapPrimitiveTopologyClass(desc.primitiveTopology));
         descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
         descriptor->setAlphaToCoverageEnabled(desc.alphaToCoverageEnabled);
+        descriptor->setDepthAttachmentPixelFormat(mapPixelFormat(desc.depthTargetFormat));
+        descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
 
         assert(desc.vertexShader != nullptr && "Cannot create a valid MTLRenderPipelineState without a vertex shader!");
         const MetalShader *metalShader = static_cast<const MetalShader *>(desc.vertexShader);
@@ -1346,9 +1350,6 @@ namespace RT64 {
             blendDescriptor->setWriteMask(mapColorWriteMask(blendDesc.renderTargetWriteMask));
             blendDescriptor->setPixelFormat(mapPixelFormat(desc.renderTargetFormat[i]));
         }
-
-        descriptor->setDepthAttachmentPixelFormat(mapPixelFormat(desc.depthTargetFormat));
-        descriptor->setRasterSampleCount(desc.multisampling.sampleCount);
 
         // State variables, initialized here to be reused in encoder re-binding
         MTL::DepthStencilDescriptor *depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
@@ -1422,7 +1423,6 @@ namespace RT64 {
             .mtl = device->mtl->newBuffer(requiredSize, MTL::ResourceStorageModeManaged),
             .argumentEncoder = setLayout->argumentEncoder,
             .offset = 0,
-            .encodedSize = requiredSize
         };
 
         argumentBuffer.argumentEncoder->setArgumentBuffer(argumentBuffer.mtl, argumentBuffer.offset);
@@ -2187,7 +2187,7 @@ namespace RT64 {
             pipelineDesc->setDepthAttachmentPixelFormat(targetFramebuffer->depthAttachment->mtl->pixelFormat());
             MTL::DepthStencilDescriptor *depthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
             depthStencilDescriptor->setDepthWriteEnabled(false);
-             const MTL::DepthStencilState *depthStencilState = device->mtl->newDepthStencilState(depthStencilDescriptor);
+            const MTL::DepthStencilState *depthStencilState = device->mtl->newDepthStencilState(depthStencilDescriptor);
             activeRenderEncoder->setDepthStencilState(depthStencilState);
 
             depthStencilDescriptor->release();
@@ -2966,7 +2966,6 @@ namespace RT64 {
 
     std::unique_ptr<RenderPipeline> MetalDevice::createRaytracingPipeline(const RenderRaytracingPipelineDesc &desc, const RenderPipeline *previousPipeline) {
         // TODO: Unimplemented (Raytracing).
-        // return std::make_unique<MetalRaytracingPipeline>(this, desc, previousPipeline);
         return nullptr;
     }
 

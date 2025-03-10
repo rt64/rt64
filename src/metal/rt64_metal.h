@@ -59,7 +59,7 @@ namespace RT64 {
         uint32_t descriptorSets : 1;
         uint32_t pushConstants : 1;
 
-        // marks from which descriptor set we'll invalide from
+        // marks from which descriptor set we'll invalidate from
         uint32_t descriptorSetDirtyIndex : 5;
 
         void setAll() {
@@ -80,7 +80,7 @@ namespace RT64 {
         uint32_t vertexBuffers : 1;
         uint32_t indexBuffer : 1;
 
-        // marks from which descriptor set we'll invalide from
+        // marks from which descriptor set we'll invalidate from
         uint32_t descriptorSetDirtyIndex : 5;
 
         void setAll() {
@@ -100,11 +100,6 @@ namespace RT64 {
         MTL::Buffer *mtl;
         MTL::ArgumentEncoder *argumentEncoder;
         uint32_t offset;
-        uint64_t encodedSize;
-
-        void setBuffer(MTL::Buffer *buffer, uint32_t offset, uint32_t index);
-        void setTexture(MTL::Texture *texture, uint32_t index);
-        void setSamplerState(MTL::SamplerState *sampler, uint32_t index);
     };
 
     struct Descriptor {};
@@ -161,18 +156,9 @@ namespace RT64 {
         MTL::Winding winding = MTL::WindingClockwise;
     };
 
-    struct MetalBufferBinding {
-        const MetalBuffer *buffer;
-        uint32_t offset;
-
-        MetalBufferBinding(const MetalBuffer* buffer = nullptr, uint32_t offset = 0)
-            : buffer(buffer), offset(offset) {}
-    };
-
     struct ExtendedRenderTexture: RenderTexture {
         RenderTextureDesc desc;
         virtual MTL::Texture* getTexture() const = 0;
-        virtual bool isSwapchainTexture() const { return false; }
     };
 
     struct MetalDescriptorSet : RenderDescriptorSet {
@@ -194,7 +180,7 @@ namespace RT64 {
         ~MetalDescriptorSet() override;
         void setBuffer(uint32_t descriptorIndex, const RenderBuffer *buffer, uint64_t bufferSize, const RenderBufferStructuredView *bufferStructuredView, const RenderBufferFormattedView *bufferFormattedView) override;
         void setTexture(uint32_t descriptorIndex, const RenderTexture *texture, RenderTextureLayout textureLayout, const RenderTextureView *textureView) override;
-        virtual void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) override;
+        void setSampler(uint32_t descriptorIndex, const RenderSampler *sampler) override;
         void setAccelerationStructure(uint32_t descriptorIndex, const RenderAccelerationStructure *accelerationStructure) override;
 
         void setDescriptor(uint32_t descriptorIndex, const Descriptor *descriptor);
@@ -218,8 +204,8 @@ namespace RT64 {
         bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
         bool resize() override;
         bool needsResize() const override;
-        virtual void setVsyncEnabled(bool vsyncEnabled) override;
-        virtual bool isVsyncEnabled() const override;
+        void setVsyncEnabled(bool vsyncEnabled) override;
+        bool isVsyncEnabled() const override;
         uint32_t getWidth() const override;
         uint32_t getHeight() const override;
         RenderTexture *getTexture(uint32_t textureIndex) override;
@@ -280,19 +266,6 @@ namespace RT64 {
     };
 
     struct MetalCommandList : RenderCommandList {
-        struct PendingColorClear {
-            uint32_t attachmentIndex;
-            RenderColor colorValue;
-            RenderRect clearRects[MAX_CLEAR_RECTS];
-            uint32_t clearRectCount;
-        };
-
-        struct PendingDepthClear {
-            float depthValue;
-            RenderRect clearRects[MAX_CLEAR_RECTS];
-            uint32_t clearRectCount;
-        };
-
         struct PushConstantData : RenderPushConstantRange {
             std::vector<uint8_t> data;
 
@@ -303,10 +276,6 @@ namespace RT64 {
             bool operator!=(const PushConstantData& other) const {
                 return !(*this == other);
             }
-        };
-
-        struct ClearVertex {
-            simd::float4 position;  // xy = position, z = 0, w = unused
         };
 
         MTL::CommandBuffer *mtl = nullptr;
@@ -471,7 +440,6 @@ namespace RT64 {
         void setName(const std::string &name) override;
 
         MTL::Texture* getTexture() const override { return mtl->texture(); }
-        bool isSwapchainTexture() const override { return true; }
     };
 
     struct MetalTexture : ExtendedRenderTexture {
@@ -548,7 +516,7 @@ namespace RT64 {
         Type type = Type::Unknown;
 
         MetalPipeline(const MetalDevice *device, Type type);
-        virtual ~MetalPipeline() override;
+        ~MetalPipeline() override;
     };
 
     struct MetalComputePipeline : MetalPipeline {
