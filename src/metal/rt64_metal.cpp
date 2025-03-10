@@ -1752,6 +1752,7 @@ namespace RT64 {
         if (dirtyComputeState.descriptorSets) {
             activeComputePipelineLayout->bindDescriptorSets(activeComputeEncoder, computeDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, true, dirtyComputeState.descriptorSetDirtyIndex);
             dirtyComputeState.descriptorSets = 0;
+            dirtyComputeState.descriptorSetDirtyIndex = DESCRIPTOR_SET_MAX_INDEX + 1;
         }
 
         if (dirtyComputeState.pushConstants) {
@@ -1862,6 +1863,7 @@ namespace RT64 {
                 activeGraphicsPipelineLayout->bindDescriptorSets(activeRenderEncoder, renderDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, false, dirtyGraphicsState.descriptorSetDirtyIndex);
             }
             dirtyGraphicsState.descriptorSets = 0;
+            dirtyGraphicsState.descriptorSetDirtyIndex = DESCRIPTOR_SET_MAX_INDEX + 1;
         }
 
         if (dirtyGraphicsState.pushConstants) {
