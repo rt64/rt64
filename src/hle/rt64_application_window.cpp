@@ -69,7 +69,7 @@ namespace RT64 {
         }
     }
 
-    void ApplicationWindow::setup(const char *windowTitle, RenderInterface *renderInterface, Listener *listener) {
+    void ApplicationWindow::setup(const char *windowTitle, Listener *listener) {
         assert(windowTitle != nullptr);
 
         // Find the right window dimension and placement.

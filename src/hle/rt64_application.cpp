@@ -131,7 +131,7 @@ namespace RT64 {
             appWindow->setup(core.window, this, threadId);
         }
         else {
-            appWindow->setup(windowTitle, renderInterface.get(), this);
+            appWindow->setup(windowTitle, this);
         }
 
         // Detect refresh rate from the display the window is located at.

@@ -52,7 +52,7 @@ namespace RT64 {
         ApplicationWindow();
         ~ApplicationWindow();
         void setup(RenderWindow window, Listener *listener, uint32_t threadId);
-        void setup(const char *windowTitle, RenderInterface *renderInterface, Listener *listener);
+        void setup(const char *windowTitle, Listener *listener);
         void setFullScreen(bool newFullScreen);
         void makeResizable();
         void detectRefreshRate();
