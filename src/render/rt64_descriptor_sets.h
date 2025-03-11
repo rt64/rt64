@@ -9,7 +9,7 @@
 #include <unordered_map>
 
 #include "common/rt64_common.h"
-#include "rhi/rt64_render_interface.h"
+#include "plume_render_interface.h"
 
 #include "rt64_sampler_library.h"
 

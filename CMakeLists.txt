@@ -410,6 +410,7 @@ include_directories(
     "${SDL2_INCLUDE_DIRS}"
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/contrib"
+    "${PROJECT_SOURCE_DIR}/src/contrib/plume"
     "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui"
