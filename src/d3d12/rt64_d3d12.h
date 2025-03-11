@@ -20,8 +20,8 @@ namespace RT64 {
     struct D3D12CommandQueue;
     struct D3D12Device;
     struct D3D12GraphicsPipeline;
-    struct D3D12Interface;
     struct D3D12Pipeline;
+    struct D3D12Interface;
     struct D3D12Pool;
     struct D3D12PipelineLayout;
     struct D3D12Texture;
@@ -160,7 +160,7 @@ namespace RT64 {
         bool activeSamplePositions = false;
         bool open = false;
 
-        D3D12CommandList(D3D12Device *device, RenderCommandListType type);
+        D3D12CommandList(D3D12CommandQueue *queue, RenderCommandListType type);
         ~D3D12CommandList() override;
         void begin() override;
         void end() override;
@@ -230,6 +230,7 @@ namespace RT64 {
 
         D3D12CommandQueue(D3D12Device *device, RenderCommandListType type);
         ~D3D12CommandQueue() override;
+        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderSwapChain> createSwapChain(RenderWindow renderWindow, uint32_t textureCount, RenderFormat format) override;
         void executeCommandLists(const RenderCommandList **commandLists, uint32_t commandListCount, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount, RenderCommandSemaphore **signalSemaphores, uint32_t signalSemaphoreCount, RenderCommandFence *signalFence) override;
         void waitForCommandFence(RenderCommandFence *fence) override;
@@ -294,7 +295,7 @@ namespace RT64 {
         ~D3D12TextureView() override;
     };
 
-    struct D3D12AccelerationStructure :RenderAccelerationStructure {
+    struct D3D12AccelerationStructure : RenderAccelerationStructure {
         D3D12Device *device = nullptr;
         const D3D12Buffer *buffer = nullptr;
         uint64_t offset = 0;
@@ -411,7 +412,6 @@ namespace RT64 {
 
         D3D12Device(D3D12Interface *renderInterface);
         ~D3D12Device() override;
-        std::unique_ptr<RenderCommandList> createCommandList(RenderCommandListType type) override;
         std::unique_ptr<RenderDescriptorSet> createDescriptorSet(const RenderDescriptorSetDesc &desc) override;
         std::unique_ptr<RenderShader> createShader(const void *data, uint64_t size, const char *entryPointName, RenderShaderFormat format) override;
         std::unique_ptr<RenderSampler> createSampler(const RenderSamplerDesc &desc) override;
@@ -435,6 +435,8 @@ namespace RT64 {
         RenderSampleCounts getSampleCountsSupported(RenderFormat format) const override;
         void release();
         bool isValid() const;
+        bool beginCapture() override;
+        bool endCapture() override;
     };
 
     struct D3D12Interface : RenderInterface {

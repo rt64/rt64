@@ -31,10 +31,10 @@ SamplerState gClampMirrorSampler : register(s14, space0);
 SamplerState gClampClampSampler : register(s15, space0);
 
 // Set 1 - RGBA32 texture cache.
-Texture2D<float4> gTextures[] : register(t0, space1);
+Texture2D<float4> gTextures[8192] : register(t0, space1);
 
 // Set 2 - TMEM texture cache.
-Texture1D<uint> gTMEM[] : register(t0, space2);
+Texture1D<uint> gTMEM[8192] : register(t0, space2);
 
 // Set 3 - Framebuffer.
 ConstantBuffer<FramebufferParams> FbParams : register(b0, space3);

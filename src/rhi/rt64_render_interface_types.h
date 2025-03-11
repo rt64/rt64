@@ -24,7 +24,15 @@
 #undef Success
 #undef Always
 #elif defined(__APPLE__)
-typedef struct _NSWindow NSWindow;
+#include <SDL.h>
+#endif
+
+#ifdef RT64_SDL_WINDOW_VULKAN
+#include <SDL_vulkan.h>
+#endif
+
+#ifdef RT64_SDL_WINDOW_VULKAN
+#include <SDL_vulkan.h>
 #endif
 
 #ifdef RT64_SDL_WINDOW_VULKAN
@@ -50,7 +58,9 @@ namespace RT64 {
     };
 #elif defined(__APPLE__)
     struct RenderWindow {
-        NSWindow* window;
+        void* window;
+        void* view;
+
         bool operator==(const struct RenderWindow& rhs) const {
             return window == rhs.window;
         }
@@ -353,7 +363,8 @@ namespace RT64 {
     enum class RenderShaderFormat {
         UNKNOWN,
         DXIL,
-        SPIRV
+        SPIRV,
+        METAL,
     };
 
     enum class RenderRaytracingPipelineLibrarySymbolType {
@@ -456,7 +467,7 @@ namespace RT64 {
         RESOLVE_DEST,
         PRESENT
     };
-    
+
     namespace RenderSampleCount {
         enum Bits : uint32_t {
             COUNT_0 = 0x0,
@@ -694,11 +705,19 @@ namespace RT64 {
             this->depth = depth;
         }
     };
-    
+
     struct RenderMultisamplingLocation {
         // Valid range is [-8, 7].
         int8_t x = 0;
         int8_t y = 0;
+
+        bool operator==(const RenderMultisamplingLocation& other) const {
+            return x == other.x && y == other.y;
+        }
+
+        bool operator!=(const RenderMultisamplingLocation& other) const {
+            return !(*this == other);
+        }
     };
 
     struct RenderMultisampling {
@@ -1123,12 +1142,18 @@ namespace RT64 {
         const RenderShader *computeShader = nullptr;
         const RenderSpecConstant *specConstants = nullptr;
         uint32_t specConstantsCount = 0;
+        uint32_t threadGroupSizeX = 0;
+        uint32_t threadGroupSizeY = 0;
+        uint32_t threadGroupSizeZ = 0;
 
         RenderComputePipelineDesc() = default;
 
-        RenderComputePipelineDesc(const RenderPipelineLayout *pipelineLayout, const RenderShader *computeShader) {
+        RenderComputePipelineDesc(const RenderPipelineLayout *pipelineLayout, const RenderShader *computeShader, uint32_t threadGroupSizeX, uint32_t threadGroupSizeY, uint32_t threadGroupSizeZ) {
             this->pipelineLayout = pipelineLayout;
             this->computeShader = computeShader;
+            this->threadGroupSizeX = threadGroupSizeX;
+            this->threadGroupSizeY = threadGroupSizeY;
+            this->threadGroupSizeZ = threadGroupSizeZ;
         }
     };
 
@@ -1278,7 +1303,7 @@ namespace RT64 {
             this->immutableSampler = immutableSampler;
         }
     };
-    
+
     struct RenderDescriptorSetDesc {
         const RenderDescriptorRange *descriptorRanges = nullptr;
         uint32_t descriptorRangesCount = 0;
@@ -1286,7 +1311,7 @@ namespace RT64 {
         uint32_t boundlessRangeSize = 0;
 
         RenderDescriptorSetDesc() = default;
-        
+
         RenderDescriptorSetDesc(const RenderDescriptorRange *descriptorRanges, uint32_t descriptorRangesCount, bool lastRangeIsBoundless = false, uint32_t boundlessRangeSize = 0) {
             this->descriptorRanges = descriptorRanges;
             this->descriptorRangesCount = descriptorRangesCount;
@@ -1726,6 +1751,9 @@ namespace RT64 {
         // Present.
         bool presentWait = false;
         bool displayTiming = false;
+
+        // Framebuffers.
+        uint64_t maxTextureSize = 0;
 
         // HDR.
         bool preferHDR = false;

@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         type: [ Debug, Release ]
-        os: [ ubuntu-latest, windows-latest]
+        os: [ ubuntu-latest, windows-latest, macos-13, macos-14 ] # macos-13 is Intel and macos-14 is Apple Silicon
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,6 +49,14 @@ jobs:
           sudo make install
           sudo cp -av /usr/local/lib/libSDL* /lib/x86_64-linux-gnu/
           echo ::endgroup::
+      - uses: pkgxdev/setup@v1
+        if: runner.os == 'macOS'
+        with:
+          +: zlib.net
+      - name: Install macOS Dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja sdl2
       - name: Configure Developer Command Prompt
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1

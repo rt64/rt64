@@ -31,6 +31,21 @@
 #   include "shaders/PostBlendDitherNoiseAddPS.hlsl.dxil.h"
 #   include "shaders/PostBlendDitherNoiseSubPS.hlsl.dxil.h"
 #   include "shaders/PostBlendDitherNoiseSubNegativePS.hlsl.dxil.h"
+#elif defined(__APPLE__)
+#   include "shaders/RasterPSDynamic.hlsl.metal.h"
+#   include "shaders/RasterPSDynamicMS.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstant.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstantFlat.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstantDepth.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstantDepthMS.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstantFlatDepth.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstantFlatDepthMS.hlsl.metal.h"
+#   include "shaders/RasterVSDynamic.hlsl.metal.h"
+#   include "shaders/RasterVSSpecConstant.hlsl.metal.h"
+#   include "shaders/RasterVSSpecConstantFlat.hlsl.metal.h"
+#   include "shaders/PostBlendDitherNoiseAddPS.hlsl.metal.h"
+#   include "shaders/PostBlendDitherNoiseSubPS.hlsl.metal.h"
+#   include "shaders/PostBlendDitherNoiseSubNegativePS.hlsl.metal.h"
 #endif
 #include "shared/rt64_raster_params.h"
 
@@ -88,6 +103,9 @@ namespace RT64 {
         const bool useMSAA = (multisampling.sampleCount > 1);
         std::unique_ptr<RenderShader> vertexShader;
         std::unique_ptr<RenderShader> pixelShader;
+#ifdef __APPLE__
+        std::vector<RenderSpecConstant> specConstants;
+#endif
         if (shaderFormat == RenderShaderFormat::SPIRV) {
             // Choose the pre-compiled shader permutations.
             const respv::Shader *VS = nullptr;
@@ -137,6 +155,58 @@ namespace RT64 {
 
             vertexShader = device->createShader(optimizedVS.data(), optimizedVS.size(), "VSMain", shaderFormat);
             pixelShader = device->createShader(optimizedPS.data(), optimizedPS.size(), "PSMain", shaderFormat);
+        }
+        else if (shaderFormat == RenderShaderFormat::METAL) {
+#       ifdef __APPLE__
+            // Choose the pre-compiled shader permutations.
+            const void *VSBlob = nullptr;
+            const void *PSBlob = nullptr;
+            uint32_t VSBlobSize = 0;
+            uint32_t PSBlobSize = 0;
+            const bool outputDepth = desc.outputDepth(useMSAA);
+            if (desc.flags.smoothShade) {
+                VSBlob = RasterVSSpecConstantBlobMSL;
+                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantBlobMSL));
+            }
+            else {
+                VSBlob = RasterVSSpecConstantFlatBlobMSL;
+                VSBlobSize = uint32_t(std::size(RasterVSSpecConstantFlatBlobMSL));
+            }
+
+            // Pick the correct MSL based on the configuration.
+            if (desc.flags.smoothShade) {
+                if (outputDepth) {
+                    PSBlob = useMSAA ? RasterPSSpecConstantDepthMSBlobMSL : RasterPSSpecConstantDepthBlobMSL;
+                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantDepthMSBlobMSL) : std::size(RasterPSSpecConstantDepthBlobMSL));
+                }
+                else {
+                    PSBlob = RasterPSSpecConstantBlobMSL;
+                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantBlobMSL));
+                }
+            }
+            else {
+                if (outputDepth) {
+                    PSBlob = useMSAA ? RasterPSSpecConstantFlatDepthMSBlobMSL : RasterPSSpecConstantFlatDepthBlobMSL;
+                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatDepthMSBlobMSL) : std::size(RasterPSSpecConstantFlatDepthBlobMSL));
+                }
+                else {
+                    PSBlob = RasterPSSpecConstantFlatBlobMSL;
+                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantFlatBlobMSL));
+                }
+            }
+
+            vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
+            pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
+
+            // Spec constants should replace the constants embedded in the shader directly.
+            specConstants.emplace_back(0, desc.otherMode.L);
+            specConstants.emplace_back(1, desc.otherMode.H);
+            specConstants.emplace_back(2, desc.colorCombiner.L);
+            specConstants.emplace_back(3, desc.colorCombiner.H);
+            specConstants.emplace_back(4, desc.flags.value);
+#       else
+            assert(false && "This platform does not support METAL shaders.");
+#       endif
         }
         else {
 #       if defined(_WIN32)
@@ -194,6 +264,9 @@ namespace RT64 {
         creation.cvgAdd = (desc.otherMode.cvgDst() == CVG_DST_WRAP) || (desc.otherMode.cvgDst() == CVG_DST_SAVE);
         creation.NoN = desc.flags.NoN;
         creation.usesHDR = desc.flags.usesHDR;
+#ifdef __APPLE__
+        creation.specConstants = specConstants;
+#endif
         creation.multisampling = multisampling;
         pipeline = createPipeline(creation);
     }
@@ -408,6 +481,14 @@ namespace RT64 {
             VSBlobSize = uint32_t(std::size(RasterVSDynamicBlobSPIRV));
             PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSDynamicMSBlobSPIRV) : std::size(RasterPSDynamicBlobSPIRV));
             break;
+#   ifdef __APPLE__
+        case RenderShaderFormat::METAL:
+            VSBlob = RasterVSDynamicBlobMSL;
+            PSBlob = useMSAA ? RasterPSDynamicMSBlobMSL : RasterPSDynamicBlobMSL;
+            VSBlobSize = uint32_t(std::size(RasterVSDynamicBlobMSL));
+            PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSDynamicMSBlobMSL) : std::size(RasterPSDynamicBlobMSL));
+            break;
+#   endif
         default:
             assert(false && "Unknown shader format.");
             return;
@@ -479,6 +560,13 @@ namespace RT64 {
             postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobSPIRV, std::size(PostBlendDitherNoiseSubPSBlobSPIRV), "PSMain", shaderFormat);
             postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobSPIRV, std::size(PostBlendDitherNoiseSubNegativePSBlobSPIRV), "PSMain", shaderFormat);
             break;
+#   ifdef __APPLE__
+        case RenderShaderFormat::METAL:
+            postBlendAddPixelShader = device->createShader(PostBlendDitherNoiseAddPSBlobMSL, std::size(PostBlendDitherNoiseAddPSBlobMSL), "PSMain", shaderFormat);
+            postBlendSubPixelShader = device->createShader(PostBlendDitherNoiseSubPSBlobMSL, std::size(PostBlendDitherNoiseSubPSBlobMSL), "PSMain", shaderFormat);
+            postBlendSubNegativePixelShader = device->createShader(PostBlendDitherNoiseSubNegativePSBlobMSL, std::size(PostBlendDitherNoiseSubNegativePSBlobMSL), "PSMain", shaderFormat);
+            break;
+#   endif
         default:
             assert(false && "Unknown shader format.");
             return;
