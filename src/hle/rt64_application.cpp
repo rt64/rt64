@@ -18,26 +18,27 @@
 
 //#define LOG_DISPLAY_LISTS
 
+namespace plume {
+    // External functions to create the backends.
+    extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
+    extern std::unique_ptr<RenderInterface> CreateMetalInterface();
+    #ifdef RT64_SDL_WINDOW_VULKAN
+    extern std::unique_ptr<RenderInterface> CreateVulkanInterface(RenderWindow renderWindow);
+    #else
+    extern std::unique_ptr<RenderInterface> CreateVulkanInterface();
+    #endif
+}
+
 namespace RT64 {
     // Constants
     // TODO: New - @Dario determine what we want to do here.
     static constexpr uint32_t MAX_FRAME_LATENCY = 2;
 
-    // External functions to create the backends.
-
-    extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
-    extern std::unique_ptr<RenderInterface> CreateMetalInterface();
-#ifdef RT64_SDL_WINDOW_VULKAN
-    extern std::unique_ptr<RenderInterface> CreateVulkanInterface(RenderWindow renderWindow);
-#else
-    extern std::unique_ptr<RenderInterface> CreateVulkanInterface();
-#endif
-
     static std::unique_ptr<RenderInterface> CreateVulkanInterfaceWrapper(RenderWindow renderWindow) {
 #ifdef RT64_SDL_WINDOW_VULKAN
-        return CreateVulkanInterface(renderWindow);
+        return plume::CreateVulkanInterface(renderWindow);
 #else
-        return CreateVulkanInterface();
+        return plume::CreateVulkanInterface();
 #endif
     }
 
