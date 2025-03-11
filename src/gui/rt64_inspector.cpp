@@ -117,7 +117,7 @@ namespace RT64 {
             vulkanContext = std::make_unique<VulkanContext>();
             vulkanContext->device = interfaceDevice->vk;
             vulkanContext->renderPass = VulkanGraphicsPipeline::createRenderPass(interfaceDevice, &interfaceSwapChain->pickedSurfaceFormat.format, 1, VK_FORMAT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT);
-            vulkanContext->descriptorPool = VulkanDescriptorSet::createDescriptorPool(interfaceDevice, typeCounts);
+            vulkanContext->descriptorPool = VulkanDescriptorSet::createDescriptorPool(interfaceDevice, typeCounts, false);
 
             ImGui_ImplVulkan_InitInfo initInfo = {};
             initInfo.Instance = interfaceDevice->renderInterface->instance;

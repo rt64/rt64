@@ -19,6 +19,10 @@
 //#define LOG_DISPLAY_LISTS
 
 namespace RT64 {
+    // Constants
+    // TODO: New - @Dario determine what we want to do here.
+    static constexpr uint32_t MAX_FRAME_LATENCY = 2;
+
     // External functions to create the backends.
 
     extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
@@ -255,7 +259,7 @@ namespace RT64 {
 
         // Create the swap chain with the buffer count specified from the configuration.
         const uint32_t bufferCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
-        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM);
+        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM, MAX_FRAME_LATENCY);
 
         // Before configuring multisampling, make sure the device actually supports it for the formats we'll use. If it doesn't, turn off antialiasing in the configuration.
         const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR));
