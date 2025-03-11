@@ -14,12 +14,12 @@
 #include "rt64_sampler_library.h"
 
 namespace RT64 {
-    struct BicubicScalingDescriptorSet : RenderDescriptorSetBase {
+    struct BicubicScalingDescriptorSet : plume::RenderDescriptorSetBase {
         uint32_t gInput;
         uint32_t gOutput;
         uint32_t gSampler;
 
-        BicubicScalingDescriptorSet(const SamplerLibrary &samplerLibrary, RenderDevice *device = nullptr) {
+        BicubicScalingDescriptorSet(const SamplerLibrary &samplerLibrary, plume::RenderDevice *device = nullptr) {
             builder.begin();
             gInput = builder.addTexture(1);
             gOutput = builder.addReadWriteTexture(2);
@@ -32,11 +32,11 @@ namespace RT64 {
         }
     };
 
-    struct BoxFilterDescriptorSet : RenderDescriptorSetBase {
+    struct BoxFilterDescriptorSet : plume::RenderDescriptorSetBase {
         uint32_t gInput;
         uint32_t gOutput;
 
-        BoxFilterDescriptorSet(RenderDevice *device = nullptr) {
+        BoxFilterDescriptorSet(plume::RenderDevice *device = nullptr) {
             builder.begin();
             gInput = builder.addTexture(1);
             gOutput = builder.addReadWriteTexture(2);
@@ -48,10 +48,10 @@ namespace RT64 {
         }
     };
 
-    struct FramebufferClearChangesDescriptorSet : RenderDescriptorSetBase {
+    struct FramebufferClearChangesDescriptorSet : plume::RenderDescriptorSetBase {
         uint32_t gOutputCount;
 
-        FramebufferClearChangesDescriptorSet(RenderDevice *device = nullptr) {
+        FramebufferClearChangesDescriptorSet(plume::RenderDevice *device = nullptr) {
             builder.begin();
             gOutputCount = builder.addReadWriteStructuredBuffer(0);
             builder.end();
@@ -62,12 +62,12 @@ namespace RT64 {
         }
     };
 
-    struct FramebufferDrawChangesDescriptorSet : RenderDescriptorSetBase {
+    struct FramebufferDrawChangesDescriptorSet : plume::RenderDescriptorSetBase {
         uint32_t gColor;
         uint32_t gDepth;
         uint32_t gBoolean;
 
-        FramebufferDrawChangesDescriptorSet(RenderDevice *device = nullptr) {
+        FramebufferDrawChangesDescriptorSet(plume::RenderDevice *device = nullptr) {
             builder.begin();
             gColor = builder.addTexture(1);
             gDepth = builder.addTexture(2);
@@ -80,12 +80,12 @@ namespace RT64 {
         }
     };
 
-    struct FramebufferReadChangesDescriptorBufferSet : RenderDescriptorSetBase {
+    struct FramebufferReadChangesDescriptorBufferSet : plume::RenderDescriptorSetBase {
         uint32_t gNewInput;
         uint32_t gCurInput;
         uint32_t gOutputCount;
 
-        FramebufferReadChangesDescriptorBufferSet(RenderDevice *device = nullptr) {
+        FramebufferReadChangesDescriptorBufferSet(plume::RenderDevice *device = nullptr) {
             builder.begin();
             gNewInput = builder.addFormattedBuffer(1);
             gCurInput = builder.addFormattedBuffer(2);

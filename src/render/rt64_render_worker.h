@@ -8,13 +8,13 @@
 
 namespace RT64 {
     struct RenderWorker {
-        RenderDevice *device = nullptr;
+        plume::RenderDevice *device = nullptr;
         std::string name;
-        std::unique_ptr<RenderCommandQueue> commandQueue;
-        std::unique_ptr<RenderCommandList> commandList;
-        std::unique_ptr<RenderCommandFence> commandFence;
+        std::unique_ptr<plume::RenderCommandQueue> commandQueue;
+        std::unique_ptr<plume::RenderCommandList> commandList;
+        std::unique_ptr<plume::RenderCommandFence> commandFence;
 
-        RenderWorker(RenderDevice *device, const std::string &name, RenderCommandListType commandListType);
+        RenderWorker(plume::RenderDevice *device, const std::string &name, plume::RenderCommandListType commandListType);
         ~RenderWorker();
         void execute();
         void wait();

@@ -10,7 +10,7 @@
 
 #include "gbi/rt64_f3d.h"
 
-#include "rhi/rt64_render_interface.h"
+#include "plume_render_interface.h"
 #include "shared/rt64_color_combiner.h"
 #include "shared/rt64_other_mode.h"
 #include "shared/rt64_render_params.h"

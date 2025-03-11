@@ -6,7 +6,7 @@
 
 #include <string>
 #include <filesystem>
-#include <rhi/rt64_render_interface_types.h>
+#include <plume_render_interface_types.h>
 
 #ifdef _WIN32
 #   include <utf8conv/utf8conv.h>
