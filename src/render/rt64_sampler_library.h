@@ -6,6 +6,8 @@
 
 #include "plume_render_interface.h"
 
+using namespace plume;
+
 namespace RT64 {
     struct SamplerSet {
         std::unique_ptr<RenderSampler> wrapWrap;

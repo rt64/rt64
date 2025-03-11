@@ -26,11 +26,11 @@ namespace RT64 {
         bool renameRequested = false;
         std::filesystem::path libraryPath;
 
-        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, plume::RenderWindow window) {
+        bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
             return ImGui::Checkbox("##enabled", &presetIt->second.enabled);
         }
 
-        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, plume::RenderWindow window) {
+        bool inspectPresetEnd(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
             bool changed = false;
             const ImVec2 windowSize = ImGui::GetWindowSize();
             const float FixedButtonWidth = 130.0f;

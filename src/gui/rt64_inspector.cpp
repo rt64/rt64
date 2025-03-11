@@ -13,7 +13,7 @@
 #include "implot/implot.h"
 
 // Volk must be included before the ImGui Vulkan backend.
-#include "vulkan/rt64_vulkan.h"
+#include "plume_vulkan.h"
 
 #include "imgui/imgui_impl_sdl2_custom.h"
 #include "imgui/backends/imgui_impl_vulkan.h"

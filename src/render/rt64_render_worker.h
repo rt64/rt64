@@ -6,15 +6,17 @@
 
 #include "plume_render_interface.h"
 
+using namespace plume;
+
 namespace RT64 {
     struct RenderWorker {
-        plume::RenderDevice *device = nullptr;
+        RenderDevice *device = nullptr;
         std::string name;
-        std::unique_ptr<plume::RenderCommandQueue> commandQueue;
-        std::unique_ptr<plume::RenderCommandList> commandList;
-        std::unique_ptr<plume::RenderCommandFence> commandFence;
+        std::unique_ptr<RenderCommandQueue> commandQueue;
+        std::unique_ptr<RenderCommandList> commandList;
+        std::unique_ptr<RenderCommandFence> commandFence;
 
-        RenderWorker(plume::RenderDevice *device, const std::string &name, plume::RenderCommandListType commandListType);
+        RenderWorker(RenderDevice *device, const std::string &name, RenderCommandListType commandListType);
         ~RenderWorker();
         void execute();
         void wait();

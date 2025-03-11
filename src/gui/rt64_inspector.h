@@ -15,7 +15,7 @@
 #include "common/rt64_user_configuration.h"
 #include "render/rt64_render_worker.h"
 #include "hle/rt64_application_window.h"
-#include "rhi/rt64_render_interface.h"
+#include "plume_render_interface.h"
 
 namespace RT64 {
     struct VulkanContext;

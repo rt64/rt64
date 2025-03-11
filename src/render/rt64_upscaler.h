@@ -8,6 +8,8 @@
 
 #include "rt64_render_worker.h"
 
+using namespace plume;
+
 namespace RT64 {
     struct RenderWorker;
 
@@ -25,15 +27,15 @@ namespace RT64 {
 
         struct UpscaleParameters {
             RectI inRect;
-            plume::RenderTexture *inDiffuseAlbedo;
-            plume::RenderTexture *inSpecularAlbedo;
-            plume::RenderTexture *inNormalRoughness;
-            plume::RenderTexture *inColor;
-            plume::RenderTexture *inFlow;
-            plume::RenderTexture *inReactiveMask;
-            plume::RenderTexture *inLockMask;
-            plume::RenderTexture *inDepth;
-            plume::RenderTexture *outColor;
+            RenderTexture *inDiffuseAlbedo;
+            RenderTexture *inSpecularAlbedo;
+            RenderTexture *inNormalRoughness;
+            RenderTexture *inColor;
+            RenderTexture *inFlow;
+            RenderTexture *inReactiveMask;
+            RenderTexture *inLockMask;
+            RenderTexture *inDepth;
+            RenderTexture *outColor;
             float jitterX;
             float jitterY;
             float deltaTime;
