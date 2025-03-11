@@ -58,3 +58,6 @@
 [submodule "src/contrib/re-spirv"]
 	path = src/contrib/re-spirv
 	url = https://github.com/rt64/re-spirv
+[submodule "src/contrib/plume"]
+	path = src/contrib/plume
+	url = https://github.com/renderbag/plume.git

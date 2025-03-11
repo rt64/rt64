@@ -293,6 +293,7 @@ add_compile_definitions(
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
+    add_compile_definitions("SDL_VULKAN_ENABLED")
     add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
 endif()
 
@@ -389,7 +390,6 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/shared/rt64_hlsl_json.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/rhi/rt64_render_hooks.cpp"
-    "${PROJECT_SOURCE_DIR}/src/vulkan/rt64_vulkan.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_demo.cpp"
@@ -402,6 +402,8 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_demo.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_items.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/miniz/miniz.c"
+
+    "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_vulkan.cpp"
 )
 
 include_directories(
@@ -446,7 +448,7 @@ if (APPLE)
     add_subdirectory(src/tools/spirv_cross_msl)
 
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"
+        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_metal.cpp"
         "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
@@ -456,7 +458,7 @@ endif()
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/d3d12/rt64_d3d12.cpp"
+        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_d3d12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_dx12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_win32.cpp"
     )
