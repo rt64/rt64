@@ -450,8 +450,9 @@ if (APPLE)
     add_subdirectory(src/tools/spirv_cross_msl)
 
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_metal.cpp"
         "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
+        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_metal.cpp"
+        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
     target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")

@@ -9,6 +9,7 @@
 #include <Windows.h>
 #elif defined(__APPLE__)
 #include "apple/rt64_apple.h"
+#include "plume_apple.h"
 #endif
 
 #include "SDL.h"

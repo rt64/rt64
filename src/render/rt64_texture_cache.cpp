@@ -456,7 +456,7 @@ namespace RT64 {
         lockCounter = 0;
 
         // Copy the command list and fence used by the methods called from the main thread.
-        loaderCommandList = copyWorker->commandQueue->createCommandList(RenderCommandListType::COPY);
+        loaderCommandList = copyWorker->commandQueue->createCommandList();
         loaderCommandFence = copyWorker->device->createCommandFence();
 
         // Create the semaphore used to synchronize the copy and the direct command queues.
