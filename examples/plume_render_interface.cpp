@@ -1,8 +1,8 @@
 //
-// RT64
+// plume
 //
 
-#include "rhi/rt64_render_interface.h"
+#include "plume_render_interface.h"
 
 #include <cassert>
 #include <cstring>
@@ -53,7 +53,7 @@
 #include "shaders/RenderInterfaceTestSpecPS.hlsl.metal.h"
 #endif
 
-namespace RT64 {
+namespace plume {
     static const uint32_t BufferCount = 2;
     static const RenderFormat SwapchainFormat = RenderFormat::B8G8R8A8_UNORM;
     static const uint32_t MSAACount = 4;
@@ -365,7 +365,7 @@ namespace RT64 {
                         break;
                     case ShaderType::TEXTURE_BINDFUL_PIXEL:
                         data.blob = RenderInterfaceTestTextureBindfulPSBlobDXIL;
-                        data.size = sizeof(RenderInterfaceTestTextureindfulPSBlobDXIL);
+                        data.size = sizeof(RenderInterfaceTestTextureBindfulPSBlobDXIL);
                         break;
                     case ShaderType::TEXTURE_BINDLESS_PIXEL:
                         data.blob = RenderInterfaceTestTextureBindlessPSBlobDXIL;
@@ -505,11 +505,11 @@ namespace RT64 {
         ctx.window = window;
         ctx.device = renderInterface->createDevice();
         ctx.commandQueue = ctx.device->createCommandQueue(RenderCommandListType::DIRECT);
-        ctx.commandList = ctx.commandQueue->createCommandList(RenderCommandListType::DIRECT);
+        ctx.commandList = ctx.commandQueue->createCommandList();
         ctx.acquireSemaphore = ctx.device->createCommandSemaphore();
         ctx.drawSemaphore = ctx.device->createCommandSemaphore();
         ctx.commandFence = ctx.device->createCommandFence();
-        ctx.swapChain = ctx.commandQueue->createSwapChain(window, BufferCount, SwapchainFormat);
+        ctx.swapChain = ctx.commandQueue->createSwapChain(window, BufferCount, SwapchainFormat, 2);
         ctx.linearSampler = ctx.device->createSampler(RenderSamplerDesc());
     }
 
@@ -1293,7 +1293,7 @@ namespace RT64 {
         void initialize(TestContext &ctx) override {
             device = ctx.device.get();
             asyncCommandQueue = ctx.device->createCommandQueue(RenderCommandListType::COMPUTE);
-            asyncCommandList = asyncCommandQueue->createCommandList(RenderCommandListType::COMPUTE);
+            asyncCommandList = asyncCommandQueue->createCommandList();
             asyncCommandFence = ctx.device->createCommandFence();
 
             // Update descriptor set builder to include two structured buffer views

@@ -25,7 +25,7 @@
 #endif
 
 #if defined(_WIN32)
-#   include "d3d12/rt64_d3d12.h"
+#   include "plume_d3d12.h"
 #endif
 
 static std::string IniFilenameUTF8;
@@ -95,9 +95,9 @@ namespace RT64 {
 
             D3D12DescriptorSet *interfaceDescriptorSet = static_cast<D3D12DescriptorSet *>(descriptorSet.get());
             const D3D12SwapChain *interfaceSwapChain = static_cast<const D3D12SwapChain *>(swapChain);
-            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = interfaceDevice->viewHeapAllocator->getShaderCPUHandleAt(interfaceDescriptorSet->viewAllocation.offset);
-            const D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = interfaceDevice->viewHeapAllocator->getShaderGPUHandleAt(interfaceDescriptorSet->viewAllocation.offset);
-            ImGui_ImplDX12_Init(interfaceDevice->d3d, 2, interfaceSwapChain->nativeFormat, interfaceDevice->viewHeapAllocator->shaderHeap, cpuHandle, gpuHandle);
+            const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = interfaceDevice->viewHeapAllocator->getCPUHandleAt(interfaceDescriptorSet->viewAllocation.offset);
+            const D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = interfaceDevice->viewHeapAllocator->getGPUHandleAt(interfaceDescriptorSet->viewAllocation.offset);
+            ImGui_ImplDX12_Init(interfaceDevice->d3d, 2, interfaceSwapChain->nativeFormat, interfaceDevice->viewHeapAllocator->heap, cpuHandle, gpuHandle);
 #       else
             assert(false && "Unsupported Graphics API.");
             return;

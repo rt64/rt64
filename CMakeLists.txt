@@ -413,7 +413,6 @@ include_directories(
     "${PROJECT_SOURCE_DIR}/src/contrib/plume"
     "${PROJECT_SOURCE_DIR}/src/contrib/volk"
     "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui"
     "${PROJECT_SOURCE_DIR}/src/contrib/hlslpp/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/Vulkan-Headers/include"
@@ -464,6 +463,7 @@ if (WIN32)
         "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_d3d12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_dx12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_win32.cpp"
+        "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp"
     )
     target_link_libraries(rt64
         delayimp.lib
@@ -553,7 +553,7 @@ build_pixel_shader(  rt64 "src/shaders/PostProcessPS.hlsl")
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/src)
 
 if (RT64_BUILD_EXAMPLES)
-    add_executable(rhi_test "examples/rt64_render_interface.cpp" "examples/rhi_test.cpp")
+    add_executable(rhi_test "examples/plume_render_interface.cpp" "examples/rhi_test.cpp")
     target_link_libraries(rhi_test rt64)
 
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestSpecPS.hlsl")
