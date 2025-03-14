@@ -70,7 +70,6 @@ namespace RT64 {
     Inspector::Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI, SDL_Window *sdlWindow) {
         assert(device != nullptr);
         assert(swapChain != nullptr);
-        fprintf(stdout, "Inspector initialized.\n");
 
         this->device = device;
         this->swapChain = swapChain;
