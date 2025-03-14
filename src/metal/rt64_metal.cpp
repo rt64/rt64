@@ -2633,30 +2633,31 @@ namespace RT64 {
             NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
             // target frame buffer & sample positions affect the descriptor
-            MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
+            currentPassDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
 
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-                MTL::RenderPassColorAttachmentDescriptor *colorAttachment = renderDescriptor->colorAttachments()->object(i);
+                MTL::RenderPassColorAttachmentDescriptor *colorAttachment = currentPassDescriptor->colorAttachments()->object(i);
                 colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
                 colorAttachment->setLoadAction(MTL::LoadActionLoad);
                 colorAttachment->setStoreAction(MTL::StoreActionStore);
             }
 
             if (targetFramebuffer->depthAttachment != nullptr) {
-                MTL::RenderPassDepthAttachmentDescriptor *depthAttachment = renderDescriptor->depthAttachment();
+                MTL::RenderPassDepthAttachmentDescriptor *depthAttachment = currentPassDescriptor->depthAttachment();
                 depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
                 depthAttachment->setLoadAction(MTL::LoadActionLoad);
                 depthAttachment->setStoreAction(MTL::StoreActionStore);
             }
 
             if (targetFramebuffer->sampleCount > 1) {
-                renderDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
+                currentPassDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
             }
 
-            activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
+            activeRenderEncoder = mtl->renderCommandEncoder(currentPassDescriptor);
             activeRenderEncoder->setLabel(MTLSTR("Graphics Render Encoder"));
 
             activeRenderEncoder->retain();
+            currentPassDescriptor->retain();
             releasePool->release();
         }
     }
@@ -2733,6 +2734,8 @@ namespace RT64 {
             activeRenderEncoder->endEncoding();
             activeRenderEncoder->release();
             activeRenderEncoder = nullptr;
+            currentPassDescriptor->release();
+            currentPassDescriptor = nullptr;
 
             // Mark all state as needing rebind for next encoder
             dirtyGraphicsState.setAll();

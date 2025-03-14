@@ -285,6 +285,7 @@ namespace RT64 {
         MTL::CommandBuffer *mtl = nullptr;
         EncoderType activeType = EncoderType::None;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
+        MTL::RenderPassDescriptor *currentPassDescriptor = nullptr;
         MTL::ComputeCommandEncoder *activeComputeEncoder = nullptr;
         MTL::BlitCommandEncoder *activeBlitEncoder = nullptr;
         MTL::ComputeCommandEncoder *activeResolveComputeEncoder = nullptr;
