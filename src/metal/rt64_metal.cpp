@@ -1598,7 +1598,7 @@ namespace RT64 {
     // MetalSwapChain
 
     MetalSwapChain::MetalSwapChain(MetalCommandQueue *commandQueue, const RenderWindow renderWindow, uint32_t textureCount, const RenderFormat format) {
-        this->layer = static_cast<CA::MetalLayer*>(renderWindow.view);
+        this->layer = static_cast<CA::MetalLayer*>(renderWindow.layer);
         layer->setDevice(commandQueue->device->mtl);
         layer->setPixelFormat(mapPixelFormat(format));
 

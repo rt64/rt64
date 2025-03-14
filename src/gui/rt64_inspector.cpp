@@ -147,8 +147,6 @@ namespace RT64 {
         case UserConfiguration::GraphicsAPI::Metal: {
 #       ifdef __APPLE__
             MetalDevice *interfaceDevice = static_cast<MetalDevice *>(device);
-            const MetalSwapChain *interfaceSwapChain = static_cast<const MetalSwapChain *>(swapChain);
-
             ImGui_ImplMetal_Init(interfaceDevice->mtl);
 #       else
             assert(false && "Unsupported Graphics API.");
@@ -177,6 +175,10 @@ namespace RT64 {
             vulkanContext.reset(nullptr);
             break;
         }
+        case UserConfiguration::GraphicsAPI::Metal: {
+            ImGui_ImplMetal_Shutdown();
+            break;
+        }
         default:
             assert(false && "Unknown Graphics API.");
             break;
@@ -188,6 +190,8 @@ namespace RT64 {
         else {
 #       ifdef _WIN32
             ImGui_ImplWin32_Shutdown();
+#       elif __APPLE__
+            ImGui_ImplOSX_Shutdown();
 #       endif
         }
 
@@ -212,9 +216,6 @@ namespace RT64 {
         else {
 #       ifdef _WIN32
             ImGui_ImplWin32_NewFrame();
-#       elseif defined(__APPLE__)
-            RenderWindow renderWindow = swapChain->getWindow();
-            ImGui_ImplOSX_NewFrame(renderWindow.view);
 #       endif
         }
 
@@ -231,13 +232,17 @@ namespace RT64 {
             ImGui_ImplVulkan_NewFrame();
             break;
         }
+        case UserConfiguration::GraphicsAPI::Metal: {
+            break;
+        }
         default:
             assert(false && "Unknown Graphics API.");
             break;
         }
-
+#ifndef __APPLE__
         ImGui::NewFrame();
         Im3d::NewFrame();
+#endif
     }
 
     void Inspector::endFrame() {
@@ -251,7 +256,12 @@ namespace RT64 {
 
 #       ifdef __APPLE__
         MetalCommandList *interfaceCommandList = static_cast<MetalCommandList *>(commandList);
+        const RenderWindow renderWindow = swapChain->getWindow();
+
         ImGui_ImplMetal_NewFrame(interfaceCommandList->currentPassDescriptor);
+        ImGui_ImplOSX_NewFrame(renderWindow.view);
+        ImGui::NewFrame();
+        Im3d::NewFrame();
 #       endif
 
         ImDrawData *drawData = ImGui::GetDrawData();

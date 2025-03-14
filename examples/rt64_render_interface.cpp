@@ -1532,7 +1532,7 @@ namespace RT64 {
         createContext(g_TestContext, renderInterface, { wmInfo.info.x11.display, wmInfo.info.x11.window });
 #   elif defined(__APPLE__)
         SDL_MetalView view = SDL_Metal_CreateView(window);
-        createContext(g_TestContext, renderInterface, { wmInfo.info.cocoa.window, SDL_Metal_GetLayer(view) });
+        createContext(g_TestContext, renderInterface, { wmInfo.info.cocoa.window, view, SDL_Metal_GetLayer(view) });
 #   endif
 
         g_CurrentTest = g_Tests[g_CurrentTestIndex]();

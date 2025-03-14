@@ -60,9 +60,10 @@ namespace RT64 {
     struct RenderWindow {
         void* window;
         void* view;
+        void* layer;
 
         bool operator==(const struct RenderWindow& rhs) const {
-            return window == rhs.window;
+            return window == rhs.window && view == rhs.view && layer == rhs.layer;
         }
         bool operator!=(const struct RenderWindow& rhs) const { return !(*this == rhs); }
     };

@@ -1976,10 +1976,10 @@ namespace RT64 {
         }
 #   elif defined(__APPLE__)
         assert(renderWindow.window != 0);
-        assert(renderWindow.view != 0);
+        assert(renderWindow.layer != 0);
         VkMetalSurfaceCreateInfoEXT surfaceCreateInfo = {};
         surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
-        surfaceCreateInfo.pLayer = renderWindow.view;
+        surfaceCreateInfo.pLayer = renderWindow.layer;
 
         VulkanInterface *renderInterface = commandQueue->device->renderInterface;
         res = vkCreateMetalSurfaceEXT(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);

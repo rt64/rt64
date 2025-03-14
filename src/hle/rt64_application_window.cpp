@@ -147,8 +147,8 @@ namespace RT64 {
         windowHandle.window = wmInfo.info.x11.window;
 #   elif defined(__APPLE__)
         windowHandle.window = sdlWindow;
-        SDL_MetalView view = SDL_Metal_CreateView(sdlWindow);
-        windowHandle.view = SDL_Metal_GetLayer(view);
+        windowHandle.view = SDL_Metal_CreateView(sdlWindow);
+        windowHandle.layer = SDL_Metal_GetLayer(windowHandle.view);
 #   else
         static_assert(false && "Unimplemented");
 #   endif
