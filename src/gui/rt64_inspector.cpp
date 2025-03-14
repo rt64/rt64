@@ -18,6 +18,12 @@
 #include "imgui/imgui_impl_sdl2_custom.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 
+#if defined(__APPLE__)
+#   include "metal/rt64_metal.h"
+#   include "imgui/backends/imgui_impl_osx.h"
+#   include "imgui/backends/imgui_impl_metal.h"
+#endif
+
 #if defined(_WIN32)
 #   include "imgui/backends/imgui_impl_dx12.h"
 #   include "imgui/backends/imgui_impl_win32.h"
@@ -64,6 +70,7 @@ namespace RT64 {
     Inspector::Inspector(RenderDevice *device, const RenderSwapChain *swapChain, UserConfiguration::GraphicsAPI graphicsAPI, SDL_Window *sdlWindow) {
         assert(device != nullptr);
         assert(swapChain != nullptr);
+        fprintf(stdout, "Inspector initialized.\n");
 
         this->device = device;
         this->swapChain = swapChain;
@@ -83,6 +90,9 @@ namespace RT64 {
 #       ifdef _WIN32
             RenderWindow renderWindow = swapChain->getWindow();
             ImGui_ImplWin32_Init(renderWindow);
+#       elif __APPLE__
+            RenderWindow renderWindow = swapChain->getWindow();
+            ImGui_ImplOSX_Init(renderWindow.view);
 #       endif
         }
 
@@ -133,6 +143,18 @@ namespace RT64 {
             initInfo.CheckVkResultFn = &checkVulkanResult;
 
             ImGui_ImplVulkan_Init(&initInfo);
+            break;
+        }
+        case UserConfiguration::GraphicsAPI::Metal: {
+#       ifdef __APPLE__
+            MetalDevice *interfaceDevice = static_cast<MetalDevice *>(device);
+            const MetalSwapChain *interfaceSwapChain = static_cast<const MetalSwapChain *>(swapChain);
+
+            ImGui_ImplMetal_Init(interfaceDevice->mtl);
+#       else
+            assert(false && "Unsupported Graphics API.");
+            return;
+#       endif
             break;
         }
         default:
@@ -191,6 +213,9 @@ namespace RT64 {
         else {
 #       ifdef _WIN32
             ImGui_ImplWin32_NewFrame();
+#       else
+            RenderWindow renderWindow = swapChain->getWindow();
+            ImGui_ImplOSX_NewFrame(renderWindow.view);
 #       endif
         }
 
@@ -224,6 +249,12 @@ namespace RT64 {
 
     void Inspector::draw(RenderCommandList *commandList) {
         const std::lock_guard<std::mutex> frameLock(frameMutex);
+
+#       ifdef __APPLE__
+        MetalCommandList *interfaceCommandList = static_cast<MetalCommandList *>(commandList);
+        ImGui_ImplMetal_NewFrame(interfaceCommandList->currentPassDescriptor);
+#       endif
+
         ImDrawData *drawData = ImGui::GetDrawData();
         if (drawData != nullptr) {
             switch (graphicsAPI) {
@@ -241,6 +272,14 @@ namespace RT64 {
                 VulkanCommandList *interfaceCommandList = static_cast<VulkanCommandList *>(commandList);
                 ImGui_ImplVulkan_RenderDrawData(drawData, interfaceCommandList->vk);
                 break;
+            }
+            case UserConfiguration::GraphicsAPI::Metal: {
+#       ifdef __APPLE__
+                ImGui_ImplMetal_RenderDrawData(drawData, interfaceCommandList->mtl, interfaceCommandList->activeRenderEncoder);
+#       else
+                assert(false && "Unsupported Graphics API.");
+#       endif
+                    break;
             }
             default:
                 assert(false && "Unknown Graphics API.");
@@ -263,7 +302,8 @@ namespace RT64 {
             if ((event->type == SDL_KEYDOWN) || (event->type == SDL_KEYUP)) {
                 return ImGui::GetIO().WantCaptureKeyboard;
             }
-            else if ((event->type == SDL_MOUSEMOTION) || (event->type == SDL_MOUSEBUTTONDOWN) || (event->type == SDL_MOUSEBUTTONUP) || (event->type == SDL_MOUSEWHEEL)) {
+
+            if ((event->type == SDL_MOUSEMOTION) || (event->type == SDL_MOUSEBUTTONDOWN) || (event->type == SDL_MOUSEBUTTONUP) || (event->type == SDL_MOUSEWHEEL)) {
                 return ImGui::GetIO().WantCaptureMouse;
             }
         }
