@@ -213,7 +213,7 @@ namespace RT64 {
         else {
 #       ifdef _WIN32
             ImGui_ImplWin32_NewFrame();
-#       else
+#       elseif defined(__APPLE__)
             RenderWindow renderWindow = swapChain->getWindow();
             ImGui_ImplOSX_NewFrame(renderWindow.view);
 #       endif
