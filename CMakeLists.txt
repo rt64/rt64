@@ -454,7 +454,7 @@ if (APPLE)
         "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
-    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
+    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics -framework IOKit")
 endif()
 
 # Add any Windows-specific source files and libraries
