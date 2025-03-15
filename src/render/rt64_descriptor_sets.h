@@ -275,7 +275,7 @@ namespace RT64 {
     };
 
     struct FramebufferRendererDescriptorTextureSet : RenderDescriptorSetBase {
-        static const int UpperRange = 0x1FFF;
+        static const int UpperRange = 8192;
 
         uint32_t textureCacheSize = 0;
         uint32_t gTextures;
