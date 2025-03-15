@@ -2316,13 +2316,14 @@ namespace RT64 {
 
                     ImGui::EndTabItem();
                 }
-
+                
                 if (ImGui::BeginTabItem("Render")) {
                     if (ImPlot::BeginPlot("Frametimes")) {
                         const double FrametimeLimit = 20.0;
                         const int Stride = static_cast<int>(sizeof(double));
                         const auto &presentProfiler = ext.presentQueue->presentProfiler;
-                        const auto &rendererProfiler = ext.workloadQueue->rendererProfiler;
+                        const auto &rendererCPUProfiler = ext.workloadQueue->rendererCPUProfiler;
+                        const auto &rendererGPUProfiler = ext.workloadQueue->rendererGPUProfiler;
                         const auto &matchingProfiler = ext.workloadQueue->matchingProfiler;
                         const auto &workloadProfiler = ext.workloadQueue->workloadProfiler;
                         const auto &dlApiProfiler = *ext.dlApiProfiler;
@@ -2330,7 +2331,8 @@ namespace RT64 {
                         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, FrametimeLimit);
                         ImPlot::SetupAxis(ImAxis_Y1, "ms", ImPlotAxisFlags_AutoFit);
                         ImPlot::PlotLine<double>("Present", presentProfiler.data(), static_cast<int>(presentProfiler.size()), 1.0, 0.0, ImPlotLineFlags_None, presentProfiler.index(), Stride);
-                        ImPlot::PlotLine<double>("Renderer", rendererProfiler.data(), static_cast<int>(rendererProfiler.size()), 1.0, 0.0, ImPlotLineFlags_None, rendererProfiler.index(), Stride);
+                        ImPlot::PlotLine<double>("Renderer (CPU)", rendererCPUProfiler.data(), static_cast<int>(rendererCPUProfiler.size()), 1.0, 0.0, ImPlotLineFlags_None, rendererCPUProfiler.index(), Stride);
+                        ImPlot::PlotLine<double>("Renderer (GPU)", rendererGPUProfiler.data(), static_cast<int>(rendererGPUProfiler.size()), 1.0, 0.0, ImPlotLineFlags_None, rendererGPUProfiler.index(), Stride);
                         ImPlot::PlotLine<double>("Matching", matchingProfiler.data(), static_cast<int>(matchingProfiler.size()), 1.0, 0.0, ImPlotLineFlags_None, matchingProfiler.index(), Stride);
                         ImPlot::PlotLine<double>("Workload", workloadProfiler.data(), static_cast<int>(workloadProfiler.size()), 1.0, 0.0, ImPlotLineFlags_None, workloadProfiler.index(), Stride);
                         ImPlot::PlotLine<double>("Display List (API)", dlApiProfiler.data(), static_cast<int>(dlApiProfiler.size()), 1.0, 0.0, ImPlotLineFlags_None, dlApiProfiler.index(), Stride);
@@ -2342,7 +2344,8 @@ namespace RT64 {
                         ImPlot::EndPlot();
                         
                         const double averagePresent = presentProfiler.average();
-                        const double averageRenderer = rendererProfiler.average();
+                        const double averageRendererCPU = rendererCPUProfiler.average();
+                        const double averageRendererGPU = rendererGPUProfiler.average();
                         const double averageMatching = matchingProfiler.average();
                         const double averageWorkload = workloadProfiler.average();
                         const double dlApiProfilerAverage = dlApiProfiler.average();
@@ -2352,7 +2355,8 @@ namespace RT64 {
                         const double screenCpuProfilerAverage = screenCpuProfiler.average();
                         const double textureStreamAverage = ext.textureCache->getAverageStreamLoadTime() / 1000.0;
                         ImGui::Text("Average Present (OS): %fms (%.1f FPS)\n", averagePresent, 1000.0 / averagePresent);
-                        ImGui::Text("Average Renderer: %fms (%.1f FPS)\n", averageRenderer, 1000.0 / averageRenderer);
+                        ImGui::Text("Average Renderer (CPU): %fms (%.1f FPS)\n", averageRendererCPU, 1000.0 / averageRendererCPU);
+                        ImGui::Text("Average Renderer (GPU): %fms (%.1f FPS)\n", averageRendererGPU, 1000.0 / averageRendererGPU);
                         ImGui::Text("Average Matching (CPU): %fms (%.1f FPS)\n", averageMatching, 1000.0 / averageMatching);
                         ImGui::Text("Average Workload: %fms (%.1f FPS)\n", averageWorkload, 1000.0 / averageWorkload);
                         ImGui::Text("Average Display List (API): %fms (%.1f FPS)\n", dlApiProfilerAverage, 1000.0 / dlApiProfilerAverage);
