@@ -11,7 +11,9 @@
 
 #include <string>
 
-#include "rhi/rt64_render_interface.h"
+#include "plume_render_interface.h"
+
+using namespace plume;
 
 namespace RT64 {
     struct ShaderCompiler {

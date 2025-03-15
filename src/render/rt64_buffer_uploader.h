@@ -11,6 +11,8 @@
 
 #include "rt64_render_worker.h"
 
+using namespace plume;
+
 namespace RT64 {
     struct BufferPair {
         std::unique_ptr<RenderBuffer> uploadBuffer;

@@ -1,3 +1,6 @@
+//
+// RT64
+//
 
 [[vk::constant_id(0)]] const uint useRed = 0;
 

@@ -9,9 +9,11 @@
 #include <unordered_map>
 
 #include "common/rt64_common.h"
-#include "rhi/rt64_render_interface.h"
+#include "plume_render_interface.h"
 
 #include "rt64_sampler_library.h"
+
+using namespace plume;
 
 namespace RT64 {
     struct BicubicScalingDescriptorSet : RenderDescriptorSetBase {
@@ -273,7 +275,7 @@ namespace RT64 {
     };
 
     struct FramebufferRendererDescriptorTextureSet : RenderDescriptorSetBase {
-        static const int UpperRange = 0x1FFF;
+        static const int UpperRange = 8192;
 
         uint32_t textureCacheSize = 0;
         uint32_t gTextures;

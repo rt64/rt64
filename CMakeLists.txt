@@ -82,7 +82,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     else()
         add_compile_options(-Wall -Wextra)
     endif()
-    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers)
+    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers -Wno-switch -Wno-tautological-undefined-compare)
     # imgui currently triggers some compiler warnings on clang 19 for function casts which leads to a failed build, so disable that warning on clang 19+
     if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.0)
         add_compile_options(-Wno-cast-function-type-mismatch)
@@ -293,6 +293,7 @@ add_compile_definitions(
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
+    add_compile_definitions("SDL_VULKAN_ENABLED")
     add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
 endif()
 
@@ -389,7 +390,6 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/shared/rt64_hlsl_json.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/rhi/rt64_render_hooks.cpp"
-    "${PROJECT_SOURCE_DIR}/src/vulkan/rt64_vulkan.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_demo.cpp"
@@ -402,14 +402,17 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_demo.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_items.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/miniz/miniz.c"
+
+    "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_vulkan.cpp"
 )
 
 include_directories(
     "${SDL2_INCLUDE_DIRS}"
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/contrib"
+    "${PROJECT_SOURCE_DIR}/src/contrib/plume"
+    "${PROJECT_SOURCE_DIR}/src/contrib/volk"
     "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui"
     "${PROJECT_SOURCE_DIR}/src/contrib/hlslpp/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/Vulkan-Headers/include"
@@ -446,19 +449,21 @@ if (APPLE)
     add_subdirectory(src/tools/spirv_cross_msl)
 
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"
         "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
+        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_metal.cpp"
+        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
-    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
+    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics -framework IOKit")
 endif()
 
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/d3d12/rt64_d3d12.cpp"
+        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_d3d12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_dx12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_win32.cpp"
+        "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp"
     )
     target_link_libraries(rt64
         delayimp.lib
@@ -548,7 +553,7 @@ build_pixel_shader(  rt64 "src/shaders/PostProcessPS.hlsl")
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/src)
 
 if (RT64_BUILD_EXAMPLES)
-    add_executable(rhi_test "examples/rt64_render_interface.cpp" "examples/rhi_test.cpp")
+    add_executable(rhi_test "examples/plume_render_interface.cpp" "examples/rhi_test.cpp")
     target_link_libraries(rhi_test rt64)
 
     build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestSpecPS.hlsl")
