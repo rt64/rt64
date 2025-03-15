@@ -735,6 +735,8 @@ namespace RT64 {
             return false;
         }
 
+        assert(ddsDescriptor.arraySize == 1 && "DDS with multiple arrays are not supported yet.");
+
         // Retrieve the block size of the format.
         uint32_t blockWidth, blockHeight;
         ddspp::get_block_size(ddsDescriptor.format, blockWidth, blockHeight);
@@ -744,6 +746,7 @@ namespace RT64 {
         desc.width = nextSizeAlignedTo(ddsDescriptor.width, blockWidth);
         desc.height = nextSizeAlignedTo(ddsDescriptor.height, blockHeight);
         desc.depth = 1;
+        desc.arraySize = 1;
         desc.mipLevels = ddsDescriptor.numMips;
         desc.format = toRenderFormat(ddsDescriptor.format);
 
