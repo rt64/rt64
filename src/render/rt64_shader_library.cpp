@@ -184,9 +184,9 @@ namespace RT64 {
         // Create shaders shared across all pipelines.
         std::unique_ptr<RenderShader> fullScreenVertexShader = device->createShader(CREATE_SHADER_INPUTS(FullScreenVSBlobDXIL, FullScreenVSBlobSPIRV, FullScreenVSBlobMSL, "VSMain", shaderFormat));
         
-        auto fillSamplerSet = [&](SamplerSet &set, RenderFilter filter) {
+        auto fillSamplerSet = [&](SamplerSet &set, RenderFilter filter, bool anisotropyEnabled) {
             RenderSamplerDesc samplerDesc;
-            samplerDesc.anisotropyEnabled = true;
+            samplerDesc.anisotropyEnabled = anisotropyEnabled;
             samplerDesc.minFilter = filter;
             samplerDesc.magFilter = filter;
             samplerDesc.addressW = RenderTextureAddressMode::CLAMP;
@@ -236,8 +236,8 @@ namespace RT64 {
             set.borderBorder = device->createSampler(samplerDesc);
         };
 
-        fillSamplerSet(samplerLibrary.nearest, RenderFilter::NEAREST);
-        fillSamplerSet(samplerLibrary.linear, RenderFilter::LINEAR);
+        fillSamplerSet(samplerLibrary.nearest, RenderFilter::NEAREST, false);
+        fillSamplerSet(samplerLibrary.linear, RenderFilter::LINEAR, true);
 
         // Bicubic scaling.
         {
