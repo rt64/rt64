@@ -402,6 +402,7 @@ namespace RT64 {
                 }
 
                 RenderCommandSemaphore *waitSemaphore = drawSemaphore.get();
+                ext.swapChain->wait();
                 swapChainValid = ext.swapChain->present(swapChainIndex, &waitSemaphore, 1);
                 presentProfiler.logAndRestart();
                 presentTimestamp = Timer::current();
