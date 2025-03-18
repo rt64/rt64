@@ -51,9 +51,9 @@ namespace RT64 {
         std::vector<interop::float4x4> prevProjTransforms;
         std::vector<interop::float4x4> prevViewProjTransforms;
         std::vector<interop::float4x4> worldTransforms;
-        std::vector<interop::float4x4> prevWorldTransforms;
         std::vector<interop::float4x4> invTWorldTransforms;
         std::vector<interop::float4x4> lerpWorldTransforms;
+        std::vector<interop::float4x4> prevLerpWorldTransforms;
         std::vector<interop::RDPTile> rdpTiles;
         std::vector<interop::RDPTile> lerpRdpTiles;
         std::vector<interop::GPUTile> gpuTiles;
@@ -73,6 +73,8 @@ namespace RT64 {
         std::vector<uint32_t> worldTransformSegmentedAddresses;
         std::vector<uint32_t> worldTransformPhysicalAddresses;
         std::vector<uint32_t> worldTransformVertexIndices;
+        std::vector<interop::float4x4> worldTransformPrevious;
+        std::vector<uint32_t> worldTransformPreviousIndices;
 
         uint32_t vertexCount() const {
             return uint32_t(worldIndices.size());
@@ -154,7 +156,7 @@ namespace RT64 {
         BufferPair rspLookAtBuffer;
         BufferPair worldTransformsBuffer;
         BufferPair viewProjTransformsBuffer;
-        BufferPair prevWorldTransformsBuffer;
+        BufferPair prevLerpWorldTransformsBuffer;
         BufferPair invTWorldTransformsBuffer;
         BufferPair triPosBuffer;
         BufferPair triTcBuffer;

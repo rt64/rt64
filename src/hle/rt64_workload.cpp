@@ -81,7 +81,7 @@ namespace RT64 {
         drawData.prevProjTransforms.clear();
         drawData.prevViewProjTransforms.clear();
         drawData.lerpWorldTransforms.clear();
-        drawData.prevWorldTransforms.clear();
+        drawData.prevLerpWorldTransforms.clear();
         drawData.invTWorldTransforms.clear();
         drawData.triPosFloats.clear();
         drawData.triTcFloats.clear();
@@ -92,6 +92,8 @@ namespace RT64 {
         drawData.worldTransformSegmentedAddresses.clear();
         drawData.worldTransformPhysicalAddresses.clear();
         drawData.worldTransformVertexIndices.clear();
+        drawData.worldTransformPrevious.clear();
+        drawData.worldTransformPreviousIndices.clear();
 
         // Push an identity matrix into the transforms by default so rects can use them.
         drawData.rspViewports.push_back(interop::RSPViewport::identity());
@@ -105,6 +107,8 @@ namespace RT64 {
         drawData.worldTransformSegmentedAddresses.push_back(0);
         drawData.worldTransformPhysicalAddresses.push_back(0);
         drawData.worldTransformVertexIndices.push_back(0);
+        drawData.worldTransformPrevious.push_back(interop::float4x4::identity());
+        drawData.worldTransformPreviousIndices.push_back(0);
         drawData.viewportOrigins.push_back(0);
     }
 
