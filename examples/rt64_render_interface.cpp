@@ -365,7 +365,7 @@ namespace RT64 {
                         break;
                     case ShaderType::TEXTURE_BINDFUL_PIXEL:
                         data.blob = RenderInterfaceTestTextureBindfulPSBlobDXIL;
-                        data.size = sizeof(RenderInterfaceTestTextureindfulPSBlobDXIL);
+                        data.size = sizeof(RenderInterfaceTestTextureBindfulPSBlobDXIL);
                         break;
                     case ShaderType::TEXTURE_BINDLESS_PIXEL:
                         data.blob = RenderInterfaceTestTextureBindlessPSBlobDXIL;
