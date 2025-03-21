@@ -40,12 +40,12 @@ namespace RT64 {
             auto hashTMEM = [&](uint32_t tmemBaseAddress, uint32_t tmemOrAddress, uint32_t byteCount, bool oddRow) {
                 // Too many bytes to hash in a single step. Wrap around TMEM and hash the rest.
                 if ((tmemBaseAddress + byteCount) > tmemSize) {
-                    const uint32_t firstBytes = std::min(byteCount, std::max(tmemSize - tmemBaseAddress, 0U));
+                    const uint32_t firstBytes = (tmemSize - tmemBaseAddress);
                     XXH3_64bits_update(&xxh3, &TMEM[tmemBaseAddress | tmemOrAddress], firstBytes);
 
                     // Start hashing from the start of TMEM.
-                    tmemBaseAddress = 0;
                     byteCount = std::min(byteCount - firstBytes, tmemBaseAddress);
+                    tmemBaseAddress = 0;
                 }
 
                 // Version 4 fixes an error where odd row word swapping was not considered when hashing rows individually.
