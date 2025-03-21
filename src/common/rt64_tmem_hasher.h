@@ -38,6 +38,8 @@ namespace RT64 {
             const uint32_t tmemMask = halfTMEM ? TMEMMask16 : TMEMMask8;
             const uint32_t tmemAddress = (loadTile.tmem << 3) & tmemMask;
             auto hashTMEM = [&](uint32_t tmemBaseAddress, uint32_t tmemOrAddress, uint32_t byteCount, bool oddRow) {
+                assert((tmemBaseAddress < tmemSize) && "Base address must be masked within the bounds of the TMEM size.");
+
                 // Too many bytes to hash in a single step. Wrap around TMEM and hash the rest.
                 if ((tmemBaseAddress + byteCount) > tmemSize) {
                     const uint32_t firstBytes = (tmemSize - tmemBaseAddress);
