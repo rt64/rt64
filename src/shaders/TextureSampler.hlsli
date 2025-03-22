@@ -293,8 +293,6 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
             numRDPSamples = 2;
         }
         else {
-            // Native sampling, just return the native sampling result directly.
-            numRDPSamples = 0;
             // Must normalize the texture coordinate and the derivatives.
             float2 nativeUVCoord = uvCoord / float2(textureWidth, textureHeight);
             float2 originalSize = float2(textureWidth, textureHeight) / gpuTile.tcScale;
