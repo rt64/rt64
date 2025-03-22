@@ -1661,6 +1661,10 @@ namespace RT64 {
         return true;
     }
 
+    void MetalSwapChain::wait() {
+        // Do nothing. Present wait is not currently implemented.
+    }
+
     bool MetalSwapChain::resize() {
         getWindowSize(width, height);
 
@@ -2946,7 +2950,7 @@ namespace RT64 {
         capabilities.descriptorIndexing = true;
 #endif
         capabilities.scalarBlockLayout = true;
-        capabilities.presentWait = true;
+        capabilities.presentWait = false;
         capabilities.preferHDR = mtl->recommendedMaxWorkingSetSize() > (512 * 1024 * 1024);
         description.name = "Metal";
     }

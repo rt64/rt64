@@ -205,6 +205,7 @@ namespace RT64 {
         MetalSwapChain(MetalCommandQueue *commandQueue, RenderWindow renderWindow, uint32_t textureCount, RenderFormat format);
         ~MetalSwapChain() override;
         bool present(uint32_t textureIndex, RenderCommandSemaphore **waitSemaphores, uint32_t waitSemaphoreCount) override;
+        void wait() override;
         bool resize() override;
         bool needsResize() const override;
         void setVsyncEnabled(bool vsyncEnabled) override;

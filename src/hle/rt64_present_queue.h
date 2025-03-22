@@ -26,6 +26,7 @@ namespace RT64 {
             WorkloadQueue *workloadQueue = nullptr;
             SharedQueueResources *sharedResources = nullptr;
             const ShaderLibrary *shaderLibrary = nullptr;
+            UserConfiguration::GraphicsAPI createdGraphicsAPI = UserConfiguration::GraphicsAPI::OptionCount;
         };
 
         External ext;
@@ -55,6 +56,7 @@ namespace RT64 {
         ProfilingTimer presentProfiler = ProfilingTimer(120);
         Timestamp presentTimestamp;
         VIHistory viHistory;
+        bool presentWaitEnabled = false;
 
         PresentQueue();
         ~PresentQueue();
@@ -68,6 +70,7 @@ namespace RT64 {
         void threadPresent(const Present &present, bool &swapChainValid);
         void skipInterpolation();
         void notifyPresentId(const Present &present);
+        bool detectPresentWait();
         void threadAdvanceBarrier();
         void threadLoop();
     };
