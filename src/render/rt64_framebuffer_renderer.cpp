@@ -150,6 +150,10 @@ namespace RT64 {
         return hlslpp::normalize(viewI[2].xyz);
     }
 
+    RenderColor toRenderColor(hlslpp::float4 v) {
+        return { v.x, v.y, v.z, v.w };
+    }
+
     // RasterScene
 
     RasterScene::RasterScene() { }
@@ -177,7 +181,9 @@ namespace RT64 {
     }
 
     FramebufferRenderer::~FramebufferRenderer() {
+        dummyColorTargetView.reset();
         dummyDepthTargetView.reset();
+        dummyColorTarget.reset();
         dummyDepthTarget.reset();
     }
     
@@ -190,12 +196,21 @@ namespace RT64 {
         frameParams.ditherNoiseStrength = ditherNoiseStrength;
         framebufferCount = 0;
 
+        // Create dummy color target if it hasn't been created yet.
+        if (dummyColorTarget == nullptr) {
+            RenderTextureDesc dummyColorDesc = RenderTextureDesc::ColorTarget(4, 4, RenderTarget::colorBufferFormat(shaderLibrary->usesHDR), multisampling);
+            dummyColorTarget = worker->device->createTexture(dummyColorDesc);
+            dummyColorTarget->setName("Framebuffer Renderer Color Dummy");
+            dummyColorTargetView = dummyColorTarget->createTextureView(RenderTextureViewDesc::Texture2D(dummyColorDesc.format));
+            dummyColorTargetTransitioned = false;
+        }
+
         // Create dummy depth target if it hasn't been created yet.
         if (dummyDepthTarget == nullptr) {
             RenderTextureDesc dummyDepthDesc = RenderTextureDesc::DepthTarget(4, 4, RenderFormat::D32_FLOAT, multisampling);
             dummyDepthTarget = worker->device->createTexture(dummyDepthDesc);
-            dummyDepthTarget->setName("Framebuffer Renderer Dummy");
-            dummyDepthTargetView = dummyDepthTarget->createTextureView(RenderTextureViewDesc::Texture2D(RenderFormat::D32_FLOAT));
+            dummyDepthTarget->setName("Framebuffer Renderer Depth Dummy");
+            dummyDepthTargetView = dummyDepthTarget->createTextureView(RenderTextureViewDesc::Texture2D(dummyDepthDesc.format));
             dummyDepthTargetTransitioned = false;
         }
     }
@@ -512,7 +527,9 @@ namespace RT64 {
             }
         };
 
-        switchToGraphicsPipeline();
+        if (fbStorage->colorTarget != nullptr) {
+            switchToGraphicsPipeline();
+        }
         
         for (uint32_t i : rasterScene.instanceIndices) {
             const InstanceDrawCall &drawCall = instanceDrawCallVector[i];
@@ -520,6 +537,8 @@ namespace RT64 {
             case InstanceDrawCall::Type::IndexedTriangles: 
             case InstanceDrawCall::Type::RawTriangles:
             case InstanceDrawCall::Type::RegularRect: {
+                assert(fbStorage->colorTarget != nullptr);
+
                 const bool typeDifferent = (drawCall.type != previousCallType);
                 const bool testZDifferent = (drawCall.type == InstanceDrawCall::Type::IndexedTriangles) && (drawCall.triangles.vertexTestZ != previousVertexTestZ);
                 if (typeDifferent || testZDifferent) {
@@ -601,11 +620,22 @@ namespace RT64 {
             };
             case InstanceDrawCall::Type::FillRect: {
                 const auto &clearRect = drawCall.clearRect;
-                worker->commandList->clearColor(0, clearRect.color, &clearRect.rect, 1);
+                RenderTarget *chosenTarget = (fbStorage->colorTarget != nullptr) ? fbStorage->colorTarget : fbStorage->depthTarget;
+                bool rectCoversWholeTarget = (clearRect.rect.left == 0) && (clearRect.rect.top == 0) && (clearRect.rect.right == chosenTarget->width) && (clearRect.rect.bottom == chosenTarget->height);
+                const RenderRect *clearRects = rectCoversWholeTarget ? nullptr : &clearRect.rect;
+                uint32_t clearRectCount = rectCoversWholeTarget ? 0 : 1;
+                if (fbStorage->colorTarget != nullptr) {
+                    worker->commandList->clearColor(0, clearRect.color, clearRects, clearRectCount);
+                }
+                else {
+                    worker->commandList->clearDepth(true, clearRect.depth, clearRects, clearRectCount);
+                }
+
                 break;
             };
             case InstanceDrawCall::Type::VertexTestZ: {
                 assert(testZIndexBuffer != nullptr);
+                assert(fbStorage->colorTarget != nullptr);
 
                 const interop::RSPVertexTestZCB &testZCB = drawCall.vertexTestZ;
                 switchToDepthRead();
@@ -631,12 +661,19 @@ namespace RT64 {
         }
 
         // Mark targets for resolve.
-        fbStorage->colorTarget->markForResolve();
-        fbStorage->depthTarget->markForResolve();
+        if (fbStorage->colorTarget != nullptr) {
+            fbStorage->colorTarget->markForResolve();
+        }
+
+        if (fbStorage->depthTarget != nullptr) {
+            fbStorage->depthTarget->markForResolve();
+        }
     }
 
     void FramebufferRenderer::updateMultisampling() {
+        dummyColorTargetView.reset();
         dummyDepthTargetView.reset();
+        dummyColorTarget.reset();
         dummyDepthTarget.reset();
 #   if RT_ENABLED
         if (rtResources != nullptr) {
@@ -1157,6 +1194,11 @@ namespace RT64 {
 
     void FramebufferRenderer::recordSetup(RenderWorker *worker, std::vector<BufferUploader *> bufferUploaders, RSPProcessor *rspProcessor,
         VertexProcessor *vertexProcessor, const OutputBuffers *outputBuffers, bool rtEnabled) {
+        if (!dummyColorTargetTransitioned) {
+            worker->commandList->barriers(RenderBarrierStage::GRAPHICS_AND_COMPUTE, RenderTextureBarrier(dummyColorTarget.get(), RenderTextureLayout::SHADER_READ));
+            dummyColorTargetTransitioned = true;
+        }
+
         if (!dummyDepthTargetTransitioned) {
             worker->commandList->barriers(RenderBarrierStage::GRAPHICS_AND_COMPUTE, RenderTextureBarrier(dummyDepthTarget.get(), RenderTextureLayout::DEPTH_READ));
             dummyDepthTargetTransitioned = true;
@@ -1221,7 +1263,10 @@ namespace RT64 {
         const RenderTargetDrawCall &targetDrawCall = framebuffer.renderTargetDrawCall;
         RenderTarget *colorTarget = targetDrawCall.fbStorage->colorTarget;
         RenderTarget *depthTarget = targetDrawCall.fbStorage->depthTarget;
-        startBarriers.emplace_back(RenderTextureBarrier(colorTarget->texture.get(), RenderTextureLayout::COLOR_WRITE));
+        if (colorTarget != nullptr) {
+            startBarriers.emplace_back(RenderTextureBarrier(colorTarget->texture.get(), RenderTextureLayout::COLOR_WRITE));
+        }
+
         startBarriers.emplace_back(RenderTextureBarrier(depthTarget->texture.get(), RenderTextureLayout::DEPTH_WRITE));
         worker->commandList->barriers(RenderBarrierStage::GRAPHICS, startBarriers);
 
@@ -1315,11 +1360,14 @@ namespace RT64 {
         void *paramBufferBytes = framebuffer.paramsBuffer->map();
         memcpy(paramBufferBytes, &fbParams, sizeof(interop::FramebufferParams));
         framebuffer.paramsBuffer->unmap();
+
+        RenderTexture *backgroundColorTexture = (p.fbStorage->colorTarget != nullptr) ? p.fbStorage->colorTarget->getResolvedTexture() : dummyColorTarget.get();
+        RenderTextureView *backgroundColorTextureView = (p.fbStorage->colorTarget != nullptr) ? p.fbStorage->colorTarget->getResolvedTextureView() : dummyColorTargetView.get();
         framebuffer.descRealFbSet->setBuffer(framebuffer.descRealFbSet->FbParams, framebuffer.paramsBuffer.get(), sizeof(interop::FramebufferParams));
-        framebuffer.descRealFbSet->setTexture(framebuffer.descRealFbSet->gBackgroundColor, p.fbStorage->colorTarget->getResolvedTexture(), RenderTextureLayout::SHADER_READ, p.fbStorage->colorTarget->getResolvedTextureView());
+        framebuffer.descRealFbSet->setTexture(framebuffer.descRealFbSet->gBackgroundColor, backgroundColorTexture, RenderTextureLayout::SHADER_READ, backgroundColorTextureView);
         framebuffer.descRealFbSet->setTexture(framebuffer.descRealFbSet->gBackgroundDepth, p.fbStorage->depthTarget->texture.get(), RenderTextureLayout::DEPTH_READ, p.fbStorage->depthTarget->textureView.get());
         framebuffer.descDummyFbSet->setBuffer(framebuffer.descDummyFbSet->FbParams, framebuffer.paramsBuffer.get(), sizeof(interop::FramebufferParams));
-        framebuffer.descDummyFbSet->setTexture(framebuffer.descDummyFbSet->gBackgroundColor, p.fbStorage->colorTarget->getResolvedTexture(), RenderTextureLayout::SHADER_READ, p.fbStorage->colorTarget->getResolvedTextureView());
+        framebuffer.descDummyFbSet->setTexture(framebuffer.descDummyFbSet->gBackgroundColor, backgroundColorTexture, RenderTextureLayout::SHADER_READ, backgroundColorTextureView);
         framebuffer.descDummyFbSet->setTexture(framebuffer.descDummyFbSet->gBackgroundDepth, dummyDepthTarget.get(), RenderTextureLayout::DEPTH_READ, dummyDepthTargetView.get());
 
         // Store ubershader and other effect pipelines.
@@ -1461,16 +1509,18 @@ namespace RT64 {
                     instanceDrawCall.type = InstanceDrawCall::Type::FillRect;
 
                     auto &clearRect = instanceDrawCall.clearRect;
-                    hlslpp::float4 fillColor;
                     if (call.debuggerDesc.highlightColor > 0) {
-                        fillColor = ColorConverter::RGBA32::toRGBAF(call.debuggerDesc.highlightColor);
+                        clearRect.color = toRenderColor(ColorConverter::RGBA32::toRGBAF(call.debuggerDesc.highlightColor));
                     }
                     else {
-                        if (fbPair.colorImage.siz == G_IM_SIZ_32b) {
-                            fillColor = ColorConverter::RGBA32::toRGBAF(call.callDesc.fillColor);
+                        if (p.fbStorage->colorTarget == nullptr) {
+                            clearRect.depth = ColorConverter::D16::toF(call.callDesc.fillColor & 0xFFFF);
+                        }
+                        else if (fbPair.colorImage.siz == G_IM_SIZ_32b) {
+                            clearRect.color = toRenderColor(ColorConverter::RGBA32::toRGBAF(call.callDesc.fillColor));
                         }
                         else {
-                            fillColor = ColorConverter::RGBA16::toRGBAF(call.callDesc.fillColor & 0xFFFF);
+                            clearRect.color = toRenderColor(ColorConverter::RGBA16::toRGBAF(call.callDesc.fillColor & 0xFFFF));
                         }
                     }
 
@@ -1487,7 +1537,6 @@ namespace RT64 {
                         horizontalMisalignment = int32_t(p.horizontalMisalignment);
                     }
 
-                    clearRect.color = RenderColor(fillColor.x, fillColor.y, fillColor.z, fillColor.w);
                     clearRect.rect = convertFixedRect(fixedRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
                 }
                 else if (call.callDesc.extendedType != DrawExtendedType::None) {

@@ -31,6 +31,10 @@ namespace RT64 {
             bool formatChanged = false;
         } depthImage;
 
+        struct {
+            bool clearDepthOnly : 1;
+        } fastPaths;
+
         uint32_t displayListAddress;
         uint64_t displayListCounter;
         std::vector<Projection> projections;
@@ -40,6 +44,7 @@ namespace RT64 {
         bool depthRead;
         bool depthWrite;
         bool syncRequired;
+        bool fillRectOnly; // This only applies if there's at least one draw call.
         std::vector<uint32_t> startFbDiscards;
         std::vector<FramebufferOperation> startFbOperations;
         std::vector<FramebufferOperation> endFbOperations;

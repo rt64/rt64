@@ -512,7 +512,7 @@ namespace RT64 {
         }
         
         const int fbPairIndex = workload.currentFramebufferPairIndex();
-        auto &fbPair = workload.fbPairs[fbPairIndex];
+        FramebufferPair &fbPair = workload.fbPairs[fbPairIndex];
         fbPair.flushReason = flushReason;
 
         // Add all the pending framebuffer operations to the first one that was found.
@@ -538,6 +538,17 @@ namespace RT64 {
                 depthFb = &framebufferManager.get(depthImg.address, G_IM_SIZ_16b, colorImg.width, colorHeight);
                 depthImg.formatChanged = depthFb->widthChanged || depthFb->sizChanged || depthFb->rdramChanged;
                 depthFb->clearChanged();
+
+                // Detect a fast path by checking if the framebuffer pair previous to the current one only did fill rects.
+                // This is a very good indicator that the previous framebuffer pair was only intended to clear the depth
+                // buffer and we can skip the color to depth conversion.
+                int previousFbPairIndex = workload.currentFramebufferPairIndex() - 1;
+                if (previousFbPairIndex >= 0) {
+                    FramebufferPair &previousFbPair = workload.fbPairs[previousFbPairIndex];
+                    if (previousFbPair.fillRectOnly && (previousFbPair.colorImage.address == depthImg.address) && (previousFbPair.colorImage.siz == G_IM_SIZ_16b)) {
+                        previousFbPair.fastPaths.clearDepthOnly = true;
+                    }
+                }
             }
 
             // Synchronization will be required unless direct reinterpretation is possible (which is not implemented yet).

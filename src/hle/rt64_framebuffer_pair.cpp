@@ -10,6 +10,7 @@ namespace RT64 {
     // FramebufferPair
 
     void FramebufferPair::reset() {
+        fastPaths = {};
         flushReason = FlushReason::None;
         displayListAddress = 0;
         displayListCounter = 0;
@@ -19,6 +20,7 @@ namespace RT64 {
         depthRead = false;
         depthWrite = false;
         syncRequired = false;
+        fillRectOnly = true;
         ditherPatterns.fill(0);
         scissorRect.reset();
         startFbDiscards.clear();
@@ -34,6 +36,7 @@ namespace RT64 {
         proj.addGameCall(gameCall);
         depthRead = depthRead || gameCall.callDesc.otherMode.zCmp();
         depthWrite = depthWrite || gameCall.callDesc.otherMode.zUpd();
+        fillRectOnly = fillRectOnly && (proj.type == Projection::Type::Rectangle) && (gameCall.callDesc.otherMode.cycleType() == G_CYC_FILL);
         gameCallCount++;
 
         // Track what type of color dither this call used.
