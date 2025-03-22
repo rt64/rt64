@@ -334,6 +334,34 @@ namespace RT64 {
                     if ((tile.maskt > 0) && (tile.cmt & G_TX_CLAMP)) {
                         nativeSamplerSupported = nativeSamplerSupported && clampAlignedToMask(tile.maskt, tile.ult, tile.lrt);
                     }
+                    
+                    // Check if there's any valid tile copies that could be used. The line width requirement has to match for 
+                    // the tile copy to make sense, but whether enough pixels are available in the copy according to the sampling
+                    // done by the calls is determined in a later step.
+                    FramebufferManager::CheckCopyResult checkResult;
+                    checkResult = framebufferManager.checkTileCopyTMEM(tile.tmem, dstCallTile.lineWidth, tile.siz, tile.fmt, tile.uls);
+                    dstCallTile.syncRequired = checkResult.syncRequired;
+
+                    if (gpuCopiesEnabled && checkResult.valid()) {
+                        dstCallTile.tileCopyUsed = true;
+                        dstCallTile.tmemHashOrID = checkResult.tileId;
+                        dstCallTile.tileCopyWidth = checkResult.tileWidth;
+                        dstCallTile.tileCopyHeight = checkResult.tileHeight;
+
+                        // We must force reinterpretation if a LUT format is used.
+                        const uint32_t tlutFormat = rdp->otherMode.textLUT();
+                        const bool usesTLUT = (tlutFormat > 0);
+                        dstCallTile.reinterpretTile = checkResult.reinterpret || usesTLUT;
+                        dstCallTile.reinterpretSiz = checkResult.siz;
+                        dstCallTile.reinterpretFmt = checkResult.fmt;
+                        
+                        // Native samplers do not support the level of precision that framebuffer tile copies require for copying data around.
+                        nativeSamplerSupported = false;
+                    }
+                    else {
+                        dstCallTile.tileCopyUsed = false;
+                        dstCallTile.tmemHashOrID = rdp->tileReplacementHashes[tileIndex];
+                    }
 
                     if (nativeSamplerSupported) {
                         auto nativeSamplerFromAddressing = [](uint8_t cms, uint8_t cmt) {
@@ -374,31 +402,6 @@ namespace RT64 {
                     }
                     else {
                         dstRDPTile.nativeSampler = NATIVE_SAMPLER_NONE;
-                    }
-                    
-                    // Check if there's any valid tile copies that could be used. The line width requirement has to match for 
-                    // the tile copy to make sense, but whether enough pixels are available in the copy according to the sampling
-                    // done by the calls is determined in a later step.
-                    FramebufferManager::CheckCopyResult checkResult;
-                    checkResult = framebufferManager.checkTileCopyTMEM(tile.tmem, dstCallTile.lineWidth, tile.siz, tile.fmt, tile.uls);
-                    dstCallTile.syncRequired = checkResult.syncRequired;
-
-                    if (gpuCopiesEnabled && checkResult.valid()) {
-                        dstCallTile.tileCopyUsed = true;
-                        dstCallTile.tmemHashOrID = checkResult.tileId;
-                        dstCallTile.tileCopyWidth = checkResult.tileWidth;
-                        dstCallTile.tileCopyHeight = checkResult.tileHeight;
-
-                        // We must force reinterpretation if a LUT format is used.
-                        const uint32_t tlutFormat = rdp->otherMode.textLUT();
-                        const bool usesTLUT = (tlutFormat > 0);
-                        dstCallTile.reinterpretTile = checkResult.reinterpret || usesTLUT;
-                        dstCallTile.reinterpretSiz = checkResult.siz;
-                        dstCallTile.reinterpretFmt = checkResult.fmt;
-                    }
-                    else {
-                        dstCallTile.tileCopyUsed = false;
-                        dstCallTile.tmemHashOrID = rdp->tileReplacementHashes[tileIndex];
                     }
                 }
             }
