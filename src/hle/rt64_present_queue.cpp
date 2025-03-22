@@ -441,9 +441,7 @@ namespace RT64 {
         // Present wait exhibits issues on NVIDIA when using a system with more than one monitor under Vulkan,
         // where the driver will actively synchronize with the refresh rate of the wrong display. We disable
         // the ability to do present wait as long as this issue remains.
-        ext.sharedResources->configurationMutex.lock();
-        bool isVulkan = (ext.sharedResources->userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::Vulkan);
-        ext.sharedResources->configurationMutex.unlock();
+        bool isVulkan = (ext.createdGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan);
         bool isNVIDIA = (ext.device->getDescription().vendor == RenderDeviceVendor::NVIDIA);
         int monitorCount = GetSystemMetrics(SM_CMONITORS);
         if (isVulkan && isNVIDIA && (monitorCount > 1)) {

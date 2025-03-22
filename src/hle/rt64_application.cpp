@@ -345,6 +345,7 @@ namespace RT64 {
         presentExt.workloadQueue = workloadQueue.get();
         presentExt.sharedResources = sharedQueueResources.get();
         presentExt.shaderLibrary = shaderLibrary.get();
+        presentExt.createdGraphicsAPI = createdGraphicsAPI;
         presentQueue->setup(presentExt);
 
         // Configure the state to use all the created components.

@@ -26,6 +26,7 @@ namespace RT64 {
             WorkloadQueue *workloadQueue = nullptr;
             SharedQueueResources *sharedResources = nullptr;
             const ShaderLibrary *shaderLibrary = nullptr;
+            UserConfiguration::GraphicsAPI createdGraphicsAPI = UserConfiguration::GraphicsAPI::OptionCount;
         };
 
         External ext;
