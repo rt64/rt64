@@ -192,7 +192,7 @@ namespace RT64 {
             samplerDesc.addressW = RenderTextureAddressMode::CLAMP;
 
             // This matches the bias used in the shader when native samplers are not used.
-            samplerDesc.mipLODBias = -0.5f;
+            samplerDesc.mipLODBias = -0.25f;
 
             // WRAP.
             samplerDesc.addressU = RenderTextureAddressMode::WRAP;

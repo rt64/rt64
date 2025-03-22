@@ -215,7 +215,7 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
             float2 ddxUVxScaled = ddxUVx * gpuTile.tcScale;
             float2 ddxUVyScaled = ddyUVy * gpuTile.tcScale;
             float ddMax = max(dot(ddxUVxScaled, ddxUVxScaled), dot(ddxUVyScaled, ddxUVyScaled));
-            float mipBias = -0.5f;
+            float mipBias = -0.25f;
             mip = 0.5 * log2(ddMax) + mipBias;
             float maxMip = float(textureLevels - 1);
             RDPMipLevels[0] = min(floor(mip), maxMip);
