@@ -290,6 +290,8 @@ add_compile_definitions(
     HLSL_CPU
     FFX_GCC
     IMGUI_IMPL_VULKAN_NO_PROTOTYPES
+    IMGUI_IMPL_METAL_CPP
+    IMGUI_IMPL_METAL_CPP_EXTENSIONS
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
@@ -448,9 +450,11 @@ if (APPLE)
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"
         "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
+        "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_metal.mm"
+        "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_osx.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
-    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
+    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics -framework GameController")
 endif()
 
 # Add any Windows-specific source files and libraries

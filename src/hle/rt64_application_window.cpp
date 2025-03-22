@@ -397,9 +397,9 @@ namespace RT64 {
         if (appWindow->sdlEventFilterStored != nullptr) {
             return appWindow->sdlEventFilterStored(appWindow->sdlEventFilterUserdata, event);
         }
+
+
         // The event should not be filtered.
-        else {
-            return 1;
-        }
+        return 1;
     }
 };
