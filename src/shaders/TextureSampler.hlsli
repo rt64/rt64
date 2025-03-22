@@ -120,9 +120,9 @@ float4 clampWrapMirrorSample(const RDPTile rdpTile, const GPUTile gpuTile, float
 
 static const float LowPrecision = 128.0f;
 
-float4 sampleTextureNative(Texture2D texture, uint nativeSampler, int2 texelBaseInt, uint textureWidth, uint textureHeight) {
+float4 sampleTextureNative(Texture2D texture, uint nativeSampler, int2 texelBaseInt, float2 textureSize) {
     // Transform to native coordinate. Half pixel offset is required to reach the desired texel.
-    float2 nativeUVCoord = (float2(texelBaseInt) + 0.5f) / float2(textureWidth, textureHeight);
+    float2 nativeUVCoord = (float2(texelBaseInt) + 0.5f) / textureSize;
             
     // Choose the native sampler that was determined to be compatible.
     switch (nativeSampler) {
@@ -178,22 +178,19 @@ float4 sampleTextureLevel(const RDPTile rdpTile, const GPUTile gpuTile, bool fil
     }
     else {
         Texture2D texture = gTextures[NonUniformResourceIndex(textureIndex)];
-        uint textureWidth, textureHeight, textureLevels;
-        texture.GetDimensions(0, textureWidth, textureHeight, textureLevels);
-        
 #if USE_FOR_LOOPS
         int numSamples = select_uint(filtering, 4, 1);
         [unroll]
         for (int i = 0; i < numSamples; i++) {
-            samples[i] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(i >> 1, i & 1), textureWidth, textureHeight);
+            samples[i] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(i >> 1, i & 1), gpuTile.textureDimensions.xy);
         }
 #else
-        samples[0] = sampleTextureNative(texture, nativeSampler, texelBaseInt, textureWidth, textureHeight);
+        samples[0] = sampleTextureNative(texture, nativeSampler, texelBaseInt, gpuTile.textureDimensions.xy);
         
         if (filtering) {
-            samples[1] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(0, 1), textureWidth, textureHeight);
-            samples[2] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(1, 0), textureWidth, textureHeight);
-            samples[3] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(1, 1), textureWidth, textureHeight);
+            samples[1] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(0, 1), gpuTile.textureDimensions.xy);
+            samples[2] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(1, 0), gpuTile.textureDimensions.xy);
+            samples[3] = sampleTextureNative(texture, nativeSampler, texelBaseInt + int2(1, 1), gpuTile.textureDimensions.xy);
         }
 #endif
     }
@@ -278,24 +275,21 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
     if (flagHasMipmaps) {
         // Retrieve the dimensions of the texture for either type of sampler.
         Texture2D texture = gTextures[NonUniformResourceIndex(textureIndex)];
-        uint textureWidth, textureHeight, textureLevels;
-        texture.GetDimensions(0, textureWidth, textureHeight, textureLevels);
-
         if (nativeSampler == NATIVE_SAMPLER_NONE) {
             float2 ddxUVxScaled = ddxUVx * gpuTile.tcScale;
             float2 ddxUVyScaled = ddyUVy * gpuTile.tcScale;
             float ddMax = max(dot(ddxUVxScaled, ddxUVxScaled), dot(ddxUVyScaled, ddxUVyScaled));
             float mipBias = -0.25f;
             mip = 0.5 * log2(ddMax) + mipBias;
-            float maxMip = float(textureLevels - 1);
+            float maxMip = float(gpuTile.textureDimensions.z - 1);
             RDPMipLevels[0] = min(floor(mip), maxMip);
             RDPMipLevels[1] = min(floor(mip) + 1, maxMip);
             numRDPSamples = 2;
         }
         else {
             // Must normalize the texture coordinate and the derivatives.
-            float2 nativeUVCoord = uvCoord / float2(textureWidth, textureHeight);
-            float2 originalSize = float2(textureWidth, textureHeight) / gpuTile.tcScale;
+            float2 nativeUVCoord = uvCoord / gpuTile.textureDimensions.xy;
+            float2 originalSize = gpuTile.textureDimensions.xy / gpuTile.tcScale;
             float2 ddxUVxNorm = ddxUVx / originalSize;
             float2 ddxUVyNorm = ddyUVy / originalSize;
             

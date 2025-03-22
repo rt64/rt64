@@ -123,7 +123,9 @@ namespace RT64 {
     struct TextureMap {
         std::unordered_map<uint64_t, uint32_t> hashMap;
         std::vector<Texture *> textures;
+        std::vector<interop::float3> cachedTextureDimensions;
         std::vector<Texture *> textureReplacements;
+        std::vector<interop::float3> cachedTextureReplacementDimensions;
         std::vector<bool> textureReplacementReferenceCounted;
         std::vector<interop::float2> textureScales;
         std::vector<uint64_t> hashes;
@@ -142,7 +144,7 @@ namespace RT64 {
         void clearReplacements();
         void add(uint64_t hash, uint64_t creationFrame, Texture *texture);
         void replace(uint64_t hash, Texture *texture, bool referenceCounted);
-        bool use(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, bool &textureReplaced, bool &hasMipmaps);
+        bool use(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps);
         bool evict(uint64_t submissionFrame, std::vector<uint64_t> &evictedHashes);
         void incrementLock();
         void decrementLock();
@@ -231,7 +233,7 @@ namespace RT64 {
         void uploadThreadLoop();
         void queueGPUUploadTMEM(uint64_t hash, uint64_t creationFrame, const uint8_t *bytes, int bytesCount, int width, int height, uint32_t tlut, const LoadTile &loadTile, bool decodeTMEM);
         void waitForGPUUploads();
-        bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, bool &textureReplaced, bool &hasMipmaps);
+        bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps);
         bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex);
         bool addReplacement(uint64_t hash, const std::string &relativePath);
         bool hasReplacement(uint64_t hash);

@@ -229,7 +229,9 @@ namespace RT64 {
         else {
             textureIndex = static_cast<uint32_t>(textures.size());
             textures.push_back(nullptr);
+            cachedTextureDimensions.emplace_back();
             textureReplacements.push_back(nullptr);
+            cachedTextureReplacementDimensions.emplace_back();
             textureReplacementReferenceCounted.emplace_back(false);
             textureScales.push_back(IdentityScale);
             hashes.push_back(0);
@@ -240,6 +242,7 @@ namespace RT64 {
 
         hashMap[hash] = textureIndex;
         textures[textureIndex] = texture;
+        cachedTextureDimensions[textureIndex] = interop::float3(float(texture->width), float(texture->height), 1.0f);
         textureReplacements[textureIndex] = nullptr;
         textureReplacementReferenceCounted[textureIndex] = false;
         textureScales[textureIndex] = IdentityScale;
@@ -273,6 +276,7 @@ namespace RT64 {
         textureReplacements[it->second] = texture;
         textureReplacementReferenceCounted[it->second] = referenceCounted;
         textureScales[it->second] = { float(texture->width) / float(replacedTexture->width), float(texture->height) / float(replacedTexture->height) };
+        cachedTextureReplacementDimensions[it->second] = interop::float3(float(texture->width), float(texture->height), float(texture->mipmaps));
         versions[it->second]++;
         globalVersion++;
 
@@ -282,7 +286,7 @@ namespace RT64 {
         }
     }
 
-    bool TextureMap::use(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, bool &textureReplaced, bool &hasMipmaps) {
+    bool TextureMap::use(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps) {
         // Find the matching texture index in the hash map.
         const auto it = hashMap.find(hash);
         if (it == hashMap.end()) {
@@ -296,10 +300,12 @@ namespace RT64 {
 
         if (textureReplaced) {
             textureScale = textureScales[textureIndex];
+            textureDimensions = cachedTextureReplacementDimensions[textureIndex];
             hasMipmaps = (textureReplacements[textureIndex]->mipmaps > 1);
         }
         else {
             textureScale = IdentityScale;
+            textureDimensions = cachedTextureDimensions[textureIndex];
             hasMipmaps = false;
         }
 
@@ -1289,16 +1295,17 @@ namespace RT64 {
         });
     }
 
-    bool TextureCache::useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, bool &textureReplaced, bool &hasMipmaps) {
+    bool TextureCache::useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps) {
         std::unique_lock lock(textureMapMutex);
-        return textureMap.use(hash, submissionFrame, textureIndex, textureScale, textureReplaced, hasMipmaps);
+        return textureMap.use(hash, submissionFrame, textureIndex, textureScale, textureDimensions, textureReplaced, hasMipmaps);
     }
 
     bool TextureCache::useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex) {
         interop::float2 textureScale;
+        interop::float3 textureDimensions;
         bool textureReplaced;
         bool hasMipmaps;
-        return useTexture(hash, submissionFrame, textureIndex, textureScale, textureReplaced, hasMipmaps);
+        return useTexture(hash, submissionFrame, textureIndex, textureScale, textureDimensions, textureReplaced, hasMipmaps);
     }
     
     bool TextureCache::addReplacement(uint64_t hash, const std::string &relativePath) {
