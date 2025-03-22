@@ -249,6 +249,7 @@ namespace RT64 {
                     gpuTile.texelShift = tileCopy.texelShift;
                     gpuTile.texelMask = tileCopy.texelMask;
                     gpuTile.textureIndex = getTextureIndex(tileCopy);
+                    gpuTile.textureDimensions = interop::float3(float(tileCopy.textureWidth), float(tileCopy.textureHeight), 1.0f);
                     gpuTile.flags.alphaIsCvg = !callTile.reinterpretTile;
                     gpuTile.flags.highRes = true;
                     gpuTile.flags.fromCopy = true;
@@ -261,7 +262,7 @@ namespace RT64 {
                 uint32_t textureIndex = 0;
                 bool textureReplaced = false;
                 bool hasMipmaps = false;
-                textureCache->useTexture(callTile.tmemHashOrID, submissionFrame, textureIndex, gpuTile.tcScale, textureReplaced, hasMipmaps);
+                textureCache->useTexture(callTile.tmemHashOrID, submissionFrame, textureIndex, gpuTile.tcScale, gpuTile.textureDimensions, textureReplaced, hasMipmaps);
 
                 // Describe the GPU tile for a regular texture.
                 gpuTile.ulScale.x = gpuTile.tcScale.x;
