@@ -621,7 +621,7 @@ namespace RT64 {
             case InstanceDrawCall::Type::FillRect: {
                 const auto &clearRect = drawCall.clearRect;
                 RenderTarget *chosenTarget = (fbStorage->colorTarget != nullptr) ? fbStorage->colorTarget : fbStorage->depthTarget;
-                bool rectCoversWholeTarget = (clearRect.rect.left == 0) && (clearRect.rect.top == 0) && (clearRect.rect.right == chosenTarget->width) && (clearRect.rect.bottom == chosenTarget->height);
+                bool rectCoversWholeTarget = (clearRect.rect.left == 0) && (clearRect.rect.top == 0) && (uint32_t(clearRect.rect.right) == chosenTarget->width) && (uint32_t(clearRect.rect.bottom) == chosenTarget->height);
                 const RenderRect *clearRects = rectCoversWholeTarget ? nullptr : &clearRect.rect;
                 uint32_t clearRectCount = rectCoversWholeTarget ? 0 : 1;
                 if (fbStorage->colorTarget != nullptr) {
