@@ -129,9 +129,8 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
-        const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
-        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, false);
+        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), rdpTile, gpuTile, false);
     }
     
     if (renderFlagUsesTexture1(rp.flags)) {
@@ -145,10 +144,9 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
-        const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
         const uint nativeSampler = renderFlagNativeSampler1(rp.flags);
-        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, oneCycleHardwareBug);
+        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), rdpTile, gpuTile, oneCycleHardwareBug);
     }
     
     // Color combiner.
