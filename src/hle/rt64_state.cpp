@@ -354,6 +354,11 @@ namespace RT64 {
                         dstCallTile.reinterpretTile = checkResult.reinterpret || usesTLUT;
                         dstCallTile.reinterpretSiz = checkResult.siz;
                         dstCallTile.reinterpretFmt = checkResult.fmt;
+
+                        // Native samplers can't apply the texel shift and mask that tile reinterpretation requires.
+                        if (dstCallTile.reinterpretTile) {
+                            nativeSamplerSupported = false;
+                        }
                     }
                     else {
                         dstCallTile.tileCopyUsed = false;
