@@ -70,7 +70,7 @@ void computeLOD(OtherMode otherMode, uint rdpTileCount, float2 primLOD, float re
     }
 }
 
-float4 clampWrapMirrorSample(const RDPTile rdpTile, const GPUTile gpuTile, float2 tcScale, int2 texelInt, uint tlut, bool gpuTileUsesTMEM, uint mipLevel, bool usesHDR) {
+float4 clampWrapMirrorSample(const RDPTile rdpTile, const GPUTile gpuTile, float2 tcScale, int2 texelInt, uint tlut, bool gpuTileUsesTMEM, uint mipLevel) {
     if (rdpTile.cms & G_TX_CLAMP) {
         texelInt.x = clamp(texelInt.x, 0, (round(tcScale.x * rdpTile.lrs) / 4) - (round(tcScale.x * rdpTile.uls) / 4) + round(tcScale.x - 1.0f));
     }
@@ -104,17 +104,7 @@ float4 clampWrapMirrorSample(const RDPTile rdpTile, const GPUTile gpuTile, float
     }
     // Sample the color version directly.
     else {
-        float4 textureColor = gTextures[NonUniformResourceIndex(gpuTile.textureIndex)].Load(int3(texelInt, mipLevel));
-        
-        // Alpha channel in framebuffer textures represent the coverage. A modulo operation must be performed
-        // to get the value that would correspond to the alpha channel when it's sampled.
-        if (gpuTileFlagAlphaIsCvg(gpuTile.flags)) {
-            const float cvgRange = usesHDR ? 65535.0f : 255.0f;
-            int cvgModulo = round(textureColor.a * cvgRange) % 8;
-            textureColor.a = (cvgModulo & 0x4) ? 1.0f : 0.0f;
-        }
-        
-        return textureColor;
+        return gTextures[NonUniformResourceIndex(gpuTile.textureIndex)].Load(int3(texelInt, mipLevel));
     }
 }
 
@@ -164,15 +154,15 @@ float4 sampleTextureLevel(const RDPTile rdpTile, const GPUTile gpuTile, bool fil
         int numSamples = select_uint(filtering, 4, 1);
         [unroll]
         for (int i = 0; i < numSamples; i++) {
-            samples[i] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(i >> 1, i & 1), tlut, gpuTileUsesTMEM, mipLevel, usesHDR);
+            samples[i] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(i >> 1, i & 1), tlut, gpuTileUsesTMEM, mipLevel);
         }
 #else
-        samples[0] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt, tlut, gpuTileUsesTMEM, mipLevel, usesHDR);
+        samples[0] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt, tlut, gpuTileUsesTMEM, mipLevel);
         
         if (filtering) {
-            samples[1] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(0, 1), tlut, gpuTileUsesTMEM, mipLevel, usesHDR);
-            samples[2] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(1, 0), tlut, gpuTileUsesTMEM, mipLevel, usesHDR);
-            samples[3] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(1, 1), tlut, gpuTileUsesTMEM, mipLevel, usesHDR);
+            samples[1] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(0, 1), tlut, gpuTileUsesTMEM, mipLevel);
+            samples[2] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(1, 0), tlut, gpuTileUsesTMEM, mipLevel);
+            samples[3] = clampWrapMirrorSample(rdpTile, gpuTile, tcScale, texelBaseInt + int2(1, 1), tlut, gpuTileUsesTMEM, mipLevel);
         }
 #endif
     }
@@ -338,12 +328,23 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
 #endif
 
     // Compute the result from the RDP samples.
+    float4 textureColor;
     if (!flagHasMipmaps) {
-        return textureSamples[0];
+        textureColor = textureSamples[0];
     }
     else {
         float4 hiLevel = textureSamples[0];
         float4 loLevel = textureSamples[1];
-        return lerp(hiLevel, loLevel, frac(mip));
+        textureColor = lerp(hiLevel, loLevel, frac(mip));
     }
+    
+    // Alpha channel in framebuffer textures represent the coverage. A modulo operation must be performed
+    // to get the value that would correspond to the alpha channel when it's sampled.
+    if (gpuTileFlagAlphaIsCvg(gpuTile.flags)) {
+        const float cvgRange = usesHDR ? 65535.0f : 255.0f;
+        int cvgModulo = round(textureColor.a * cvgRange) % 8;
+        textureColor.a = (cvgModulo & 0x4) ? 1.0f : 0.0f;
+    }
+    
+    return textureColor;
 }
