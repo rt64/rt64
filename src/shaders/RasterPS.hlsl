@@ -47,55 +47,51 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
     const bool zSourcePrim = (otherMode.zSource() == G_ZS_PRIM);
     int2 pixelPosSeed = floor(vertexPosition.xy);
     uint randomSeed = initRand(FrParams.frameCount, instanceIndex * pixelPosSeed.y * pixelPosSeed.x, 16); // TODO: Review seed.
-    if (outputDepth) {
-        if (zSourcePrim) {
-            resultDepth = instanceRDPParams[instanceIndex].primDepth.x;
-        }
-        else {
-            resultDepth = vertexPosition.z;
-        }
 
-        if (depthClampNear) {
-            resultDepth = max(resultDepth, 0.0f);
-        }
-        
-        if (depthClampNear || depthDecal) {
-            // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
-            if (resultDepth > 1.0f) {
-                return false;
-            }
-        }
-#ifdef DYNAMIC_RENDER_PARAMS
-        // We emulate depth clip on the dynamic version of the shader.
-        else if (!renderFlagNoN(rp.flags)) {
-            if ((resultDepth < 0.0f) || (resultDepth > 1.0f)) {
-                return false;
-            }
-        }
-#endif
-        
-        if (depthDecal) {
-            int2 pixelPos = floor(vertexPosition.xy);
-            float surfaceDepth = sampleBackgroundDepth(pixelPos, sampleIndex);
-            float dz;
-            if (zSourcePrim) {
-                dz = instanceRDPParams[instanceIndex].primDepth.y;
-            }
-            else {
-                dz = (abs(ddx(vertexPosition.z)) + abs(ddy(vertexPosition.z))) * FbParams.resolutionScale.y;
-            }
-
-            const float DepthTolerance = max(CoplanarDepthTolerance(surfaceDepth), dz);
-            if (abs(resultDepth - surfaceDepth) <= DepthTolerance) {
-                resultDepth = surfaceDepth;
-            }
-            else {
-                return false;
-            }
-        }
+    if (zSourcePrim) {
+        resultDepth = instanceRDPParams[instanceIndex].primDepth.x;
     }
     else {
-        resultDepth = 1.0f;
+        resultDepth = vertexPosition.z;
+    }
+
+    // Handle no-nearclipping by clamping the minimum depth and manually clipping above the maximum.
+    if (depthClampNear) {
+        // TODO: validate if this max is needed.
+        resultDepth = max(resultDepth, 0.0f);
+        // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
+        if (resultDepth > 1.0f) {
+            return false;
+        }
+    }
+#ifdef DYNAMIC_RENDER_PARAMS
+    // We emulate depth clip on the dynamic version of the shader.
+    else {
+        if ((resultDepth < 0.0f) || (resultDepth > 1.0f)) {
+            return false;
+        }
+    }
+#endif
+
+    if (depthDecal) {
+        // Sample the depth buffer for this pixel to compare for the decal check.
+        int2 pixelPos = floor(vertexPosition.xy);
+        float surfaceDepth = sampleBackgroundDepth(pixelPos, sampleIndex);
+
+        // Calculate the decal depth tolerance based on the depth derivatives (or the prim dz value if prim depth source is enabled).
+        float dz;
+        if (zSourcePrim) {
+            dz = instanceRDPParams[instanceIndex].primDepth.y;
+        }
+        else {
+            dz = (abs(ddx(vertexPosition.z)) + abs(ddy(vertexPosition.z))) * FbParams.resolutionScale.y;
+        }
+        const float DepthTolerance = max(CoplanarDepthTolerance(surfaceDepth), dz);
+
+        // Perform the decal depth tolerance check.
+        if (abs(resultDepth - surfaceDepth) > DepthTolerance) {
+            return false;
+        }
     }
     
     float ddxuvx = ddx(vertexUV.x);
