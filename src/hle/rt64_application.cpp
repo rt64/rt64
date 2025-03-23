@@ -10,7 +10,6 @@
 #include "common/rt64_dynamic_libraries.h"
 #include "common/rt64_elapsed_timer.h"
 #include "common/rt64_math.h"
-#include "common/rt64_sommelier.h"
 
 #if RT_ENABLED
 #   include "res/bluenoise/LDR_64_64_64_RGB1.h"
@@ -81,17 +80,6 @@ namespace RT64 {
         if (!userPaths.isEmpty() && checkDirectoryCreated(userPaths.dataPath)) {
             RT64_LOG_OPEN(userPaths.logPath.c_str());
         }
-
-#   ifdef _WIN64
-        wineDetected = Sommelier::detectWine();
-
-        // Change the default graphics API when running under Wine to avoid using the D3D12 translation layer when possible. Recreate the default user configuration right afterwards so this new value is assigned.
-        UserConfiguration::DefaultGraphicsAPI = wineDetected ? UserConfiguration::GraphicsAPI::Vulkan : UserConfiguration::GraphicsAPI::D3D12;
-        userConfig = UserConfiguration();
-#   else
-        // Wine can't be detected in other platform's binaries.
-        wineDetected = false;
-#   endif
     }
 
     Application::SetupResult Application::setup(uint32_t threadId) {
@@ -137,8 +125,11 @@ namespace RT64 {
         // Detect refresh rate from the display the window is located at.
         appWindow->detectRefreshRate();
 
+        // Resolve the graphics API option in case it's automatic.
+        chosenGraphicsAPI = UserConfiguration::resolveGraphicsAPI(userConfig.graphicsAPI);
+
         // Create a render interface with the preferred backend.
-        switch (userConfig.graphicsAPI) {
+        switch (chosenGraphicsAPI) {
         case UserConfiguration::GraphicsAPI::D3D12:
 #       ifdef _WIN64
             renderInterface = CreateD3D12Interface();
@@ -168,8 +159,6 @@ namespace RT64 {
             return SetupResult::GraphicsAPINotFound;
         }
 
-        createdGraphicsAPI = userConfig.graphicsAPI;
-
         // Create the render device
         device = renderInterface->createDevice();
         if (device == nullptr) {
@@ -183,8 +172,10 @@ namespace RT64 {
         // Driver workarounds.
         const RenderDeviceVendor deviceVendor = device->getDescription().vendor;
         const uint64_t driverVersion = device->getDescription().driverVersion;
+        bool automaticGraphicsAPI = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::Automatic);
+        bool forceVulkanForCompatibility = false;
         if (deviceVendor == RenderDeviceVendor::NVIDIA) {
-            if (createdGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
+            if (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
                 if (usesHardwareResolve) {
                     // MSAA Resolve in D3D12 is broken since 565.90. During Resolve operations, the contents from unrelated graphics commands in a queue can leak to other commands
                     // being run in a different queue even if the resources aren't shared at all. The workaround is to disable hardware resolve and use rasterization instead.
@@ -197,27 +188,31 @@ namespace RT64 {
             }
         }
         else if (deviceVendor == RenderDeviceVendor::AMD) {
-            // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
-            bool isRX7 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
-            bool isTheCoolerRX7 = device->getDescription().name.find("AMD Radeon(TM) RX 7") != std::string::npos;
-            bool isRDNA3 = isRX7 || isTheCoolerRX7;
-            bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
-            if (isRDNA3 && useHDRinD3D12) {
-                device.reset();
-                renderInterface.reset();
-                renderInterface = CreateVulkanInterfaceWrapper(appWindow->windowHandle);
-                if (renderInterface == nullptr) {
-                    fprintf(stderr, "Unable to initialize graphics API.\n");
-                    return SetupResult::GraphicsAPINotFound;
-                }
+            if (automaticGraphicsAPI) {
+                // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
+                bool isRX7 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
+                bool isTheCoolerRX7 = device->getDescription().name.find("AMD Radeon(TM) RX 7") != std::string::npos;
+                bool isRDNA3 = isRX7 || isTheCoolerRX7;
+                bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
+                forceVulkanForCompatibility = isRDNA3 && useHDRinD3D12;
+            }
+        }
 
-                createdGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+        if (forceVulkanForCompatibility) {
+            device.reset();
+            renderInterface.reset();
+            renderInterface = CreateVulkanInterfaceWrapper(appWindow->windowHandle);
+            if (renderInterface == nullptr) {
+                fprintf(stderr, "Unable to initialize graphics API.\n");
+                return SetupResult::GraphicsAPINotFound;
+            }
 
-                device = renderInterface->createDevice();
-                if (device == nullptr) {
-                    fprintf(stderr, "Unable to find compatible graphics device.\n");
-                    return SetupResult::GraphicsDeviceNotFound;
-                }
+            chosenGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+
+            device = renderInterface->createDevice();
+            if (device == nullptr) {
+                fprintf(stderr, "Unable to find compatible graphics device.\n");
+                return SetupResult::GraphicsDeviceNotFound;
             }
         }
 
@@ -332,7 +327,7 @@ namespace RT64 {
         workloadExt.rasterShaderCache = rasterShaderCache.get();
         workloadExt.textureCache = textureCache.get();
         workloadExt.shaderLibrary = shaderLibrary.get();
-        workloadExt.createdGraphicsAPI = createdGraphicsAPI;
+        workloadExt.createdGraphicsAPI = chosenGraphicsAPI;
 #   if RT_ENABLED
         workloadExt.rtShaderCache = rtShaderCache.get();
         workloadExt.blueNoiseTexture = blueNoiseTexture.texture.get();
@@ -347,7 +342,7 @@ namespace RT64 {
         presentExt.workloadQueue = workloadQueue.get();
         presentExt.sharedResources = sharedQueueResources.get();
         presentExt.shaderLibrary = shaderLibrary.get();
-        presentExt.createdGraphicsAPI = createdGraphicsAPI;
+        presentExt.createdGraphicsAPI = chosenGraphicsAPI;
         presentQueue->setup(presentExt);
 
         // Configure the state to use all the created components.
@@ -372,7 +367,7 @@ namespace RT64 {
         stateExt.userConfig = &userConfig;
         stateExt.dlApiProfiler = &dlApiProfiler;
         stateExt.screenApiProfiler = &screenApiProfiler;
-        stateExt.createdGraphicsAPI = createdGraphicsAPI;
+        stateExt.createdGraphicsAPI = chosenGraphicsAPI;
 #   if RT_ENABLED
         stateExt.rtConfig = &rtConfig;
 #   endif
@@ -554,7 +549,7 @@ namespace RT64 {
             if (userConfig.developerMode) {
                 const std::lock_guard lock(presentQueue->inspectorMutex);
                 if (presentQueue->inspector == nullptr) {
-                    presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), createdGraphicsAPI, appWindow->sdlWindow);
+                    presentQueue->inspector = std::make_unique<Inspector>(device.get(), swapChain.get(), chosenGraphicsAPI, appWindow->sdlWindow);
                     if (!userPaths.isEmpty()) {
                         presentQueue->inspector->setIniPath(userPaths.imguiPath);
                     }

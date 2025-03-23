@@ -16,10 +16,9 @@ namespace RT64 {
             D3D12,
             Vulkan,
             Metal,
+            Automatic,
             OptionCount
         };
-
-        static GraphicsAPI DefaultGraphicsAPI;
         
         enum class Resolution {
             Original,
@@ -108,6 +107,8 @@ namespace RT64 {
         void validate();
         uint32_t msaaSampleCount() const;
         static uint32_t msaaSampleCount(Antialiasing antialiasing);
+        static bool isGraphicsAPISupported(GraphicsAPI graphicsAPI);
+        static GraphicsAPI resolveGraphicsAPI(GraphicsAPI graphicsAPI);
     };
 
     extern void to_json(json &j, const UserConfiguration &cfg);
@@ -116,7 +117,8 @@ namespace RT64 {
     NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::GraphicsAPI, {
         { UserConfiguration::GraphicsAPI::D3D12, "D3D12" },
         { UserConfiguration::GraphicsAPI::Vulkan, "Vulkan" },
-        { UserConfiguration::GraphicsAPI::Metal, "Metal" }
+        { UserConfiguration::GraphicsAPI::Metal, "Metal" },
+        { UserConfiguration::GraphicsAPI::Automatic, "Automatic" },
     });
 
     NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::Resolution, {

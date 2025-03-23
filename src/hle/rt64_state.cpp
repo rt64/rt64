@@ -2038,12 +2038,14 @@ namespace RT64 {
                     ImGui::Text("User Configuration (persistent)");
                     ImGui::Separator();
 
-#               ifdef _WIN32
-                    genConfigChanged = ImGui::Combo("Graphics API", reinterpret_cast<int *>(&userConfig.graphicsAPI), "D3D12\0Vulkan\0") || genConfigChanged;
-                    if (userConfig.graphicsAPI != inspector->graphicsAPI) {
+                    genConfigChanged = ImGui::Combo("Graphics API", reinterpret_cast<int *>(&userConfig.graphicsAPI), "D3D12\0Vulkan\0Metal\0Automatic\0") || genConfigChanged;
+
+                    if (!UserConfiguration::isGraphicsAPISupported(userConfig.graphicsAPI)) {
+                        ImGui::Text("This API is not available on this platform!");
+                    }
+                    else if (UserConfiguration::resolveGraphicsAPI(userConfig.graphicsAPI) != inspector->graphicsAPI) {
                         ImGui::Text("You must restart the application for this change to be applied.");
                     }
-#               endif
 
                     resConfigChanged = ImGui::Combo("Resolution Mode", reinterpret_cast<int *>(&userConfig.resolution), "Original\0Window Integer Scale\0Manual\0") || resConfigChanged;
                     const bool manualResolution = (userConfig.resolution == UserConfiguration::Resolution::Manual);
@@ -2461,6 +2463,22 @@ namespace RT64 {
                     ext.workloadQueue->ubershadersVisible = ubershadersVisible;
 
                     ImGui::NewLine();
+
+                    // Show the current graphics API in use.
+                    switch (inspector->graphicsAPI) {
+                    case UserConfiguration::GraphicsAPI::D3D12:
+                        ImGui::Text("Graphics API: D3D12");
+                        break;
+                    case UserConfiguration::GraphicsAPI::Vulkan:
+                        ImGui::Text("Graphics API: Vulkan");
+                        break;
+                    case UserConfiguration::GraphicsAPI::Metal:
+                        ImGui::Text("Graphics API: Metal");
+                        break;
+                    default:
+                        ImGui::Text("Graphics API: Unknown");
+                        break;
+                    }
 
                     const RenderDeviceDescription &description = ext.device->getDescription();
                     const RenderDeviceCapabilities &capabilities = ext.device->getCapabilities();
