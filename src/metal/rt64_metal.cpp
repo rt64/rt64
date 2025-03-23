@@ -1842,11 +1842,6 @@ namespace RT64 {
 
     MetalCommandList::~MetalCommandList() {
         mtl->release();
-        indexBuffer->release();
-
-        for (MTL::Buffer *buffer : vertexBuffers) {
-            buffer->release();
-        }
     }
 
     void MetalCommandList::begin() {
@@ -3098,7 +3093,6 @@ namespace RT64 {
         resolveTexturePipelineState->release();
         clearVertexFunction->release();
         clearColorFunction->release();
-        clearDepthFunction->release();
         clearDepthFunction->release();
         device->release();
         reusableBlitDescriptor->release();
