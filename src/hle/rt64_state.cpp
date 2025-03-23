@@ -76,6 +76,7 @@ namespace RT64 {
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(ext.userConfig->msaaSampleCount(), ext.device->getCapabilities().sampleLocations);
         renderTargetManager.setMultisampling(multisampling);
         renderTargetManager.setUsesHDR(ext.shaderLibrary->usesHDR);
+        updateRenderFlagSampleCount();
     }
 
     void State::reset() {
@@ -945,12 +946,11 @@ namespace RT64 {
                     auto &flags = shaderDesc.flags;
                     flags.rect = (proj.type == Projection::Type::Rectangle);
                     flags.linearFiltering = linearFiltering || forceLinearFiltering;
-                    flags.smoothNormal = (callDesc.geometryMode & G_LIGHTING) == 0;
-                    flags.shadowAlpha = false; //(extraParams.shadowAlphaMultiplier < 1.0f);
                     flags.usesTexture0 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 0, oneCycleHardwareBug);
                     flags.usesTexture1 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 1, oneCycleHardwareBug);
                     flags.blenderApproximation = static_cast<unsigned>(blenderEmuReqs.approximateEmulation);
                     flags.usesHDR = usesHDR;
+                    flags.sampleCount = renderFlagSampleCount;
 
                     // Set whether the LOD should be scaled to the display resolution according to the configuration mode and the extended GBI flags.
                     const bool usesLOD = (callDesc.otherMode.textLOD() == G_TL_LOD);
@@ -1916,6 +1916,7 @@ namespace RT64 {
         renderTargetManager.setMultisampling(multisampling);
         dummyDepthTarget.reset();
         framebufferRenderer->updateMultisampling();
+        updateRenderFlagSampleCount();
     }
 
     void State::inspect() {
@@ -2687,5 +2688,25 @@ namespace RT64 {
         extended = Extended();
         rsp->clearExtended();
         rdp->clearExtended();
+    }
+
+    void State::updateRenderFlagSampleCount() {
+        switch (renderTargetManager.multisampling.sampleCount) {
+        case RenderSampleCount::COUNT_1:
+            renderFlagSampleCount = 0;
+            break;
+        case RenderSampleCount::COUNT_2:
+            renderFlagSampleCount = 1;
+            break;
+        case RenderSampleCount::COUNT_4:
+            renderFlagSampleCount = 2;
+            break;
+        case RenderSampleCount::COUNT_8:
+            renderFlagSampleCount = 3;
+            break;
+        default:
+            assert(false && "Unknown sample count.");
+            break;
+        }
     }
 };

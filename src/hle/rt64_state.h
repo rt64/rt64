@@ -119,6 +119,7 @@ namespace RT64 {
         uint64_t workloadId = 0;
         uint64_t presentId = 0;
         uint32_t ditherRandomSeed = 0;
+        uint32_t renderFlagSampleCount = 0;
         External ext;
 
         struct Extended {
@@ -167,5 +168,6 @@ namespace RT64 {
         void enableExtendedGBI(uint8_t opCode);
         void disableExtendedGBI();
         void clearExtended();
+        void updateRenderFlagSampleCount();
     };
 };

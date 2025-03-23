@@ -17,19 +17,36 @@
 #if defined(MULTISAMPLING)
 Texture2DMS<float> gBackgroundDepth : register(t2, space3);
 
-float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
-    return gBackgroundDepth.Load(pixelPos, sampleIndex);
+float sampleBackgroundDepth(int2 pixelPos, uint sampleCount) {
+    float v = gBackgroundDepth.Load(pixelPos, 0);
+    if (sampleCount >= 2) {
+        v += gBackgroundDepth.Load(pixelPos, 1);
+    }
+
+    if (sampleCount >= 4) {
+        v += gBackgroundDepth.Load(pixelPos, 2);
+        v += gBackgroundDepth.Load(pixelPos, 3);
+    }
+
+    if (sampleCount >= 8) {
+        v += gBackgroundDepth.Load(pixelPos, 4);
+        v += gBackgroundDepth.Load(pixelPos, 5);
+        v += gBackgroundDepth.Load(pixelPos, 6);
+        v += gBackgroundDepth.Load(pixelPos, 7);
+    }
+
+    return v / float(sampleCount);
 }
 #elif defined(DYNAMIC_RENDER_PARAMS) || defined(SPEC_CONSTANT_RENDER_PARAMS) || defined(LIBRARY)
 Texture2D<float> gBackgroundDepth : register(t2, space3);
 
-float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
+float sampleBackgroundDepth(int2 pixelPos, uint sampleCount) {
     return gBackgroundDepth.Load(int3(pixelPos, 0));
 }
 #endif
 
-LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
-    bool isFrontFace, uint sampleIndex, out float4 resultColor, out float4 resultAlpha, out float resultDepth) 
+LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
+    bool isFrontFace, out float4 resultColor, out float4 resultAlpha, out float resultDepth) 
 {
     const OtherMode otherMode = { rp.omL, rp.omH };
 #if defined(DYNAMIC_RENDER_PARAMS)
@@ -59,6 +76,7 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
     if (depthClampNear) {
         // TODO: validate if this max is needed.
         resultDepth = max(resultDepth, 0.0f);
+        
         // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
         if (resultDepth > 1.0f) {
             return false;
@@ -76,7 +94,8 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
     if (depthDecal) {
         // Sample the depth buffer for this pixel to compare for the decal check.
         int2 pixelPos = floor(vertexPosition.xy);
-        float surfaceDepth = sampleBackgroundDepth(pixelPos, sampleIndex);
+        uint sampleCount = 1U << renderFlagSampleCount(rp.flags);
+        float surfaceDepth = sampleBackgroundDepth(pixelPos, sampleCount);
 
         // Calculate the decal depth tolerance based on the depth derivatives (or the prim dz value if prim depth source is enabled).
         float dz;
@@ -86,9 +105,9 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
         else {
             dz = (abs(ddx(vertexPosition.z)) + abs(ddy(vertexPosition.z))) * FbParams.resolutionScale.y;
         }
-        const float DepthTolerance = max(CoplanarDepthTolerance(surfaceDepth), dz);
 
         // Perform the decal depth tolerance check.
+        const float DepthTolerance = max(CoplanarDepthTolerance(surfaceDepth), dz);
         if (abs(resultDepth - surfaceDepth) > DepthTolerance) {
             return false;
         }
@@ -273,9 +292,6 @@ void PSMain(
 #if defined(DYNAMIC_RENDER_PARAMS)
     , bool isFrontFace : SV_IsFrontFace
 #endif
-#if defined(MULTISAMPLING)
-    , in uint sampleIndex : SV_SampleIndex
-#endif
     , [[vk::location(0)]] [[vk::index(0)]] out float4 pixelColor : SV_TARGET0
     , [[vk::location(0)]] [[vk::index(1)]] out float4 pixelAlpha : SV_TARGET1
 #if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
@@ -289,18 +305,10 @@ void PSMain(
 #endif
     bool isFrontFace = false;
 #endif
-#if !defined(MULTISAMPLING)
-    uint sampleIndex = 0;
-#endif
-#if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
-    const bool outputDepth = true;
-#else
-    const bool outputDepth = false;
-#endif
     float4 resultColor;
     float4 resultAlpha;
     float resultDepth;
-    if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, isFrontFace, sampleIndex, resultColor, resultAlpha, resultDepth)) {
+    if (!RasterPS(getRenderParams(), vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, isFrontFace, resultColor, resultAlpha, resultDepth)) {
         discard;
     }
 

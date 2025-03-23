@@ -32,14 +32,9 @@ namespace RT64 {
         return ss.str();
     }
 
-    bool ShaderDescription::outputDepth(bool useMSAA) const {
-        (void)useMSAA;
+    bool ShaderDescription::outputDepth() const {
         bool copyMode = (otherMode.cycleType() == G_CYC_COPY);
         bool zSourcePrim = (otherMode.zSource() == G_ZS_PRIM);
-
-        // TODO: validate if issue in the following comment is fixed with the new decal solution:
-        // FIXME: Depth output is forced when using multisampling to avoid problems from interactions when sampling the depth buffer directly on decals. 
-        // The true case of this issue is still pending investigation (https://github.com/rt64/rt64/issues/24).
         return !copyMode && zSourcePrim;
     }
 };
