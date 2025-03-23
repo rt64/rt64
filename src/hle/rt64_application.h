@@ -107,7 +107,7 @@ namespace RT64 {
         EmulatorConfiguration emulatorConfig;
         EnhancementConfiguration enhancementConfig;
         ApplicationConfiguration appConfig;
-        UserConfiguration::GraphicsAPI createdGraphicsAPI;
+        UserConfiguration::GraphicsAPI chosenGraphicsAPI;
         bool freeCamClearQueued;
         UserPaths userPaths;
         std::unique_ptr<Interpreter> interpreter;
@@ -138,7 +138,6 @@ namespace RT64 {
         uint32_t threadsAvailable;
         ProfilingTimer dlApiProfiler = ProfilingTimer(120);
         ProfilingTimer screenApiProfiler = ProfilingTimer(120);
-        bool wineDetected;
 
 #   if RT_ENABLED
         RaytracingConfiguration rtConfig;
