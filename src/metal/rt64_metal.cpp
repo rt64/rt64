@@ -2111,6 +2111,7 @@ namespace RT64 {
                 needsUpdate = i >= stateCache.lastVertexBuffers.size() || interfaceBuffer->mtl != stateCache.lastVertexBuffers[i] || newOffset != stateCache.lastVertexBufferOffsets[i] || newIndex != stateCache.lastVertexBufferIndices[i];
 
                 vertexBuffers[i] = interfaceBuffer->mtl;
+                vertexBuffers[i]->retain();
                 vertexBufferOffsets[i] = newOffset;
                 vertexBufferIndices[i] = newIndex;
             }
@@ -3098,7 +3099,6 @@ namespace RT64 {
         resolveTexturePipelineState->release();
         clearVertexFunction->release();
         clearColorFunction->release();
-        clearDepthFunction->release();
         clearDepthFunction->release();
         device->release();
         reusableBlitDescriptor->release();
