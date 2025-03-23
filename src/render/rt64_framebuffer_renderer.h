@@ -89,8 +89,11 @@ namespace RT64 {
         RenderPipeline *postBlendDitherNoiseSubNegativePipeline = nullptr;
         std::unique_ptr<FramebufferRendererDescriptorCommonSet> descCommonSet;
         std::unique_ptr<FramebufferRendererDescriptorTextureSet> descTextureSet;
+        std::unique_ptr<RenderTexture> dummyColorTarget;
         std::unique_ptr<RenderTexture> dummyDepthTarget;
+        std::unique_ptr<RenderTextureView> dummyColorTargetView;
         std::unique_ptr<RenderTextureView> dummyDepthTargetView;
+        bool dummyColorTargetTransitioned = false;
         bool dummyDepthTargetTransitioned = false;
         std::vector<uint32_t> descriptorTextureVersions;
         uint32_t descriptorTextureGlobalVersion = 0;
