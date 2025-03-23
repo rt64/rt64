@@ -199,7 +199,7 @@ namespace RT64 {
                 }
                 else {
                     PSBlob = useMSAA ? RasterPSSpecConstantFlatMSBlobMSL : RasterPSSpecConstantFlatBlobMSL;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatMSBlobMSL)) : std::size(RasterPSSpecConstantFlatBlobMSL));
+                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatMSBlobMSL) : std::size(RasterPSSpecConstantFlatBlobMSL));
                 }
             }
 
