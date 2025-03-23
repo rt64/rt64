@@ -8,8 +8,6 @@
 
 #include "common/rt64_math.h"
 
-// Sourced from Wiseguy.
-
 #define DEPTH_EXPONENT_MASK     0xE000
 #define DEPTH_MANTISSA_MASK     0x1FFC
 #define DEPTH_EXPONENT_SHIFT    13
