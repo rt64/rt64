@@ -354,9 +354,6 @@ namespace RT64 {
                         dstCallTile.reinterpretTile = checkResult.reinterpret || usesTLUT;
                         dstCallTile.reinterpretSiz = checkResult.siz;
                         dstCallTile.reinterpretFmt = checkResult.fmt;
-                        
-                        // Native samplers do not support the level of precision that framebuffer tile copies require for copying data around.
-                        nativeSamplerSupported = false;
                     }
                     else {
                         dstCallTile.tileCopyUsed = false;
