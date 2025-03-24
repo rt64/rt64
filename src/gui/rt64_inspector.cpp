@@ -176,7 +176,11 @@ namespace RT64 {
             break;
         }
         case UserConfiguration::GraphicsAPI::Metal: {
+#       ifdef __APPLE__
             ImGui_ImplMetal_Shutdown();
+#       else
+            assert(false && "Unsupported Graphics API.");
+#       endif
             break;
         }
         default:
