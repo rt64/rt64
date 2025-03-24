@@ -25,7 +25,7 @@ namespace RT64 {
         void maskUnusedParameters();
         uint64_t hash() const;
         std::string toShader() const;
-        bool outputDepth(bool useMSAA) const;
+        bool outputDepth() const;
     };
 #pragma pack(pop)
 };

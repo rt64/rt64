@@ -1585,7 +1585,7 @@ namespace RT64 {
                         const RenderBottomLevelASMesh asMesh(indexRes->at(call.meshDesc.faceIndicesStart *IndexStride), worldPosRes->at(0), RenderFormat::R32_UINT, RenderFormat::R32G32B32_FLOAT, call.callDesc.triangleCount * 3, vertexCount, PosStride, false);
                         rtResources->addBottomLevelASMesh(asMesh);
 
-                        if (call.shaderDesc.flags.smoothNormal) {
+                        if (false) { // TODO: call.shaderDesc.flags.smoothNormal
                             RSPSmoothNormalGenerationCB rspSmoothNormal;
                             rspSmoothNormal.indexStart = call.meshDesc.faceIndicesStart;
                             rspSmoothNormal.indexCount = call.callDesc.triangleCount * 3;
