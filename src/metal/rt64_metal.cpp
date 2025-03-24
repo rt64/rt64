@@ -862,7 +862,7 @@ namespace RT64 {
         NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
         // Initialize binding vector with -1 (invalid index)
-        bindingToIndex.resize(MAX_BINDING_NUMBER + 1, -1);
+        bindingToIndex.resize(MAX_BINDING_NUMBER, -1);
 
         // Pre-allocate vectors with known size
         const uint32_t totalDescriptors = desc.descriptorRangesCount + (desc.lastRangeIsBoundless ? desc.boundlessRangeSize : 0);
