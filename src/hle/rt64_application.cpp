@@ -185,6 +185,15 @@ namespace RT64 {
                         usesHardwareResolve = false;
                     }
                 }
+
+                if (automaticGraphicsAPI) {
+                    // Driver 475.14 or below seems to have much better performance in Vulkan, almost twice as fast on a GT 730. The workaround is we switch to Vulkan.
+                    // The reason behind this performance difference is currently unknown and doesn't show up in newer drivers or hardware.
+                    const uint64_t UnderperformingNVIDIADriverD3D12 = 0x001e0000000e1d5a; // 475.14
+                    if (driverVersion <= UnderperformingNVIDIADriverD3D12) {
+                        forceVulkanForCompatibility = true;
+                    }
+                }
             }
         }
         else if (deviceVendor == RenderDeviceVendor::AMD) {
