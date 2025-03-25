@@ -46,12 +46,11 @@ float sampleBackgroundDepth(int2 pixelPos, uint sampleCount) {
 #endif
 
 LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
-    bool isFrontFace, out float4 resultColor, out float4 resultAlpha, out float resultDepth) 
+    bool isFrontFace, out float4 resultColor, out float4 resultAlpha) 
 {
     const OtherMode otherMode = { rp.omL, rp.omH };
 #if defined(DYNAMIC_RENDER_PARAMS)
     if ((otherMode.cycleType() != G_CYC_COPY) && renderFlagCulling(rp.flags) && isFrontFace) {
-        resultDepth = vertexPosition.z;
         return false;
     }
 #endif
@@ -65,27 +64,17 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float
     int2 pixelPosSeed = floor(vertexPosition.xy);
     uint randomSeed = initRand(FrParams.frameCount, instanceIndex * pixelPosSeed.y * pixelPosSeed.x, 16); // TODO: Review seed.
 
-    if (zSourcePrim) {
-        resultDepth = instanceRDPParams[instanceIndex].primDepth.x;
-    }
-    else {
-        resultDepth = vertexPosition.z;
-    }
-
     // Handle no-nearclipping by clamping the minimum depth and manually clipping above the maximum.
     if (depthClampNear) {
-        // TODO: validate if this max is needed.
-        resultDepth = max(resultDepth, 0.0f);
-        
         // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
-        if (resultDepth > 1.0f) {
+        if (vertexPosition.z > 1.0f) {
             return false;
         }
     }
 #ifdef DYNAMIC_RENDER_PARAMS
     // We emulate depth clip on the dynamic version of the shader.
     else {
-        if ((resultDepth < 0.0f) || (resultDepth > 1.0f)) {
+        if ((vertexPosition.z < 0.0f) || (vertexPosition.z > 1.0f)) {
             return false;
         }
     }
@@ -108,7 +97,8 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float
 
         // Perform the decal depth tolerance check.
         const float DepthTolerance = max(CoplanarDepthTolerance(surfaceDepth), dz);
-        if (abs(resultDepth - surfaceDepth) > DepthTolerance) {
+        const float pixelDepth = select(depthClampNear, max(vertexPosition.z, 0.0f), vertexPosition.z);
+        if (abs(pixelDepth - surfaceDepth) > DepthTolerance) {
             return false;
         }
     }
@@ -294,9 +284,6 @@ void PSMain(
 #endif
     , [[vk::location(0)]] [[vk::index(0)]] out float4 pixelColor : SV_TARGET0
     , [[vk::location(0)]] [[vk::index(1)]] out float4 pixelAlpha : SV_TARGET1
-#if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
-    , out float pixelDepth : SV_DEPTH
-#endif
 )
 {
 #if !defined(DYNAMIC_RENDER_PARAMS)
@@ -308,14 +295,11 @@ void PSMain(
     float4 resultColor;
     float4 resultAlpha;
     float resultDepth;
-    if (!RasterPS(getRenderParams(), vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, isFrontFace, resultColor, resultAlpha, resultDepth)) {
+    if (!RasterPS(getRenderParams(), vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, isFrontFace, resultColor, resultAlpha)) {
         discard;
     }
 
     pixelColor = resultColor;
     pixelAlpha = resultAlpha;
-#if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
-    pixelDepth = resultDepth;
-#endif
 }
 #endif

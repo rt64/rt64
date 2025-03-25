@@ -31,10 +31,4 @@ namespace RT64 {
         ss << "rp.flags = " << std::to_string(flags.value) << ";";
         return ss.str();
     }
-
-    bool ShaderDescription::outputDepth() const {
-        bool copyMode = (otherMode.cycleType() == G_CYC_COPY);
-        bool zSourcePrim = (otherMode.zSource() == G_ZS_PRIM);
-        return !copyMode && zSourcePrim;
-    }
 };
