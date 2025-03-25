@@ -32,9 +32,13 @@
 #include "shaders/RSPVertexTestZCSMS.hlsl.spirv.h"
 #include "shaders/RSPWorldCS.hlsl.spirv.h"
 #include "shaders/RtCopyColorToDepthPS.hlsl.spirv.h"
-#include "shaders/RtCopyColorToDepthPSMS.hlsl.spirv.h"
+#include "shaders/RtCopyColorToDepth2XPS.hlsl.spirv.h"
+#include "shaders/RtCopyColorToDepth4XPS.hlsl.spirv.h"
+#include "shaders/RtCopyColorToDepth8XPS.hlsl.spirv.h"
 #include "shaders/RtCopyDepthToColorPS.hlsl.spirv.h"
-#include "shaders/RtCopyDepthToColorPSMS.hlsl.spirv.h"
+#include "shaders/RtCopyDepthToColor2XPS.hlsl.spirv.h"
+#include "shaders/RtCopyDepthToColor4XPS.hlsl.spirv.h"
+#include "shaders/RtCopyDepthToColor8XPS.hlsl.spirv.h"
 #include "shaders/TextureCopyPS.hlsl.spirv.h"
 #include "shaders/TextureDecodeCS.hlsl.spirv.h"
 #include "shaders/TextureResolveSamples2XPS.hlsl.spirv.h"
@@ -74,9 +78,13 @@
 #   include "shaders/RSPVertexTestZCSMS.hlsl.dxil.h"
 #   include "shaders/RSPWorldCS.hlsl.dxil.h"
 #   include "shaders/RtCopyColorToDepthPS.hlsl.dxil.h"
-#   include "shaders/RtCopyColorToDepthPSMS.hlsl.dxil.h"
+#   include "shaders/RtCopyColorToDepth2XPS.hlsl.dxil.h"
+#   include "shaders/RtCopyColorToDepth4XPS.hlsl.dxil.h"
+#   include "shaders/RtCopyColorToDepth8XPS.hlsl.dxil.h"
 #   include "shaders/RtCopyDepthToColorPS.hlsl.dxil.h"
-#   include "shaders/RtCopyDepthToColorPSMS.hlsl.dxil.h"
+#   include "shaders/RtCopyDepthToColor2XPS.hlsl.dxil.h"
+#   include "shaders/RtCopyDepthToColor4XPS.hlsl.dxil.h"
+#   include "shaders/RtCopyDepthToColor8XPS.hlsl.dxil.h"
 #   include "shaders/TextureCopyPS.hlsl.dxil.h"
 #   include "shaders/TextureDecodeCS.hlsl.dxil.h"
 #   include "shaders/TextureResolveSamples2XPS.hlsl.dxil.h"
@@ -115,9 +123,13 @@
 #   include "shaders/RSPVertexTestZCSMS.hlsl.metal.h"
 #   include "shaders/RSPWorldCS.hlsl.metal.h"
 #   include "shaders/RtCopyColorToDepthPS.hlsl.metal.h"
-#   include "shaders/RtCopyColorToDepthPSMS.hlsl.metal.h"
+#   include "shaders/RtCopyColorToDepth2XPS.hlsl.metal.h"
+#   include "shaders/RtCopyColorToDepth4XPS.hlsl.metal.h"
+#   include "shaders/RtCopyColorToDepth8XPS.hlsl.metal.h"
 #   include "shaders/RtCopyDepthToColorPS.hlsl.metal.h"
-#   include "shaders/RtCopyDepthToColorPSMS.hlsl.metal.h"
+#   include "shaders/RtCopyDepthToColor2XPS.hlsl.metal.h"
+#   include "shaders/RtCopyDepthToColor4XPS.hlsl.metal.h"
+#   include "shaders/RtCopyDepthToColor8XPS.hlsl.metal.h"
 #   include "shaders/TextureCopyPS.hlsl.metal.h"
 #   include "shaders/TextureDecodeCS.hlsl.metal.h"
 #   include "shaders/TextureResolveSamples2XPS.hlsl.metal.h"
@@ -622,6 +634,126 @@ namespace RT64 {
         // Create shaders shared across all pipelines.
         std::unique_ptr<RenderShader> fullScreenVertexShader = device->createShader(CREATE_SHADER_INPUTS(FullScreenVSBlobDXIL, FullScreenVSBlobSPIRV, FullScreenVSBlobMSL, "VSMain", shaderFormat));
 
+        // Select shader blobs based on sample count.
+        const void *TextureResolvePSBlob = nullptr;
+        const void *RtCopyDepthToColorPSBlob = nullptr;
+        const void *RtCopyDepthToColorPSMSBlob = nullptr;
+        const void *RtCopyColorToDepthPSBlob = nullptr;
+        const void *RtCopyColorToDepthPSMSBlob = nullptr;
+        uint32_t TextureResolvePSBlobSize = 0;
+        uint32_t RtCopyDepthToColorPSBlobSize = 0;
+        uint32_t RtCopyDepthToColorPSMSBlobSize = 0;
+        uint32_t RtCopyColorToDepthPSBlobSize = 0;
+        uint32_t RtCopyColorToDepthPSMSBlobSize = 0;
+#   ifdef _WIN32
+        if (shaderFormat == RenderShaderFormat::DXIL) {
+            RtCopyDepthToColorPSBlob = RtCopyDepthToColorPSBlobDXIL;
+            RtCopyDepthToColorPSBlobSize = std::size(RtCopyDepthToColorPSBlobDXIL);
+            RtCopyColorToDepthPSBlob = RtCopyColorToDepthPSBlobDXIL;
+            RtCopyColorToDepthPSBlobSize = std::size(RtCopyColorToDepthPSBlobDXIL);
+
+            switch (multisampling.sampleCount) {
+            case RenderSampleCount::COUNT_2:
+                TextureResolvePSBlob = TextureResolveSamples2XPSBlobDXIL;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples2XPSBlobDXIL);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor2XPSBlobDXIL;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor2XPSBlobDXIL);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth2XPSBlobDXIL;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth2XPSBlobDXIL);
+                break;
+            case RenderSampleCount::COUNT_4:
+                TextureResolvePSBlob = TextureResolveSamples4XPSBlobDXIL;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples4XPSBlobDXIL);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor4XPSBlobDXIL;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor4XPSBlobDXIL);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth4XPSBlobDXIL;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth4XPSBlobDXIL);
+                break;
+            case RenderSampleCount::COUNT_8:
+                TextureResolvePSBlob = TextureResolveSamples8XPSBlobDXIL;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples8XPSBlobDXIL);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor8XPSBlobDXIL;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor8XPSBlobDXIL);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth8XPSBlobDXIL;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth8XPSBlobDXIL);
+                break;
+            }
+        }
+        else
+#   endif
+#   if defined(__APPLE__)
+        if (shaderFormat == RenderShaderFormat::METAL) {
+            RtCopyDepthToColorPSBlob = RtCopyDepthToColorPSBlobMSL;
+            RtCopyDepthToColorPSBlobSize = std::size(RtCopyDepthToColorPSBlobMSL);
+            RtCopyColorToDepthPSBlob = RtCopyColorToDepthPSBlobMSL;
+            RtCopyColorToDepthPSBlobSize = std::size(RtCopyColorToDepthPSBlobMSL);
+
+            switch (multisampling.sampleCount) {
+            case RenderSampleCount::COUNT_2:
+                TextureResolvePSBlob = TextureResolveSamples2XPSBlobMSL;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples2XPSBlobMSL);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor2XPSBlobMSL;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor2XPSBlobMSL);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth2XPSBlobMSL;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth2XPSBlobMSL);
+                break;
+            case RenderSampleCount::COUNT_4:
+                TextureResolvePSBlob = TextureResolveSamples4XPSBlobMSL;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples4XPSBlobMSL);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor4XPSBlobMSL;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor4XPSBlobMSL);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth4XPSBlobMSL;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth4XPSBlobMSL);
+                break;
+            case RenderSampleCount::COUNT_8:
+                TextureResolvePSBlob = TextureResolveSamples8XPSBlobMSL;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples8XPSBlobMSL);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor8XPSBlobMSL;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor8XPSBlobMSL);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth8XPSBlobMSL;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth8XPSBlobMSL);
+                break;
+            }
+        }
+        else
+#   endif
+        if (shaderFormat == RenderShaderFormat::SPIRV) {
+            RtCopyDepthToColorPSBlob = RtCopyDepthToColorPSBlobSPIRV;
+            RtCopyDepthToColorPSBlobSize = std::size(RtCopyDepthToColorPSBlobSPIRV);
+            RtCopyColorToDepthPSBlob = RtCopyColorToDepthPSBlobSPIRV;
+            RtCopyColorToDepthPSBlobSize = std::size(RtCopyColorToDepthPSBlobSPIRV);
+
+            switch (multisampling.sampleCount) {
+            case RenderSampleCount::COUNT_2:
+                TextureResolvePSBlob = TextureResolveSamples2XPSBlobSPIRV;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples2XPSBlobSPIRV);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor2XPSBlobSPIRV;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor2XPSBlobSPIRV);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth2XPSBlobSPIRV;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth2XPSBlobSPIRV);
+                break;
+            case RenderSampleCount::COUNT_4:
+                TextureResolvePSBlob = TextureResolveSamples4XPSBlobSPIRV;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples4XPSBlobSPIRV);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor4XPSBlobSPIRV;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor4XPSBlobSPIRV);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth4XPSBlobSPIRV;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth4XPSBlobSPIRV);
+                break;
+            case RenderSampleCount::COUNT_8:
+                TextureResolvePSBlob = TextureResolveSamples8XPSBlobSPIRV;
+                TextureResolvePSBlobSize = std::size(TextureResolveSamples8XPSBlobSPIRV);
+                RtCopyDepthToColorPSMSBlob = RtCopyDepthToColor8XPSBlobSPIRV;
+                RtCopyDepthToColorPSMSBlobSize = std::size(RtCopyDepthToColor8XPSBlobSPIRV);
+                RtCopyColorToDepthPSMSBlob = RtCopyColorToDepth8XPSBlobSPIRV;
+                RtCopyColorToDepthPSMSBlobSize = std::size(RtCopyColorToDepth8XPSBlobSPIRV);
+                break;
+            }
+        }
+        else {
+            assert(false && "Unknown shader format.");
+        }
+
         // Framebuffer changes draw color and depth.
         {
             FramebufferDrawChangesDescriptorSet descriptorSet;
@@ -665,8 +797,7 @@ namespace RT64 {
             rtCopyColorToDepth.pipelineLayout = layoutBuilder.create(device);
             rtCopyColorToDepthMS.pipelineLayout = layoutBuilder.create(device);
 
-            std::unique_ptr<RenderShader> depthToColorShader = device->createShader(CREATE_SHADER_INPUTS(RtCopyDepthToColorPSBlobDXIL, RtCopyDepthToColorPSBlobSPIRV, RtCopyDepthToColorPSBlobMSL, "PSMain", shaderFormat));
-            std::unique_ptr<RenderShader> depthToColorMSShader = device->createShader(CREATE_SHADER_INPUTS(RtCopyDepthToColorPSMSBlobDXIL, RtCopyDepthToColorPSMSBlobSPIRV, RtCopyDepthToColorPSMSBlobMSL, "PSMain", shaderFormat));
+            std::unique_ptr<RenderShader> depthToColorShader = device->createShader(RtCopyDepthToColorPSBlob, RtCopyDepthToColorPSBlobSize, "PSMain", shaderFormat);
             RenderGraphicsPipelineDesc pipelineDesc;
             pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
             pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
@@ -676,12 +807,12 @@ namespace RT64 {
             pipelineDesc.pixelShader = depthToColorShader.get();
             rtCopyDepthToColor.pipeline = device->createGraphicsPipeline(pipelineDesc);
 
+            std::unique_ptr<RenderShader> depthToColorMSShader = device->createShader(RtCopyDepthToColorPSMSBlob, RtCopyDepthToColorPSMSBlobSize, "PSMain", shaderFormat);
             pipelineDesc.pixelShader = depthToColorMSShader.get();
             pipelineDesc.multisampling = multisampling;
             rtCopyDepthToColorMS.pipeline = device->createGraphicsPipeline(pipelineDesc);
 
-            std::unique_ptr<RenderShader> colorToDepthShader = device->createShader(CREATE_SHADER_INPUTS(RtCopyColorToDepthPSBlobDXIL, RtCopyColorToDepthPSBlobSPIRV, RtCopyColorToDepthPSBlobMSL, "PSMain", shaderFormat));
-            std::unique_ptr<RenderShader> colorToDepthMSShader = device->createShader(CREATE_SHADER_INPUTS(RtCopyColorToDepthPSMSBlobDXIL, RtCopyColorToDepthPSMSBlobSPIRV, RtCopyColorToDepthPSMSBlobMSL, "PSMain", shaderFormat));
+            std::unique_ptr<RenderShader> colorToDepthShader = device->createShader(RtCopyColorToDepthPSBlob, RtCopyColorToDepthPSBlobSize, "PSMain", shaderFormat);
             pipelineDesc.depthEnabled = true;
             pipelineDesc.depthFunction = RenderComparisonFunction::ALWAYS;
             pipelineDesc.depthWriteEnabled = true;
@@ -691,6 +822,7 @@ namespace RT64 {
             pipelineDesc.multisampling = RenderMultisampling();
             rtCopyColorToDepth.pipeline = device->createGraphicsPipeline(pipelineDesc);
 
+            std::unique_ptr<RenderShader> colorToDepthMSShader = device->createShader(RtCopyColorToDepthPSMSBlob, RtCopyColorToDepthPSMSBlobSize, "PSMain", shaderFormat);
             pipelineDesc.pixelShader = colorToDepthMSShader.get();
             pipelineDesc.multisampling = multisampling;
             rtCopyColorToDepthMS.pipeline = device->createGraphicsPipeline(pipelineDesc);
@@ -762,88 +894,22 @@ namespace RT64 {
 
         // Texture Resolve.
         {
-            const void *PSBlob = nullptr;
-            uint32_t PSBlobSize = 0;
-#       ifdef _WIN32
-            if (shaderFormat == RenderShaderFormat::DXIL) {
-                switch (multisampling.sampleCount) {
-                case RenderSampleCount::COUNT_2:
-                    PSBlob = TextureResolveSamples2XPSBlobDXIL;
-                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobDXIL);
-                    break;
-                case RenderSampleCount::COUNT_4:
-                    PSBlob = TextureResolveSamples4XPSBlobDXIL;
-                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobDXIL);
-                    break;
-                case RenderSampleCount::COUNT_8:
-                    PSBlob = TextureResolveSamples8XPSBlobDXIL;
-                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobDXIL);
-                    break;
-                }
-            }
-            else 
-#       endif
-#       if defined(__APPLE__)
-            if (shaderFormat == RenderShaderFormat::METAL) {
-                switch (multisampling.sampleCount) {
-                case RenderSampleCount::COUNT_2:
-                    PSBlob = TextureResolveSamples2XPSBlobMSL;
-                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobMSL);
-                    break;
-                case RenderSampleCount::COUNT_4:
-                    PSBlob = TextureResolveSamples4XPSBlobMSL;
-                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobMSL);
-                    break;
-                case RenderSampleCount::COUNT_8:
-                    PSBlob = TextureResolveSamples8XPSBlobMSL;
-                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobMSL);
-                    break;
-                }
-            }
-            else
-#       endif
-            if (shaderFormat == RenderShaderFormat::SPIRV) {
-                switch (multisampling.sampleCount) {
-                case RenderSampleCount::COUNT_2:
-                    PSBlob = TextureResolveSamples2XPSBlobSPIRV;
-                    PSBlobSize = std::size(TextureResolveSamples2XPSBlobSPIRV);
-                    break;
-                case RenderSampleCount::COUNT_4:
-                    PSBlob = TextureResolveSamples4XPSBlobSPIRV;
-                    PSBlobSize = std::size(TextureResolveSamples4XPSBlobSPIRV);
-                    break;
-                case RenderSampleCount::COUNT_8:
-                    PSBlob = TextureResolveSamples8XPSBlobSPIRV;
-                    PSBlobSize = std::size(TextureResolveSamples8XPSBlobSPIRV);
-                    break;
-                }
-            }
-            else {
-                assert(false && "Unknown shader format.");
-            }
+            TextureCopyDescriptorSet descriptorSet;
+            layoutBuilder.begin();
+            layoutBuilder.addPushConstant(0, 0, sizeof(interop::TextureCopyCB), RenderShaderStageFlag::PIXEL);
+            layoutBuilder.addDescriptorSet(descriptorSet);
+            layoutBuilder.end();
+            textureResolve.pipelineLayout = layoutBuilder.create(device);
 
-            if (PSBlob != nullptr) {
-                TextureCopyDescriptorSet descriptorSet;
-                layoutBuilder.begin();
-                layoutBuilder.addPushConstant(0, 0, sizeof(interop::TextureCopyCB), RenderShaderStageFlag::PIXEL);
-                layoutBuilder.addDescriptorSet(descriptorSet);
-                layoutBuilder.end();
-                textureResolve.pipelineLayout = layoutBuilder.create(device);
-
-                std::unique_ptr<RenderShader> pixelShader = device->createShader(PSBlob, PSBlobSize, "PSMain", shaderFormat);
-                RenderGraphicsPipelineDesc pipelineDesc;
-                pipelineDesc.pipelineLayout = textureResolve.pipelineLayout.get();
-                pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-                pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
-                pipelineDesc.renderTargetCount = 1;
-                pipelineDesc.vertexShader = fullScreenVertexShader.get();
-                pipelineDesc.pixelShader = pixelShader.get();
-                textureResolve.pipeline = device->createGraphicsPipeline(pipelineDesc);
-            }
-            else {
-                textureResolve.pipeline.reset();
-                textureResolve.pipelineLayout.reset();
-            }
+            std::unique_ptr<RenderShader> pixelShader = device->createShader(TextureResolvePSBlob, TextureResolvePSBlobSize, "PSMain", shaderFormat);
+            RenderGraphicsPipelineDesc pipelineDesc;
+            pipelineDesc.pipelineLayout = textureResolve.pipelineLayout.get();
+            pipelineDesc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+            pipelineDesc.renderTargetFormat[0] = RenderTarget::colorBufferFormat(usesHDR);
+            pipelineDesc.renderTargetCount = 1;
+            pipelineDesc.vertexShader = fullScreenVertexShader.get();
+            pipelineDesc.pixelShader = pixelShader.get();
+            textureResolve.pipeline = device->createGraphicsPipeline(pipelineDesc);
         }
     }
 };
