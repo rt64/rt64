@@ -3570,8 +3570,19 @@ namespace RT64 {
             createDeviceChain = &accelerationStructureFeatures;
         }
 
-        const bool sampleLocationsSupported = supportedOptionalExtensions.find(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME) != supportedOptionalExtensions.end();
-        if (sampleLocationsSupported) {
+#   ifdef __linux__
+         // There's a known issue where some Intel GPUs under Mesa currently report sample locations as supported but they'll crash
+         // when creating a pipeline that uses them. The current family of hardware or driver versions affected is currently unknown.
+         const bool sampleLocationsBroken = (description.vendor == RenderDeviceVendor::INTEL);
+#   else
+         const bool sampleLocationsBroken = false;
+#   endif
+
+         // TODO: Technically, checking this on its own is not enough to know whether the feature is supported. This requires a
+         // refactor to report individual sample counts separately. However, the lack of this check does not affect the bug described
+         // above with Intel under Mesa, as all available sample counts are reported anyway.
+         const bool sampleLocationsSupported = !sampleLocationsBroken && (supportedOptionalExtensions.find(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME) != supportedOptionalExtensions.end());
+         if (sampleLocationsSupported) {
             sampleLocationProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT;
 
             VkPhysicalDeviceProperties2 deviceProperties2 = {};
