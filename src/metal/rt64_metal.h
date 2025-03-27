@@ -282,6 +282,30 @@ namespace RT64 {
             }
         };
 
+        // Track resources that need to be bound for the current encoder
+        struct EncoderResources {
+            struct ResourceEntry {
+                MTL::Resource* resource;
+                RenderDescriptorRangeType type;
+                
+                bool operator==(const ResourceEntry& other) const {
+                    return resource == other.resource && type == other.type;
+                }
+            };
+            std::vector<ResourceEntry> resources;
+            
+            void addResource(MTL::Resource* resource, RenderDescriptorRangeType type) {
+                ResourceEntry entry{resource, type};
+                if (std::find(resources.begin(), resources.end(), entry) == resources.end()) {
+                    resources.push_back(entry);
+                }
+            }
+            
+            void clear() {
+                resources.clear();
+            }
+        };
+
         MTL::CommandBuffer *mtl = nullptr;
         EncoderType activeType = EncoderType::None;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
@@ -329,6 +353,9 @@ namespace RT64 {
 
         const MetalDescriptorSet* renderDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
         const MetalDescriptorSet* computeDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
+        
+        EncoderResources currentEncoderResources;
+        void bindEncoderResources(MTL::CommandEncoder* encoder, bool isCompute);
 
         MetalCommandList(const MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
@@ -544,7 +571,7 @@ namespace RT64 {
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
 
-        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex) const;
+        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex, MetalCommandList::EncoderResources& encoderResources) const;
     };
 
     struct MetalDevice : RenderDevice {
