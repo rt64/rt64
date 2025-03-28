@@ -1,6 +1,7 @@
 #pragma once
 
 #include <set>
+#include <unordered_set>
 
 #include "rhi/rt64_render_interface.h"
 #include "apple/rt64_apple.h"
@@ -292,13 +293,17 @@ namespace RT64 {
                     return resource == other.resource && type == other.type;
                 }
             };
-            std::vector<ResourceEntry> resources;
+
+            struct ResourceEntryHash {
+                std::size_t operator()(const ResourceEntry& entry) const {
+                    return std::hash<void*>{}(entry.resource);
+                }
+            };
+
+            std::unordered_set<ResourceEntry, ResourceEntryHash> resources;
             
             void addResource(MTL::Resource* resource, RenderDescriptorRangeType type) {
-                ResourceEntry entry{resource, type};
-                if (std::find(resources.begin(), resources.end(), entry) == resources.end()) {
-                    resources.push_back(entry);
-                }
+                resources.insert(ResourceEntry{resource, type});
             }
             
             void clear() {
