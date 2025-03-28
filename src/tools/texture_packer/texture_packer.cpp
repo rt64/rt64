@@ -462,6 +462,11 @@ int main(int argc, char *argv[]) {
             addToQueue(it);
         }
 
+        // Add extra files to queue.
+        for (auto it : database.extraFiles) {
+            addToQueue(it);
+        }
+
         // Add database file to queue.
         addToQueue(RT64::ReplacementDatabaseFilename);
 
