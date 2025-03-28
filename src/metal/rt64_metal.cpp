@@ -1019,7 +1019,9 @@ namespace RT64 {
     }
 
     void MetalBuffer::unmap(uint32_t subresource, const RenderRange* writtenRange) {
-        // Do nothing.
+        if (mtl->storageMode() == MTL::StorageModeManaged) {
+            mtl->didModifyRange(NS::Range(writtenRange->begin, writtenRange->end - writtenRange->begin));
+        }
     }
 
     std::unique_ptr<RenderBufferFormattedView> MetalBuffer::createBufferFormattedView(RenderFormat format) {
@@ -1424,7 +1426,7 @@ namespace RT64 {
         requiredSize = alignUp(requiredSize, 256);
 
         argumentBuffer = {
-            .mtl = device->mtl->newBuffer(requiredSize, MTL::ResourceStorageModeManaged),
+            .mtl = device->mtl->newBuffer(requiredSize, MTL::ResourceStorageModeShared),
             .argumentEncoder = setLayout->argumentEncoder,
             .offset = 0,
         };
