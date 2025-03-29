@@ -382,6 +382,8 @@ namespace RT64 {
         void prepareClearVertices(const RenderRect& rect, simd::float2* outVertices);
         void checkForUpdatesInGraphicsState();
         void setCommonClearState() const;
+
+        MTL::RenderCommandEncoder* createRenderPassWithClear(uint32_t colorAttachmentIndex, const RenderColor* clearColor, bool clearDepth, float depthValue);
     };
 
     struct MetalCommandFence : RenderCommandFence {

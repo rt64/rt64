@@ -2166,11 +2166,75 @@ namespace RT64 {
         activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
     }
 
+    MTL::RenderCommandEncoder* MetalCommandList::createRenderPassWithClear(uint32_t colorAttachmentIndex, const RenderColor* clearColor, bool clearDepth, float depthValue) {
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+
+        MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
+
+        // Setup color attachments
+        for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+            MTL::RenderPassColorAttachmentDescriptor *colorAttachment = renderDescriptor->colorAttachments()->object(i);
+            colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
+            
+            if (clearColor && i == colorAttachmentIndex) {
+                colorAttachment->setLoadAction(MTL::LoadActionClear);
+                colorAttachment->setClearColor(mapClearColor(*clearColor));
+            } else {
+                colorAttachment->setLoadAction(MTL::LoadActionLoad);
+            }
+            colorAttachment->setStoreAction(MTL::StoreActionStore);
+        }
+
+        // Setup depth attachment
+        if (targetFramebuffer->depthAttachment != nullptr) {
+            MTL::RenderPassDepthAttachmentDescriptor *depthAttachment = renderDescriptor->depthAttachment();
+            depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
+            
+            if (clearDepth) {
+                depthAttachment->setLoadAction(MTL::LoadActionClear);
+                depthAttachment->setClearDepth(depthValue);
+            } else {
+                depthAttachment->setLoadAction(MTL::LoadActionLoad);
+            }
+            depthAttachment->setStoreAction(MTL::StoreActionStore);
+        }
+
+        // Setup multisampling if needed
+        if (targetFramebuffer->sampleCount > 1) {
+            renderDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
+        }
+
+        MTL::RenderCommandEncoder* encoder = mtl->renderCommandEncoder(renderDescriptor);
+        encoder->setLabel(MTLSTR("Graphics Render Encoder"));
+        encoder->retain();
+
+        releasePool->release();
+        return encoder;
+    }
+
+    void MetalCommandList::checkActiveRenderEncoder() {
+        assert(targetFramebuffer != nullptr);
+        endOtherEncoders(EncoderType::Render);
+        activeType = EncoderType::Render;
+
+        if (activeRenderEncoder == nullptr) {
+            activeRenderEncoder = createRenderPassWithClear(0, nullptr, false, 0.0f);
+        }
+    }
+
     void MetalCommandList::clearColor(const uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, const uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(attachmentIndex < targetFramebuffer->colorAttachments.size());
         assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
 
+        // For full framebuffer clears, use the more efficient load action clear
+        if (clearRectsCount == 0) {
+            endActiveRenderEncoder();
+            activeRenderEncoder = createRenderPassWithClear(attachmentIndex, &colorValue, false, 0.0f);
+            return;
+        }
+
+        // For partial clears, do our own quad-based clear
         checkActiveRenderEncoder();
 
         NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
@@ -2252,6 +2316,14 @@ namespace RT64 {
         assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
 
         if (clearDepth) {
+            // For full framebuffer clears, use the more efficient load action clear
+            if (clearRectsCount == 0) {
+                endActiveRenderEncoder();
+                activeRenderEncoder = createRenderPassWithClear(0, nullptr, true, depthValue);
+                return;
+            }
+
+            // For partial clears, do our own quad-based clear
             checkActiveRenderEncoder();
 
             NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
@@ -2621,43 +2693,6 @@ namespace RT64 {
 
             // Clear state cache for compute
             stateCache.lastPushConstants.clear();
-        }
-    }
-
-    void MetalCommandList::checkActiveRenderEncoder() {
-        assert(targetFramebuffer != nullptr);
-        endOtherEncoders(EncoderType::Render);
-        activeType = EncoderType::Render;
-
-        if (activeRenderEncoder == nullptr) {
-            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
-
-            // target frame buffer & sample positions affect the descriptor
-            MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
-
-            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-                MTL::RenderPassColorAttachmentDescriptor *colorAttachment = renderDescriptor->colorAttachments()->object(i);
-                colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
-                colorAttachment->setLoadAction(MTL::LoadActionLoad);
-                colorAttachment->setStoreAction(MTL::StoreActionStore);
-            }
-
-            if (targetFramebuffer->depthAttachment != nullptr) {
-                MTL::RenderPassDepthAttachmentDescriptor *depthAttachment = renderDescriptor->depthAttachment();
-                depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
-                depthAttachment->setLoadAction(MTL::LoadActionLoad);
-                depthAttachment->setStoreAction(MTL::StoreActionStore);
-            }
-
-            if (targetFramebuffer->sampleCount > 1) {
-                renderDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
-            }
-
-            activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
-            activeRenderEncoder->setLabel(MTLSTR("Graphics Render Encoder"));
-
-            activeRenderEncoder->retain();
-            releasePool->release();
         }
     }
 
