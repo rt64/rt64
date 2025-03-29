@@ -1321,7 +1321,7 @@ namespace RT64 {
         for (uint32_t i = 0; i < desc.inputElementsCount; i++) {
             const RenderInputElement &inputElement = desc.inputElements[i];
 
-            MTL::VertexAttributeDescriptor *attributeDescriptor = vertexDescriptor->attributes()->object(i);
+            MTL::VertexAttributeDescriptor *attributeDescriptor = vertexDescriptor->attributes()->object(inputElement.location);
             attributeDescriptor->setOffset(inputElement.alignedByteOffset);
 
             const uint32_t vertexBufferIndex = std::min(PUSH_CONSTANT_MAX_INDEX + 1 + inputElement.slotIndex, VERTEX_BUFFER_MAX_INDEX);
