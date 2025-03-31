@@ -2177,59 +2177,6 @@ namespace RT64 {
         activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
     }
 
-    void MetalCommandList::checkActiveRenderEncoder() {
-        assert(targetFramebuffer != nullptr);
-        endOtherEncoders(EncoderType::Render);
-        activeType = EncoderType::Render;
-
-        if (activeRenderEncoder == nullptr) {
-            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
-
-            MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
-
-            // Setup color attachments
-            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
-                MTL::RenderPassColorAttachmentDescriptor *colorAttachment = renderDescriptor->colorAttachments()->object(i);
-                colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
-                colorAttachment->setLoadAction(pendingClears.active ? pendingClears.initialAction[i] : MTL::LoadActionLoad);
-                if (pendingClears.active && pendingClears.initialAction[i] == MTL::LoadActionClear) {
-                    colorAttachment->setClearColor(mapClearColor(pendingClears.clearValues[i].color));
-                }
-                colorAttachment->setStoreAction(MTL::StoreActionStore);
-            }
-
-            // Setup depth attachment
-            if (targetFramebuffer->depthAttachment != nullptr) {
-                const size_t depthIndex = targetFramebuffer->colorAttachments.size();
-                MTL::RenderPassDepthAttachmentDescriptor *depthAttachment = renderDescriptor->depthAttachment();
-                depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
-                depthAttachment->setLoadAction(pendingClears.active ? pendingClears.initialAction[depthIndex] : MTL::LoadActionLoad);
-                if (pendingClears.active && pendingClears.initialAction[depthIndex] == MTL::LoadActionClear) {
-                    depthAttachment->setClearDepth(pendingClears.clearValues[depthIndex].depth);
-                }
-                depthAttachment->setStoreAction(MTL::StoreActionStore);
-            }
-
-            // Setup multisampling if needed
-            if (targetFramebuffer->sampleCount > 1) {
-                renderDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
-            }
-
-            activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
-            activeRenderEncoder->setLabel(MTLSTR("Graphics Render Encoder"));
-            activeRenderEncoder->retain();
-            releasePool->release();
-
-            // Reset pending clears since we've now handled them
-            if (pendingClears.active) {
-                for (auto& action : pendingClears.initialAction) {
-                    action = MTL::LoadActionLoad;
-                }
-                pendingClears.active = false;
-            }
-        }
-    }
-
     void MetalCommandList::handlePendingClears() {
         if (!pendingClears.active) {
             return;
@@ -2714,6 +2661,59 @@ namespace RT64 {
 
             // Clear state cache for compute
             stateCache.lastPushConstants.clear();
+        }
+    }
+
+    void MetalCommandList::checkActiveRenderEncoder() {
+        assert(targetFramebuffer != nullptr);
+        endOtherEncoders(EncoderType::Render);
+        activeType = EncoderType::Render;
+
+        if (activeRenderEncoder == nullptr) {
+            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
+
+            MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
+
+            // Setup color attachments
+            for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
+                MTL::RenderPassColorAttachmentDescriptor *colorAttachment = renderDescriptor->colorAttachments()->object(i);
+                colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
+                colorAttachment->setLoadAction(pendingClears.active ? pendingClears.initialAction[i] : MTL::LoadActionLoad);
+                if (pendingClears.active && pendingClears.initialAction[i] == MTL::LoadActionClear) {
+                    colorAttachment->setClearColor(mapClearColor(pendingClears.clearValues[i].color));
+                }
+                colorAttachment->setStoreAction(MTL::StoreActionStore);
+            }
+
+            // Setup depth attachment
+            if (targetFramebuffer->depthAttachment != nullptr) {
+                const size_t depthIndex = targetFramebuffer->colorAttachments.size();
+                MTL::RenderPassDepthAttachmentDescriptor *depthAttachment = renderDescriptor->depthAttachment();
+                depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
+                depthAttachment->setLoadAction(pendingClears.active ? pendingClears.initialAction[depthIndex] : MTL::LoadActionLoad);
+                if (pendingClears.active && pendingClears.initialAction[depthIndex] == MTL::LoadActionClear) {
+                    depthAttachment->setClearDepth(pendingClears.clearValues[depthIndex].depth);
+                }
+                depthAttachment->setStoreAction(MTL::StoreActionStore);
+            }
+
+            // Setup multisampling if needed
+            if (targetFramebuffer->sampleCount > 1) {
+                renderDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
+            }
+
+            activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
+            activeRenderEncoder->setLabel(MTLSTR("Graphics Render Encoder"));
+            activeRenderEncoder->retain();
+            releasePool->release();
+
+            // Reset pending clears since we've now handled them
+            if (pendingClears.active) {
+                for (auto& action : pendingClears.initialAction) {
+                    action = MTL::LoadActionLoad;
+                }
+                pendingClears.active = false;
+            }
         }
     }
 
