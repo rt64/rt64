@@ -275,8 +275,8 @@ namespace RT64 {
             RenderColor color;
             float depth;
 
-            ClearValue() : depth(0.0f) {} // Default constructor initializes to depth 0
-            ~ClearValue() {} // Destructor needed since RenderColor might have one
+            ClearValue() : depth(0.0f) {}
+            ~ClearValue() {}
         };
 
         struct PendingClears {
