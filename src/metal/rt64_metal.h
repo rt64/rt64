@@ -1,6 +1,7 @@
 #pragma once
 
 #include <set>
+#include <unordered_set>
 
 #include "rhi/rt64_render_interface.h"
 #include "apple/rt64_apple.h"
@@ -329,6 +330,9 @@ namespace RT64 {
 
         const MetalDescriptorSet* renderDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
         const MetalDescriptorSet* computeDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
+        
+        std::unordered_set<MetalDescriptorSet*> currentEncoderDescriptorSets;
+        void bindEncoderResources(MTL::CommandEncoder* encoder, bool isCompute);
 
         MetalCommandList(const MetalCommandQueue *queue, RenderCommandListType type);
         ~MetalCommandList() override;
@@ -544,7 +548,7 @@ namespace RT64 {
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
 
-        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex) const;
+        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex, std::unordered_set<MetalDescriptorSet*>& encoderDescriptorSets) const;
     };
 
     struct MetalDevice : RenderDevice {
