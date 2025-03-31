@@ -269,7 +269,23 @@ namespace RT64 {
 
     };
 
-    struct MetalCommandList : RenderCommandList {
+    class MetalCommandList final : public RenderCommandList {
+    private:
+        union ClearValue {
+            RenderColor color;
+            float depth;
+
+            ClearValue() : depth(0.0f) {} // Default constructor initializes to depth 0
+            ~ClearValue() {} // Destructor needed since RenderColor might have one
+        };
+
+        struct PendingClears {
+            std::vector<MTL::LoadAction> initialAction;
+            std::vector<ClearValue> clearValues;
+            bool active = false;
+        } pendingClears;
+
+    public:
         struct PushConstantData : RenderPushConstantRange {
             std::vector<uint8_t> data;
 
@@ -382,8 +398,7 @@ namespace RT64 {
         void prepareClearVertices(const RenderRect& rect, simd::float2* outVertices);
         void checkForUpdatesInGraphicsState();
         void setCommonClearState() const;
-
-        MTL::RenderCommandEncoder* createRenderPassWithClear(uint32_t colorAttachmentIndex, const RenderColor* clearColor, bool clearDepth, float depthValue);
+        void handlePendingClears();
     };
 
     struct MetalCommandFence : RenderCommandFence {
