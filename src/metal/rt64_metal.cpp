@@ -1020,7 +1020,11 @@ namespace RT64 {
 
     void MetalBuffer::unmap(uint32_t subresource, const RenderRange* writtenRange) {
         if (mtl->storageMode() == MTL::StorageModeManaged) {
-            mtl->didModifyRange(NS::Range(writtenRange->begin, writtenRange->end - writtenRange->begin));
+            if (writtenRange == nullptr) {
+                mtl->didModifyRange(NS::Range(0, desc.size));
+            } else {
+                mtl->didModifyRange(NS::Range(writtenRange->begin, writtenRange->end - writtenRange->begin));
+            }
         }
     }
 
