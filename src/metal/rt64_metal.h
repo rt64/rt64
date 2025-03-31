@@ -283,34 +283,6 @@ namespace RT64 {
             }
         };
 
-        // Track resources that need to be bound for the current encoder
-        struct EncoderResources {
-            struct ResourceEntry {
-                MTL::Resource* resource;
-                RenderDescriptorRangeType type;
-                
-                bool operator==(const ResourceEntry& other) const {
-                    return resource == other.resource && type == other.type;
-                }
-            };
-
-            struct ResourceEntryHash {
-                std::size_t operator()(const ResourceEntry& entry) const {
-                    return std::hash<void*>{}(entry.resource);
-                }
-            };
-
-            std::unordered_set<ResourceEntry, ResourceEntryHash> resources;
-            
-            void addResource(MTL::Resource* resource, RenderDescriptorRangeType type) {
-                resources.insert(ResourceEntry{resource, type});
-            }
-            
-            void clear() {
-                resources.clear();
-            }
-        };
-
         MTL::CommandBuffer *mtl = nullptr;
         EncoderType activeType = EncoderType::None;
         MTL::RenderCommandEncoder *activeRenderEncoder = nullptr;
@@ -359,7 +331,7 @@ namespace RT64 {
         const MetalDescriptorSet* renderDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
         const MetalDescriptorSet* computeDescriptorSets[DESCRIPTOR_SET_MAX_INDEX + 1] = {};
         
-        EncoderResources currentEncoderResources;
+        std::unordered_set<MetalDescriptorSet*> currentEncoderDescriptorSets;
         void bindEncoderResources(MTL::CommandEncoder* encoder, bool isCompute);
 
         MetalCommandList(const MetalCommandQueue *queue, RenderCommandListType type);
@@ -576,7 +548,7 @@ namespace RT64 {
         MetalPipelineLayout(MetalDevice *device, const RenderPipelineLayoutDesc &desc);
         ~MetalPipelineLayout() override;
 
-        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex, MetalCommandList::EncoderResources& encoderResources) const;
+        void bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex, std::unordered_set<MetalDescriptorSet*>& encoderDescriptorSets) const;
     };
 
     struct MetalDevice : RenderDevice {

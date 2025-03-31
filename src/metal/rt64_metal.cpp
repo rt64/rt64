@@ -2595,7 +2595,7 @@ namespace RT64 {
         }
 
         if (dirtyComputeState.descriptorSets) {
-            activeComputePipelineLayout->bindDescriptorSets(activeComputeEncoder, computeDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, true, dirtyComputeState.descriptorSetDirtyIndex, currentEncoderResources);
+            activeComputePipelineLayout->bindDescriptorSets(activeComputeEncoder, computeDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, true, dirtyComputeState.descriptorSetDirtyIndex, currentEncoderDescriptorSets);
             dirtyComputeState.descriptorSets = 0;
             dirtyComputeState.descriptorSetDirtyIndex = DESCRIPTOR_SET_MAX_INDEX + 1;
         }
@@ -2619,7 +2619,7 @@ namespace RT64 {
             activeComputeEncoder->endEncoding();
             activeComputeEncoder->release();
             activeComputeEncoder = nullptr;
-            currentEncoderResources.clear();
+            currentEncoderDescriptorSets.clear();
 
             // Clear state cache for compute
             stateCache.lastPushConstants.clear();
@@ -2707,7 +2707,7 @@ namespace RT64 {
 
         if (dirtyGraphicsState.descriptorSets) {
             if (activeGraphicsPipelineLayout) {
-                activeGraphicsPipelineLayout->bindDescriptorSets(activeRenderEncoder, renderDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, false, dirtyGraphicsState.descriptorSetDirtyIndex, currentEncoderResources);
+                activeGraphicsPipelineLayout->bindDescriptorSets(activeRenderEncoder, renderDescriptorSets, DESCRIPTOR_SET_MAX_INDEX, false, dirtyGraphicsState.descriptorSetDirtyIndex, currentEncoderDescriptorSets);
             }
             dirtyGraphicsState.descriptorSets = 0;
             dirtyGraphicsState.descriptorSetDirtyIndex = DESCRIPTOR_SET_MAX_INDEX + 1;
@@ -2736,7 +2736,7 @@ namespace RT64 {
             activeRenderEncoder->endEncoding();
             activeRenderEncoder->release();
             activeRenderEncoder = nullptr;
-            currentEncoderResources.clear();
+            currentEncoderDescriptorSets.clear();
 
             // Mark all state as needing rebind for next encoder
             dirtyGraphicsState.setAll();
@@ -2794,13 +2794,21 @@ namespace RT64 {
     void MetalCommandList::bindEncoderResources(MTL::CommandEncoder* encoder, bool isCompute) {
         if (isCompute) {
             auto* computeEncoder = static_cast<MTL::ComputeCommandEncoder*>(encoder);
-            for (const auto& entry : currentEncoderResources.resources) {
-                computeEncoder->useResource(entry.resource, mapResourceUsage(entry.type));
+            for (const auto* descriptorSet : currentEncoderDescriptorSets) {
+                for (const auto& entry : descriptorSet->resourceEntries) {
+                    if (entry.resource != nullptr) {
+                        computeEncoder->useResource(entry.resource, mapResourceUsage(entry.type));
+                    }
+                }
             }
         } else {
             auto* renderEncoder = static_cast<MTL::RenderCommandEncoder*>(encoder);
-            for (const auto& entry : currentEncoderResources.resources) {
-                renderEncoder->useResource(entry.resource, mapResourceUsage(entry.type), MTL::RenderStageVertex | MTL::RenderStageFragment);
+            for (const auto* descriptorSet : currentEncoderDescriptorSets) {
+                for (const auto& entry : descriptorSet->resourceEntries) {
+                    if (entry.resource != nullptr) {
+                        renderEncoder->useResource(entry.resource, mapResourceUsage(entry.type), MTL::RenderStageVertex | MTL::RenderStageFragment);
+                    }
+                }
             }
         }
     }
@@ -2913,7 +2921,7 @@ namespace RT64 {
 
     MetalPipelineLayout::~MetalPipelineLayout() {}
 
-    void MetalPipelineLayout::bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex, MetalCommandList::EncoderResources& encoderResources) const {
+    void MetalPipelineLayout::bindDescriptorSets(MTL::CommandEncoder* encoder, const MetalDescriptorSet* const* descriptorSets, uint32_t descriptorSetCount, bool isCompute, uint32_t startIndex, std::unordered_set<MetalDescriptorSet*>& encoderDescriptorSets) const {
         for (uint32_t i = startIndex; i < setLayoutCount; i++) {
             if (i >= descriptorSetCount || descriptorSets[i] == nullptr) {
                 continue;
@@ -2922,12 +2930,8 @@ namespace RT64 {
             const MetalDescriptorSet* descriptorSet = descriptorSets[i];
             const MetalArgumentBuffer& descriptorBuffer = descriptorSet->argumentBuffer;
 
-            // Track resources for later binding
-            for (const auto& entry : descriptorSet->resourceEntries) {
-                if (entry.resource != nullptr) {
-                    encoderResources.addResource(entry.resource, entry.type);
-                }
-            }
+            // Track descriptor set for later resource binding
+            encoderDescriptorSets.insert(const_cast<MetalDescriptorSet*>(descriptorSet));
 
             // Bind argument buffer
             if (isCompute) {
