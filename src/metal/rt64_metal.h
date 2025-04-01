@@ -269,7 +269,7 @@ namespace RT64 {
 
     };
 
-    class MetalCommandList : public RenderCommandList {
+    struct MetalCommandList : RenderCommandList {
         union ClearValue {
             RenderColor color;
             float depth;
