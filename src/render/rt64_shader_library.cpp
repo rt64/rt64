@@ -807,10 +807,12 @@ namespace RT64 {
             pipelineDesc.pixelShader = depthToColorShader.get();
             rtCopyDepthToColor.pipeline = device->createGraphicsPipeline(pipelineDesc);
 
-            std::unique_ptr<RenderShader> depthToColorMSShader = device->createShader(RtCopyDepthToColorPSMSBlob, RtCopyDepthToColorPSMSBlobSize, "PSMain", shaderFormat);
-            pipelineDesc.pixelShader = depthToColorMSShader.get();
-            pipelineDesc.multisampling = multisampling;
-            rtCopyDepthToColorMS.pipeline = device->createGraphicsPipeline(pipelineDesc);
+            if (RtCopyDepthToColorPSMSBlob != nullptr) {
+                std::unique_ptr<RenderShader> depthToColorMSShader = device->createShader(RtCopyDepthToColorPSMSBlob, RtCopyDepthToColorPSMSBlobSize, "PSMain", shaderFormat);
+                pipelineDesc.pixelShader = depthToColorMSShader.get();
+                pipelineDesc.multisampling = multisampling;
+                rtCopyDepthToColorMS.pipeline = device->createGraphicsPipeline(pipelineDesc);
+            }
 
             std::unique_ptr<RenderShader> colorToDepthShader = device->createShader(RtCopyColorToDepthPSBlob, RtCopyColorToDepthPSBlobSize, "PSMain", shaderFormat);
             pipelineDesc.depthEnabled = true;
@@ -822,10 +824,12 @@ namespace RT64 {
             pipelineDesc.multisampling = RenderMultisampling();
             rtCopyColorToDepth.pipeline = device->createGraphicsPipeline(pipelineDesc);
 
-            std::unique_ptr<RenderShader> colorToDepthMSShader = device->createShader(RtCopyColorToDepthPSMSBlob, RtCopyColorToDepthPSMSBlobSize, "PSMain", shaderFormat);
-            pipelineDesc.pixelShader = colorToDepthMSShader.get();
-            pipelineDesc.multisampling = multisampling;
-            rtCopyColorToDepthMS.pipeline = device->createGraphicsPipeline(pipelineDesc);
+            if (RtCopyColorToDepthPSMSBlob != nullptr) {
+                std::unique_ptr<RenderShader> colorToDepthMSShader = device->createShader(RtCopyColorToDepthPSMSBlob, RtCopyColorToDepthPSMSBlobSize, "PSMain", shaderFormat);
+                pipelineDesc.pixelShader = colorToDepthMSShader.get();
+                pipelineDesc.multisampling = multisampling;
+                rtCopyColorToDepthMS.pipeline = device->createGraphicsPipeline(pipelineDesc);
+            }
         }
 
         // Post process.
@@ -893,7 +897,7 @@ namespace RT64 {
         }
 
         // Texture Resolve.
-        {
+        if (TextureResolvePSBlob != nullptr) {
             TextureCopyDescriptorSet descriptorSet;
             layoutBuilder.begin();
             layoutBuilder.addPushConstant(0, 0, sizeof(interop::TextureCopyCB), RenderShaderStageFlag::PIXEL);
