@@ -85,6 +85,7 @@ namespace RT64 {
         ReplacementConfiguration config;
         std::vector<ReplacementTexture> textures;
         std::vector<ReplacementOperationFilter> operationFilters;
+        std::vector<std::string> extraFiles;
         std::unordered_map<uint64_t, uint32_t> tmemHashToReplaceMap;
 
         uint32_t addReplacement(const ReplacementTexture &texture);
