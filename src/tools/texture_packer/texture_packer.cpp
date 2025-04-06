@@ -98,27 +98,30 @@ void compressionThread() {
         CompressionOutput output;
         output.fileData.resize(fileData.size());
 
-        size_t outputSize = 0;
+        mz_uint16 compressionMethod = 0;
+        size_t compressedSize = 0;
         if (useCompression) {
             if (useZstd && !input.preferDeflateOverZstd) {
                 // Max compression level has shown significant advantages in size reduction.
-                outputSize = ZSTD_compress(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), ZSTD_maxCLevel());
-                output.compressionMethod = MZ_ZSTD;
+                compressedSize = ZSTD_compress(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), ZSTD_maxCLevel());
+                compressionMethod = MZ_ZSTD;
+
+                // ZSTD uses a special error code to indicate compression has failed.
+                if (ZSTD_isError(compressedSize)) {
+                    compressedSize = 0;
+                }
             }
             else {
                 // Probe number extracted from miniz's compression level 10.
                 int flags = 768;
-                outputSize = tdefl_compress_mem_to_mem(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), flags);
-                output.compressionMethod = MZ_DEFLATED;
+                compressedSize = tdefl_compress_mem_to_mem(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), flags);
+                compressionMethod = MZ_DEFLATED;
             }
+        }
 
-            if (outputSize == 0) {
-                fprintf(stderr, "Failed to compress %s.\n", input.zipPath.c_str());
-                compressionFailed = true;
-                break;
-            }
-
-            output.fileData.resize(outputSize);
+        if (compressedSize > 0) {
+            output.fileData.resize(compressedSize);
+            output.compressionMethod = compressionMethod;
         }
         else {
             memcpy(output.fileData.data(), fileData.data(), output.fileData.size());
