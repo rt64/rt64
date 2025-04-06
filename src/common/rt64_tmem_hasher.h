@@ -79,7 +79,7 @@ namespace RT64 {
                     }
                     else {
                         for (uint32_t i = 0; i < byteCount; i++) {
-                            tlutBitset[tmemBytes[i] >> 6U] |= (1ULL << (tmemBytes[i] & 0x40U));
+                            tlutBitset[tmemBytes[i] >> 6U] |= (1ULL << (tmemBytes[i] & 0x3FU));
                         }
                     }
                 }
