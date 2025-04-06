@@ -327,12 +327,14 @@ namespace RT64 {
         j["configuration"] = db.config;
         j["textures"] = db.textures;
         j["operationFilters"] = db.operationFilters;
+        j["extraFiles"] = db.extraFiles;
     }
 
     void from_json(const json &j, ReplacementDatabase &db) {
         db.config = j.value("configuration", ReplacementConfiguration());
         db.textures = j.value("textures", std::vector<ReplacementTexture>());
         db.operationFilters = j.value("operationFilters", std::vector<ReplacementOperationFilter>());
+        db.extraFiles = j.value("extraFiles", std::vector<std::string>());
         db.buildHashMaps();
     }
 };

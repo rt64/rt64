@@ -41,6 +41,7 @@ static uint32_t nextSizeAlignedTo(uint32_t size, uint32_t alignment) {
 struct CompressionInput {
     std::string zipPath;
     std::filesystem::path filePath;
+    bool preferDeflateOverZstd = false;
 };
 
 struct CompressionOutput {
@@ -48,6 +49,7 @@ struct CompressionOutput {
     std::vector<uint8_t> fileData;
     uint32_t uncompressedSize = 0;
     uint32_t checksum = 0;
+    mz_uint16 compressionMethod = 0;
 };
 
 std::queue<CompressionInput> inputQueue;
@@ -96,25 +98,30 @@ void compressionThread() {
         CompressionOutput output;
         output.fileData.resize(fileData.size());
 
-        size_t outputSize = 0;
+        mz_uint16 compressionMethod = 0;
+        size_t compressedSize = 0;
         if (useCompression) {
-            if (useZstd) {
+            if (useZstd && !input.preferDeflateOverZstd) {
                 // Max compression level has shown significant advantages in size reduction.
-                outputSize = ZSTD_compress(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), ZSTD_maxCLevel());
+                compressedSize = ZSTD_compress(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), ZSTD_maxCLevel());
+                compressionMethod = MZ_ZSTD;
+
+                // ZSTD uses a special error code to indicate compression has failed.
+                if (ZSTD_isError(compressedSize)) {
+                    compressedSize = 0;
+                }
             }
             else {
                 // Probe number extracted from miniz's compression level 10.
                 int flags = 768;
-                outputSize = tdefl_compress_mem_to_mem(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), flags);
+                compressedSize = tdefl_compress_mem_to_mem(output.fileData.data(), output.fileData.size(), fileData.data(), fileData.size(), flags);
+                compressionMethod = MZ_DEFLATED;
             }
+        }
 
-            if (outputSize == 0) {
-                fprintf(stderr, "Failed to compress %s.\n", input.zipPath.c_str());
-                compressionFailed = true;
-                break;
-            }
-
-            output.fileData.resize(outputSize);
+        if (compressedSize > 0) {
+            output.fileData.resize(compressedSize);
+            output.compressionMethod = compressionMethod;
         }
         else {
             memcpy(output.fileData.data(), fileData.data(), output.fileData.size());
@@ -389,7 +396,6 @@ int main(int argc, char *argv[]) {
 
         compressionFailed = false;
 
-        mz_uint16 compressionMethod = MZ_ZSTD;
         if (args.hasOption("deflate", "d")) {
             fprintf(stdout, "Using deflate for compression.\n");
             useZstd = false;
@@ -397,7 +403,6 @@ int main(int argc, char *argv[]) {
         }
         else if (args.hasOption("store", "d")) {
             fprintf(stdout, "Disabling compression.\n");
-            compressionMethod = MZ_DEFLATED;
             useZstd = false;
             useCompression = false;
         }
@@ -449,10 +454,11 @@ int main(int argc, char *argv[]) {
         }
 
         uint32_t outputQueueTotal = 0;
-        auto addToQueue = [&](const std::string &file) {
+        auto addToQueue = [&](const std::string &file, bool preferDeflateOverZstd = false) {
             CompressionInput input;
             input.filePath = searchDirectory / std::filesystem::u8path(file);
             input.zipPath = file;
+            input.preferDeflateOverZstd = preferDeflateOverZstd;
             inputQueue.emplace(input);
             outputQueueTotal++;
         };
@@ -460,6 +466,11 @@ int main(int argc, char *argv[]) {
         // Add all resolved files to queue.
         for (auto it : resolvedPathSet) {
             addToQueue(it);
+        }
+
+        // Add extra files to queue.
+        for (auto it : database.extraFiles) {
+            addToQueue(it, true);
         }
 
         // Add database file to queue.
@@ -497,7 +508,7 @@ int main(int argc, char *argv[]) {
 
                 if (!output.zipPath.empty()) {
                     mz_uint flags = useCompression ? MZ_ZIP_FLAG_COMPRESSED_DATA : 0;
-                    if (!mz_zip_writer_add_mem_ex_v2(&zipArchive, output.zipPath.c_str(), output.fileData.data(), output.fileData.size(), nullptr, 0, flags, useCompression ? output.uncompressedSize : 0, output.checksum, nullptr, nullptr, 0, nullptr, 0, compressionMethod)) {
+                    if (!mz_zip_writer_add_mem_ex_v2(&zipArchive, output.zipPath.c_str(), output.fileData.data(), output.fileData.size(), nullptr, 0, flags, useCompression ? output.uncompressedSize : 0, output.checksum, nullptr, nullptr, 0, nullptr, 0, output.compressionMethod)) {
                         fprintf(stderr, "Failed to add %s to pack.\n", output.zipPath.c_str());
                         compressionFailed = true;
                     }
