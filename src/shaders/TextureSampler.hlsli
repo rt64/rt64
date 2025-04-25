@@ -222,8 +222,11 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
     float2 uvCoord = inputUV * perspCorrectionMod * float2(rdpTile.shifts, rdpTile.shiftt);
 
 #if SIMULATE_LOW_PRECISION
-    // Simulates the lower precision of the hardware's coordinate interpolation.
-    uvCoord = round(uvCoord * LowPrecision) / LowPrecision;
+    if (!gpuTileFlagHighRes(gpuTile.flags)) {
+        // Simulates the lower precision of the hardware's coordinate interpolation.
+        // This is not simulated if a texture replacement is being used.
+        uvCoord = round(uvCoord * LowPrecision) / LowPrecision;
+    }
 #endif
     
     // Simulate the next pixel bug when it's a rect by just shifting the UV coordinates to the right by one pixel.
