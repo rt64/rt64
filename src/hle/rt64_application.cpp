@@ -293,7 +293,7 @@ namespace RT64 {
 
         // Create the texture cache.
         const uint32_t textureCacheThreads = std::max(threadsAvailable / 4U, 1U);
-        textureCache = std::make_unique<TextureCache>(textureDirectWorker.get(), textureCopyWorker.get(), textureCacheThreads, shaderLibrary.get(), userConfig.developerMode);
+        textureCache = std::make_unique<TextureCache>(textureDirectWorker.get(), textureCopyWorker.get(), textureCacheThreads, shaderLibrary.get());
 
         // Compute the approximate pool for texture replacements from the dedicated video memory.
         const uint64_t MinimumTexturePoolSize = 512 * 1024 * 1024;

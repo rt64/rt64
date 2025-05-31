@@ -64,8 +64,15 @@ namespace RT64 {
         }
     };
 
+    struct ReplacementCheck {
+        uint64_t textureHash = 0;
+        uint64_t databaseHash = 0;
+        uint32_t databaseVersion = 0;
+    };
+
     struct ReplacementMap {
         struct MapEntry {
+            uint32_t fileSystemIndex = 0;
             std::string relativePath;
             Texture *texture = nullptr;
             uint32_t references = 0;
@@ -78,11 +85,12 @@ namespace RT64 {
         LoadedTextureMap loadedTextureMap;
         LoadedTextureReverseMap loadedTextureReverseMap;
         std::list<Texture *> unusedTextureList;
-        std::unordered_set<std::string> streamRelativePathSet;
-        std::unordered_map<uint64_t, ReplacementResolvedPath> resolvedPathMap;
+        std::unordered_map<uint64_t, ReplacementResolvedPath> resolvedPathMaps[6];
         std::vector<uint32_t> resolvedHashVersions;
         std::unordered_map<std::string, LowMipCacheTexture> lowMipCacheTextures;
-        std::unique_ptr<FileSystem> fileSystem;
+        std::vector<std::unique_ptr<FileSystem>> fileSystems;
+        std::vector<std::unordered_set<std::string>> fileSystemStreamSets;
+        std::vector<std::unordered_multimap<std::string, ReplacementCheck>> fileSystemStreamChecks;
         std::vector<ReplacementDirectory> replacementDirectories;
         uint64_t usedTexturePoolSize = 0;
         uint64_t cachedTexturePoolSize = 0;
@@ -96,17 +104,12 @@ namespace RT64 {
         void evict(std::vector<Texture *> &evictedTextures);
         bool saveDatabase(std::ostream &stream);
         void removeUnusedEntriesFromDatabase();
-        bool getResolvedPathFromHash(uint64_t tmemHash, ReplacementResolvedPath &resolvedPath) const;
-        void addLoadedTexture(Texture *texture, const std::string &relativePath, bool referenceCounted);
-        Texture *getFromRelativePath(const std::string &relativePath) const;
-        uint64_t hashFromRelativePath(const std::string &relativePath) const;
+        bool getResolvedPathFromHash(uint64_t dbHash, uint32_t dbHashVersion, ReplacementResolvedPath &resolvedPath) const;
+        void addLoadedTexture(Texture *texture, uint32_t fileSystemIndex, const std::string &relativePath, bool referenceCounted);
+        Texture *getFromRelativePath(uint32_t fileSystemIndex, const std::string &relativePath) const;
+        uint64_t hashFromRelativePath(uint32_t fileSystemIndex, const std::string &relativePath) const;
         void incrementReference(Texture *texture);
         void decrementReference(Texture *texture);
-    };
-
-    struct ReplacementCheck {
-        uint64_t textureHash = 0;
-        uint64_t databaseHash = 0;
     };
 
     struct TextureMapAddition {
@@ -117,6 +120,7 @@ namespace RT64 {
     struct ReplacementMapAddition {
         uint64_t hash = 0;
         Texture *texture = nullptr;
+        ReplacementShift shift = ReplacementShift::None;
         bool referenceCounted = false;
     };
 
@@ -126,6 +130,7 @@ namespace RT64 {
         std::vector<interop::float3> cachedTextureDimensions;
         std::vector<Texture *> textureReplacements;
         std::vector<interop::float3> cachedTextureReplacementDimensions;
+        std::vector<bool> textureReplacementShiftedByHalf;
         std::vector<bool> textureReplacementReferenceCounted;
         std::vector<interop::float2> textureScales;
         std::vector<uint64_t> hashes;
@@ -143,8 +148,8 @@ namespace RT64 {
         ~TextureMap();
         void clearReplacements();
         void add(uint64_t hash, uint64_t creationFrame, Texture *texture);
-        void replace(uint64_t hash, Texture *texture, bool referenceCounted);
-        bool use(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps);
+        void replace(uint64_t hash, Texture *texture, bool shiftedByHalf, bool referenceCounted);
+        bool use(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps, bool &shiftedByHalf);
         bool evict(uint64_t submissionFrame, std::vector<uint64_t> &evictedHashes);
         void incrementLock();
         void decrementLock();
@@ -154,6 +159,7 @@ namespace RT64 {
 
     struct TextureCache {
         struct StreamDescription {
+            uint32_t fileSystemIndex = 0;
             std::string relativePath;
             bool fromPreload = false;
 
@@ -161,7 +167,8 @@ namespace RT64 {
                 // Default constructor.
             }
 
-            StreamDescription(const std::string &relativePath, bool fromPreload) {
+            StreamDescription(uint32_t fileSystemIndex, const std::string &relativePath, bool fromPreload) {
+                this->fileSystemIndex = fileSystemIndex;
                 this->relativePath = relativePath;
                 this->fromPreload = fromPreload;
             }
@@ -169,6 +176,7 @@ namespace RT64 {
 
         struct StreamResult {
             Texture *texture = nullptr;
+            uint32_t fileSystemIndex = 0;
             std::string relativePath;
             bool fromPreload = false;
 
@@ -176,8 +184,9 @@ namespace RT64 {
                 // Default constructor.
             }
 
-            StreamResult(Texture *texture, const std::string &relativePath, bool fromPreload) {
+            StreamResult(Texture *texture, uint32_t fileSystemIndex, const std::string &relativePath, bool fromPreload) {
                 this->texture = texture;
+                this->fileSystemIndex = fileSystemIndex;
                 this->relativePath = relativePath;
                 this->fromPreload = fromPreload;
             }
@@ -212,7 +221,6 @@ namespace RT64 {
         std::condition_variable streamDescStackChanged;
         int32_t streamDescStackActiveCount = 0;
         std::list<std::unique_ptr<StreamThread>> streamThreads;
-        std::unordered_multimap<std::string, ReplacementCheck> streamPendingReplacementChecks;
         std::mutex streamPerformanceMutex;
         uint64_t streamLoadTimeTotal = 0;
         uint64_t streamLoadCount = 0;
@@ -228,19 +236,25 @@ namespace RT64 {
         uint32_t lockCounter;
         bool developerMode;
 
-        TextureCache(RenderWorker *directWorker, RenderWorker *copyWorker, uint32_t threadCount, const ShaderLibrary *shaderLibrary, bool developerMode);
+        TextureCache(RenderWorker *directWorker, RenderWorker *copyWorker, uint32_t threadCount, const ShaderLibrary *shaderLibrary);
         ~TextureCache();
         void uploadThreadLoop();
         void queueGPUUploadTMEM(uint64_t hash, uint64_t creationFrame, const uint8_t *bytes, int bytesCount, int width, int height, uint32_t tlut, const LoadTile &loadTile, bool decodeTMEM);
         void waitForGPUUploads();
-        bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps);
+        void addReplacementChecks(uint64_t hash, uint32_t width, uint32_t height, uint32_t tlut, const LoadTile &loadTile, const std::vector<uint8_t> &bytesTMEM, bool decodeTMEM, std::vector<ReplacementCheck> &replacementChecks, uint64_t exclusiveDbHash = 0);
+        bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex, interop::float2 &textureScale, interop::float3 &textureDimensions, bool &textureReplaced, bool &hasMipmaps, bool &shiftedByHalf);
         bool useTexture(uint64_t hash, uint64_t submissionFrame, uint32_t &textureIndex);
-        bool addReplacement(uint64_t hash, const std::string &relativePath);
+        bool addReplacement(uint64_t hash, const std::string &relativePath, ReplacementShift shift);
         bool hasReplacement(uint64_t hash);
         void clearReplacementDirectories();
+        void reloadReplacements(bool clearQueue, uint64_t exclusiveDbHash = 0);
         bool loadReplacementDirectory(const ReplacementDirectory &replacementDirectory);
         bool loadReplacementDirectories(const std::vector<ReplacementDirectory> &replacementDirectories);
         bool saveReplacementDatabase();
+        void setReplacementDefaultShift(ReplacementShift shift);
+        void setReplacementDefaultOperation(ReplacementOperation shift);
+        void setReplacementShift(uint64_t hash, ReplacementShift shift);
+        void setReplacementOperation(uint64_t hash, ReplacementOperation operation);
         void removeUnusedEntriesFromDatabase();
         bool evict(uint64_t submissionFrame, std::vector<uint64_t> &evictedHashes);
         void incrementLock();

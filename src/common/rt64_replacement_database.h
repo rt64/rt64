@@ -22,28 +22,44 @@ namespace RT64 {
     enum class ReplacementOperation {
         Preload,
         Stream,
-        Stall
+        Stall,
+        Auto,
+    };
+
+    enum class ReplacementShift {
+        None,
+        Half,
+        Auto,
     };
 
     enum class ReplacementAutoPath {
         RT64,
-        Rice
+        Rice,
     };
 
     NLOHMANN_JSON_SERIALIZE_ENUM(ReplacementOperation, {
         { ReplacementOperation::Preload, "preload" },
         { ReplacementOperation::Stream, "stream" },
-        { ReplacementOperation::Stall, "stall" }
+        { ReplacementOperation::Stall, "stall" },
+        { ReplacementOperation::Auto, "auto" },
+    });
+
+    NLOHMANN_JSON_SERIALIZE_ENUM(ReplacementShift, {
+        { ReplacementShift::None, "none" },
+        { ReplacementShift::Half, "half" },
+        { ReplacementShift::Auto, "auto" },
     });
 
     NLOHMANN_JSON_SERIALIZE_ENUM(ReplacementAutoPath, {
         { ReplacementAutoPath::RT64, "rt64" },
-        { ReplacementAutoPath::Rice, "rice" }
+        { ReplacementAutoPath::Rice, "rice" },
     });
 
     struct ReplacementConfiguration {
         ReplacementAutoPath autoPath = ReplacementAutoPath::RT64;
-        uint32_t configurationVersion = 2;
+        ReplacementOperation defaultOperation = ReplacementOperation::Stream;
+        ReplacementShift defaultShift = ReplacementShift::Half;
+        uint32_t configurationVersion = 3;
         uint32_t hashVersion = 5;
     };
 
@@ -55,20 +71,33 @@ namespace RT64 {
     struct ReplacementTexture {
         std::string path;
         ReplacementHashes hashes;
+        ReplacementOperation operation = ReplacementOperation::Auto;
+        ReplacementShift shift = ReplacementShift::Auto;
 
         bool isEmpty() const {
             return hashes.rt64.empty();
         }
     };
 
-    struct ReplacementOperationFilter {
+    struct ReplacementFilter {
         std::string wildcard;
+    };
+
+    struct ReplacementOperationFilter : ReplacementFilter {
         ReplacementOperation operation = ReplacementOperation::Stream;
     };
 
+    struct ReplacementShiftFilter : ReplacementFilter {
+        ReplacementShift shift = ReplacementShift::Half;
+    };
+
     struct ReplacementResolvedPath {
+        uint32_t fileSystemIndex = 0;
         std::string relativePath;
-        ReplacementOperation operation = ReplacementOperation::Stream;
+        ReplacementOperation resolvedOperation = ReplacementOperation::Auto;
+        ReplacementOperation originalOperation = ReplacementOperation::Auto;
+        ReplacementShift resolvedShift = ReplacementShift::Auto;
+        ReplacementShift originalShift = ReplacementShift::Auto;
     };
 
     struct ReplacementMipmapCacheHeader {
@@ -85,6 +114,7 @@ namespace RT64 {
         ReplacementConfiguration config;
         std::vector<ReplacementTexture> textures;
         std::vector<ReplacementOperationFilter> operationFilters;
+        std::vector<ReplacementShiftFilter> shiftFilters;
         std::vector<std::string> extraFiles;
         std::unordered_map<uint64_t, uint32_t> tmemHashToReplaceMap;
 
@@ -93,8 +123,11 @@ namespace RT64 {
         ReplacementTexture getReplacement(uint64_t hash) const;
         ReplacementTexture getReplacement(const std::string &hash) const;
         void buildHashMaps();
-        ReplacementOperation resolveOperation(const std::string &relativePath, const std::vector<ReplacementOperationFilter> &filters);
-        void resolvePaths(const FileSystem *fileSystem, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing = nullptr, std::unordered_set<uint64_t> *hashesToPreload = nullptr);
+        ReplacementOperation resolveOperation(const std::string &relativePath, ReplacementOperation operation);
+        ReplacementShift resolveShift(const std::string &relativePath, ReplacementShift shift);
+        void resolvePaths(const FileSystem *fileSystem, uint32_t fileSystemIndex, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing = nullptr, std::unordered_set<std::string> *pathsToPreload = nullptr);
+        void resolveOperations(std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap);
+        void resolveShifts(std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap);
         static uint64_t stringToHash(const std::string &str);
         static std::string hashToString(uint32_t hash);
         static std::string hashToString(uint64_t hash);
@@ -112,6 +145,8 @@ namespace RT64 {
     extern void from_json(const json &j, ReplacementTexture &texture);
     extern void to_json(json &j, const ReplacementOperationFilter &operationFilter);
     extern void from_json(const json &j, ReplacementOperationFilter &operationFilter);
+    extern void to_json(json &j, const ReplacementShiftFilter &shiftFilter);
+    extern void from_json(const json &j, ReplacementShiftFilter &shiftFilter);
     extern void to_json(json &j, const ReplacementDatabase &db);
     extern void from_json(const json &j, ReplacementDatabase &db);
 };

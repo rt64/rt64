@@ -2180,6 +2180,33 @@ namespace RT64 {
                         ImGui::Text("Texture replacement path: %s", replacementPath.c_str());
                     }
 
+                    if (!ext.textureCache->textureMap.replacementMap.replacementDirectories.empty()) {
+                        bool directoryMode = ext.textureCache->textureMap.replacementMap.fileSystemIsDirectory;
+                        ImGui::BeginDisabled(!directoryMode);
+
+                        ReplacementDatabase &replacementDb = ext.textureCache->textureMap.replacementMap.directoryDatabase;
+                        int defaultShift = int(replacementDb.config.defaultShift);
+                        if (ImGui::Combo("Default Shift", &defaultShift, "None\0Half\0")) {
+                            ext.textureCache->setReplacementDefaultShift(ReplacementShift(defaultShift));
+                        }
+
+                        int defaultOperation = int(replacementDb.config.defaultOperation);
+                        if (ImGui::Combo("Default Operation", &defaultOperation, "Preload\0Stream\0Stall\0")) {
+                            ext.textureCache->setReplacementDefaultOperation(ReplacementOperation(defaultOperation));
+                        }
+
+                        if (replacementDb.config.defaultOperation != ReplacementOperation::Stream) {
+                            ImGui::Text("Operation modes other than 'Stream' are not good for performance.");
+                            ImGui::Text("Only set this if you know what you're doing!");
+                        }
+
+                        ImGui::EndDisabled();
+
+                        if (!directoryMode) {
+                            ImGui::Text("Properties can only be edited when loading a texture pack as a single directory.");
+                        }
+                    }
+
                     ImGui::BeginChild("##textureReplacements", ImVec2(0, -64));
                     ImGui::EndChild();
 
