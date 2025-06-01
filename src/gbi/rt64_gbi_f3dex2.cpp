@@ -73,7 +73,7 @@ namespace RT64 {
                 state->rsp->setLightCount((*dl)->w1 / 24);
                 break;
             case G_MW_CLIP:
-                state->rsp->setClipRatio((*dl)->w1);
+                state->rsp->setClipRatioEdge(((*dl)->p0(0, 16) - G_MWO_CLIP_RNX) / 8, (*dl)->w1);
                 break;
             case G_MW_SEGMENT:
                 state->rsp->setSegment((*dl)->p0(2, 4), (*dl)->w1);
@@ -157,6 +157,10 @@ namespace RT64 {
             // TODO
         }
 
+        void reset(State *state) {
+            state->rsp->setClipRatioAll(2U);
+        }
+
         void setup(GBI *gbi) {
             gbi->constants = {
                 { F3DENUM::G_MTX_MODELVIEW, 0x00 },
@@ -200,6 +204,9 @@ namespace RT64 {
             gbi->map[G_SETCIMG] = &GBI_F3D::setColorImage;
             gbi->map[G_SETZIMG] = &GBI_F3D::setDepthImage;
             gbi->map[G_SETTIMG] = &GBI_F3D::setTextureImage;
+
+            gbi->resetFromTask = &reset;
+            gbi->resetFromLoad = &reset;
         }
     }
 };
