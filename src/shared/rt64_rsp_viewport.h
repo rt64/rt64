@@ -23,13 +23,12 @@ namespace interop {
         }
 
 #ifdef HLSL_CPU
-        RT64::FixedRect rect() const {
-            return {
-                int32_t(lround((translate.x - abs(scale.x)) * 4.0f)),
-                int32_t(lround((translate.y - abs(scale.y)) * 4.0f)),
-                int32_t(lround((translate.x + abs(scale.x)) * 4.0f)),
-                int32_t(lround((translate.y + abs(scale.y)) * 4.0f))
-            };
+        RT64::FixedRect rect(const int16_t *clipRatios) const {
+            int32_t x1 = int32_t(lround((translate.x - scale.x * float(clipRatios[0])) * 4.0f));
+            int32_t y1 = int32_t(lround((translate.y - scale.y * float(clipRatios[1])) * 4.0f));
+            int32_t x2 = int32_t(lround((translate.x - scale.x * float(clipRatios[2])) * 4.0f));
+            int32_t y2 = int32_t(lround((translate.y - scale.y * float(clipRatios[3])) * 4.0f));
+            return RT64::FixedRect(std::min(x1, x2), std::min(y1, y2), std::max(x1, x2), std::max(y1, y2));
         }
 
         float minDepth() const {

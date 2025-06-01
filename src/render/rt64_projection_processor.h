@@ -27,7 +27,7 @@ namespace RT64 {
         ~ProjectionProcessor();
         void setup(RenderWorker *worker);
         void process(const ProcessParams &p);
-        void processScene(const ProcessParams &p, const GameScene &scene, size_t sceneIndex, bool useScissorDetection);
+        void processScene(const ProcessParams &p, const GameScene &scene, size_t sceneIndex);
         void upload(const ProcessParams &p);
     };
 };
