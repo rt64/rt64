@@ -118,7 +118,7 @@ namespace RT64 {
                 state->rsp->setLightCount((((*dl)->w1 - 0x80000000) >> 5) - 1);
                 break;
             case G_MW_CLIP:
-                // TODO
+                state->rsp->setClipRatioEdge(((*dl)->p0(8, 16) - G_MWO_CLIP_RNX) / 8, int16_t((*dl)->w1 & 0xFFFFU));
                 break;
             case G_MW_SEGMENT:
                 state->rsp->setSegment((*dl)->p0(10, 4), (*dl)->w1);
@@ -127,39 +127,10 @@ namespace RT64 {
                 state->rsp->setFog((int16_t)((*dl)->p1(16, 16)), (int16_t)((*dl)->p1(0, 16)));
                 break;
             case G_MW_LIGHTCOL:
-                switch ((*dl)->p0(8, 16)) {
-                case G_MWO_aLIGHT_1:
-                    state->rsp->setLightColor(0, (*dl)->w1);
-                    break;
-                case F3D_G_MWO_aLIGHT_2:
-                    state->rsp->setLightColor(1, (*dl)->w1);
-                    break;
-                case F3D_G_MWO_aLIGHT_3:
-                    state->rsp->setLightColor(2, (*dl)->w1);
-                    break;
-                case F3D_G_MWO_aLIGHT_4:
-                    state->rsp->setLightColor(3, (*dl)->w1);
-                    break;
-                case F3D_G_MWO_aLIGHT_5:
-                    state->rsp->setLightColor(4, (*dl)->w1);
-                    break;
-                case F3D_G_MWO_aLIGHT_6:
-                    state->rsp->setLightColor(5, (*dl)->w1);
-                    break;
-                case F3D_G_MWO_aLIGHT_7:
-                    state->rsp->setLightColor(6, (*dl)->w1);
-                    break;
-                case F3D_G_MWO_aLIGHT_8:
-                    state->rsp->setLightColor(7, (*dl)->w1);
-                    break;
-                }
-
+                state->rsp->setLightColor((*dl)->p0(8, 16) / 32, (*dl)->w1);
                 break;
             case F3D_G_MW_POINTS: 
-                {
-                    const uint32_t value = (*dl)->p0(8, 16);
-                    state->rsp->modifyVertex(value / 40, value % 40, (*dl)->w1);
-                }
+                state->rsp->modifyVertex((*dl)->p0(8, 16) / 40, (*dl)->p0(8, 16) % 40, (*dl)->w1);
                 break;
             case G_MW_PERSPNORM:
                 // TODO
