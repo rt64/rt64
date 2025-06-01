@@ -154,6 +154,15 @@ namespace RT64 {
         return { v.x, v.y, v.z, v.w };
     }
 
+    static RenderRect viewportScissorIntersection(const RenderViewport &viewport, const RenderRect &scissor) {
+        return RenderRect{
+            std::max(static_cast<int32_t>(std::floor(viewport.x)), scissor.left),
+            std::max(static_cast<int32_t>(std::floor(viewport.y)), scissor.top),
+            std::min(static_cast<int32_t>(std::ceil(viewport.x + viewport.width)), scissor.right),
+            std::min(static_cast<int32_t>(std::ceil(viewport.y + viewport.height)), scissor.bottom)
+        };
+    }
+
     // RasterScene
 
     RasterScene::RasterScene() { }
@@ -1470,6 +1479,8 @@ namespace RT64 {
         RenderViewport rawViewportOriginal(0.0f, 0.0f, originalWidth, commonHeight);
         uint32_t vertexTestZFaceIndicesStart = 0;
         int32_t vertexTestZCallIndex = -1;
+        RenderViewport viewportClip;
+        uint32_t viewportClipIndex = UINT32_MAX;
         for (uint32_t pr = 0; (pr < fbPair.projectionCount) && (globalCallIndex < p.maxGameCall); pr++) {
             const Projection &proj = fbPair.projections[pr];
             const bool perspProj = (proj.type == Projection::Type::Perspective);
@@ -1494,6 +1505,7 @@ namespace RT64 {
             }
 #       endif
             
+            const int16_t *viewportClipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
             const uint16_t viewportOrigin = drawData.viewportOrigins[proj.transformsIndex];
             for (uint32_t d = 0; (d < proj.gameCallCount) && (globalCallIndex < p.maxGameCall); d++) {
                 const GameCall &call = proj.gameCalls[d];
@@ -1642,6 +1654,12 @@ namespace RT64 {
                                 moveViewportRect(triangles.viewport, p.resolutionScale, middleViewport, extOriginPercentage, horizontalMisalignment, viewportOrigin);
                             }
 
+                            if (viewportClipIndex != proj.transformsIndex) {
+                                const auto &viewport = drawData.rspViewports[proj.transformsIndex];
+                                viewportClip = convertViewportRect(viewport.rect(viewportClipRatios), p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, viewportOrigin, viewportOrigin);
+                                viewportClipIndex = proj.transformsIndex;
+                            }
+
                             break;
                         }
                         case Projection::Type::Rectangle: {
@@ -1687,12 +1705,15 @@ namespace RT64 {
                         }
 
                         triangles.scissor = convertFixedRect(call.callDesc.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, int32_t(horizontalMisalignment), call.callDesc.scissorLeftOrigin, call.callDesc.scissorRightOrigin);
+
+                        bool usesViewport = (proj.type == Projection::Type::Perspective) || (proj.type == Projection::Type::Orthographic);
+                        if (usesViewport) {
+                            triangles.scissor = viewportScissorIntersection(viewportClip, triangles.scissor);
+                        }
                         
-                        if (triangles.vertexTestZ) {
-                            if ((proj.type == Projection::Type::Perspective) || (proj.type == Projection::Type::Orthographic)) {
-                                instanceDrawCallVector[vertexTestZCallIndex].vertexTestZ.indexCount += call.callDesc.triangleCount * 3;
-                                vertexTestZFaceIndicesStart += call.callDesc.triangleCount * 3;
-                            }
+                        if (triangles.vertexTestZ && usesViewport) {
+                            instanceDrawCallVector[vertexTestZCallIndex].vertexTestZ.indexCount += call.callDesc.triangleCount * 3;
+                            vertexTestZFaceIndicesStart += call.callDesc.triangleCount * 3;
                         }
                     }
                 }
@@ -1725,7 +1746,7 @@ namespace RT64 {
                         rtScene.prevProjMatrix = drawData.prevProjTransforms[proj.transformsIndex];
 
                         const auto &viewport = drawData.rspViewports[proj.transformsIndex];
-                        rtScene.viewport = convertViewportRect(viewport.rect(), p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0.0f, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
+                        rtScene.viewport = convertViewportRect(viewport.rect(viewportClipRatios), p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0.0f, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
                         rtScene.scissor = convertFixedRect(proj.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
 
                         rtScene.presetScene = p.presetScene;

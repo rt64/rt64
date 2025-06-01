@@ -23,12 +23,12 @@ namespace interop {
         }
 
 #ifdef HLSL_CPU
-        RT64::FixedRect rect() const {
+        RT64::FixedRect rect(const int16_t *clipRatios) const {
             return {
-                int32_t(lround((translate.x - abs(scale.x)) * 4.0f)),
-                int32_t(lround((translate.y - abs(scale.y)) * 4.0f)),
-                int32_t(lround((translate.x + abs(scale.x)) * 4.0f)),
-                int32_t(lround((translate.y + abs(scale.y)) * 4.0f))
+                int32_t(lround((translate.x - scale.x * float(clipRatios[0])) * 4.0f)),
+                int32_t(lround((translate.y - scale.y * float(clipRatios[1])) * 4.0f)),
+                int32_t(lround((translate.x - scale.x * float(clipRatios[2])) * 4.0f)),
+                int32_t(lround((translate.y - scale.y * float(clipRatios[3])) * 4.0f))
             };
         }
 

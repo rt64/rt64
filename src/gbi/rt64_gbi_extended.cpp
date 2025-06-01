@@ -291,6 +291,15 @@ namespace RT64 {
             state->setExtendedRDRAM(extended);
         }
 
+        void setInvViewMatrixFloatV1(State *state, DisplayList **dl) {
+            state->rsp->setInvViewMatrixFloat((*dl)->w1);
+        }
+
+        void setNoNearClippingV1(State *state, DisplayList **dl) {
+            const uint8_t NoN = (*dl)->p1(0, 1);
+            state->rsp->setNoN(NoN);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -392,6 +401,8 @@ namespace RT64 {
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
             Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
+            Map[G_EX_SETINVVIEWMATRIXFLOAT_V1] = &setInvViewMatrixFloatV1;
+            Map[G_EX_SETNONEARCLIPPING_V1] = &setNoNearClippingV1;
             MapInitialized = true;
         }
     }

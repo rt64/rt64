@@ -156,6 +156,7 @@ namespace RT64 {
         int projectionIndex;
         std::array<interop::RSPViewport, RSP_EXTENDED_STACK_SIZE> viewportStack;
         int viewportStackSize;
+        std::array<int16_t, 4> clipRatios;
         std::array<Vertex, RSP_MAX_VERTICES> vertices;
         std::array<uint32_t, RSP_MAX_VERTICES> indices;
         std::bitset<RSP_MAX_VERTICES> used;
@@ -214,6 +215,8 @@ namespace RT64 {
             int viewProjMatrixIdStackSize;
             bool viewProjMatrixIdStackChanged;
             int curViewProjMatrixIdGroupIndex;
+            hlslpp::float4x4 invViewMatrix;
+            hlslpp::float4x4 invViewMatrixModel;
             bool forceBranch;
         } extended;
 
@@ -232,6 +235,7 @@ namespace RT64 {
         void popProjectionMatrix();
         void insertMatrix(uint32_t address, uint32_t value);
         void forceMatrix(uint32_t address);
+        void setInvViewMatrixFloat(uint32_t address);
         void computeModelViewProj();
         void specialComputeModelViewProj();
         void setModelViewProjChanged(bool changed);
@@ -255,7 +259,8 @@ namespace RT64 {
         void setLight(uint8_t index, uint32_t address);
         void setLightColor(uint8_t index, uint32_t value);
         void setLightCount(uint8_t count);
-        void setClipRatio(uint32_t clipRatio);
+        void setClipRatioEdge(uint8_t index, int16_t value);
+        void setClipRatioAll(int16_t value);
         void setPerspNorm(uint32_t perspNorm);
         void setLookAt(uint8_t index, uint32_t address);
         void setLookAtVectors(interop::float3 x, interop::float3 y);
@@ -282,5 +287,6 @@ namespace RT64 {
         void extendRDRAM(bool isExtended);
         void clearExtended();
         void setGBI(GBI *gbi);
+        void setNoN(bool NoN);
     };
 };
