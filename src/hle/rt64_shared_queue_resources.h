@@ -60,9 +60,11 @@ namespace RT64 {
 
         void setSwapChainSize(uint32_t width, uint32_t height) {
             std::scoped_lock<std::mutex> configurationLock(configurationMutex);
-            swapChainWidth = width;
-            swapChainHeight = height;
-            swapChainSizeChanged = true;
+            if ((swapChainWidth != width) || (swapChainHeight != height)) {
+                swapChainWidth = width;
+                swapChainHeight = height;
+                swapChainSizeChanged = true;
+            }
         }
 
         void setSwapChainRate(uint32_t rate) {
