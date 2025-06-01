@@ -20,6 +20,7 @@ namespace RT64 {
         uint8_t vertexInterpolation = G_EX_COMPONENT_SKIP;
         uint8_t tileInterpolation = G_EX_COMPONENT_AUTO;
         uint8_t ordering = G_EX_ORDER_AUTO;
+        uint8_t aspectMode = G_EX_ASPECT_AUTO;
         uint8_t editable = G_EX_EDIT_NONE;
     };
 };
