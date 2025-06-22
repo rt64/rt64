@@ -496,8 +496,11 @@ namespace RT64 {
                     ext.presentGraphicsWorker->wait();
                     swapChainValid = ext.swapChain->resize();
                     swapChainFramebuffers.clear();
-                    ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
                     presentWaitEnabled = detectPresentWait();
+
+                    if (swapChainValid) {
+                        ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
+                    }
                 }
 
                 if (needsResize || ext.appWindow->detectWindowMoved()) {
