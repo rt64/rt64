@@ -277,7 +277,8 @@ namespace RT64 {
                 uint32_t textureIndex = 0;
                 bool textureReplaced = false;
                 bool hasMipmaps = false;
-                textureCache->useTexture(callTile.tmemHashOrID, submissionFrame, textureIndex, gpuTile.tcScale, gpuTile.textureDimensions, textureReplaced, hasMipmaps);
+                bool shiftedByHalf = false;
+                textureCache->useTexture(callTile.tmemHashOrID, submissionFrame, textureIndex, gpuTile.tcScale, gpuTile.textureDimensions, textureReplaced, hasMipmaps, shiftedByHalf);
 
                 // Describe the GPU tile for a regular texture.
                 gpuTile.ulScale.x = gpuTile.tcScale.x;
@@ -290,6 +291,7 @@ namespace RT64 {
                 gpuTile.flags.fromCopy = false;
                 gpuTile.flags.rawTMEM = !textureReplaced && callTile.rawTMEM;
                 gpuTile.flags.hasMipmaps = hasMipmaps;
+                gpuTile.flags.shiftedByHalf = shiftedByHalf;
             }
         }
     }

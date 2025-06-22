@@ -235,6 +235,11 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
         uvCoord.x += 1.0f;
     }
     
+    const bool flagShiftedByHalf = gpuTileFlagShiftedByHalf(gpuTile.flags);
+    if (flagShiftedByHalf) {
+        uvCoord += float2(0.5f, 0.5f);
+    }
+    
     uvCoord *= gpuTile.tcScale;
     uvCoord -= (float2(rdpTile.uls, rdpTile.ult) * gpuTile.ulScale) / 4.0f;
     

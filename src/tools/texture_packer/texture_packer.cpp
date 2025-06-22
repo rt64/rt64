@@ -342,10 +342,10 @@ int main(int argc, char *argv[]) {
     std::vector<uint64_t> hashesMissing;
     std::unordered_map<uint64_t, RT64::ReplacementResolvedPath> resolvedPathMap;
     std::unique_ptr<RT64::FileSystem> fileSystem = RT64::FileSystemDirectory::create(searchDirectory);
-    database.resolvePaths(fileSystem.get(), resolvedPathMap, mode == Mode::CreateLowMipCache, &hashesMissing);
+    database.resolvePaths(fileSystem.get(), 0, resolvedPathMap, mode == Mode::CreateLowMipCache, &hashesMissing);
 
     for (auto it : resolvedPathMap) {
-        if ((mode != Mode::CreateLowMipCache) || (it.second.operation == RT64::ReplacementOperation::Stream)) {
+        if ((mode != Mode::CreateLowMipCache) || (it.second.resolvedOperation == RT64::ReplacementOperation::Stream)) {
             resolvedPathSet.insert(it.second.relativePath);
         }
     }

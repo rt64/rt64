@@ -248,17 +248,19 @@ namespace RT64 {
             }
         };
 
-        auto showHashAndReplaceButton = [&](uint64_t replacementHash) {
+        auto showHashAndReplaceButton = [&](uint64_t replacementHash, ReplacementShift shift) {
             char hexStr[64];
             snprintf(hexStr, sizeof(hexStr), "%016" PRIx64, replacementHash);
-            ImGui::Text("Hash 0x%s", hexStr);
+            ImGui::Text("Hash: 0x%s", hexStr);
             ImGui::SameLine();
 
+            bool directoryMode = textureCache.textureMap.replacementMap.fileSystemIsDirectory;
+            const ReplacementDatabase &replacementDb = textureCache.textureMap.replacementMap.directoryDatabase;
             if (ImGui::Button("Replace")) {
-                if (!textureCache.textureMap.replacementMap.fileSystemIsDirectory) {
+                if (!directoryMode) {
                     ImGui::OpenPopup(ReplaceDirectoryOnlyModalId);
                 }
-                else if (textureCache.textureMap.replacementMap.directoryDatabase.config.hashVersion < TMEMHasher::CurrentHashVersion) {
+                else if (replacementDb.config.hashVersion < TMEMHasher::CurrentHashVersion) {
                     ImGui::OpenPopup(ReplaceOutdatedModalId);
                 }
                 else {
@@ -267,7 +269,7 @@ namespace RT64 {
                         std::filesystem::path directoryPath = textureCache.textureMap.replacementMap.replacementDirectories.front().dirOrZipPath;
                         std::filesystem::path relativePath = std::filesystem::relative(textureFilename, directoryPath);
                         if (!relativePath.empty()) {
-                            textureCache.addReplacement(replacementHash, relativePath.u8string());
+                            textureCache.addReplacement(replacementHash, relativePath.u8string(), shift);
                         }
                         else {
                             ImGui::OpenPopup(ReplaceErrorModalId);
@@ -310,6 +312,28 @@ namespace RT64 {
                 }
 
                 ImGui::EndPopup();
+            }
+
+            ReplacementResolvedPath resolvedPath;
+            if (textureCache.textureMap.replacementMap.getResolvedPathFromHash(replacementHash, replacementDb.config.hashVersion, resolvedPath)) {
+                ImGui::BeginDisabled(!directoryMode);
+
+                int shift = int(resolvedPath.originalShift);
+                int operation = int(resolvedPath.originalOperation);
+                ImGui::Text("Replacement: %s", resolvedPath.relativePath.c_str());
+                if (ImGui::Combo("Shift", &shift, "None\0Half\0Auto\0")) {
+                    textureCache.setReplacementShift(replacementHash, ReplacementShift(shift));
+                }
+
+                if (ImGui::Combo("Operation", &operation, "Preload\0Stream\0Stall\0Auto\0")) {
+                    textureCache.setReplacementOperation(replacementHash, ReplacementOperation(operation));
+                }
+
+                ImGui::EndDisabled();
+
+                if (!directoryMode) {
+                    ImGui::Text("Properties can only be edited when loading a texture pack as a single directory.");
+                }
             }
         };
 
@@ -671,7 +695,7 @@ namespace RT64 {
                     }
 
                     if (headerOpen) {
-                        showHashAndReplaceButton(spriteCommand.replacementHash);
+                        showHashAndReplaceButton(spriteCommand.replacementHash, ReplacementShift::Auto);
                     }
 
                     ImGui::PopID();
@@ -1183,7 +1207,10 @@ namespace RT64 {
                                             }
                                         }
                                         else {
-                                            showHashAndReplaceButton(callTile.tmemHashOrID);
+                                            bool notCopyMode = (callDesc.otherMode.cycleType() != G_CYC_COPY);
+                                            bool notPointFiltered = (callDesc.otherMode.textFilt() != G_TF_POINT);
+                                            ReplacementShift shift = notCopyMode && notPointFiltered ? ReplacementShift::Auto : ReplacementShift::None;
+                                            showHashAndReplaceButton(callTile.tmemHashOrID, shift);
                                         }
 
                                         uint32_t textureIndex = 0;
