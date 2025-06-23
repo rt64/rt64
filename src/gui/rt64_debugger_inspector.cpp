@@ -315,7 +315,16 @@ namespace RT64 {
             }
 
             ReplacementResolvedPath resolvedPath;
-            if (textureCache.textureMap.replacementMap.getResolvedPathFromHash(replacementHash, replacementDb.config.hashVersion, resolvedPath)) {
+            for (int32_t i = int32_t(textureCache.textureMap.replacementMap.fileSystems.size()) - 1; i >= 0; i--) {
+                const auto &resolvedPaths = textureCache.textureMap.replacementMap.fileSystemResolvedPaths[i];
+                auto it = resolvedPaths.find(replacementHash);
+                if (it != resolvedPaths.end()) {
+                    resolvedPath = it->second;
+                    break;
+                }
+            }
+
+            if (resolvedPath.textureHash != 0) {
                 ImGui::BeginDisabled(!directoryMode);
 
                 int shift = int(resolvedPath.originalShift);

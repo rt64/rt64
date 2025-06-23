@@ -180,6 +180,7 @@ namespace RT64 {
 
             ReplacementResolvedPath &resolvedPath = resolvedPathMap[hash];
             resolvedPath.fileSystemIndex = fileSystemIndex;
+            resolvedPath.textureHash = hash;
             resolvedPath.relativePath = relativePath;
             resolvedPath.originalOperation = operation;
             resolvedPath.originalShift = shift;
