@@ -440,6 +440,8 @@ void upgradeHash(const std::filesystem::path &directory, const std::string oldHa
     const uint64_t hash = RT64::TMEMHasher::hash(tmemBytes.data(), drawTile, drawWidth, drawHeight, toHashTLUT(drawTLUT), RT64::TMEMHasher::CurrentHashVersion);
     const std::string newHashName = RT64::ReplacementDatabase::hashToString(hash);
     if (oldHashName != newHashName) {
+        replacement.hashes.rt64 = newHashName;
+
         database.fixReplacement(oldHashName, replacement);
         fprintf(stdout, "Updated %s to %s in database.\n", oldHashName.c_str(), newHashName.c_str());
 

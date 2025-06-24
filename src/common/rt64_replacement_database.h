@@ -93,6 +93,7 @@ namespace RT64 {
 
     struct ReplacementResolvedPath {
         uint32_t fileSystemIndex = 0;
+        uint64_t textureHash = 0;
         std::string relativePath;
         ReplacementOperation resolvedOperation = ReplacementOperation::Auto;
         ReplacementOperation originalOperation = ReplacementOperation::Auto;
