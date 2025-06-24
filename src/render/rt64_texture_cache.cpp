@@ -1298,7 +1298,7 @@ namespace RT64 {
             }
         }
 
-        for (int32_t i = int32_t(textureMap.replacementMap.fileSystemResolvedPaths.size() - 1); i >= 0; i--) {
+        for (int32_t i = int32_t(textureMap.replacementMap.fileSystemResolvedPaths.size()) - 1; i >= 0; i--) {
             const auto &fsResolvedPaths = textureMap.replacementMap.fileSystemResolvedPaths[i];
             uint32_t hashVersion = textureMap.replacementMap.fileSystemHashVersions[i];
             if ((exclusiveDbHash == 0) || (exclusiveDbHash == hashes[hashVersion])) {
@@ -1397,7 +1397,7 @@ namespace RT64 {
     bool TextureCache::hasReplacement(uint64_t hash) {
         std::unique_lock lock(textureMapMutex);
         const auto &resolvedPaths = textureMap.replacementMap.fileSystemResolvedPaths;
-        for (int32_t i = int32_t(resolvedPaths.size() - 1); i >= 0; i--) {
+        for (int32_t i = int32_t(resolvedPaths.size()) - 1; i >= 0; i--) {
             if (resolvedPaths[i].find(hash) != resolvedPaths[i].end()) {
                 return true;
             }
@@ -1511,7 +1511,7 @@ namespace RT64 {
             std::vector<uint8_t> mipCacheBytes;
             std::vector<std::unique_ptr<RenderBuffer>> uploadBuffers;
             std::set<uint32_t> knownHashVersions;
-            for (int32_t i = int32_t(fileSystems.size() - 1); i >= 0; i--) {
+            for (int32_t i = int32_t(fileSystems.size()) - 1; i >= 0; i--) {
                 if (fileSystems[i]->load(ReplacementDatabaseFilename, databaseBytes)) {
                     try {
                         ReplacementDatabase db;
