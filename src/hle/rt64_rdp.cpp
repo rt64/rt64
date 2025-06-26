@@ -222,11 +222,15 @@ namespace RT64 {
         }
     };
 
+    inline const uint32_t ExtendedMask = 0x80000000U;
+
     uint32_t RDP::maskAddress(uint32_t address) {
-        if (state->extended.extendRDRAM && ((address & 0xF0000000) == 0x80000000)) {
-            return address - 0x80000000;
+        if (state->extended.extendRDRAM && ((address & ExtendedMask) == ExtendedMask)) {
+            return address - ExtendedMask;
         }
-        return address & RDP_ADDRESS_MASK;
+        else {
+            return address & RDP_ADDRESS_MASK;
+        }
     }
 
     void RDP::setColorImage(uint8_t fmt, uint8_t siz, uint16_t width, uint32_t address) {
