@@ -90,7 +90,7 @@ namespace RT64 {
         clearExtended();
     }
 
-    inline const uint32_t ExtendedMask = 0x80000000U;
+    constexpr uint32_t ExtendedMask = 0x80000000U;
 
     // Masks addresses as the RSP DMA hardware would.
     template<uint32_t mask> uint32_t RSP::maskPhysicalAddress(uint32_t address) {

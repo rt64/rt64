@@ -222,7 +222,7 @@ namespace RT64 {
         }
     };
 
-    inline const uint32_t ExtendedMask = 0x80000000U;
+    constexpr uint32_t ExtendedMask = 0x80000000U;
 
     uint32_t RDP::maskAddress(uint32_t address) {
         if (state->extended.extendRDRAM && ((address & ExtendedMask) == ExtendedMask)) {
