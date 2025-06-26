@@ -36,6 +36,7 @@ namespace RT64 {
         std::vector<uint16_t> lookAtIndices;
         std::vector<uint32_t> faceIndices;
         std::vector<uint32_t> modifyPosUints;
+        std::vector<uint32_t> billboardIndices;
         std::vector<hlslpp::float4> posTransformed;
         std::vector<hlslpp::float3> posScreen;
         std::vector<interop::RDPParams> rdpParams;
@@ -83,6 +84,10 @@ namespace RT64 {
             return uint32_t(modifyPosUints.size()) / 2;
         }
 
+        uint32_t billboardCount() const {
+            return uint32_t(billboardIndices.size()) / 2;
+        }
+
         uint32_t rawTriVertexCount() const {
             return uint32_t(triPosFloats.size()) / 4;
         }
@@ -112,6 +117,7 @@ namespace RT64 {
         Range lookAtIndices;
         Range faceIndices;
         Range modifyPosUints;
+        Range billboardIndices;
         Range rdpParams;
         Range extraParams;
         Range renderParams;
@@ -143,6 +149,7 @@ namespace RT64 {
         BufferPair lookAtIndicesBuffer;
         BufferPair faceIndicesBuffer;
         BufferPair modifyPosUintsBuffer;
+        BufferPair billboardIndicesBuffer;
         BufferPair rdpParamsBuffer;
         BufferPair rspParamsBuffer;
         BufferPair extraParamsBuffer;

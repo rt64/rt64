@@ -489,14 +489,36 @@ namespace RT64 {
         }
     };
 
+    struct RSPBillboardDescriptorSet : RenderDescriptorSetBase {
+        uint32_t srcBillboardIndices;
+        uint32_t srcFogIndices;
+        uint32_t rspFogVector;
+        uint32_t dstPos;
+        uint32_t dstCol;
+
+        RSPBillboardDescriptorSet(RenderDevice *device = nullptr) {
+            builder.begin();
+            srcBillboardIndices = builder.addFormattedBuffer(1);
+            srcFogIndices = builder.addFormattedBuffer(2);
+            rspFogVector = builder.addStructuredBuffer(3);
+            dstPos = builder.addReadWriteStructuredBuffer(4);
+            dstCol = builder.addReadWriteStructuredBuffer(5);
+            builder.end();
+
+            if (device != nullptr) {
+                create(device);
+            }
+        }
+    };
+
     struct RSPModifyDescriptorSet : RenderDescriptorSetBase {
         uint32_t srcModifyPos;
-        uint32_t screenPos;
+        uint32_t dstPos;
 
         RSPModifyDescriptorSet(RenderDevice *device = nullptr) {
             builder.begin();
             srcModifyPos = builder.addFormattedBuffer(1);
-            screenPos = builder.addReadWriteStructuredBuffer(2);
+            dstPos = builder.addReadWriteStructuredBuffer(2);
             builder.end();
 
             if (device != nullptr) {

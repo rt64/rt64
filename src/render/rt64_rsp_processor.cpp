@@ -12,6 +12,7 @@ namespace RT64 {
     RSPProcessor::RSPProcessor(RenderDevice *device) {
         processSet = std::make_unique<RSPProcessDescriptorSet>(device);
         modifySet = std::make_unique<RSPModifyDescriptorSet>(device);
+        billboardSet = std::make_unique<RSPBillboardDescriptorSet>(device);
     }
 
     RSPProcessor::~RSPProcessor() { }
@@ -50,46 +51,69 @@ namespace RT64 {
         const uint32_t modifyCount = drawData.modifyCount();
         modifyCB.modifyCount = modifyCount;
         modifySet->setBuffer(modifySet->srcModifyPos, p.drawBuffers->modifyPosUintsBuffer.get(), p.drawBuffers->modifyPosUintsBuffer.getView(0));
-        modifySet->setBuffer(modifySet->screenPos, p.outputBuffers->screenPosBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
+        modifySet->setBuffer(modifySet->dstPos, p.outputBuffers->screenPosBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
+
+        const uint32_t billboardCount = drawData.billboardCount();
+        billboardCB.billboardCount = billboardCount;
+        billboardSet->setBuffer(billboardSet->srcBillboardIndices, p.drawBuffers->billboardIndicesBuffer.get(), p.drawBuffers->billboardIndicesBuffer.getView(0));
+        billboardSet->setBuffer(billboardSet->srcFogIndices, p.drawBuffers->fogIndicesBuffer.get(), p.drawBuffers->fogIndicesBuffer.getView(0));
+        billboardSet->setBuffer(billboardSet->rspFogVector, p.drawBuffers->rspFogBuffer.get(), RenderBufferStructuredView(sizeof(interop::RSPFog)));
+        billboardSet->setBuffer(billboardSet->dstPos, p.outputBuffers->screenPosBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
+        billboardSet->setBuffer(billboardSet->dstCol, p.outputBuffers->shadedColBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
     }
 
     void RSPProcessor::recordCommandList(RenderWorker *worker, const ShaderLibrary *shaderLibrary, const OutputBuffers *outputBuffers) {
         const uint32_t ThreadGroupSize = 64;
-        
+
         if (processCB.vertexCount > 0) {
-            RenderBufferBarrier beforeBarriers[] = {
+            RenderBufferBarrier barriers[] = {
                 RenderBufferBarrier(outputBuffers->screenPosBuffer.buffer.get(), RenderBufferAccess::WRITE),
                 RenderBufferBarrier(outputBuffers->genTexCoordBuffer.buffer.get(), RenderBufferAccess::WRITE),
                 RenderBufferBarrier(outputBuffers->shadedColBuffer.buffer.get(), RenderBufferAccess::WRITE)
             };
 
-            RenderBufferBarrier afterBarriers[] = {
-                RenderBufferBarrier(outputBuffers->screenPosBuffer.buffer.get(), RenderBufferAccess::READ),
-                RenderBufferBarrier(outputBuffers->genTexCoordBuffer.buffer.get(), RenderBufferAccess::READ),
-                RenderBufferBarrier(outputBuffers->shadedColBuffer.buffer.get(), RenderBufferAccess::READ)
-            };
-
             const int dispatchCount = (processCB.vertexCount + ThreadGroupSize - 1) / ThreadGroupSize;
-            worker->commandList->barriers(RenderBarrierStage::COMPUTE, beforeBarriers, uint32_t(std::size(beforeBarriers)));
+            worker->commandList->barriers(RenderBarrierStage::COMPUTE, barriers, uint32_t(std::size(barriers)));
             worker->commandList->setPipeline(shaderLibrary->rspProcess.pipeline.get());
             worker->commandList->setComputePipelineLayout(shaderLibrary->rspProcess.pipelineLayout.get());
             worker->commandList->setComputePushConstants(0, &processCB);
             worker->commandList->setComputeDescriptorSet(processSet->get(), 0);
             worker->commandList->dispatch(dispatchCount, 1, 1);
-            worker->commandList->barriers(RenderBarrierStage::GRAPHICS, afterBarriers, uint32_t(std::size(afterBarriers)));
+        }
+
+        if (billboardCB.billboardCount > 0) {
+            RenderBufferBarrier barriers[] = {
+                RenderBufferBarrier(outputBuffers->screenPosBuffer.buffer.get(), RenderBufferAccess::WRITE),
+                RenderBufferBarrier(outputBuffers->shadedColBuffer.buffer.get(), RenderBufferAccess::WRITE)
+            };
+
+            const int dispatchCount = (billboardCB.billboardCount + ThreadGroupSize - 1) / ThreadGroupSize;
+            worker->commandList->barriers(RenderBarrierStage::COMPUTE, barriers, uint32_t(std::size(barriers)));
+            worker->commandList->setPipeline(shaderLibrary->rspBillboard.pipeline.get());
+            worker->commandList->setComputePipelineLayout(shaderLibrary->rspBillboard.pipelineLayout.get());
+            worker->commandList->setComputePushConstants(0, &billboardCB);
+            worker->commandList->setComputeDescriptorSet(billboardSet->get(), 0);
+            worker->commandList->dispatch(dispatchCount, 1, 1);
         }
 
         if (modifyCB.modifyCount > 0) {
-            RenderBufferBarrier beforeBarrier = RenderBufferBarrier(outputBuffers->screenPosBuffer.buffer.get(), RenderBufferAccess::WRITE);
-            RenderBufferBarrier afterBarrier = RenderBufferBarrier(outputBuffers->screenPosBuffer.buffer.get(), RenderBufferAccess::READ);
             const int dispatchCount = (modifyCB.modifyCount + ThreadGroupSize - 1) / ThreadGroupSize;
-            worker->commandList->barriers(RenderBarrierStage::COMPUTE, beforeBarrier);
+            worker->commandList->barriers(RenderBarrierStage::COMPUTE, RenderBufferBarrier(outputBuffers->screenPosBuffer.buffer.get(), RenderBufferAccess::WRITE));
             worker->commandList->setPipeline(shaderLibrary->rspModify.pipeline.get());
             worker->commandList->setComputePipelineLayout(shaderLibrary->rspModify.pipelineLayout.get());
             worker->commandList->setComputePushConstants(0, &modifyCB);
             worker->commandList->setComputeDescriptorSet(modifySet->get(), 0);
             worker->commandList->dispatch(dispatchCount, 1, 1);
-            worker->commandList->barriers(RenderBarrierStage::GRAPHICS, afterBarrier);
+        }
+
+        if ((processCB.vertexCount > 0) || (billboardCB.billboardCount > 0) || (modifyCB.modifyCount > 0)) {
+            RenderBufferBarrier barriers[] = {
+                RenderBufferBarrier(outputBuffers->screenPosBuffer.buffer.get(), RenderBufferAccess::READ),
+                RenderBufferBarrier(outputBuffers->genTexCoordBuffer.buffer.get(), RenderBufferAccess::READ),
+                RenderBufferBarrier(outputBuffers->shadedColBuffer.buffer.get(), RenderBufferAccess::READ)
+            };
+
+            worker->commandList->barriers(RenderBarrierStage::GRAPHICS, barriers, uint32_t(std::size(barriers)));
         }
     }
 };

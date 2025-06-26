@@ -43,6 +43,7 @@ namespace RT64 {
         ShaderRecord im3dTriangle;
         ShaderRecord luminanceHistogram;
         ShaderRecord postProcess;
+        ShaderRecord rspBillboard;
         ShaderRecord rspModify;
         ShaderRecord rspProcess;
         ShaderRecord rspSmoothNormal;

@@ -49,32 +49,19 @@ namespace RT64 {
         }
     }
 
-    void Interpreter::processRDPLists(uint32_t dlStartAdddress, DisplayList *dlStart, DisplayList *dlEnd) {
-        state->dlCpuProfiler.start();
-
-        // Update the state with the current display list address.
-        state->displayListAddress = dlStartAdddress;
-        state->displayListCounter++;
-
-        // Check RDRAM if required.
-        state->checkRDRAM();
+    void Interpreter::runRDPLists(DisplayList *dlStart, DisplayList *dlEnd) {
+        if (dlStart >= dlEnd) {
+            return;
+        }
 
         GBI *rdpGBI = state->rdp->gbi;
         constexpr unsigned int opCodeMask = 0x3F;
-
-        // Run the command interpreter.
         assert(rdpGBI != nullptr);
         DisplayList *dl = dlStart;
         uint8_t opCode;
         GBIFunction func;
         uint32_t cmdLength;
         size_t pendingCommandRemainingBytes = state->rdp->pendingCommandRemainingBytes;
-
-        if (dlStart >= dlEnd) {
-            state->dlCpuProfiler.end();
-            return;
-        }
-
         if (pendingCommandRemainingBytes != 0) {
             // Copy the remaining command bytes from the current displaylist
             uint32_t toCopy = (uint32_t)std::min(pendingCommandRemainingBytes, (uintptr_t)dlEnd - (uintptr_t)dl);
@@ -104,7 +91,6 @@ namespace RT64 {
             else {
                 state->rdp->pendingCommandCurrentBytes += toCopy;
                 state->rdp->pendingCommandRemainingBytes -= toCopy;
-                state->dlCpuProfiler.end();
                 return;
             }
         }
@@ -149,6 +135,20 @@ namespace RT64 {
                 dl += cmdLength;
             }
         }
+    }
+
+    void Interpreter::processRDPLists(uint32_t dlStartAdddress, DisplayList *dlStart, DisplayList *dlEnd) {
+        state->dlCpuProfiler.start();
+
+        // Update the state with the current display list address.
+        state->displayListAddress = dlStartAdddress;
+        state->displayListCounter++;
+
+        // Check RDRAM if required.
+        state->checkRDRAM();
+
+        // Run the command interpreter.
+        runRDPLists(dlStart, dlEnd);
 
         state->dlCpuProfiler.end();
     }

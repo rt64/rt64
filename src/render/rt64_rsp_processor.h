@@ -21,6 +21,10 @@ namespace RT64 {
             uint32_t modifyCount;
         };
 
+        struct BillboardCB {
+            uint32_t billboardCount;
+        };
+
         struct ProcessParams {
             RenderWorker *worker = nullptr;
             DrawData *drawData = nullptr;
@@ -32,8 +36,10 @@ namespace RT64 {
 
         ProcessCB processCB;
         ModifyCB modifyCB;
+        BillboardCB billboardCB;
         std::unique_ptr<RSPProcessDescriptorSet> processSet;
         std::unique_ptr<RSPModifyDescriptorSet> modifySet;
+        std::unique_ptr<RSPBillboardDescriptorSet> billboardSet;
 
         RSPProcessor(RenderDevice *device);
         ~RSPProcessor();

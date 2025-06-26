@@ -315,6 +315,7 @@ set (SOURCES
 
     "${PROJECT_SOURCE_DIR}/src/gbi/rt64_gbi.cpp"
     "${PROJECT_SOURCE_DIR}/src/gbi/rt64_gbi_f3d.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gbi/rt64_gbi_f3ddkr.cpp"
     "${PROJECT_SOURCE_DIR}/src/gbi/rt64_gbi_f3dex.cpp"
     "${PROJECT_SOURCE_DIR}/src/gbi/rt64_gbi_f3dex2.cpp"
     "${PROJECT_SOURCE_DIR}/src/gbi/rt64_gbi_f3dgolden.cpp"
@@ -519,6 +520,7 @@ build_compute_shader(rt64 "src/shaders/LuminanceHistogramCS.hlsl")
 build_pixel_shader(  rt64 "src/shaders/PostBlendDitherNoisePS.hlsl" "src/shaders/PostBlendDitherNoiseAddPS.hlsl" "-D ADD_MODE")
 build_pixel_shader(  rt64 "src/shaders/PostBlendDitherNoisePS.hlsl" "src/shaders/PostBlendDitherNoiseSubPS.hlsl" "-D SUB_MODE")
 build_pixel_shader(  rt64 "src/shaders/PostBlendDitherNoisePS.hlsl" "src/shaders/PostBlendDitherNoiseSubNegativePS.hlsl" "-D SUB_MODE" "-D NEGATIVE_MODE")
+build_compute_shader(rt64 "src/shaders/RSPBillboardCS.hlsl")
 build_compute_shader(rt64 "src/shaders/RSPModifyCS.hlsl")
 build_compute_shader(rt64 "src/shaders/RSPProcessCS.hlsl")
 build_compute_shader(rt64 "src/shaders/RSPWorldCS.hlsl")

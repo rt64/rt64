@@ -197,6 +197,17 @@ namespace RT64 {
         } S2D;
 
         struct {
+            std::array<uint32_t, RSP_MAX_VERTICES> billboardAnchors = {};
+            std::array<FixedMatrix, 3> matrices = {};
+            std::array<uint32_t, 3> matricesSegmentedAddresses = {};
+            std::array<uint32_t, 3> matricesRDRAMAddresses = {};
+            uint32_t matrixIndex = 0;
+            uint8_t vertexCount = 0;
+            bool matrixChanged = false;
+            bool billboard = false;
+        } DKR;
+
+        struct {
             // For stateful methods.
             struct {
                 uint16_t viewportOrigin;
@@ -234,6 +245,7 @@ namespace RT64 {
         uint32_t fromSegmentedMaskedPD(uint32_t segAddress);
         void setSegment(uint32_t seg, uint32_t address);
         void matrix(uint32_t address, uint8_t params);
+        void matrix(const FixedMatrix *fixedMatrix, uint8_t params, uint32_t segmentedAddress, uint32_t rdramAddress);
         void popMatrix(uint32_t count);
         void pushProjectionMatrix();
         void popProjectionMatrix();

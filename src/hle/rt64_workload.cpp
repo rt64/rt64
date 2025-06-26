@@ -55,6 +55,7 @@ namespace RT64 {
         drawData.lookAtIndices.clear();
         drawData.faceIndices.clear();
         drawData.modifyPosUints.clear();
+        drawData.billboardIndices.clear();
         drawData.rdpParams.clear();
         drawData.extraParams.clear();
         drawData.renderParams.clear();
@@ -127,6 +128,7 @@ namespace RT64 {
         r.lookAtIndices = { 0, 0 };
         r.faceIndices = { 0, 0 };
         r.modifyPosUints = { 0, 0 };
+        r.billboardIndices = { 0, 0 };
         r.rdpParams = { 0, 0 };
         r.extraParams = { 0, 0 };
         r.renderParams = { 0, 0 };
@@ -171,6 +173,7 @@ namespace RT64 {
         r.lookAtIndices.second = drawData.lookAtIndices.size();
         r.faceIndices.second = drawData.faceIndices.size();
         r.modifyPosUints.second = drawData.modifyPosUints.size();
+        r.billboardIndices.second = drawData.billboardIndices.size();
         r.rdpParams.second = drawData.rdpParams.size();
         r.extraParams.second = drawData.extraParams.size();
         r.renderParams.second = drawData.renderParams.size();
@@ -204,6 +207,7 @@ namespace RT64 {
             { drawData.lookAtIndices.data(), drawRanges.lookAtIndices, sizeof(uint16_t), RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE, { RenderFormat::R16_UINT }, &drawBuffers.lookAtIndicesBuffer },
             { drawData.faceIndices.data(), drawRanges.faceIndices, sizeof(uint32_t), RenderBufferFlag::INDEX | RenderBufferFlag::STORAGE | rtInputFlag, { }, &drawBuffers.faceIndicesBuffer },
             { drawData.modifyPosUints.data(), drawRanges.modifyPosUints, sizeof(uint32_t), RenderBufferFlag::FORMATTED, { RenderFormat::R32_UINT }, &drawBuffers.modifyPosUintsBuffer },
+            { drawData.billboardIndices.data(), drawRanges.billboardIndices, sizeof(uint32_t), RenderBufferFlag::FORMATTED, { RenderFormat::R32_UINT }, &drawBuffers.billboardIndicesBuffer },
             { drawData.rdpParams.data(), drawRanges.rdpParams, sizeof(interop::RDPParams), RenderBufferFlag::STORAGE, { }, &drawBuffers.rdpParamsBuffer },
             { drawData.renderParams.data(), drawRanges.renderParams, sizeof(interop::RenderParams), RenderBufferFlag::STORAGE, { }, &drawBuffers.renderParamsBuffer },
             { drawData.rdpTiles.data(), drawRanges.rdpTiles, sizeof(interop::RDPTile), RenderBufferFlag::STORAGE, {}, &drawBuffers.rdpTilesBuffer },
@@ -261,6 +265,7 @@ namespace RT64 {
         nextDrawDataRange(r.lookAtIndices);
         nextDrawDataRange(r.faceIndices);
         nextDrawDataRange(r.modifyPosUints);
+        nextDrawDataRange(r.billboardIndices);
         nextDrawDataRange(r.rdpParams);
         nextDrawDataRange(r.extraParams);
         nextDrawDataRange(r.renderParams);

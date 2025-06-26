@@ -128,6 +128,10 @@ namespace RT64 {
     void RSP::matrix(uint32_t address, uint8_t params) {
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
+        matrix(fixedMatrix, params, address, rdramAddress);
+    }
+
+    void RSP::matrix(const FixedMatrix *fixedMatrix, uint8_t params, uint32_t segmentedAddress, uint32_t rdramAddress) {
         const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
 
         // Projection matrix.
@@ -159,7 +163,7 @@ namespace RT64 {
                 }
             }
 
-            projectionMatrixSegmentedAddress = address;
+            projectionMatrixSegmentedAddress = segmentedAddress;
             projectionMatrixPhysicalAddress = rdramAddress;
             projectionMatrixChanged = true;
             projectionMatrixInversed = false;
@@ -178,10 +182,10 @@ namespace RT64 {
                 modelMatrixStack[modelMatrixStackSize - 1] = hlslpp::mul(floatMatrix, modelMatrixStack[modelMatrixStackSize - 1]);
             }
 
-            modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1] = address;
+            modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1] = segmentedAddress;
             modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1] = rdramAddress;
         }
-        
+
         modelViewProjChanged = true;
     }
 

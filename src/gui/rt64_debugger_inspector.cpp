@@ -770,6 +770,18 @@ namespace RT64 {
             ImGui::Unindent();
         }
 
+        const size_t billboardCount = drawData.billboardCount();
+        if ((billboardCount > 0) && ImGui::CollapsingHeader("Billboard")) {
+            ImGui::Indent();
+            for (size_t b = 0; b < billboardCount; b++) {
+                const uint32_t vertexIndex = drawData.billboardIndices[b * 2];
+                const uint32_t anchorIndex = drawData.billboardIndices[b * 2 + 1];
+                ImGui::Text("#%u: %u", vertexIndex, anchorIndex);
+            }
+
+            ImGui::Unindent();
+        }
+
         const size_t modifyCount = drawData.modifyCount();
         if ((modifyCount > 0) && ImGui::CollapsingHeader("Modify")) {
             ImGui::Indent();

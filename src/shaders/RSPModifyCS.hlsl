@@ -10,7 +10,7 @@ struct RSPModifyCB {
 
 [[vk::push_constant]] ConstantBuffer<RSPModifyCB> gConstants : register(b0);
 Buffer<uint> srcModifyPos : register(t1);
-RWStructuredBuffer<float4> screenPos : register(u2);
+RWStructuredBuffer<float4> dstPos : register(u2);
 
 [numthreads(GROUP_SIZE, 1, 1)]
 void CSMain(uint modifyIndex : SV_DispatchThreadID) {
@@ -23,14 +23,14 @@ void CSMain(uint modifyIndex : SV_DispatchThreadID) {
     const uint vertexIndex = srcModifyPos[modifyOffset] >> 1;
     const uint modifyValue = srcModifyPos[modifyOffset + 1];
     if (modifyZ) {
-        screenPos[vertexIndex].z = modifyValue / 65536.0f;
+        dstPos[vertexIndex].z = modifyValue / 65536.0f;
     }
     else {
         const uint extX = (modifyValue >> 16) & 0xFFFF;
         const uint extY = modifyValue & 0xFFFF;
         const int intX = int(extX) << 16 >> 16;
         const int intY = int(extY) << 16 >> 16;
-        screenPos[vertexIndex].x = intX / 4.0f;
-        screenPos[vertexIndex].y = intY / 4.0f;
+        dstPos[vertexIndex].x = intX / 4.0f;
+        dstPos[vertexIndex].y = intY / 4.0f;
     }
 }

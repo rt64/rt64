@@ -9,6 +9,7 @@
 
 #include "rt64_gbi_extended.h"
 #include "rt64_gbi_f3d.h"
+#include "rt64_gbi_f3ddkr.h"
 #include "rt64_gbi_f3dgolden.h"
 #include "rt64_gbi_f3dpd.h"
 #include "rt64_gbi_f3dex.h"
@@ -61,6 +62,7 @@ namespace RT64 {
     const GBIInstance   F3D_GOLDEN                = { "SW Version: 2.0G, 09-30-96 (GE007)",        GBIUCode::F3DGOLDEN,   { false,  false,  false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3D_PD                    = { "SW Version: Unknown (PD)",                  GBIUCode::F3DPD,       { false,  false,  false,  false,  false } };
     const GBIInstance   F3D_WAVE                  = { "SW Version: 2.0D, 04-01-96 (Wave Race)",    GBIUCode::F3DWAVE,     { false,  false,  false,  false,  false } }; // Needs confirmation.
+    const GBIInstance   F3D_DKR                   = { "SW Version (DKR)",                          GBIUCode::F3DDKR,      { false,  false,  false,  false,  false } };
     const GBIInstance   F3DEX_0_95                = { "F3DEX 0.95",                                GBIUCode::F3DEX,       { false,  false,  false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3DLX_0_95                = { "F3DLX 0.95",                                GBIUCode::F3DEX,       { true,   false,  false,  false,  false } }; // Needs confirmation.
     const GBIInstance   F3DEX_0_96                = { "F3DEX 0.96",                                GBIUCode::F3DEX,       { false,  false,  false,  false,  false } }; // Needs confirmation.
@@ -160,7 +162,7 @@ namespace RT64 {
     // 
     //                  Length      Hash                    Known instances               
     //     
-    static std::array<GBISegment, 94> textSegments = {
+    static std::array<GBISegment, 95> textSegments = {
             GBISegment{ 0x1408,     0x9C0926F5E466BE70ULL,  { &F3D_SDK_E } }, // Needs confirmation.
             GBISegment{ 0x1400,     0x34EAA6E921BCF1B2ULL,  { &F3D_SDK_F, &F3D_SDK_UNKNOWN_G, &F3D_SDK_UNKNOWN_H } }, // Needs confirmation.
             GBISegment{ 0x1408,     0x3E05E9BBE814C700ULL,  { &F3D_FIFO_SDK_E } }, // Needs confirmation.
@@ -175,6 +177,7 @@ namespace RT64 {
             GBISegment{ 0x1418,     0xAEBF9966DD0486DDULL,  { &F3D_PD } },
             GBISegment{ 0x1420,     0xEDA47A4C2B7E69F8ULL,  { &F3D_GOLDEN } }, // Needs confirmation.
             GBISegment{ 0x1430,     0x547A4F6CEDE3C737ULL,  { &F3D_WAVE } }, // Needs confirmation.
+            GBISegment{ 0x1200,     0x58D1EF2CFA901F14ULL,  { &F3D_DKR } },
             GBISegment{ 0x13E0,     0x28825EEF49EE29CFULL,  { &F3DEX_0_95 } }, // Needs confirmation.
             GBISegment{ 0x1410,     0xF1CC01CCC3607D27ULL,  { &F3DLX_0_95 } }, // Needs confirmation.
             GBISegment{ 0x13A0,     0x2DAE911B08F94FCFULL,  { &F3DEX_0_96, &F3DEX_1_00 } }, // Needs confirmation.
@@ -257,7 +260,7 @@ namespace RT64 {
             GBISegment{ 0x10B0,     0xE8028E4BC6529E6EULL,  { &ZSORTP_0_33 } }, // Needs confirmation.
     };
 
-    static std::array<GBISegment, 105> dataSegments = {
+    static std::array<GBISegment, 106> dataSegments = {
             GBISegment{ 0x800,      0xEEB10D73400213B3ULL,  { &F3D_SDK_E } }, // Needs confirmation.
             GBISegment{ 0x800,      0x49651E384B48F694ULL,  { &F3D_SDK_F } }, // Needs confirmation.
             GBISegment{ 0x800,      0x1A736198F90E81C5ULL,  { &F3D_SDK_UNKNOWN_G } }, // Needs confirmation.
@@ -275,6 +278,7 @@ namespace RT64 {
             GBISegment{ 0x800,      0x72AD2373CEC74AA7ULL,  { &F3D_PD } },
             GBISegment{ 0x800,      0xB2152361A81ED3B0ULL,  { &F3D_GOLDEN } }, // Needs confirmation.
             GBISegment{ 0x800,      0x3E7A693EA9A18E45ULL,  { &F3D_WAVE } }, // Needs confirmation.
+            GBISegment{ 0x800,      0xC850B914F9B0EAAFULL,  { &F3D_DKR } },
             GBISegment{ 0x800,      0x4BB61D72241EFD23ULL,  { &F3DEX_0_95 } }, // Needs confirmation.
             GBISegment{ 0x800,      0x58641378A6D4FF0CULL,  { &F3DLX_0_95 } }, // Needs confirmation.
             GBISegment{ 0x800,      0x1D53DE103B933358ULL,  { &F3DEX_0_96 } }, // Needs confirmation.
@@ -480,6 +484,9 @@ namespace RT64 {
                 break;
             case GBIUCode::F3DWAVE:
                 GBI_F3DWAVE::setup(&gbi);
+                break;
+            case GBIUCode::F3DDKR:
+                GBI_F3DDKR::setup(&gbi);
                 break;
             case GBIUCode::F3DEX:
                 GBI_F3DEX::setup(&gbi);

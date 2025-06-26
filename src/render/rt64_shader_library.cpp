@@ -25,6 +25,7 @@
 #include "shaders/HistogramSetCS.hlsl.spirv.h"
 #include "shaders/IdleCS.hlsl.spirv.h"
 #include "shaders/LuminanceHistogramCS.hlsl.spirv.h"
+#include "shaders/RSPBillboardCS.hlsl.spirv.h"
 #include "shaders/RSPModifyCS.hlsl.spirv.h"
 #include "shaders/RSPProcessCS.hlsl.spirv.h"
 #include "shaders/RSPSmoothNormalCS.hlsl.spirv.h"
@@ -71,6 +72,7 @@
 #   include "shaders/HistogramSetCS.hlsl.dxil.h"
 #   include "shaders/IdleCS.hlsl.dxil.h"
 #   include "shaders/LuminanceHistogramCS.hlsl.dxil.h"
+#   include "shaders/RSPBillboardCS.hlsl.dxil.h"
 #   include "shaders/RSPModifyCS.hlsl.dxil.h"
 #   include "shaders/RSPProcessCS.hlsl.dxil.h"
 #   include "shaders/RSPSmoothNormalCS.hlsl.dxil.h"
@@ -116,6 +118,7 @@
 #   include "shaders/HistogramSetCS.hlsl.metal.h"
 #   include "shaders/IdleCS.hlsl.metal.h"
 #   include "shaders/LuminanceHistogramCS.hlsl.metal.h"
+#   include "shaders/RSPBillboardCS.hlsl.metal.h"
 #   include "shaders/RSPModifyCS.hlsl.metal.h"
 #   include "shaders/RSPProcessCS.hlsl.metal.h"
 #   include "shaders/RSPSmoothNormalCS.hlsl.metal.h"
@@ -491,6 +494,20 @@ namespace RT64 {
             std::unique_ptr<RenderShader> computeShader = device->createShader(CREATE_SHADER_INPUTS(LuminanceHistogramCSBlobDXIL, LuminanceHistogramCSBlobSPIRV, LuminanceHistogramCSBlobMSL, "CSMain", shaderFormat));
             RenderComputePipelineDesc pipelineDesc(luminanceHistogram.pipelineLayout.get(), computeShader.get(), 8, 8, 1);
             luminanceHistogram.pipeline = device->createComputePipeline(pipelineDesc);
+        }
+
+        // RSP Billboard.
+        {
+            RSPBillboardDescriptorSet descriptorSet;
+            layoutBuilder.begin();
+            layoutBuilder.addPushConstant(0, 0, sizeof(uint32_t), RenderShaderStageFlag::COMPUTE);
+            layoutBuilder.addDescriptorSet(descriptorSet);
+            layoutBuilder.end();
+            rspBillboard.pipelineLayout = layoutBuilder.create(device);
+
+            std::unique_ptr<RenderShader> computeShader = device->createShader(CREATE_SHADER_INPUTS(RSPBillboardCSBlobDXIL, RSPBillboardCSBlobSPIRV, RSPBillboardCSBlobMSL, "CSMain", shaderFormat));
+            RenderComputePipelineDesc pipelineDesc(rspBillboard.pipelineLayout.get(), computeShader.get(), 64, 1, 1);
+            rspBillboard.pipeline = device->createComputePipeline(pipelineDesc);
         }
 
         // RSP Modify.
