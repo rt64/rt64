@@ -1861,6 +1861,7 @@ namespace RT64 {
         endActiveResolveTextureComputeEncoder();
         endActiveBlitEncoder();
         endActiveComputeEncoder();
+        handlePendingClears();
 
         targetFramebuffer = nullptr;
     }
@@ -2159,6 +2160,16 @@ namespace RT64 {
             const MetalFramebuffer *interfaceFramebuffer = static_cast<const MetalFramebuffer*>(framebuffer);
             targetFramebuffer = interfaceFramebuffer;
             dirtyGraphicsState.setAll();
+
+            // Initialize pending clears
+            pendingClears.initialAction.clear();
+            pendingClears.clearValues.clear();
+            pendingClears.active = false;
+
+            // Resize for color attachments
+            const size_t totalAttachments = interfaceFramebuffer->colorAttachments.size() + (interfaceFramebuffer->depthAttachment ? 1 : 0);
+            pendingClears.initialAction.resize(totalAttachments, MTL::LoadActionLoad);
+            pendingClears.clearValues.resize(totalAttachments);
         } else {
             targetFramebuffer = nullptr;
         }
@@ -2172,11 +2183,30 @@ namespace RT64 {
         activeRenderEncoder->setDepthBias(0.0f, 0.0f, 0.0f);
     }
 
+    void MetalCommandList::handlePendingClears() {
+        if (!pendingClears.active) {
+            return;
+        }
+
+        checkActiveRenderEncoder();
+        endActiveRenderEncoder();
+        pendingClears.active = false;
+    }
+
     void MetalCommandList::clearColor(const uint32_t attachmentIndex, RenderColor colorValue, const RenderRect *clearRects, const uint32_t clearRectsCount) {
         assert(targetFramebuffer != nullptr);
         assert(attachmentIndex < targetFramebuffer->colorAttachments.size());
         assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
 
+        // For full framebuffer clears, use the more efficient load action clear
+        if (clearRectsCount == 0) {
+            pendingClears.initialAction[attachmentIndex] = MTL::LoadActionClear;
+            pendingClears.clearValues[attachmentIndex].color = colorValue;
+            pendingClears.active = true;
+            return;
+        }
+
+        // For partial clears, do our own quad-based clear
         checkActiveRenderEncoder();
 
         NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
@@ -2258,6 +2288,16 @@ namespace RT64 {
         assert((!clearRects || clearRectsCount <= MAX_CLEAR_RECTS) && "Too many clear rects");
 
         if (clearDepth) {
+            // For full framebuffer clears, use the more efficient load action clear
+            if (clearRectsCount == 0) {
+                const size_t depthIndex = targetFramebuffer->colorAttachments.size();
+                pendingClears.initialAction[depthIndex] = MTL::LoadActionClear;
+                pendingClears.clearValues[depthIndex].depth = depthValue;
+                pendingClears.active = true;
+                return;
+            }
+
+            // For partial clears, do our own quad-based clear
             checkActiveRenderEncoder();
 
             NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
@@ -2551,29 +2591,29 @@ namespace RT64 {
 
     void MetalCommandList::endOtherEncoders(EncoderType type) {
         if (activeType == type) {
-          // Early return for the most likely case.
-          return;
+            // Early return for the most likely case.
+            return;
         }
 
         switch (activeType) {
-        case EncoderType::None:
-          // Do nothing.
-          break;
-        case EncoderType::Render:
-          endActiveRenderEncoder();
-          break;
-        case EncoderType::Compute:
-          endActiveComputeEncoder();
-          break;
-        case EncoderType::Blit:
-          endActiveBlitEncoder();
-          break;
-        case EncoderType::Resolve:
-          endActiveResolveTextureComputeEncoder();
-          break;
-        default:
-          assert(false && "Unknown encoder type.");
-          break;
+            case EncoderType::None:
+                // Do nothing.
+                break;
+            case EncoderType::Render:
+                endActiveRenderEncoder();
+                break;
+            case EncoderType::Compute:
+                endActiveComputeEncoder();
+                break;
+            case EncoderType::Blit:
+                endActiveBlitEncoder();
+                break;
+            case EncoderType::Resolve:
+                endActiveResolveTextureComputeEncoder();
+                break;
+            default:
+                assert(false && "Unknown encoder type.");
+                break;
         }
     }
 
@@ -2640,32 +2680,48 @@ namespace RT64 {
         if (activeRenderEncoder == nullptr) {
             NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
 
-            // target frame buffer & sample positions affect the descriptor
             MTL::RenderPassDescriptor *renderDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
 
+            // Setup color attachments
             for (uint32_t i = 0; i < targetFramebuffer->colorAttachments.size(); i++) {
                 MTL::RenderPassColorAttachmentDescriptor *colorAttachment = renderDescriptor->colorAttachments()->object(i);
                 colorAttachment->setTexture(targetFramebuffer->colorAttachments[i]->getTexture());
-                colorAttachment->setLoadAction(MTL::LoadActionLoad);
+                colorAttachment->setLoadAction(pendingClears.active ? pendingClears.initialAction[i] : MTL::LoadActionLoad);
+                if (pendingClears.active && pendingClears.initialAction[i] == MTL::LoadActionClear) {
+                    colorAttachment->setClearColor(mapClearColor(pendingClears.clearValues[i].color));
+                }
                 colorAttachment->setStoreAction(MTL::StoreActionStore);
             }
 
+            // Setup depth attachment
             if (targetFramebuffer->depthAttachment != nullptr) {
+                const size_t depthIndex = targetFramebuffer->colorAttachments.size();
                 MTL::RenderPassDepthAttachmentDescriptor *depthAttachment = renderDescriptor->depthAttachment();
                 depthAttachment->setTexture(targetFramebuffer->depthAttachment->mtl);
-                depthAttachment->setLoadAction(MTL::LoadActionLoad);
+                depthAttachment->setLoadAction(pendingClears.active ? pendingClears.initialAction[depthIndex] : MTL::LoadActionLoad);
+                if (pendingClears.active && pendingClears.initialAction[depthIndex] == MTL::LoadActionClear) {
+                    depthAttachment->setClearDepth(pendingClears.clearValues[depthIndex].depth);
+                }
                 depthAttachment->setStoreAction(MTL::StoreActionStore);
             }
 
+            // Setup multisampling if needed
             if (targetFramebuffer->sampleCount > 1) {
                 renderDescriptor->setSamplePositions(targetFramebuffer->samplePositions, targetFramebuffer->sampleCount);
             }
 
             activeRenderEncoder = mtl->renderCommandEncoder(renderDescriptor);
             activeRenderEncoder->setLabel(MTLSTR("Graphics Render Encoder"));
-
             activeRenderEncoder->retain();
             releasePool->release();
+
+            // Reset pending clears since we've now handled them
+            if (pendingClears.active) {
+                for (auto& action : pendingClears.initialAction) {
+                    action = MTL::LoadActionLoad;
+                }
+                pendingClears.active = false;
+            }
         }
     }
 
@@ -2756,6 +2812,8 @@ namespace RT64 {
             stateCache.lastVertexBufferIndices.clear();
             stateCache.lastPushConstants.clear();
         }
+        
+        handlePendingClears();
     }
 
     void MetalCommandList::checkActiveBlitEncoder() {

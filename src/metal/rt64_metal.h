@@ -271,6 +271,14 @@ namespace RT64 {
     };
 
     struct MetalCommandList : RenderCommandList {
+        union ClearValue {
+            RenderColor color;
+            float depth;
+
+            ClearValue() : depth(0.0f) {}
+            ~ClearValue() {}
+        };
+
         struct PushConstantData : RenderPushConstantRange {
             std::vector<uint8_t> data;
 
@@ -292,6 +300,12 @@ namespace RT64 {
 
         ComputeStateFlags dirtyComputeState{};
         GraphicsStateFlags dirtyGraphicsState{};
+
+        struct PendingClears {
+            std::vector<MTL::LoadAction> initialAction;
+            std::vector<ClearValue> clearValues;
+            bool active = false;
+        } pendingClears;
 
         struct {
             MTL::RenderPipelineState* lastPipelineState = nullptr;
@@ -386,6 +400,7 @@ namespace RT64 {
         void prepareClearVertices(const RenderRect& rect, simd::float2* outVertices);
         void checkForUpdatesInGraphicsState();
         void setCommonClearState() const;
+        void handlePendingClears();
     };
 
     struct MetalCommandFence : RenderCommandFence {
