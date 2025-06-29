@@ -92,9 +92,11 @@ namespace RT64 {
                     intersectionRect = intersectionRect.intersection(viewport.rect(viewportClipRatios));
                 }
 
-                bool coversWholeWidth = (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
-                bool horizontalRatio = (intersectionRect.width(true, true) > intersectionRect.height(true, true));
-                adjustAspectRatio = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                if (!intersectionRect.isEmpty()) {
+                    bool coversWholeWidth = (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
+                    bool horizontalRatio = (intersectionRect.width(true, true) > intersectionRect.height(true, true));
+                    adjustAspectRatio = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                }
             }
  
             float projRatioScale = adjustAspectRatio ? (1.0f / p.aspectRatioScale) : 1.0f;
