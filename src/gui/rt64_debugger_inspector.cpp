@@ -940,10 +940,12 @@ namespace RT64 {
 
                         if (proj.usesViewport()) {
                             const auto &viewport = drawData.rspViewports[proj.transformsIndex];
-                            const FixedRect viewportRect = viewport.rect();
+                            const int16_t *clipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
+                            const FixedRect viewportRect = viewport.rect(clipRatios);
                             ImGui::NewLine();
                             ImGui::Text("Viewport Scale: %f %f %f", viewport.scale[0], viewport.scale[1], viewport.scale[2]);
                             ImGui::Text("Viewport Translate: %f %f %f", viewport.translate[0], viewport.translate[1], viewport.translate[2]);
+                            ImGui::Text("Viewport Clip Ratios: %d %d %d %d", clipRatios[0], clipRatios[1], clipRatios[2], clipRatios[3]);
                             ImGui::Text("Viewport Rect: %d %d %d %d", viewportRect.ulx, viewportRect.uly, viewportRect.lrx, viewportRect.lry);
                             ImGui::NewLine();
                             textMatrix("View (estimate):", drawData.viewTransforms[proj.transformsIndex]);
