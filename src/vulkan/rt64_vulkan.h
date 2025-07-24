@@ -16,7 +16,11 @@
 #elif defined(__ANDROID__)
 #define VK_USE_PLATFORM_ANDROID_KHR
 #elif defined(__linux__)
+#if defined(LINUX_USE_WAYLAND)
+#define VK_USE_PLATFORM_WAYLAND_KHR
+#else
 #define VK_USE_PLATFORM_XLIB_KHR
+#endif
 #elif defined(__APPLE__)
 #define VK_USE_PLATFORM_METAL_EXT
 #include "apple/rt64_apple.h"

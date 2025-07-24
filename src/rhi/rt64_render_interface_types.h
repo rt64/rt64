@@ -16,7 +16,9 @@
 #elif defined(__ANDROID__)
 #include "android/native_window.h"
 #elif defined(__linux__)
+#if !defined(LINUX_USE_WAYLAND)
 #include "X11/Xlib.h"
+#endif
 #undef None
 #undef Status
 #undef LockMask
