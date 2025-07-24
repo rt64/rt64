@@ -53,7 +53,7 @@ namespace RT64 {
 #   elif defined(__ANDROID__)
         VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
 #   elif defined(__linux__)
-#       if defined(LINUX_USE_WAYLAND)
+#       if defined(RT64_SDL_WINDOW_VULKAN)
             VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
 #       else
             VK_KHR_XLIB_SURFACE_EXTENSION_NAME,

@@ -477,12 +477,10 @@ if (NOT ANDROID)
 endif()
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    if (NOT LINUX_USE_WAYLAND)
+    if (NOT RT64_SDL_WINDOW_VULKAN)
         find_package(X11 REQUIRED)
         target_include_directories(rt64 PUBLIC ${X11_INCLUDE_DIR} ${X11_Xrandr_INCLUDE_PATH})
         target_link_libraries(rt64 ${X11_LIBRARIES} ${X11_Xrandr_LIB})
-    else()
-        target_compile_definitions(rt64 PRIVATE LINUX_USE_WAYLAND)
     endif()
 endif()
 

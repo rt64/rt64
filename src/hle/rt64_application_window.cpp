@@ -13,7 +13,7 @@
 #   include <ShellScalingAPI.h>
 #elif defined(__linux__)
 #   define Status int
-#   if !defined(LINUX_USE_WAYLAND)
+#   if !defined(RT64_SDL_WINDOW_VULKAN)
 #      include <X11/extensions/Xrandr.h>
 #   endif
 #elif defined(__APPLE__)
