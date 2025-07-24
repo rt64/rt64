@@ -16,9 +16,7 @@
 #elif defined(__ANDROID__)
 #define VK_USE_PLATFORM_ANDROID_KHR
 #elif defined(__linux__)
-#if defined(RT64_SDL_WINDOW_VULKAN)
-#define VK_USE_PLATFORM_WAYLAND_KHR
-#else
+#if !defined(RT64_SDL_WINDOW_VULKAN)
 #define VK_USE_PLATFORM_XLIB_KHR
 #endif
 #elif defined(__APPLE__)
