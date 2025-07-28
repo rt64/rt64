@@ -13,7 +13,9 @@
 #   include <ShellScalingAPI.h>
 #elif defined(__linux__)
 #   define Status int
-#   include <X11/extensions/Xrandr.h>
+#   if !defined(RT64_SDL_WINDOW_VULKAN)
+#      include <X11/extensions/Xrandr.h>
+#   endif
 #elif defined(__APPLE__)
 #   include "rt64_application.h"
 #   include "apple/rt64_apple.h"
