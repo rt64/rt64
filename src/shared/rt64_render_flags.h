@@ -42,8 +42,7 @@ namespace interop {
             uint upscale2D : 1;
             uint upscaleLOD : 1;
             uint usesHDR : 1;
-            uint smoothNormal : 1;
-            uint shadowAlpha : 1;
+            uint sampleCount : 2;
         };
 
         uint value;
@@ -126,12 +125,8 @@ namespace interop {
         return ((flags >> 29) & 0x1) != 0;
     }
 
-    bool renderFlagSmoothNormal(uint flags) {
-        return ((flags >> 30) & 0x1) != 0;
-    }
-
-    bool renderFlagShadowAlpha(uint flags) {
-        return ((flags >> 31) & 0x1) != 0;
+    uint renderFlagSampleCount(uint flags) {
+        return (flags >> 30) & 0x3;
     }
 #endif
 #ifdef HLSL_CPU

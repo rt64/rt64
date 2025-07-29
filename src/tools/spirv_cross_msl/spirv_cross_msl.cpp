@@ -59,7 +59,7 @@ static bool write_string_to_file(const char *path, const char *string) {
 int extract_id(const std::string& line) {
     std::regex id_regex("\\[\\[id\\((\\d+)\\)\\]\\]");
     std::smatch match;
-    
+
     if (std::regex_search(line, match, id_regex) && match.size() > 1) {
         return std::stoi(match[1].str());
     }
@@ -70,13 +70,13 @@ std::string pad_descriptor_sets(const std::string& source) {
     std::stringstream result;
     std::stringstream current_line;
     std::string line;
-    
+
     bool inside_set = false;
-    uint32_t current_id = 0;
+    int current_id = 0;
     std::string default_resource_prefix = "\tconstant float* _PadResource";
-    
+
     std::istringstream source_stream(source);
-    
+
     while (std::getline(source_stream, line)) {
         if (line.find("struct spvDescriptorSetBuffer") != std::string::npos) {
             inside_set = true;
@@ -102,10 +102,10 @@ std::string pad_descriptor_sets(const std::string& source) {
             // Current line id consumes the current id
             current_id++;
         }
-        
+
         result << line << std::endl;
     }
-    
+
     return result.str();
 }
 
@@ -120,10 +120,10 @@ int main(int argc, char* argv[]) {
         auto spirv_file = read_spirv_file(argv[1]);
         spirv_cross::Parser spirv_parser(std::move(spirv_file));
 	    spirv_parser.parse();
-        
+
         // Initialize MSL compiler
         spirv_cross::CompilerMSL msl(std::move(spirv_parser.get_parsed_ir()));
-        
+
         // Configure MSL options
         spirv_cross::CompilerMSL::Options msl_options;
         msl_options.msl_version = spirv_cross::CompilerMSL::Options::make_msl_version(2, 1);
@@ -160,11 +160,11 @@ int main(int argc, char* argv[]) {
 
         // Generate MSL source
         std::string source = msl.compile();
-        
+
         std::string padded_source = pad_descriptor_sets(source);
-        
+
         write_string_to_file(argv[2], padded_source.c_str());
-        
+
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";

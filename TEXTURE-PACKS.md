@@ -32,13 +32,24 @@ The configuration file (`rt64.json`) follows this format:
 {
     "configuration": {
         "autoPath": "rice",
-        "configurationVersion": 2,
-        "hashVersion": 2
+        "configurationVersion": 3,
+        "hashVersion": 5,
+        "defaultOperation": "stream",
+        "defaultShift": "half"
     },
     "operationFilters": [
         {
             "wildcard": "UI/Text/*",
             "operation": "preload"
+        },
+
+        ...
+
+    ],
+    "shiftFilters": [
+        {
+            "wildcard": "Terrain/*",
+            "shift": "none"
         },
 
         ...
@@ -73,22 +84,24 @@ The configuration file (`rt64.json`) follows this format:
   - **rt64**: The hash from RT64 as a file name. No texture packs use this yet and it's unlikely a texture pack author would prefer to use this instead of naming the files manually.
 - **configurationVersion**: The version of the configuration file format.
 - **hashVersion**: The version of the hash algorithm used by RT64.
+- **defaultOperation**: Determines the default loading operation for all textures in the pack. See the ["Operation"](#operation) section for more details.
+- **defaultShift**: Determines the default texture shift behavior for all textures in the pack. See the ["Shift"](#shift) section for more details.
 
-### Operation Filters
+### Filters
 
-Operation filters are optional filters that define how textures should be loaded based on their names. This can be handy if your files are well organized, as it's easier to set the operation you want using filters instead of having to add an entry for each file separately.
+Filters are optional and can define how textures should be loaded (operations) or how they should be visually shifted (shift) based on their names. This can be handy if your files are well organized, as it's easier to set the options you want using filters instead of having to add an entry for each file separately.
 
 - **wildcard**: Pattern to match texture paths. Use * to indicate any number of characters (including *zero*) and ? to indicate any *one* character. Some examples include:
   - "Terrain/Grass001.*" will include any file called "Grass001" inside the directory "Terrain".
   - "Text/*" will include any files inside the directory "Text".
   - "\*/Button\*" will include any files that start with "Button" inside any directory.
   - "UI/Letter?.*" will include any files called Letter with exactly one character that can be anything (LetterA, LetterB, etc.) inside the directory "UI".
-- **operation**: Determines the loading behavior. Possible values are:
-  - **stream**: Textures are loaded asynchronously, potentially causing visual pop-in. This is **solved by generating a low mipmap cache** via the `texture_packer` tool. This is the default behavior. 
-  - **preload**: Textures are loaded at the start of the game and will remain in memory, preventing any sort of pop-in at the expense of memory usage and increased initial loading times. Only recommended for textures where no kind of pop-in is tolerable, even when using the low mipmap cache.
-  - **stall**: Stops the renderer until the texture is loaded. Can be useful for instances where loading screens are known to appear. **Not recommended**.
+- **operation**: Determines the loading behavior. Only possible under the "operationFilters" member. See the ["Operation"](#operation) section for more details.
+- **shift**: Determines the texture shift behavior. Only possible under the "shiftFilters" member. See the ["Shift"](#shift) section for more details.
 
-Filters are processed in the order they appear. Keep this in mind to resolve any potential conflicts between the filters. Feel free to ignore this feature until you feel the need to control the loading behavior of the textures in more detail.
+Filters are processed in the order they appear. Keep this in mind to resolve any potential conflicts between the filters. **Filters can't override the setting defined in the entry of an individual texture**.
+
+Feel free to ignore this feature until you feel the need to control the loading behavior or the visual shift of the textures in more detail.
 
 ### Textures
 
@@ -101,6 +114,29 @@ Each texture entry can map hashes together as well as an optional file path.
   - Both forward and backward slashes are accepted and should work independently of the platform.
   - The texture file does not need to follow a particular naming format.
   - If empty, the auto path scheme will be used to try to find the file instead.
+- **operation**: An optional setting for the loading operation of the texture. If not defined, the texture will use the default operation or one defined by an operation filter. See the ["Operation"](#operation) section for more details.
+- **shift**: An optional setting for the shift behavior of the texture. If not defined, the texture will use the default shift or one defined by a shift filter. See the ["Shift"](#shift) section for more details.
+
+### Operation
+
+Operations are how the renderer will know the loading behavior it should use for a texture. Operations can either be set globally through the texture pack's default option, through an operation filter or by defining it in a texture entry.
+
+The possible options are:
+  - **stream**: Textures are loaded asynchronously, potentially causing visual pop-in. Pop-in is **solved by generating a low mipmap cache** via the `texture_packer` tool. This is the default behavior and what is preferred for best performance. 
+  - **preload**: Textures are loaded at the start of the game and will remain in memory, preventing any sort of pop-in at the expense of memory usage and increased initial loading times. Only recommended for textures where no kind of pop-in is tolerable, even when using the low mipmap cache.
+  - **stall**: Stops the renderer until the texture is loaded. Can be useful for instances where loading screens are known to appear. **Not recommended**.
+
+### Shift
+
+Texture shift can control whether the texture will be rendered by preserving the original texture coordinates as-is or by compensating with a half-pixel offset while operating on the original texture's dimensions. Texture shifts can either be set globally through the texture pack's default option, through an operation filter or by defining it in a texture entry.
+
+This option is useful to fix mapping errors related to how the asset was crafted. Due to a quirk in the hardware's texture interpolation, all assets must substract half a texel in order to to look correct. However, not all games were developed with this in mind, and will therefore look incorrect if the renderer compensates for it.
+
+This option allows the texture pack author to have more granular control over this and define how the texture must be mapped. **For assets exported from modern tools such as Fast64, it'll always be the case that half-texel compensation is required**.
+
+The possible options are:
+  - **half**: Applies half-texel compensation. As of the moment this feature was introduced, **this is the new default behavior**.
+  - **none**: Texture coordinates are used as-is. This is the default legacy behavior for texture packs before this feature was introduced.
  
 ## In-Game Replacement
 

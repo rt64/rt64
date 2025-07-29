@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "common/rt64_load_types.h"
 #include "plume_render_interface.h"
 
 using namespace plume;
@@ -16,10 +17,11 @@ namespace RT64 {
         RenderFormat format = RenderFormat::UNKNOWN;
         uint32_t width = 0;
         uint32_t height = 0;
+        uint32_t tlut = 0;
+        LoadTile loadTile;
         uint32_t mipmaps = 0;
         uint64_t memorySize = 0;
-
-        // These are only stored if developer mode is enabled.
         std::vector<uint8_t> bytesTMEM;
+        bool decodeTMEM = false;
     };
 };

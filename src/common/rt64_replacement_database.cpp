@@ -109,20 +109,43 @@ namespace RT64 {
         }
     }
 
-    ReplacementOperation ReplacementDatabase::resolveOperation(const std::string &relativePath, const std::vector<ReplacementOperationFilter> &filters) {
-        ReplacementOperation resolution = ReplacementOperation::Stream;
+    ReplacementOperation ReplacementDatabase::resolveOperation(const std::string &relativePath, ReplacementOperation operation) {
+        if (operation == ReplacementOperation::Auto) {
+            ReplacementOperation resolution = config.defaultOperation;
 
-        // Resolve all filters in the order they appear in the database.
-        for (const ReplacementOperationFilter &filter : filters) {
-            if (checkWildcard(relativePath, filter.wildcard)) {
-                resolution = filter.operation;
+            // Resolve all filters in the order they appear in the database.
+            for (const ReplacementOperationFilter &filter : operationFilters) {
+                if (checkWildcard(relativePath, filter.wildcard)) {
+                    resolution = filter.operation;
+                }
             }
-        }
 
-        return resolution;
+            return resolution;
+        }
+        else {
+            return operation;
+        }
+    }
+
+    ReplacementShift ReplacementDatabase::resolveShift(const std::string &relativePath, ReplacementShift shift) {
+        if (shift == ReplacementShift::Auto) {
+            ReplacementShift resolution = config.defaultShift;
+
+            // Resolve all filters in the order they appear in the database.
+            for (const ReplacementShiftFilter &filter : shiftFilters) {
+                if (checkWildcard(relativePath, filter.wildcard)) {
+                    resolution = filter.shift;
+                }
+            }
+
+            return resolution;
+        }
+        else {
+            return shift;
+        }
     }
     
-    void ReplacementDatabase::resolvePaths(const FileSystem *fileSystem, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing, std::unordered_set<uint64_t> *hashesToPreload) {
+    void ReplacementDatabase::resolvePaths(const FileSystem *fileSystem, uint32_t fileSystemIndex, std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap, bool onlyDDS, std::vector<uint64_t> *hashesMissing, std::unordered_set<std::string> *pathsToPreload) {
         std::unordered_map<std::string, std::string> autoPathMap;
         for (const std::string &relativePath : *fileSystem) {
             const std::filesystem::path relativePathFs = std::filesystem::u8path(relativePath);
@@ -149,23 +172,23 @@ namespace RT64 {
             }
         }
 
-        std::vector<ReplacementOperationFilter> standarizedFilters = operationFilters;
-        for (ReplacementOperationFilter &filter : standarizedFilters) {
-            filter.wildcard = FileSystem::toForwardSlashes(filter.wildcard);
-        }
-
-        auto addResolvedPath = [&](uint64_t hash, const std::string &relativePath) {
+        auto addResolvedPath = [&](uint64_t hash, const std::string &relativePath, ReplacementOperation operation, ReplacementShift shift) {
             // Do not modify the entry if it's already in the map.
             if (resolvedPathMap.find(hash) != resolvedPathMap.end()) {
                 return;
             }
 
             ReplacementResolvedPath &resolvedPath = resolvedPathMap[hash];
+            resolvedPath.fileSystemIndex = fileSystemIndex;
+            resolvedPath.textureHash = hash;
             resolvedPath.relativePath = relativePath;
-            resolvedPath.operation = resolveOperation(relativePath, standarizedFilters);
+            resolvedPath.originalOperation = operation;
+            resolvedPath.originalShift = shift;
+            resolvedPath.resolvedOperation = resolveOperation(relativePath, operation);
+            resolvedPath.resolvedShift = resolveShift(relativePath, shift);
 
-            if ((resolvedPath.operation == ReplacementOperation::Preload) && (hashesToPreload != nullptr)) {
-                hashesToPreload->insert(hash);
+            if ((resolvedPath.resolvedOperation == ReplacementOperation::Preload) && (pathsToPreload != nullptr)) {
+                pathsToPreload->insert(relativePath);
             }
         };
 
@@ -185,7 +208,7 @@ namespace RT64 {
                     if (!canonicalPath.empty() && fileSystem->exists(canonicalPath)) {
                         if (!onlyDDS || (i == 0)) {
                             std::string relativePathFinal = FileSystem::toForwardSlashes(canonicalPath);
-                            addResolvedPath(hashRT64, relativePathFinal);
+                            addResolvedPath(hashRT64, relativePathFinal, texture.operation, texture.shift);
                         }
 
                         fileExists = true;
@@ -211,11 +234,23 @@ namespace RT64 {
                 auto it = autoPathMap.find(searchString);
                 if (it != autoPathMap.end()) {
                     uint64_t hashRT64 = ReplacementDatabase::stringToHash(texture.hashes.rt64);
-                    addResolvedPath(hashRT64, it->second);
+                    addResolvedPath(hashRT64, it->second, texture.operation, texture.shift);
                 }
             }
 
             textureIndex++;
+        }
+    }
+
+    void ReplacementDatabase::resolveOperations(std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap) {
+        for (auto &it : resolvedPathMap) {
+            it.second.resolvedOperation = resolveOperation(it.second.relativePath, it.second.originalOperation);
+        }
+    }
+
+    void ReplacementDatabase::resolveShifts(std::unordered_map<uint64_t, ReplacementResolvedPath> &resolvedPathMap) {
+        for (auto &it : resolvedPathMap) {
+            it.second.resolvedShift = resolveShift(it.second.relativePath, it.second.originalShift);
         }
     }
 
@@ -274,15 +309,22 @@ namespace RT64 {
     void to_json(json &j, const ReplacementConfiguration &config) {
         // Always update the configuration version to the latest one when saving.
         ReplacementConfiguration defaultConfig;
-        j["autoPath"] = config.autoPath;
         j["configurationVersion"] = defaultConfig.configurationVersion;
+        j["autoPath"] = config.autoPath;
+        j["defaultOperation"] = config.defaultOperation;
+        j["defaultShift"] = config.defaultShift;
         j["hashVersion"] = config.hashVersion;
     }
 
     void from_json(const json &j, ReplacementConfiguration &config) {
         ReplacementConfiguration defaultConfig;
-        config.autoPath = j.value("autoPath", defaultConfig.autoPath);
         config.configurationVersion = j.value("configurationVersion", 1);
+
+        // Shift defaults to none to texture packs made with versions previous to 3, which introduced a different default for shifting.
+        ReplacementShift defaultShift = (config.configurationVersion < 3) ? ReplacementShift::None : defaultConfig.defaultShift;
+        config.autoPath = j.value("autoPath", defaultConfig.autoPath);
+        config.defaultOperation = j.value("defaultOperation", defaultConfig.defaultOperation);
+        config.defaultShift = j.value("defaultShift", defaultShift);
         config.hashVersion = j.value("hashVersion", 1);
     }
 
@@ -302,14 +344,25 @@ namespace RT64 {
     }
 
     void to_json(json &j, const ReplacementTexture &texture) {
+        ReplacementTexture defaultTexture;
         j["path"] = texture.path;
         j["hashes"] = texture.hashes;
+
+        if (texture.operation != defaultTexture.operation) {
+            j["operation"] = texture.operation;
+        }
+
+        if (texture.shift != defaultTexture.shift) {
+            j["shift"] = texture.shift;
+        }
     }
 
     void from_json(const json &j, ReplacementTexture &texture) {
         ReplacementTexture defaultTexture;
         texture.path = j.value("path", defaultTexture.path);
         texture.hashes = j.value("hashes", defaultTexture.hashes);
+        texture.operation = j.value("operation", defaultTexture.operation);
+        texture.shift = j.value("shift", defaultTexture.shift);
     }
 
     void to_json(json &j, const ReplacementOperationFilter &operationFilter) {
@@ -319,20 +372,39 @@ namespace RT64 {
 
     void from_json(const json &j, ReplacementOperationFilter &operationFilter) {
         ReplacementOperationFilter defaultFilter;
-        operationFilter.wildcard = j.value("wildcard", defaultFilter.wildcard);
+        operationFilter.wildcard = FileSystem::toForwardSlashes(j.value("wildcard", defaultFilter.wildcard));
         operationFilter.operation = j.value("operation", defaultFilter.operation);
+    }
+
+    void to_json(json &j, const ReplacementShiftFilter &shiftFilter) {
+        j["wildcard"] = shiftFilter.wildcard;
+        j["operation"] = shiftFilter.shift;
+    }
+
+    void from_json(const json &j, ReplacementShiftFilter &shiftFilter) {
+        ReplacementShiftFilter defaultFilter;
+        shiftFilter.wildcard = FileSystem::toForwardSlashes(j.value("wildcard", defaultFilter.wildcard));
+        shiftFilter.shift = j.value("shift", defaultFilter.shift);
     }
 
     void to_json(json &j, const ReplacementDatabase &db) {
         j["configuration"] = db.config;
         j["textures"] = db.textures;
         j["operationFilters"] = db.operationFilters;
+        j["shiftFilters"] = db.shiftFilters;
+        j["extraFiles"] = db.extraFiles;
     }
 
     void from_json(const json &j, ReplacementDatabase &db) {
-        db.config = j.value("configuration", ReplacementConfiguration());
+        ReplacementConfiguration defaultConfig;
+        db.config = j.value("configuration", defaultConfig);
         db.textures = j.value("textures", std::vector<ReplacementTexture>());
         db.operationFilters = j.value("operationFilters", std::vector<ReplacementOperationFilter>());
+        db.shiftFilters = j.value("shiftFilters", std::vector<ReplacementShiftFilter>());
+        db.extraFiles = j.value("extraFiles", std::vector<std::string>());
         db.buildHashMaps();
+
+        // Update configuration version to the latest one after parsing is over.
+        db.config.configurationVersion = defaultConfig.configurationVersion;
     }
 };

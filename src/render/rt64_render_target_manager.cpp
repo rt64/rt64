@@ -75,7 +75,7 @@ namespace RT64 {
     // RenderFramebufferStorage
 
     void RenderFramebufferStorage::setup(RenderDevice *device, const RenderFramebufferKey &framebufferKey, RenderTarget *colorTarget, RenderTarget *depthTarget) {
-        if (depthTarget != nullptr) {
+        if ((depthTarget != nullptr) && (colorTarget != nullptr)) {
             assert((depthTarget->width >= colorTarget->width) && (depthTarget->height >= colorTarget->height) && "Depth target must be equal or bigger to the color target.");
         }
 
@@ -83,13 +83,13 @@ namespace RT64 {
         this->depthTarget = depthTarget;
         this->framebufferKey = framebufferKey;
         
-        colorTargetRevision = colorTarget->textureRevision;
+        colorTargetRevision = (colorTarget != nullptr) ? colorTarget->textureRevision : 0;
         depthTargetRevision = (depthTarget != nullptr) ? depthTarget->textureRevision : 0;
 
         RenderFramebufferDesc framebufferDesc;
-        const RenderTexture *colorTargetPtr = colorTarget->texture.get();
+        const RenderTexture *colorTargetPtr = (colorTarget != nullptr) ? colorTarget->texture.get() : nullptr;
         framebufferDesc.colorAttachments = &colorTargetPtr;
-        framebufferDesc.colorAttachmentsCount = 1;
+        framebufferDesc.colorAttachmentsCount = (colorTarget != nullptr) ? 1 : 0;
         framebufferDesc.depthAttachment = (depthTarget != nullptr) ? depthTarget->texture.get() : nullptr;
         colorDepthWrite = device->createFramebuffer(framebufferDesc);
 
@@ -109,17 +109,16 @@ namespace RT64 {
     }
 
     RenderFramebufferStorage &RenderFramebufferManager::get(const RenderFramebufferKey &framebufferKey, RenderTarget *colorTarget, RenderTarget *depthTarget) {
-        assert(!framebufferKey.colorTargetKey.isEmpty());
-        assert(colorTarget != nullptr);
+        assert(framebufferKey.colorTargetKey.isEmpty() || (colorTarget != nullptr));
         assert(framebufferKey.depthTargetKey.isEmpty() || (depthTarget != nullptr));
 
         const uint64_t keyHash = framebufferKey.hash();
         RenderFramebufferStorage &storage = storageMap[keyHash];
-        if (storage.colorTarget != nullptr) {
+        if (storage.colorTarget != nullptr || storage.depthTarget != nullptr) {
             assert((storage.colorTarget == colorTarget) && "Storage does not match the requested color target.");
             assert((storage.depthTarget == depthTarget) && "Storage does not match the requested depth target.");
-            assert((storage.colorTargetRevision == colorTarget->textureRevision) && "Storage does not match the requested color texture revision.");
-            assert((storage.depthTargetRevision == depthTarget->textureRevision) && "Storage does not match the requested depth texture revision.");
+            assert((colorTarget == nullptr) || (storage.colorTargetRevision == colorTarget->textureRevision) && "Storage does not match the requested color texture revision.");
+            assert((depthTarget == nullptr) || (storage.depthTargetRevision == depthTarget->textureRevision) && "Storage does not match the requested depth texture revision.");
             return storage;
         }
 

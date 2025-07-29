@@ -44,7 +44,11 @@ namespace RT64 {
 
             struct {
                 RenderRect rect;
-                RenderColor color;
+
+                union {
+                    RenderColor color;
+                    float depth;
+                };
             } clearRect;
 
             interop::RSPVertexTestZCB vertexTestZ;

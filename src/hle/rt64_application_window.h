@@ -18,6 +18,14 @@
 #include "SDL_syswm.h"
 #include "SDL_video.h"
 
+// Remove macros defined by x11 from a header included by SDL_syswm.h.
+#undef None
+#undef Status
+#undef LockMask
+#undef ControlMask
+#undef Success
+#undef Always
+
 using namespace plume;
 
 namespace RT64 {

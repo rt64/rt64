@@ -6,15 +6,9 @@
 
 #include <iomanip>
 
-namespace RT64 {
-#if defined(_WIN32)
-    UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::D3D12;
-#elif defined(__APPLE__)
-    UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::Metal;
-#else
-    UserConfiguration::GraphicsAPI UserConfiguration::DefaultGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
-#endif
+#include "rt64_sommelier.h"
 
+namespace RT64 {
     void to_json(json &j, const UserConfiguration &cfg) {
         j["graphicsAPI"] = cfg.graphicsAPI;
         j["resolution"] = cfg.resolution;
@@ -70,7 +64,7 @@ namespace RT64 {
     const int UserConfiguration::ResolutionMultiplierLimit = 32;
 
     UserConfiguration::UserConfiguration() {
-        graphicsAPI = DefaultGraphicsAPI;
+        graphicsAPI = GraphicsAPI::Automatic;
         resolution = Resolution::WindowIntegerScale;
         displayBuffering = DisplayBuffering::Double;
         antialiasing = Antialiasing::None;
@@ -108,6 +102,10 @@ namespace RT64 {
         aspectTarget = std::clamp<double>(aspectTarget, 0.1f, 100.0f);
         extAspectTarget = std::clamp<double>(extAspectTarget, 0.1f, 100.0f);
         refreshRateTarget = std::clamp<int>(refreshRateTarget, 10, 1000);
+
+        if (!isGraphicsAPISupported(graphicsAPI)) {
+            graphicsAPI = GraphicsAPI::Automatic;
+        }
     }
 
     uint32_t UserConfiguration::msaaSampleCount() const {
@@ -124,6 +122,36 @@ namespace RT64 {
             return 8;
         default:
             return 1;
+        }
+    }
+
+    bool UserConfiguration::isGraphicsAPISupported(GraphicsAPI graphicsAPI) {
+#   if defined(_WIN32)
+        if (graphicsAPI == GraphicsAPI::Metal) {
+#   elif defined(__APPLE__)
+        if (graphicsAPI == GraphicsAPI::D3D12) {
+#   else
+        if ((graphicsAPI == GraphicsAPI::D3D12) || (graphicsAPI == GraphicsAPI::Metal)) {
+#   endif
+            return false;
+        }
+
+        return true;
+    }
+
+    UserConfiguration::GraphicsAPI UserConfiguration::resolveGraphicsAPI(GraphicsAPI graphicsAPI) {
+        if (graphicsAPI == UserConfiguration::GraphicsAPI::Automatic) {
+#       if defined(_WIN64)
+            // Change the default graphics API when running under Wine to avoid using the D3D12 translation layer when possible. Recreate the default user configuration right afterwards so this new value is assigned.
+            return Sommelier::detectWine() ? UserConfiguration::GraphicsAPI::Vulkan : UserConfiguration::GraphicsAPI::D3D12;
+#       elif defined(__APPLE__)
+            return UserConfiguration::GraphicsAPI::Metal;
+#       else
+            return UserConfiguration::GraphicsAPI::Vulkan;
+#       endif
+        }
+        else {
+            return graphicsAPI;
         }
     }
 

@@ -10,11 +10,9 @@
 #include "shaders/RasterPSDynamic.hlsl.spirv.h"
 #include "shaders/RasterPSDynamicMS.hlsl.spirv.h"
 #include "shaders/RasterPSSpecConstant.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstantMS.hlsl.spirv.h"
 #include "shaders/RasterPSSpecConstantFlat.hlsl.spirv.h"
-#include "shaders/RasterPSSpecConstantDepth.hlsl.spirv.h"
-#include "shaders/RasterPSSpecConstantDepthMS.hlsl.spirv.h"
-#include "shaders/RasterPSSpecConstantFlatDepth.hlsl.spirv.h"
-#include "shaders/RasterPSSpecConstantFlatDepthMS.hlsl.spirv.h"
+#include "shaders/RasterPSSpecConstantFlatMS.hlsl.spirv.h"
 #include "shaders/RasterVSDynamic.hlsl.spirv.h"
 #include "shaders/RasterVSSpecConstant.hlsl.spirv.h"
 #include "shaders/RasterVSSpecConstantFlat.hlsl.spirv.h"
@@ -35,11 +33,9 @@
 #   include "shaders/RasterPSDynamic.hlsl.metal.h"
 #   include "shaders/RasterPSDynamicMS.hlsl.metal.h"
 #   include "shaders/RasterPSSpecConstant.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstantMS.hlsl.metal.h"
 #   include "shaders/RasterPSSpecConstantFlat.hlsl.metal.h"
-#   include "shaders/RasterPSSpecConstantDepth.hlsl.metal.h"
-#   include "shaders/RasterPSSpecConstantDepthMS.hlsl.metal.h"
-#   include "shaders/RasterPSSpecConstantFlatDepth.hlsl.metal.h"
-#   include "shaders/RasterPSSpecConstantFlatDepthMS.hlsl.metal.h"
+#   include "shaders/RasterPSSpecConstantFlatMS.hlsl.metal.h"
 #   include "shaders/RasterVSDynamic.hlsl.metal.h"
 #   include "shaders/RasterVSSpecConstant.hlsl.metal.h"
 #   include "shaders/RasterVSSpecConstantFlat.hlsl.metal.h"
@@ -75,19 +71,15 @@ namespace RT64 {
         rasterVS.parse(RasterVSSpecConstantBlobSPIRV, std::size(RasterVSSpecConstantBlobSPIRV));
         rasterVSFlat.parse(RasterVSSpecConstantFlatBlobSPIRV, std::size(RasterVSSpecConstantFlatBlobSPIRV));
         rasterPS.parse(RasterPSSpecConstantBlobSPIRV, std::size(RasterPSSpecConstantBlobSPIRV));
-        rasterPSDepth.parse(RasterPSSpecConstantDepthBlobSPIRV, std::size(RasterPSSpecConstantDepthBlobSPIRV));
-        rasterPSDepthMS.parse(RasterPSSpecConstantDepthMSBlobSPIRV, std::size(RasterPSSpecConstantDepthMSBlobSPIRV));
-        rasterPSFlatDepth.parse(RasterPSSpecConstantFlatDepthBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthBlobSPIRV));
-        rasterPSFlatDepthMS.parse(RasterPSSpecConstantFlatDepthMSBlobSPIRV, std::size(RasterPSSpecConstantFlatDepthMSBlobSPIRV));
+        rasterPSMS.parse(RasterPSSpecConstantMSBlobSPIRV, std::size(RasterPSSpecConstantMSBlobSPIRV));
         rasterPSFlat.parse(RasterPSSpecConstantFlatBlobSPIRV, std::size(RasterPSSpecConstantFlatBlobSPIRV));
+        rasterPSFlatMS.parse(RasterPSSpecConstantFlatMSBlobSPIRV, std::size(RasterPSSpecConstantFlatMSBlobSPIRV));
         assert(!rasterVS.empty());
         assert(!rasterVSFlat.empty());
         assert(!rasterPS.empty());
-        assert(!rasterPSDepth.empty());
-        assert(!rasterPSDepthMS.empty());
-        assert(!rasterPSFlatDepth.empty());
-        assert(!rasterPSFlatDepthMS.empty());
+        assert(!rasterPSMS.empty());
         assert(!rasterPSFlat.empty());
+        assert(!rasterPSFlatMS.empty());
     }
 
     // RasterShader
@@ -110,25 +102,14 @@ namespace RT64 {
             // Choose the pre-compiled shader permutations.
             const respv::Shader *VS = nullptr;
             const respv::Shader *PS = nullptr;
-            const bool outputDepth = desc.outputDepth(useMSAA);
             VS = desc.flags.smoothShade ? &optimizerCacheSPIRV->rasterVS : &optimizerCacheSPIRV->rasterVSFlat;
 
             // Pick the correct SPIR-V based on the configuration.
             if (desc.flags.smoothShade) {
-                if (outputDepth) {
-                    PS = useMSAA ? &optimizerCacheSPIRV->rasterPSDepthMS : &optimizerCacheSPIRV->rasterPSDepth;
-                }
-                else {
-                    PS = &optimizerCacheSPIRV->rasterPS;
-                }
+                PS = useMSAA ? &optimizerCacheSPIRV->rasterPSMS : &optimizerCacheSPIRV->rasterPS;
             }
             else {
-                if (outputDepth) {
-                    PS = useMSAA ? &optimizerCacheSPIRV->rasterPSFlatDepthMS : &optimizerCacheSPIRV->rasterPSFlatDepth;
-                }
-                else {
-                    PS = &optimizerCacheSPIRV->rasterPSFlat;
-                }
+                PS = useMSAA ? &optimizerCacheSPIRV->rasterPSFlatMS : &optimizerCacheSPIRV->rasterPSFlat;
             }
 
             thread_local std::vector<respv::SpecConstant> specConstants;
@@ -163,7 +144,6 @@ namespace RT64 {
             const void *PSBlob = nullptr;
             uint32_t VSBlobSize = 0;
             uint32_t PSBlobSize = 0;
-            const bool outputDepth = desc.outputDepth(useMSAA);
             if (desc.flags.smoothShade) {
                 VSBlob = RasterVSSpecConstantBlobMSL;
                 VSBlobSize = uint32_t(std::size(RasterVSSpecConstantBlobMSL));
@@ -175,24 +155,12 @@ namespace RT64 {
 
             // Pick the correct MSL based on the configuration.
             if (desc.flags.smoothShade) {
-                if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantDepthMSBlobMSL : RasterPSSpecConstantDepthBlobMSL;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantDepthMSBlobMSL) : std::size(RasterPSSpecConstantDepthBlobMSL));
-                }
-                else {
-                    PSBlob = RasterPSSpecConstantBlobMSL;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantBlobMSL));
-                }
+                PSBlob = useMSAA ? RasterPSSpecConstantMSBlobMSL : RasterPSSpecConstantBlobMSL;
+                PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantMSBlobMSL) : std::size(RasterPSSpecConstantBlobMSL));
             }
             else {
-                if (outputDepth) {
-                    PSBlob = useMSAA ? RasterPSSpecConstantFlatDepthMSBlobMSL : RasterPSSpecConstantFlatDepthBlobMSL;
-                    PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatDepthMSBlobMSL) : std::size(RasterPSSpecConstantFlatDepthBlobMSL));
-                }
-                else {
-                    PSBlob = RasterPSSpecConstantFlatBlobMSL;
-                    PSBlobSize = uint32_t(std::size(RasterPSSpecConstantFlatBlobMSL));
-                }
+                PSBlob = useMSAA ? RasterPSSpecConstantFlatMSBlobMSL : RasterPSSpecConstantFlatBlobMSL;
+                PSBlobSize = uint32_t(useMSAA ? std::size(RasterPSSpecConstantFlatMSBlobMSL) : std::size(RasterPSSpecConstantFlatBlobMSL));
             }
 
             vertexShader = device->createShader(VSBlob, VSBlobSize, "VSMain", shaderFormat);
@@ -307,7 +275,7 @@ namespace RT64 {
         pss << std::string_view(RenderParamsText, sizeof(RenderParamsText));
         pss << "RenderParams getRenderParams() {" + renderParamsCode + "; return rp; }";
         pss <<
-            "bool RasterPS(const RenderParams, bool, float4, float2, float4, float4, bool, uint, out float4, out float4, out float);"
+            "bool RasterPS(const RenderParams, float4, float2, float4, float4, bool, out float4, out float4);"
             "[shader(\"pixel\")]"
             "void PSMain("
             "  in float4 vertexPosition : SV_POSITION"
@@ -318,43 +286,22 @@ namespace RT64 {
             pss << ", nointerpolation in float4 vertexFlatColor : COLOR1";
         }
 
-        if (multisampling) {
-            pss << ", in uint sampleIndex : SV_SampleIndex";
-        }
-
         pss <<
             ", out float4 pixelColor : SV_TARGET0"
-            ", out float4 pixelAlpha : SV_TARGET1";
+            ", out float4 pixelAlpha : SV_TARGET1"
+            ") {";
 
-        if (desc.outputDepth(multisampling)) {
-            pss <<
-                ", out float pixelDepth : SV_DEPTH) { bool outputDepth = true;";
-        }
-        else {
-            pss << ") { bool outputDepth = false;";
-        }
-        
         if (desc.flags.smoothShade) {
             pss << "float4 vertexFlatColor = vertexSmoothColor;";
-        }
-
-        if (!multisampling) {
-            pss << "uint sampleIndex = 0;";
         }
         
         pss <<
             "   float4 resultColor;"
             "   float4 resultAlpha;"
-            "   float resultDepth;"
-            "   if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, false, sampleIndex, resultColor, resultAlpha, resultDepth)) discard;"
+            "   if (!RasterPS(getRenderParams(), vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, false, resultColor, resultAlpha)) discard;"
             "   pixelColor = resultColor;"
-            "   pixelAlpha = resultAlpha;";
-
-        if (desc.outputDepth(multisampling)) {
-            pss << "pixelDepth = resultDepth;";
-        }
-
-        pss << "}";
+            "   pixelAlpha = resultAlpha;"
+            "}";
 
         return { vss.str(), pss.str() };
     }

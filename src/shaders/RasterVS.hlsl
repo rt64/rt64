@@ -2,6 +2,7 @@
 // RT64
 //
 
+#include "shared/rt64_other_mode.h"
 #include "shared/rt64_raster_params.h"
 #include "shared/rt64_render_flags.h"
 
@@ -22,6 +23,15 @@ LIBRARY_EXPORT void RasterVS(const RenderParams rp, in float4 iPosition, in floa
     
     // Add half-pixel offset for rasterization.
     ndcPos.xy += gConstants.halfPixelOffset * ndcPos.w;
+    
+    // Output a fixed depth value for the entire triangle.
+    const OtherMode otherMode = { rp.omL, rp.omH };
+    const bool copyMode = (otherMode.cycleType() == G_CYC_COPY);
+    const bool zSourcePrim = (otherMode.zSource() == G_ZS_PRIM);
+    if (!copyMode && zSourcePrim) {
+        const uint instanceIndex = instanceRenderIndices[gConstants.renderIndex].instanceIndex;
+        ndcPos.z = instanceRDPParams[instanceIndex].primDepth.x * ndcPos.w;
+    }
 
     oPosition = ndcPos;
     oUV = iUV;

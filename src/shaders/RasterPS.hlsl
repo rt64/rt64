@@ -17,24 +17,40 @@
 #if defined(MULTISAMPLING)
 Texture2DMS<float> gBackgroundDepth : register(t2, space3);
 
-float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
-    return gBackgroundDepth.Load(pixelPos, sampleIndex);
+float sampleBackgroundDepth(int2 pixelPos, uint sampleCount) {
+    float v = gBackgroundDepth.Load(pixelPos, 0);
+    if (sampleCount >= 2) {
+        v += gBackgroundDepth.Load(pixelPos, 1);
+    }
+
+    if (sampleCount >= 4) {
+        v += gBackgroundDepth.Load(pixelPos, 2);
+        v += gBackgroundDepth.Load(pixelPos, 3);
+    }
+
+    if (sampleCount >= 8) {
+        v += gBackgroundDepth.Load(pixelPos, 4);
+        v += gBackgroundDepth.Load(pixelPos, 5);
+        v += gBackgroundDepth.Load(pixelPos, 6);
+        v += gBackgroundDepth.Load(pixelPos, 7);
+    }
+
+    return v / float(sampleCount);
 }
 #elif defined(DYNAMIC_RENDER_PARAMS) || defined(SPEC_CONSTANT_RENDER_PARAMS) || defined(LIBRARY)
 Texture2D<float> gBackgroundDepth : register(t2, space3);
 
-float sampleBackgroundDepth(int2 pixelPos, uint sampleIndex) {
+float sampleBackgroundDepth(int2 pixelPos, uint sampleCount) {
     return gBackgroundDepth.Load(int3(pixelPos, 0));
 }
 #endif
 
-LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
-    bool isFrontFace, uint sampleIndex, out float4 resultColor, out float4 resultAlpha, out float resultDepth) 
+LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float2 vertexUV, float4 vertexSmoothColor, float4 vertexFlatColor,
+    bool isFrontFace, out float4 resultColor, out float4 resultAlpha) 
 {
     const OtherMode otherMode = { rp.omL, rp.omH };
 #if defined(DYNAMIC_RENDER_PARAMS)
     if ((otherMode.cycleType() != G_CYC_COPY) && renderFlagCulling(rp.flags) && isFrontFace) {
-        resultDepth = vertexPosition.z;
         return false;
     }
 #endif
@@ -47,55 +63,44 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
     const bool zSourcePrim = (otherMode.zSource() == G_ZS_PRIM);
     int2 pixelPosSeed = floor(vertexPosition.xy);
     uint randomSeed = initRand(FrParams.frameCount, instanceIndex * pixelPosSeed.y * pixelPosSeed.x, 16); // TODO: Review seed.
-    if (outputDepth) {
-        if (zSourcePrim) {
-            resultDepth = instanceRDPParams[instanceIndex].primDepth.x;
-        }
-        else {
-            resultDepth = vertexPosition.z;
-        }
 
-        if (depthClampNear) {
-            resultDepth = max(resultDepth, 0.0f);
-        }
-        
-        if (depthClampNear || depthDecal) {
-            // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
-            if (resultDepth > 1.0f) {
-                return false;
-            }
-        }
-#ifdef DYNAMIC_RENDER_PARAMS
-        // We emulate depth clip on the dynamic version of the shader.
-        else if (!renderFlagNoN(rp.flags)) {
-            if ((resultDepth < 0.0f) || (resultDepth > 1.0f)) {
-                return false;
-            }
-        }
-#endif
-        
-        if (depthDecal) {
-            int2 pixelPos = floor(vertexPosition.xy);
-            float surfaceDepth = sampleBackgroundDepth(pixelPos, sampleIndex);
-            float dz;
-            if (zSourcePrim) {
-                dz = instanceRDPParams[instanceIndex].primDepth.y;
-            }
-            else {
-                dz = (abs(ddx(vertexPosition.z)) + abs(ddy(vertexPosition.z))) * FbParams.resolutionScale.y;
-            }
-
-            const float DepthTolerance = max(CoplanarDepthTolerance(surfaceDepth), dz);
-            if (abs(resultDepth - surfaceDepth) <= DepthTolerance) {
-                resultDepth = surfaceDepth;
-            }
-            else {
-                return false;
-            }
+    // Handle no-nearclipping by clamping the minimum depth and manually clipping above the maximum.
+    if (depthClampNear) {
+        // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
+        if (vertexPosition.z > 1.0f) {
+            return false;
         }
     }
+#ifdef DYNAMIC_RENDER_PARAMS
+    // We emulate depth clip on the dynamic version of the shader.
     else {
-        resultDepth = 1.0f;
+        if ((vertexPosition.z < 0.0f) || (vertexPosition.z > 1.0f)) {
+            return false;
+        }
+    }
+#endif
+
+    if (depthDecal) {
+        // Sample the depth buffer for this pixel to compare for the decal check.
+        int2 pixelPos = floor(vertexPosition.xy);
+        uint sampleCount = 1U << renderFlagSampleCount(rp.flags);
+        float surfaceDepth = sampleBackgroundDepth(pixelPos, sampleCount);
+
+        // Calculate the decal depth tolerance based on the depth derivatives (or the prim dz value if prim depth source is enabled).
+        float dz;
+        if (zSourcePrim) {
+            dz = instanceRDPParams[instanceIndex].primDepth.y;
+        }
+        else {
+            dz = (abs(ddx(vertexPosition.z)) + abs(ddy(vertexPosition.z))) * FbParams.resolutionScale.y;
+        }
+
+        // Perform the decal depth tolerance check.
+        const float DepthTolerance = max(CoplanarDepthTolerance(surfaceDepth), dz);
+        const float pixelDepth = select(depthClampNear, max(vertexPosition.z, 0.0f), vertexPosition.z);
+        if (abs(pixelDepth - surfaceDepth) > DepthTolerance) {
+            return false;
+        }
     }
     
     float ddxuvx = ddx(vertexUV.x);
@@ -129,9 +134,8 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
-        const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
-        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, false);
+        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), rdpTile, gpuTile, false);
     }
     
     if (renderFlagUsesTexture1(rp.flags)) {
@@ -145,10 +149,9 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, bool outputDepth, float4 ver
         }
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
-        const int diffuseTexIndex = gpuTile.textureIndex;
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
         const uint nativeSampler = renderFlagNativeSampler1(rp.flags);
-        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), diffuseTexIndex, rdpTile, gpuTile, oneCycleHardwareBug);
+        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), rdpTile, gpuTile, oneCycleHardwareBug);
     }
     
     // Color combiner.
@@ -279,14 +282,8 @@ void PSMain(
 #if defined(DYNAMIC_RENDER_PARAMS)
     , bool isFrontFace : SV_IsFrontFace
 #endif
-#if defined(MULTISAMPLING)
-    , in uint sampleIndex : SV_SampleIndex
-#endif
     , [[vk::location(0)]] [[vk::index(0)]] out float4 pixelColor : SV_TARGET0
     , [[vk::location(0)]] [[vk::index(1)]] out float4 pixelAlpha : SV_TARGET1
-#if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
-    , out float pixelDepth : SV_DEPTH
-#endif
 )
 {
 #if !defined(DYNAMIC_RENDER_PARAMS)
@@ -295,25 +292,14 @@ void PSMain(
 #endif
     bool isFrontFace = false;
 #endif
-#if !defined(MULTISAMPLING)
-    uint sampleIndex = 0;
-#endif
-#if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
-    const bool outputDepth = true;
-#else
-    const bool outputDepth = false;
-#endif
     float4 resultColor;
     float4 resultAlpha;
     float resultDepth;
-    if (!RasterPS(getRenderParams(), outputDepth, vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, isFrontFace, sampleIndex, resultColor, resultAlpha, resultDepth)) {
+    if (!RasterPS(getRenderParams(), vertexPosition, vertexUV, vertexSmoothColor, vertexFlatColor, isFrontFace, resultColor, resultAlpha)) {
         discard;
     }
 
     pixelColor = resultColor;
     pixelAlpha = resultAlpha;
-#if defined(DYNAMIC_RENDER_PARAMS) || defined(OUTPUT_DEPTH)
-    pixelDepth = resultDepth;
-#endif
 }
 #endif

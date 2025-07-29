@@ -69,7 +69,7 @@ namespace RT64 {
                 }
 
                 // Ignore entries that don't start with the base path. Take out the base path out of the filename.
-                std::string fileName(fileStat.m_filename);
+                std::string fileName = FileSystem::toForwardSlashes(std::string(fileStat.m_filename));
                 if (!impl->basePath.empty()) {
                     if (!startsWith(fileName, impl->basePath)) {
                         continue;

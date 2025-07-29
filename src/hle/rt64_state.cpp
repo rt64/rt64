@@ -76,6 +76,7 @@ namespace RT64 {
         const RenderMultisampling multisampling = RasterShader::generateMultisamplingPattern(ext.userConfig->msaaSampleCount(), ext.device->getCapabilities().sampleLocations);
         renderTargetManager.setMultisampling(multisampling);
         renderTargetManager.setUsesHDR(ext.shaderLibrary->usesHDR);
+        updateRenderFlagSampleCount();
     }
 
     void State::reset() {
@@ -334,6 +335,36 @@ namespace RT64 {
                     if ((tile.maskt > 0) && (tile.cmt & G_TX_CLAMP)) {
                         nativeSamplerSupported = nativeSamplerSupported && clampAlignedToMask(tile.maskt, tile.ult, tile.lrt);
                     }
+                    
+                    // Check if there's any valid tile copies that could be used. The line width requirement has to match for 
+                    // the tile copy to make sense, but whether enough pixels are available in the copy according to the sampling
+                    // done by the calls is determined in a later step.
+                    FramebufferManager::CheckCopyResult checkResult;
+                    checkResult = framebufferManager.checkTileCopyTMEM(tile.tmem, dstCallTile.lineWidth, tile.siz, tile.fmt, tile.uls);
+                    dstCallTile.syncRequired = checkResult.syncRequired;
+
+                    if (gpuCopiesEnabled && checkResult.valid()) {
+                        dstCallTile.tileCopyUsed = true;
+                        dstCallTile.tmemHashOrID = checkResult.tileId;
+                        dstCallTile.tileCopyWidth = checkResult.tileWidth;
+                        dstCallTile.tileCopyHeight = checkResult.tileHeight;
+
+                        // We must force reinterpretation if a LUT format is used.
+                        const uint32_t tlutFormat = rdp->otherMode.textLUT();
+                        const bool usesTLUT = (tlutFormat > 0);
+                        dstCallTile.reinterpretTile = checkResult.reinterpret || usesTLUT;
+                        dstCallTile.reinterpretSiz = checkResult.siz;
+                        dstCallTile.reinterpretFmt = checkResult.fmt;
+
+                        // Native samplers can't apply the texel shift and mask that tile reinterpretation requires.
+                        if (dstCallTile.reinterpretTile) {
+                            nativeSamplerSupported = false;
+                        }
+                    }
+                    else {
+                        dstCallTile.tileCopyUsed = false;
+                        dstCallTile.tmemHashOrID = rdp->tileReplacementHashes[tileIndex];
+                    }
 
                     if (nativeSamplerSupported) {
                         auto nativeSamplerFromAddressing = [](uint8_t cms, uint8_t cmt) {
@@ -374,31 +405,6 @@ namespace RT64 {
                     }
                     else {
                         dstRDPTile.nativeSampler = NATIVE_SAMPLER_NONE;
-                    }
-                    
-                    // Check if there's any valid tile copies that could be used. The line width requirement has to match for 
-                    // the tile copy to make sense, but whether enough pixels are available in the copy according to the sampling
-                    // done by the calls is determined in a later step.
-                    FramebufferManager::CheckCopyResult checkResult;
-                    checkResult = framebufferManager.checkTileCopyTMEM(tile.tmem, dstCallTile.lineWidth, tile.siz, tile.fmt, tile.uls);
-                    dstCallTile.syncRequired = checkResult.syncRequired;
-
-                    if (gpuCopiesEnabled && checkResult.valid()) {
-                        dstCallTile.tileCopyUsed = true;
-                        dstCallTile.tmemHashOrID = checkResult.tileId;
-                        dstCallTile.tileCopyWidth = checkResult.tileWidth;
-                        dstCallTile.tileCopyHeight = checkResult.tileHeight;
-
-                        // We must force reinterpretation if a LUT format is used.
-                        const uint32_t tlutFormat = rdp->otherMode.textLUT();
-                        const bool usesTLUT = (tlutFormat > 0);
-                        dstCallTile.reinterpretTile = checkResult.reinterpret || usesTLUT;
-                        dstCallTile.reinterpretSiz = checkResult.siz;
-                        dstCallTile.reinterpretFmt = checkResult.fmt;
-                    }
-                    else {
-                        dstCallTile.tileCopyUsed = false;
-                        dstCallTile.tmemHashOrID = rdp->tileReplacementHashes[tileIndex];
                     }
                 }
             }
@@ -509,7 +515,7 @@ namespace RT64 {
         }
         
         const int fbPairIndex = workload.currentFramebufferPairIndex();
-        auto &fbPair = workload.fbPairs[fbPairIndex];
+        FramebufferPair &fbPair = workload.fbPairs[fbPairIndex];
         fbPair.flushReason = flushReason;
 
         // Add all the pending framebuffer operations to the first one that was found.
@@ -535,6 +541,17 @@ namespace RT64 {
                 depthFb = &framebufferManager.get(depthImg.address, G_IM_SIZ_16b, colorImg.width, colorHeight);
                 depthImg.formatChanged = depthFb->widthChanged || depthFb->sizChanged || depthFb->rdramChanged;
                 depthFb->clearChanged();
+
+                // Detect a fast path by checking if the framebuffer pair previous to the current one only did fill rects.
+                // This is a very good indicator that the previous framebuffer pair was only intended to clear the depth
+                // buffer and we can skip the color to depth conversion.
+                int previousFbPairIndex = workload.currentFramebufferPairIndex() - 1;
+                if (previousFbPairIndex >= 0) {
+                    FramebufferPair &previousFbPair = workload.fbPairs[previousFbPairIndex];
+                    if (previousFbPair.fillRectOnly && (previousFbPair.colorImage.address == depthImg.address) && (previousFbPair.colorImage.siz == G_IM_SIZ_16b)) {
+                        previousFbPair.fastPaths.clearDepthOnly = true;
+                    }
+                }
             }
 
             // Synchronization will be required unless direct reinterpretation is possible (which is not implemented yet).
@@ -929,12 +946,11 @@ namespace RT64 {
                     auto &flags = shaderDesc.flags;
                     flags.rect = (proj.type == Projection::Type::Rectangle);
                     flags.linearFiltering = linearFiltering || forceLinearFiltering;
-                    flags.smoothNormal = (callDesc.geometryMode & G_LIGHTING) == 0;
-                    flags.shadowAlpha = false; //(extraParams.shadowAlphaMultiplier < 1.0f);
                     flags.usesTexture0 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 0, oneCycleHardwareBug);
                     flags.usesTexture1 = callDesc.colorCombiner.usesTexture(callDesc.otherMode, 1, oneCycleHardwareBug);
                     flags.blenderApproximation = static_cast<unsigned>(blenderEmuReqs.approximateEmulation);
                     flags.usesHDR = usesHDR;
+                    flags.sampleCount = renderFlagSampleCount;
 
                     // Set whether the LOD should be scaled to the display resolution according to the configuration mode and the extended GBI flags.
                     const bool usesLOD = (callDesc.otherMode.textLOD() == G_TL_LOD);
@@ -1900,6 +1916,7 @@ namespace RT64 {
         renderTargetManager.setMultisampling(multisampling);
         dummyDepthTarget.reset();
         framebufferRenderer->updateMultisampling();
+        updateRenderFlagSampleCount();
     }
 
     void State::inspect() {
@@ -2022,12 +2039,14 @@ namespace RT64 {
                     ImGui::Text("User Configuration (persistent)");
                     ImGui::Separator();
 
-#               ifdef _WIN32
-                    genConfigChanged = ImGui::Combo("Graphics API", reinterpret_cast<int *>(&userConfig.graphicsAPI), "D3D12\0Vulkan\0") || genConfigChanged;
-                    if (userConfig.graphicsAPI != inspector->graphicsAPI) {
+                    genConfigChanged = ImGui::Combo("Graphics API", reinterpret_cast<int *>(&userConfig.graphicsAPI), "D3D12\0Vulkan\0Metal\0Automatic\0") || genConfigChanged;
+
+                    if (!UserConfiguration::isGraphicsAPISupported(userConfig.graphicsAPI)) {
+                        ImGui::Text("This API is not available on this platform!");
+                    }
+                    else if (UserConfiguration::resolveGraphicsAPI(userConfig.graphicsAPI) != inspector->graphicsAPI) {
                         ImGui::Text("You must restart the application for this change to be applied.");
                     }
-#               endif
 
                     resConfigChanged = ImGui::Combo("Resolution Mode", reinterpret_cast<int *>(&userConfig.resolution), "Original\0Window Integer Scale\0Manual\0") || resConfigChanged;
                     const bool manualResolution = (userConfig.resolution == UserConfiguration::Resolution::Manual);
@@ -2159,6 +2178,33 @@ namespace RT64 {
                     for (const ReplacementDirectory &replacementDirectory : ext.textureCache->textureMap.replacementMap.replacementDirectories) {
                         const std::string replacementPath = replacementDirectory.dirOrZipPath.u8string();
                         ImGui::Text("Texture replacement path: %s", replacementPath.c_str());
+                    }
+
+                    if (!ext.textureCache->textureMap.replacementMap.replacementDirectories.empty()) {
+                        bool directoryMode = ext.textureCache->textureMap.replacementMap.fileSystemIsDirectory;
+                        ImGui::BeginDisabled(!directoryMode);
+
+                        ReplacementDatabase &replacementDb = ext.textureCache->textureMap.replacementMap.directoryDatabase;
+                        int defaultShift = int(replacementDb.config.defaultShift);
+                        if (ImGui::Combo("Default Shift", &defaultShift, "None\0Half\0")) {
+                            ext.textureCache->setReplacementDefaultShift(ReplacementShift(defaultShift));
+                        }
+
+                        int defaultOperation = int(replacementDb.config.defaultOperation);
+                        if (ImGui::Combo("Default Operation", &defaultOperation, "Preload\0Stream\0Stall\0")) {
+                            ext.textureCache->setReplacementDefaultOperation(ReplacementOperation(defaultOperation));
+                        }
+
+                        if (replacementDb.config.defaultOperation != ReplacementOperation::Stream) {
+                            ImGui::Text("Operation modes other than 'Stream' are not good for performance.");
+                            ImGui::Text("Only set this if you know what you're doing!");
+                        }
+
+                        ImGui::EndDisabled();
+
+                        if (!directoryMode) {
+                            ImGui::Text("Properties can only be edited when loading a texture pack as a single directory.");
+                        }
                     }
 
                     ImGui::BeginChild("##textureReplacements", ImVec2(0, -64));
@@ -2450,6 +2496,22 @@ namespace RT64 {
 
                     ImGui::NewLine();
 
+                    // Show the current graphics API in use.
+                    switch (inspector->graphicsAPI) {
+                    case UserConfiguration::GraphicsAPI::D3D12:
+                        ImGui::Text("Graphics API: D3D12");
+                        break;
+                    case UserConfiguration::GraphicsAPI::Vulkan:
+                        ImGui::Text("Graphics API: Vulkan");
+                        break;
+                    case UserConfiguration::GraphicsAPI::Metal:
+                        ImGui::Text("Graphics API: Metal");
+                        break;
+                    default:
+                        ImGui::Text("Graphics API: Unknown");
+                        break;
+                    }
+
                     const RenderDeviceDescription &description = ext.device->getDescription();
                     const RenderDeviceCapabilities &capabilities = ext.device->getCapabilities();
                     ImGui::Text("Display Refresh Rate (OS): %d\n", ext.appWindow->getRefreshRate());
@@ -2657,5 +2719,25 @@ namespace RT64 {
         extended = Extended();
         rsp->clearExtended();
         rdp->clearExtended();
+    }
+
+    void State::updateRenderFlagSampleCount() {
+        switch (renderTargetManager.multisampling.sampleCount) {
+        case RenderSampleCount::COUNT_1:
+            renderFlagSampleCount = 0;
+            break;
+        case RenderSampleCount::COUNT_2:
+            renderFlagSampleCount = 1;
+            break;
+        case RenderSampleCount::COUNT_4:
+            renderFlagSampleCount = 2;
+            break;
+        case RenderSampleCount::COUNT_8:
+            renderFlagSampleCount = 3;
+            break;
+        default:
+            assert(false && "Unknown sample count.");
+            break;
+        }
     }
 };

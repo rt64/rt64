@@ -28,11 +28,13 @@ namespace RT64 {
         respv::Shader rasterVS;
         respv::Shader rasterVSFlat;
         respv::Shader rasterPS;
+        respv::Shader rasterPSMS;
         respv::Shader rasterPSDepth;
         respv::Shader rasterPSDepthMS;
         respv::Shader rasterPSFlatDepth;
         respv::Shader rasterPSFlatDepthMS;
         respv::Shader rasterPSFlat;
+        respv::Shader rasterPSFlatMS;
 
         void initialize();
     };

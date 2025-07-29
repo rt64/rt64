@@ -4,9 +4,37 @@
 
 #pragma once
 
+// Referenced from zstd.
+
+static unsigned bitScanForward64(uint64_t val) {
+    assert(val != 0);
+
+#if defined(_MSC_VER) && defined(_WIN64)
+#if STATIC_BMI2 == 1
+    return (unsigned)_tzcnt_u64(val);
+#else
+    if (val != 0) {
+        unsigned long r;
+        _BitScanForward64(&r, val);
+        return (unsigned)r;
+    }
+    else {
+        /* Should not reach this code path */
+        __assume(0);
+    }
+#endif
+#elif defined(__GNUC__) && (__GNUC__ >= 4) && defined(__LP64__)
+    return (unsigned)__builtin_ctzll(val);
+#elif defined(__ICCARM__)
+    return (unsigned)__builtin_ctzll(val);
+#else
+    static_assert(false, "bitScanForward64 not implemented for this compiler.");
+#endif
+}
+
 namespace RT64 {
     struct TMEMHasher {
-        static const uint32_t CurrentHashVersion = 3;
+        static const uint32_t CurrentHashVersion = 5;
 
         static bool needsToHashRowsIndividually(const LoadTile &loadTile, uint32_t width) {
             // When using 32-bit formats, TMEM contents are split in half in the lower and upper half, so the size per row is effectively
@@ -37,16 +65,58 @@ namespace RT64 {
             const uint32_t drawBytesTotal = (loadTile.line << 3) * (height - 1) + drawBytesPerRow;
             const uint32_t tmemMask = halfTMEM ? TMEMMask16 : TMEMMask8;
             const uint32_t tmemAddress = (loadTile.tmem << 3) & tmemMask;
-            auto hashTMEM = [&](uint32_t tmemBaseAddress, uint32_t tmemOrAddress, uint32_t byteCount) {
+            uint64_t tlutBitset[4] = {};
+            auto hashUpdate = [&](const uint8_t *tmemBytes, uint32_t byteCount) {
+                XXH3_64bits_update(&xxh3, tmemBytes, byteCount);
+
+                // Version 5 parses every byte individually if TLUT is enabled to determine the TLUT bytes that can be hashed.
+                if ((version >= 5) && usesTLUT) {
+                    if (loadTile.siz == G_IM_SIZ_4b) {
+                        for (uint32_t i = 0; i < byteCount; i++) {
+                            tlutBitset[0] |= (1ULL << (tmemBytes[i] & 0xFU));
+                            tlutBitset[0] |= (1ULL << ((tmemBytes[i] >> 4U) & 0xFU));
+                        }
+                    }
+                    else {
+                        for (uint32_t i = 0; i < byteCount; i++) {
+                            tlutBitset[tmemBytes[i] >> 6U] |= (1ULL << (tmemBytes[i] & 0x3FU));
+                        }
+                    }
+                }
+            };
+
+            auto hashTMEM = [&](uint32_t tmemBaseAddress, uint32_t tmemOrAddress, uint32_t byteCount, bool oddRow) {
+                assert((tmemBaseAddress < tmemSize) && "Base address must be masked within the bounds of the TMEM size.");
+
                 // Too many bytes to hash in a single step. Wrap around TMEM and hash the rest.
                 if ((tmemBaseAddress + byteCount) > tmemSize) {
-                    const uint32_t firstBytes = std::min(byteCount, std::max(tmemSize - tmemBaseAddress, 0U));
-                    XXH3_64bits_update(&xxh3, &TMEM[tmemBaseAddress | tmemOrAddress], firstBytes);
-                    XXH3_64bits_update(&xxh3, &TMEM[tmemOrAddress], std::min(byteCount - firstBytes, tmemBaseAddress));
+                    const uint32_t firstBytes = (tmemSize - tmemBaseAddress);
+                    hashUpdate(&TMEM[tmemBaseAddress | tmemOrAddress], firstBytes);
+
+                    // Start hashing from the start of TMEM.
+                    byteCount = std::min(byteCount - firstBytes, tmemBaseAddress);
+                    tmemBaseAddress = 0;
                 }
-                // Hash as normal.
+
+                // Version 4 fixes an error where odd row word swapping was not considered when hashing rows individually.
+                if (oddRow && (version >= 4)) {
+                    uint32_t wordCount = byteCount / 8;
+                    if (wordCount > 0) {
+                        hashUpdate(&TMEM[tmemBaseAddress | tmemOrAddress], wordCount * 8);
+                        tmemBaseAddress += wordCount * 8;
+                        byteCount -= wordCount * 8;
+                    }
+                    
+                    if (byteCount > 4) {
+                        hashUpdate(&TMEM[tmemBaseAddress | tmemOrAddress], byteCount - 4);
+                        hashUpdate(&TMEM[(tmemBaseAddress + 4) | tmemOrAddress], 4);
+                    }
+                    else if (byteCount > 0) {
+                        hashUpdate(&TMEM[(tmemBaseAddress + 4) | tmemOrAddress], byteCount);
+                    }
+                }
                 else {
-                    XXH3_64bits_update(&xxh3, &TMEM[tmemBaseAddress | tmemOrAddress], byteCount);
+                    hashUpdate(&TMEM[tmemBaseAddress | tmemOrAddress], byteCount);
                 }
             };
 
@@ -54,20 +124,20 @@ namespace RT64 {
             if ((version >= 2) && TMEMHasher::needsToHashRowsIndividually(loadTile, width)) {
                 uint32_t tmemBytesPerRow = loadTile.line << 3;
                 for (uint32_t i = 0; i < height; i++) {
-                    hashTMEM((tmemAddress + i * tmemBytesPerRow) & tmemMask, 0x0, drawBytesPerRow);
+                    hashTMEM((tmemAddress + i * tmemBytesPerRow) & tmemMask, 0x0, drawBytesPerRow, i & 1);
                 }
 
                 if (RGBA32) {
                     for (uint32_t i = 0; i < height; i++) {
-                        hashTMEM((tmemAddress + i * tmemBytesPerRow) & tmemMask, tmemSize, drawBytesPerRow);
+                        hashTMEM((tmemAddress + i * tmemBytesPerRow) & tmemMask, tmemSize, drawBytesPerRow, i & 1);
                     }
                 }
             }
             else {
-                hashTMEM(tmemAddress, 0x0, drawBytesTotal);
+                hashTMEM(tmemAddress, 0x0, drawBytesTotal, false);
 
                 if (RGBA32) {
-                    hashTMEM(tmemAddress, tmemSize, drawBytesTotal);
+                    hashTMEM(tmemAddress, tmemSize, drawBytesTotal, false);
                 }
             }
 
@@ -75,9 +145,39 @@ namespace RT64 {
             if (usesTLUT) {
                 const bool CI4 = (loadTile.siz == G_IM_SIZ_4b);
                 const int32_t paletteOffset = CI4 ? (loadTile.palette << 7) : 0;
-                const int32_t bytesToHash = CI4 ? 0x80 : 0x800;
                 const int32_t paletteAddress = (TMEMBytes >> 1) + paletteOffset;
-                XXH3_64bits_update(&xxh3, &TMEM[paletteAddress], bytesToHash);
+
+                // Version 5 stores a bitset of all the indices that should be hashed.
+                if (version >= 5) {
+                    // Fast path for a full bitset for CI4.
+                    if (CI4 && (tlutBitset[0] == UINT16_MAX)) {
+                        XXH3_64bits_update(&xxh3, &TMEM[paletteAddress], 0x80);
+                    }
+                    else {
+                        const uint32_t bitsetCount = CI4 ? 1 : 4;
+                        uint32_t bitsetIndex = 0;
+                        uint32_t paletteIndex = 0;
+                        for (uint32_t i = 0; i < bitsetCount; i++) {
+                            // Fast path for a full bitset.
+                            if (tlutBitset[i] == UINT64_MAX) {
+                                XXH3_64bits_update(&xxh3, &TMEM[paletteAddress + i * 0x200], 0x200);
+                            }
+                            else {
+                                // Must check every bit individually.
+                                while (tlutBitset[i] > 0) {
+                                    bitsetIndex = bitScanForward64(tlutBitset[i]);
+                                    paletteIndex = (i * 0x40) + bitsetIndex;
+                                    XXH3_64bits_update(&xxh3, &TMEM[paletteAddress + paletteIndex * 8], 8);
+                                    tlutBitset[i] &= ~(1ULL << bitsetIndex);
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    const int32_t bytesToHash = CI4 ? 0x80 : 0x800;
+                    XXH3_64bits_update(&xxh3, &TMEM[paletteAddress], bytesToHash);
+                }
             }
             
             // Encode more parameters into the hash that affect the final RGBA32 output.
