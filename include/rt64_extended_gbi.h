@@ -363,10 +363,10 @@ typedef union {
         0 \
     )
 
-#define gEXVertexV1(cmd, vtx, count, v0) \
+#define gEXVertex(cmd, vtx, count, v0) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_VERTEX_V1, 24, 0), \
-        PARAM((v0)+(n), 7, 1) | PARAM(n, 8, 12), \
+        PARAM((v0), 8, 0) | PARAM((count), 8, 8), \
         0, \
         (unsigned)(vtx) \
     )

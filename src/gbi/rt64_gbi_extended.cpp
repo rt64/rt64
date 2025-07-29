@@ -187,8 +187,8 @@ namespace RT64 {
         }
 
         void vertexV1(State *state, DisplayList **dl) {
-            uint8_t vtxCount = (*dl)->p0(12, 8);
-            uint8_t dstIndex = (*dl)->p0(1, 7) - vtxCount;
+            uint8_t vtxCount = (*dl)->p1(8, 8);
+            uint8_t dstIndex = (*dl)->p1(0, 8);
             *dl = *dl + 1;
             state->rsp->setVertexEXV1((*dl)->w1, vtxCount, dstIndex);
         }
