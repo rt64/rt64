@@ -386,18 +386,12 @@ namespace RT64 {
             }
 
             if (presentFrame && swapChainValid) {
+                Timestamp oldPresentTimestamp = presentTimestamp;
                 // Wait until the approximate time the next present should be at the current intended rate.
                 if ((presentTimestamp != Timestamp()) && (targetRate > 0) && (targetRate > viOriginalRate)) {
-                    Timestamp currentTimestamp = Timer::current();
-                    int64_t deltaMicro = Timer::deltaMicroseconds(presentTimestamp, currentTimestamp);
-                    int64_t targetRateMicro = 1000000 / targetRate;
-
-                    // The OS only provides about one millisecond of accuracy by default. Since we also
-                    // want to wait slightly less than the target time, we substract from it and wait 1
-                    // millisecond less than the floor of the micrseconds value.
-                    int64_t msToWait = (targetRateMicro - deltaMicro - 500) / 1000;
-                    if (msToWait > 1) {
-                        Thread::sleepMilliseconds(msToWait - 1);
+                    // Don't sleep if the target framerate is the refresh rate, as vsync will take care of it.
+                    if (targetRate != ext.sharedResources->swapChainRate) {
+                        Timer::preciseSleepUntil(presentTimestamp + std::chrono::nanoseconds(1'000'000'000 / targetRate));
                     }
                 }
 
@@ -406,9 +400,9 @@ namespace RT64 {
                 }
 
                 RenderCommandSemaphore *waitSemaphore = drawSemaphore.get();
+                presentTimestamp = Timer::current();
                 swapChainValid = ext.swapChain->present(swapChainIndex, &waitSemaphore, 1);
                 presentProfiler.logAndRestart();
-                presentTimestamp = Timer::current();
             }
         }
     }
