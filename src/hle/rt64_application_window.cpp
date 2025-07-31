@@ -50,9 +50,14 @@ namespace RT64 {
         this->listener = listener;
 
         windowHandle = window;
-#if defined(__APPLE__)
+
+#   if defined(RT64_SDL_WINDOW_VULKAN)
+        sdlWindow = window;
+#   endif
+
+#   if defined(__APPLE__)
         windowWrapper = std::make_unique<CocoaWindow>(window.window);
-#endif
+#   endif
 
         if (listener->usesWindowMessageFilter()) {
             if ((sdlWindow == nullptr) && SDL_WasInit(SDL_INIT_VIDEO)) {
@@ -377,7 +382,7 @@ namespace RT64 {
 #endif
 
     void ApplicationWindow::sdlCheckFilterInstallation() {
-        if (!sdlEventFilterInstalled && (sdlWindow != nullptr)) {
+        if (listener->usesWindowMessageFilter() && !sdlEventFilterInstalled && (sdlWindow != nullptr)) {
             if (!SDL_GetEventFilter(&sdlEventFilterStored, &sdlEventFilterUserdata)) {
                 sdlEventFilterStored = nullptr;
                 sdlEventFilterUserdata = nullptr;
