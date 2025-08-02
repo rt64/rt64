@@ -10,7 +10,7 @@ This repository has been made public to provide a working implementation to nati
 **Development of these features is still ongoing and will be added to this repository when they're ready.** Thank you for your patience!
 
 # Features available
-* Modern N64 renderer built on the latest APIs (D3D12 and Vulkan).
+* Modern N64 renderer built on the latest APIs (D3D12, Vulkan and Metal).
 * Uses ubershaders to guarantee no stutters due to pipeline compilation.
 * Brand new architecture designed around offering novel enhancements.
 * High level of accuracy and no tolerance for game-specific workarounds to achieve correct rendering.
@@ -20,7 +20,7 @@ This repository has been made public to provide a working implementation to nati
 * Interpolate the game's visuals to 60 FPS or above (HFR) by generating new frames and modifying them in 3D space (limited game support).
 * Extended command set for better integration of widescreen, interpolation and path tracing features (for use with rom patches, rom hacks, and ports).
 * Texture packs with DDS and asynchronous streaming support. Compatible with Rice filenames. [Read about how to make texture packs for RT64 here](TEXTURE-PACKS.md).
-* Supports Windows 10, Windows 11 and Linux.
+* Supports Windows 10, Windows 11, Linux and macOS.
 
 # Features in development (in priority order)
 * Fully path traced renderer (RT).
