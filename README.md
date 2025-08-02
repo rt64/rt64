@@ -23,20 +23,19 @@ This repository has been made public to provide a working implementation to nati
 * Supports Windows 10, Windows 11 and Linux.
 
 # Features in development (in priority order)
-* Game script interpreter.
-  * Support a runtime language for configuring the path traced renderer based on the contents of the game's memory.
-  * Support patching the game's memory to provide various enhancements automatically integrated with the game script.
 * Fully path traced renderer (RT).
   * Calculate all lighting in real time and replace the contents of the drawn scene entirely with a path traced version.
   * Provide support for extra modifications for altering the material properties of the surfaces in the game.
   * Game support will be limited to a very small selection of games initially.
+* Model replacements.
+  * Details to be determined.
+* Game script interpreter.
+  * Support a runtime language for configuring the path traced renderer based on the contents of the game's memory.
+  * Support patching the game's memory to provide various enhancements automatically integrated with the game script.
 * Emulator integration.
   * Game compatibility database and feature whitelist.
   * Configuration screen.
   * List of supported emulators to be determined.
-* Model replacements.
-  * Details to be determined.
-
 
 # Building
 
