@@ -10,10 +10,6 @@ endif()
 
 option(RT64_STATIC "Build RT64 as a static library" OFF)
 
-option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
-if (${RT64_BUILD_EXAMPLES})
-    set(RT64_STATIC ON)
-endif()
 
 option(RT64_SDL_WINDOW_VULKAN "Build RT64 to expect an SDL Window outside of Windows" OFF)
 
@@ -556,33 +552,3 @@ build_pixel_shader(  rt64 "src/shaders/PostProcessPS.hlsl")
 
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/src)
 
-if (RT64_BUILD_EXAMPLES)
-    add_executable(rhi_test "examples/plume_render_interface.cpp" "examples/rhi_test.cpp")
-    target_link_libraries(rhi_test rt64)
-
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestSpecPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestColorPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestDecalPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTextureBindfulPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTextureBindlessPS.hlsl")
-    build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
-    build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
-    build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestAsyncCS.hlsl")
-    if (NOT APPLE)
-        # TODO: Enable when RT is added to Metal.
-        build_ray_shader(rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
-    endif()
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPostPS.hlsl")
-    build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestPostVS.hlsl")
-
-    target_include_directories(rhi_test PRIVATE ${CMAKE_BINARY_DIR}/examples)
-
-    if (APPLE)
-        set_property (TARGET rhi_test APPEND_STRING PROPERTY
-            COMPILE_FLAGS "-fobjc-arc")
-        set_target_properties(rhi_test PROPERTIES
-            XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
-            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${CMAKE_CURRENT_SOURCE_DIR}/rt64.entitlements
-        )
-    endif()
-endif()
