@@ -70,6 +70,7 @@ add_subdirectory(src/tools/file_to_c)
 add_subdirectory(src/contrib/re-spirv)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 add_subdirectory(src/contrib/zstd/build/cmake)
+add_subdirectory(src/contrib/plume)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Use /W4 for clang-cl, as -Wall maps to MSVC's /Wall which in turn maps to clang's -Weverything
@@ -398,8 +399,6 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_demo.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/implot/implot_items.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/miniz/miniz.c"
-
-    "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_vulkan.cpp"
 )
 
 include_directories(
@@ -435,6 +434,7 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 target_link_libraries(rt64 re-spirv)
 target_link_libraries(rt64 nfd)
 target_link_libraries(rt64 libzstd_static)
+target_link_libraries(rt64 plume)
 
 # Add tools.
 add_subdirectory(src/tools/texture_hasher)
@@ -446,8 +446,6 @@ if (APPLE)
 
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
-        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_metal.cpp"
-        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
     target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics -framework IOKit")
@@ -456,7 +454,6 @@ endif()
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/contrib/plume/plume_d3d12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_dx12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_win32.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp"
