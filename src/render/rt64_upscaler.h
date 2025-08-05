@@ -5,10 +5,9 @@
 #pragma once
 
 #include "common/rt64_common.h"
+#include "common/rt64_plume.h"
 
 #include "rt64_render_worker.h"
-
-using namespace plume;
 
 namespace RT64 {
     struct RenderWorker;

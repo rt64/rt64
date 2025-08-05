@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "plume_render_interface.h"
+#include "common/rt64_plume.h"
 #ifdef _WIN32
 #include <Windows.h>
 #elif defined(__APPLE__)
@@ -25,8 +25,6 @@
 #undef ControlMask
 #undef Success
 #undef Always
-
-using namespace plume;
 
 namespace RT64 {
     struct ApplicationWindow {

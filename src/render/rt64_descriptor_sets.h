@@ -9,11 +9,9 @@
 #include <unordered_map>
 
 #include "common/rt64_common.h"
-#include "plume_render_interface.h"
+#include "common/rt64_plume.h"
 
 #include "rt64_sampler_library.h"
-
-using namespace plume;
 
 namespace RT64 {
     struct BicubicScalingDescriptorSet : RenderDescriptorSetBase {
