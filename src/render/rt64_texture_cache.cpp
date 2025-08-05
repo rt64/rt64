@@ -392,9 +392,9 @@ namespace RT64 {
 
         this->textureCache = textureCache;
 
+        threadRunning = true;
         worker = std::make_unique<RenderWorker>(textureCache->directWorker->device, "RT64 Stream Worker", RenderCommandListType::COPY);
         thread = std::make_unique<std::thread>(&StreamThread::loop, this);
-        threadRunning = false;
     }
 
     TextureCache::StreamThread::~StreamThread() {
@@ -409,8 +409,6 @@ namespace RT64 {
 
         // Texture streaming threads should have a priority somewhere inbetween the main threads and the shader compilation threads.
         Thread::setCurrentThreadPriority(Thread::Priority::Low);
-
-        threadRunning = true;
 
         std::vector<uint8_t> replacementBytes;
         while (threadRunning) {

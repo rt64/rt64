@@ -10,7 +10,7 @@ This repository has been made public to provide a working implementation to nati
 **Development of these features is still ongoing and will be added to this repository when they're ready.** Thank you for your patience!
 
 # Features available
-* Modern N64 renderer built on the latest APIs (D3D12 and Vulkan).
+* Modern N64 renderer built on the latest APIs (D3D12, Vulkan and Metal).
 * Uses ubershaders to guarantee no stutters due to pipeline compilation.
 * Brand new architecture designed around offering novel enhancements.
 * High level of accuracy and no tolerance for game-specific workarounds to achieve correct rendering.
@@ -20,23 +20,22 @@ This repository has been made public to provide a working implementation to nati
 * Interpolate the game's visuals to 60 FPS or above (HFR) by generating new frames and modifying them in 3D space (limited game support).
 * Extended command set for better integration of widescreen, interpolation and path tracing features (for use with rom patches, rom hacks, and ports).
 * Texture packs with DDS and asynchronous streaming support. Compatible with Rice filenames. [Read about how to make texture packs for RT64 here](TEXTURE-PACKS.md).
-* Supports Windows 10, Windows 11 and Linux.
+* Supports Windows 10, Windows 11, Linux and macOS.
 
 # Features in development (in priority order)
-* Game script interpreter.
-  * Support a runtime language for configuring the path traced renderer based on the contents of the game's memory.
-  * Support patching the game's memory to provide various enhancements automatically integrated with the game script.
 * Fully path traced renderer (RT).
   * Calculate all lighting in real time and replace the contents of the drawn scene entirely with a path traced version.
   * Provide support for extra modifications for altering the material properties of the surfaces in the game.
   * Game support will be limited to a very small selection of games initially.
+* Model replacements.
+  * Details to be determined.
+* Game script interpreter.
+  * Support a runtime language for configuring the path traced renderer based on the contents of the game's memory.
+  * Support patching the game's memory to provide various enhancements automatically integrated with the game script.
 * Emulator integration.
   * Game compatibility database and feature whitelist.
   * Configuration screen.
   * List of supported emulators to be determined.
-* Model replacements.
-  * Details to be determined.
-
 
 # Building
 
@@ -88,10 +87,11 @@ RT64 offers an extended command set that can be used by native ports, ROM patche
 
 For example, objects that rely on pixel depth checks to draw can instead use the `gEXVertexZTest()` command to specify any triangles drawn after the command should only be drawn if the vertex is not covered by something else. This means that effects such as light halos can be replaced with this command and it'll automatically work on widescreen ratios and no longer be delayed by one frame. Instead, RT64 will just flush the depth buffer at the correct step and run a small compute shader that will invalidate the draw call's triangles if the depth test doesn't pass. Though the original effect already works as-is thanks to the native renderer, the extended GBI method can be leveraged to make the experience feel even better.
 
-## Future texture and asset replacement
+## Texture replacement
 Texture replacements are easily performed at runtime by using two capabilities that RT64 already supports: bindless textures and texture coordinate scaling. The entire renderer uses only one contiguous array of texture resources and replacing one of these by an HD texture replacement is straightforward. By detecting the difference in sizes between the original texture and the replacement, the texture coordinates can be scaled easily with the same logic that is used for framebuffer tiles.
 
-Asset replacement, while not currently implemented and more of a long term feature, will leverage the fact that only one contiguous vertex and index array is used by RT64. This allows for highly efficient rendering as it minimizes the amount of times vertex and index buffers must be bound, but it also means the RSP can process the vertices placed in this buffer during rendering time as if they came from the game itself. Therefore, the entire process of model replacement will just consist of allocating chunks of the buffer directly for replacements in a native format, assigning it the correct transforms used by the draw call and letting the RSP compute shader do its job. This will allow the renderer to draw models that have orders of magnitude higher triangle counts with very little additional cost to the CPU.
+## Future asset replacement
+Asset replacement will leverage the fact that only one contiguous vertex and index array is used by RT64. This allows for highly efficient rendering as it minimizes the amount of times vertex and index buffers must be bound, but it also means the RSP can process the vertices placed in this buffer during rendering time as if they came from the game itself. Therefore, the entire process of model replacement will just consist of allocating chunks of the buffer directly for replacements in a native format, assigning it the correct transforms used by the draw call and letting the RSP compute shader do its job. This will allow the renderer to draw models that have orders of magnitude higher triangle counts with very little additional cost to the CPU.
 
 ## Future path tracing
 RT64 will attempt to perform scene detection by merging as many draw calls as it can as long as they're inside of the same compatible perspective view point. Since all data remains untransformed, bottom-level acceleration structures (BLAS) can be built by using a compute shader to transform vertices to world space instead of screen space. Once these BLAS are built, a top-level acceleration structure (TLAS) is constructed with all the BLAS that were detected.
