@@ -21,11 +21,11 @@ namespace plume {
     // External functions to create the backends.
     extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
     extern std::unique_ptr<RenderInterface> CreateMetalInterface();
-    #ifdef RT64_SDL_WINDOW_VULKAN
+#ifdef RT64_SDL_WINDOW_VULKAN
     extern std::unique_ptr<RenderInterface> CreateVulkanInterface(RenderWindow renderWindow);
-    #else
+#else
     extern std::unique_ptr<RenderInterface> CreateVulkanInterface();
-    #endif
+#endif
 }
 
 namespace RT64 {
