@@ -6,7 +6,6 @@
 
 #include <string>
 #include <filesystem>
-#include <plume_render_interface_types.h>
 
 #ifdef _WIN32
 #   include <utf8conv/utf8conv.h>
