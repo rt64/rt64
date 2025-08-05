@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <vector>
 
 #include <nfd.h>
 
