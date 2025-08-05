@@ -4,8 +4,10 @@
 
 #pragma once
 
-#include <string>
+#include <atomic>
 #include <filesystem>
+#include <string>
+#include <vector>
 
 #ifdef _WIN32
 #   include <utf8conv/utf8conv.h>
