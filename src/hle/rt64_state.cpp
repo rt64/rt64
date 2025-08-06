@@ -2526,6 +2526,7 @@ namespace RT64 {
                     ImGui::Text("Sample Locations: %d", capabilities.sampleLocations);
                     ImGui::Text("Descriptor Indexing: %d", capabilities.descriptorIndexing);
                     ImGui::Text("Scalar Block Layout: %d", capabilities.scalarBlockLayout);
+                    ImGui::Text("Sampler Mirror Clamp To Edge: %d", capabilities.samplerMirrorClampToEdge);
                     ImGui::Text("Present Wait: %d", capabilities.presentWait);
                     ImGui::Text("Display Timing: %d", capabilities.displayTiming);
                     ImGui::Text("Prefer HDR: %d", capabilities.preferHDR);
