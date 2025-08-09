@@ -31,6 +31,9 @@ namespace RT64 {
 
         // Duration of the fixed sleep, in nanoseconds.
         constexpr int64_t fixedSleepDuration = 100'000;
+        // Upper bounds of the fixed sleep. Any durations above this will be ignored when
+        // updating the fixed sleep statistics.
+        constexpr int64_t fixedSleepUpperBound = 2'000'000;
         // Number of standard deviations to use as the upper bounds for the duration estimate.
         constexpr double estimateStddevCount = 2.0;
 
@@ -46,19 +49,21 @@ namespace RT64 {
             // Perform a fixed sleep and measure the time that actually passed.
             std::this_thread::sleep_for(std::chrono::nanoseconds(fixedSleepDuration));
             auto afterSleep = std::chrono::high_resolution_clock::now();
-            double measuredDuration = (afterSleep - waitStart).count() / 1'000'000'000.0;
+            double measuredDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(afterSleep - waitStart).count() / 1'000'000'000.0;
 
             // Adjust the remaining time based on the real duration of the fixed sleep.
             remainingSeconds -= measuredDuration;
 
-            fixedSleepTotalCount++;
+            // Update the fixed sleep statistics if the sleep was within the expected bounds.
+            if (measuredDuration < fixedSleepUpperBound / 1'000'000'000.0) {
+                fixedSleepTotalCount++;
 
-            // Update the fixed sleep statistics.
-            double delta = measuredDuration - mean;
-            mean += delta / fixedSleepTotalCount;
-            m2 += delta * (measuredDuration - mean);
-            double stddev = sqrt(m2 / (fixedSleepTotalCount - 1));
-            fixedSleepEstimate = mean + estimateStddevCount * stddev;
+                double delta = measuredDuration - mean;
+                mean += delta / fixedSleepTotalCount;
+                m2 += delta * (measuredDuration - mean);
+                double stddev = sqrt(m2 / (fixedSleepTotalCount - 1));
+                fixedSleepEstimate = mean + estimateStddevCount * stddev;
+            }
 
             waitStart = afterSleep;
         }
