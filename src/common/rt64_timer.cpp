@@ -69,8 +69,6 @@ namespace RT64 {
         }
 
         // Spin until the end time is reached.
-        {
-            while (std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - endTime).count() < 0);
-        }
+        while (std::chrono::high_resolution_clock::now() < endTime);
     }
 };
