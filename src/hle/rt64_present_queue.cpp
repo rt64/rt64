@@ -386,7 +386,6 @@ namespace RT64 {
             }
 
             if (presentFrame && swapChainValid) {
-                Timestamp oldPresentTimestamp = presentTimestamp;
                 // Wait until the approximate time the next present should be at the current intended rate.
                 if ((presentTimestamp != Timestamp()) && (targetRate > 0) && (targetRate > viOriginalRate)) {
                     // Don't sleep if the target framerate is equal or bigger than the refresh rate, as vsync will take care of it.
