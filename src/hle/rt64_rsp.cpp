@@ -1186,7 +1186,10 @@ namespace RT64 {
         shadingSmoothMask = gbi->constants[F3DENUM::G_SHADING_SMOOTH];
     }
 
-    void RSP::setNoN(bool enabled) {
-        NoN = enabled;
+    void RSP::setNoN(bool NoN) {
+        if (this->NoN != NoN) {
+            state->flush();
+            this->NoN = NoN;
+        }
     }
 };
