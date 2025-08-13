@@ -389,8 +389,8 @@ namespace RT64 {
                 Timestamp oldPresentTimestamp = presentTimestamp;
                 // Wait until the approximate time the next present should be at the current intended rate.
                 if ((presentTimestamp != Timestamp()) && (targetRate > 0) && (targetRate > viOriginalRate)) {
-                    // Don't sleep if the target framerate is the refresh rate, as vsync will take care of it.
-                    if (targetRate != ext.sharedResources->swapChainRate) {
+                    // Don't sleep if the target framerate is equal or bigger than the refresh rate, as vsync will take care of it.
+                    if (targetRate < ext.sharedResources->swapChainRate) {
                         Timer::preciseSleepUntil(presentTimestamp + std::chrono::nanoseconds(1'000'000'000 / targetRate));
                     }
                 }
