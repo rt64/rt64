@@ -282,5 +282,6 @@ namespace RT64 {
         void extendRDRAM(bool isExtended);
         void clearExtended();
         void setGBI(GBI *gbi);
+        void setNoN(bool NoN);
     };
 };

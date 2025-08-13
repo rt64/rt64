@@ -1185,4 +1185,11 @@ namespace RT64 {
         pushMask = gbi->constants[F3DENUM::G_MTX_PUSH];
         shadingSmoothMask = gbi->constants[F3DENUM::G_SHADING_SMOOTH];
     }
+
+    void RSP::setNoN(bool NoN) {
+        if (this->NoN != NoN) {
+            state->flush();
+            this->NoN = NoN;
+        }
+    }
 };

@@ -291,6 +291,11 @@ namespace RT64 {
             state->setExtendedRDRAM(extended);
         }
 
+        void setNearClippingV1(State *state, DisplayList **dl) {
+            const uint8_t nearClipping = (*dl)->p1(0, 1);
+            state->rsp->setNoN(!nearClipping);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -392,6 +397,7 @@ namespace RT64 {
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
             Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
+            Map[G_EX_SETNEARCLIPPING_V1] = &setNearClippingV1;
             MapInitialized = true;
         }
     }
