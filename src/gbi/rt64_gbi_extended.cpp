@@ -144,7 +144,8 @@ namespace RT64 {
             const uint8_t tile = (*dl)->p0(15, 2);
             const uint8_t order = (*dl)->p0(17, 2);
             const uint8_t editable = (*dl)->p0(19, 1);
-            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, editable, idIsAddress, editGroup);
+            const uint8_t aspect = (*dl)->p0(20, 2);
+            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, aspect, editable, idIsAddress, editGroup);
         }
 
         void matrixGroupV1(State *state, DisplayList **dl) {
@@ -291,6 +292,14 @@ namespace RT64 {
             state->setExtendedRDRAM(extended);
         }
 
+        void setProjectionMatrixFloatV1(State *state, DisplayList **dl) {
+            state->rsp->setProjectionMatrixFloat((*dl)->w1);
+        }
+
+        void setViewMatrixFloatV1(State *state, DisplayList **dl) {
+            state->rsp->setViewMatrixFloat((*dl)->w1);
+        }
+
         void setNearClippingV1(State *state, DisplayList **dl) {
             const uint8_t nearClipping = (*dl)->p1(0, 1);
             state->rsp->setNoN(!nearClipping);
@@ -397,6 +406,8 @@ namespace RT64 {
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
             Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
+            Map[G_EX_SETPROJMATRIXFLOAT_V1] = &setProjectionMatrixFloatV1;
+            Map[G_EX_SETVIEWMATRIXFLOAT_V1] = &setViewMatrixFloatV1;
             Map[G_EX_SETNEARCLIPPING_V1] = &setNearClippingV1;
             MapInitialized = true;
         }

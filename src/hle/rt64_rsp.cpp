@@ -56,6 +56,10 @@ namespace RT64 {
         lights.fill({});
         segments.fill(0);
         viewportStack[0] = {};
+        clipRatios[0] = 1;
+        clipRatios[1] = 1;
+        clipRatios[2] = -1;
+        clipRatios[3] = -1;
         textureState = {};
         curViewProjIndex = 0;
         curTransformIndex = 0;
@@ -293,6 +297,31 @@ namespace RT64 {
         modelViewProjChanged = false;
     }
 
+    static void setExtendedMatrixFloat(RSP &rsp, uint32_t address, hlslpp::float4x4 &matrix, hlslpp::float4x4 &invMatrix) {
+        const uint32_t rdramAddress = rsp.fromSegmentedMasked(address);
+        const float *floatMatrix = reinterpret_cast<float *>(rsp.state->fromRDRAM(rdramAddress));
+        for (uint32_t j = 0; j < 4; j++) {
+            for (uint32_t i = 0; i < 4; i++) {
+                matrix[j][i] = floatMatrix[j * 4 + i];
+            }
+        }
+
+        invMatrix = hlslpp::inverse(matrix);
+
+        rsp.extended.viewProjMatrix = hlslpp::mul(rsp.extended.viewMatrix, rsp.extended.projMatrix);
+        rsp.extended.invViewProjMatrix = hlslpp::inverse(rsp.extended.viewProjMatrix);
+        rsp.projectionMatrixChanged = true;
+        rsp.modelViewProjChanged = true;
+    }
+
+    void RSP::setProjectionMatrixFloat(uint32_t address) {
+        setExtendedMatrixFloat(*this, address, extended.projMatrix, extended.invProjMatrix);
+    }
+
+    void RSP::setViewMatrixFloat(uint32_t address) {
+        setExtendedMatrixFloat(*this, address, extended.viewMatrix, extended.invViewMatrix);
+    }
+
     void RSP::computeModelViewProj() {
         const hlslpp::float4x4 &viewProjMatrix = viewProjMatrixStack[projectionMatrixStackSize - 1];
         modelViewProjMatrix = hlslpp::mul(modelMatrixStack[modelMatrixStackSize - 1], viewProjMatrix);
@@ -408,12 +437,17 @@ namespace RT64 {
 
             uint32_t physicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
             workload.physicalAddressTransformMap.emplace(physicalAddress, uint32_t(drawData.viewProjTransformGroups.size()));
-            drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
-            drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
-            drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
+            drawData.viewTransforms.emplace_back(hlslpp::mul(extended.invViewMatrix, viewMatrixStack[projectionMatrixStackSize - 1]));
+            drawData.projTransforms.emplace_back(hlslpp::mul(extended.invProjMatrix, projMatrixStack[projectionMatrixStackSize - 1]));
+            drawData.viewProjTransforms.emplace_back(hlslpp::mul(extended.invViewProjMatrix, viewProjMatrixStack[projectionMatrixStackSize - 1]));
             drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdGroupIndex);
             drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
             drawData.viewportOrigins.emplace_back(extended.viewportOrigin);
+
+            for (uint32_t j = 0; j < 4; j++) {
+                drawData.viewportClipRatios.emplace_back(clipRatios[j]);
+            }
+
             projectionMatrixChanged = false;
             viewportChanged = false;
         }
@@ -443,7 +477,7 @@ namespace RT64 {
         if (modelViewProjChanged) {
             computeModelViewProj();
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
-            worldTransforms.emplace_back(modelMatrixStack[modelMatrixStackSize - 1]);
+            worldTransforms.emplace_back(hlslpp::mul(modelMatrixStack[modelMatrixStackSize - 1], extended.viewProjMatrix));
         }
         else if (modelViewProjInserted) {
 #       ifdef LOG_SPECIAL_MATRIX_OPERATIONS
@@ -458,7 +492,7 @@ namespace RT64 {
             }
 
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
-            worldTransforms.emplace_back(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]));
+            worldTransforms.emplace_back(hlslpp::mul(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]), extended.viewProjMatrix));
         }
 
         if (addWorldTransform) {
@@ -854,8 +888,17 @@ namespace RT64 {
         lightsChanged = true;
     }
 
-    void RSP::setClipRatio(uint32_t clipRatio) {
-        // TODO
+    void RSP::setClipRatioEdge(uint8_t index, int16_t value) {
+        assert(index < clipRatios.size());
+        clipRatios[index] = value;
+        viewportChanged = true;
+    }
+
+    void RSP::setClipRatioAll(int16_t value) {
+        setClipRatioEdge(0, value);
+        setClipRatioEdge(1, value);
+        setClipRatioEdge(2, -value);
+        setClipRatioEdge(3, -value);
     }
 
     void RSP::setPerspNorm(uint32_t perspNorm) {
@@ -1086,7 +1129,7 @@ namespace RT64 {
         state->updateDrawStatusAttribute(DrawAttribute::ExtendedType);
     }
 
-    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup) {
+    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t aspect, uint8_t editable, bool idIsAddress, bool editGroup) {
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
         auto setGroupProperties = [=](TransformGroup* dstGroup, bool newGroup) {
@@ -1100,6 +1143,7 @@ namespace RT64 {
                 dstGroup->vertexInterpolation = vert;
                 dstGroup->tileInterpolation = tile;
                 dstGroup->ordering = order;
+                dstGroup->aspectMode = aspect;
                 dstGroup->editable = editable;
             }
         };
@@ -1173,6 +1217,12 @@ namespace RT64 {
         extended.viewProjMatrixIdStackSize = 1;
         extended.viewProjMatrixIdStackChanged = false;
         extended.curViewProjMatrixIdGroupIndex = 0;
+        extended.viewMatrix = hlslpp::float4x4::identity();
+        extended.projMatrix = hlslpp::float4x4::identity();
+        extended.viewProjMatrix = hlslpp::float4x4::identity();
+        extended.invViewMatrix = hlslpp::float4x4::identity();
+        extended.invProjMatrix = hlslpp::float4x4::identity();
+        extended.invViewProjMatrix = hlslpp::float4x4::identity();
         extended.forceBranch = false;
     }
 

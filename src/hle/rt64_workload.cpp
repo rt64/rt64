@@ -65,6 +65,7 @@ namespace RT64 {
         drawData.gpuTiles.clear();
         drawData.callTiles.clear();
         drawData.rspViewports.clear();
+        drawData.viewportClipRatios.clear();
         drawData.viewportOrigins.clear();
         drawData.rspFog.clear();
         drawData.rspLights.clear();
@@ -92,6 +93,10 @@ namespace RT64 {
         drawData.worldTransformSegmentedAddresses.clear();
         drawData.worldTransformPhysicalAddresses.clear();
         drawData.worldTransformVertexIndices.clear();
+        drawData.viewportClipRatios.push_back(1);
+        drawData.viewportClipRatios.push_back(1);
+        drawData.viewportClipRatios.push_back(-1);
+        drawData.viewportClipRatios.push_back(-1);
 
         // Push an identity matrix into the transforms by default so rects can use them.
         drawData.rspViewports.push_back(interop::RSPViewport::identity());

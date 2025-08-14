@@ -154,6 +154,15 @@ namespace RT64 {
         return { v.x, v.y, v.z, v.w };
     }
 
+    static RenderRect viewportScissorIntersection(const RenderViewport &viewport, const RenderRect &scissor) {
+        return RenderRect{
+            std::max(static_cast<int32_t>(std::floor(viewport.x)), scissor.left),
+            std::max(static_cast<int32_t>(std::floor(viewport.y)), scissor.top),
+            std::min(static_cast<int32_t>(std::ceil(viewport.x + viewport.width)), scissor.right),
+            std::min(static_cast<int32_t>(std::ceil(viewport.y + viewport.height)), scissor.bottom)
+        };
+    }
+
     // RasterScene
 
     RasterScene::RasterScene() { }
@@ -1472,13 +1481,17 @@ namespace RT64 {
         RenderViewport rawViewportOriginal(0.0f, 0.0f, originalWidth, commonHeight);
         uint32_t vertexTestZFaceIndicesStart = 0;
         int32_t vertexTestZCallIndex = -1;
+        RenderViewport viewportClip;
         for (uint32_t pr = 0; (pr < fbPair.projectionCount) && (globalCallIndex < p.maxGameCall); pr++) {
             const Projection &proj = fbPair.projections[pr];
-            const bool perspProj = (proj.type == Projection::Type::Perspective);
+            if (proj.scissorRect.isNull()) {
+                continue;
+            }
 
 #       if RT_ENABLED
             // TODO: Move heuristics of RT proj elsewhere?
             // TODO: Use detected scenes logic instead.
+            const bool perspProj = (proj.type == Projection::Type::Perspective);
             bool rtProj = p.rtEnabled && perspProj && fbPair.depthWrite && targetDrawCall.rtScenes.empty(); // TODO: Remove the last condition once multiple heaps per RT scene are supported.
 
             // Make sure the matrices are compatible if we're switching to a new projection.
@@ -1496,7 +1509,29 @@ namespace RT64 {
             }
 #       endif
             
+            auto &triangles = instanceDrawCall.triangles;
+            float projInvRatioScale = 1.0f / aspectRatioScale;
+            const int16_t *viewportClipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
             const uint16_t viewportOrigin = drawData.viewportOrigins[proj.transformsIndex];
+            if (proj.usesViewport()) {
+                // The call's scissor spans the whole width of the framebuffer pair scissor. Custom origin must not be in use to be able to use the stretched viewport.
+                const auto &viewport = drawData.rspViewports[proj.transformsIndex];
+                FixedRect intersectionRect = proj.scissorRect.intersection(viewport.rect(viewportClipRatios));
+                bool coversWholeWidth = !intersectionRect.isEmpty() && (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
+                bool horizontalRatio = !intersectionRect.isEmpty() && (intersectionRect.width(true, true) > intersectionRect.height(true, true));
+                bool useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                if (useWideViewport) {
+                    projInvRatioScale = 1.0f;
+                    triangles.viewport = rawViewportWide;
+                }
+                else {
+                    triangles.viewport = rawViewportOriginal;
+                    moveViewportRect(triangles.viewport, p.resolutionScale, middleViewport, extOriginPercentage, 0.0f, viewportOrigin);
+                }
+
+                viewportClip = convertViewportRect(viewport.rect(viewportClipRatios), p.resolutionScale, p.fbWidth, projInvRatioScale, extOriginPercentage, 0.0f, viewportOrigin, viewportOrigin);
+            }
+
             for (uint32_t d = 0; (d < proj.gameCallCount) && (globalCallIndex < p.maxGameCall); d++) {
                 const GameCall &call = proj.gameCalls[d];
                 renderIndices.instanceIndex = call.callDesc.callIndex;
@@ -1597,7 +1632,6 @@ namespace RT64 {
                     else 
 #               endif
                     {
-                        auto &triangles = instanceDrawCall.triangles;
                         triangles.shaderDesc = call.shaderDesc;
 
                         RasterShader *gpuShader = p.ubershadersOnly ? nullptr : p.rasterShaderCache->getGPUShader(call.shaderDesc);
@@ -1623,27 +1657,7 @@ namespace RT64 {
                         case Projection::Type::Orthographic: {
                             instanceDrawCall.type = InstanceDrawCall::Type::IndexedTriangles;
                             triangles.indexStart = triangles.vertexTestZ ? vertexTestZFaceIndicesStart : call.meshDesc.faceIndicesStart;
-
-                            // Custom origin must not be in use to be able to use the stretched viewport.
-                            bool useWideViewport = false;
-                            if (proj.type == Projection::Type::Perspective) {
-                                // The call's scissor spans the whole width of the framebuffer pair scissor. The viewport must not be using an extended origin.
-                                useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && (call.callDesc.scissorRect.ulx <= fbPair.scissorRect.ulx) && (call.callDesc.scissorRect.lrx <= fbPair.scissorRect.lrx);
-                            }
-                            else {
-                                // Always use the wide viewport with orthographic projections.
-                                useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE);
-                            }
-
-                            if (useWideViewport) {
-                                invRatioScale = 1.0f;
-                                triangles.viewport = rawViewportWide;
-                            }
-                            else {
-                                triangles.viewport = rawViewportOriginal;
-                                moveViewportRect(triangles.viewport, p.resolutionScale, middleViewport, extOriginPercentage, horizontalMisalignment, viewportOrigin);
-                            }
-
+                            invRatioScale = projInvRatioScale;
                             break;
                         }
                         case Projection::Type::Rectangle: {
@@ -1689,12 +1703,15 @@ namespace RT64 {
                         }
 
                         triangles.scissor = convertFixedRect(call.callDesc.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, int32_t(horizontalMisalignment), call.callDesc.scissorLeftOrigin, call.callDesc.scissorRightOrigin);
+
+                        bool usesViewport = (proj.type == Projection::Type::Perspective) || (proj.type == Projection::Type::Orthographic);
+                        if (usesViewport) {
+                            triangles.scissor = viewportScissorIntersection(viewportClip, triangles.scissor);
+                        }
                         
-                        if (triangles.vertexTestZ) {
-                            if ((proj.type == Projection::Type::Perspective) || (proj.type == Projection::Type::Orthographic)) {
-                                instanceDrawCallVector[vertexTestZCallIndex].vertexTestZ.indexCount += call.callDesc.triangleCount * 3;
-                                vertexTestZFaceIndicesStart += call.callDesc.triangleCount * 3;
-                            }
+                        if (triangles.vertexTestZ && usesViewport) {
+                            instanceDrawCallVector[vertexTestZCallIndex].vertexTestZ.indexCount += call.callDesc.triangleCount * 3;
+                            vertexTestZFaceIndicesStart += call.callDesc.triangleCount * 3;
                         }
                     }
                 }
@@ -1727,7 +1744,7 @@ namespace RT64 {
                         rtScene.prevProjMatrix = drawData.prevProjTransforms[proj.transformsIndex];
 
                         const auto &viewport = drawData.rspViewports[proj.transformsIndex];
-                        rtScene.viewport = convertViewportRect(viewport.rect(), p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0.0f, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
+                        rtScene.viewport = convertViewportRect(viewport.rect(viewportClipRatios), p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0.0f, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
                         rtScene.scissor = convertFixedRect(proj.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
 
                         rtScene.presetScene = p.presetScene;
