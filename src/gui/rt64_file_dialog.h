@@ -4,9 +4,10 @@
 
 #pragma once
 
-#include <string>
+#include <atomic>
 #include <filesystem>
-#include <rhi/rt64_render_interface_types.h>
+#include <string>
+#include <vector>
 
 #ifdef _WIN32
 #   include <utf8conv/utf8conv.h>

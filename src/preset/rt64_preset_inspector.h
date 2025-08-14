@@ -10,6 +10,8 @@
 
 #include "imgui/imgui.h"
 
+#include "common/rt64_plume.h"
+
 namespace RT64 {
     template <
         class B, 

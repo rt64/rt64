@@ -23,6 +23,7 @@ namespace RT64 {
         void start();
         void end();
         void log();
+        void log(double value);
 
         // Convenience function for logging the time between each call to it.
         void logAndRestart();

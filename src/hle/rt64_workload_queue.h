@@ -90,8 +90,10 @@ namespace RT64 {
         std::unique_ptr<RSPProcessor> rspProcessor;
         std::unique_ptr<VertexProcessor> vertexProcessor;
         std::unique_ptr<RenderTarget> dummyDepthTarget;
+        std::unique_ptr<RenderQueryPool> queryPool;
         FramebufferChangePool scratchFbChangePool;
-        ProfilingTimer rendererProfiler = ProfilingTimer(120);
+        ProfilingTimer rendererCPUProfiler = ProfilingTimer(120);
+        ProfilingTimer rendererGPUProfiler = ProfilingTimer(120);
         ProfilingTimer matchingProfiler = ProfilingTimer(120);
         ProfilingTimer workloadProfiler = ProfilingTimer(120);
         std::array<GameFrame, 2> gameFrames;
