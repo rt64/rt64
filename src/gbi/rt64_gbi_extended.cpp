@@ -67,10 +67,10 @@ namespace RT64 {
             extAlignment.rightOrigin = (*dl)->p1(14, 12);
             *dl = *dl + 1;
 
-            const uint16_t ulx = (*dl)->p0(16, 16);
-            const uint16_t uly = (*dl)->p0(0, 16);
-            const uint16_t lrx = (*dl)->p1(16, 16);
-            const uint16_t lry = (*dl)->p1(0, 16);
+            const int16_t ulx = (*dl)->p0(16, 16);
+            const int16_t uly = (*dl)->p0(0, 16);
+            const int16_t lrx = (*dl)->p1(16, 16);
+            const int16_t lry = (*dl)->p1(0, 16);
             state->rdp->setScissor(mode, ulx, uly, lrx, lry, extAlignment);
         }
         
