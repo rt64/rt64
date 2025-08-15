@@ -117,6 +117,7 @@ namespace RT64 {
             std::unique_ptr<FramebufferRendererDescriptorFramebufferSet> descDummyFbSet;
             std::set<RenderTarget *> transitionRenderTargetSet;
             RenderTargetDrawCall renderTargetDrawCall;
+            RenderViewport viewport;
         };
 
         std::vector<Framebuffer> framebufferVector;
