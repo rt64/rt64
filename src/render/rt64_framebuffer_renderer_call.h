@@ -33,8 +33,9 @@ namespace RT64 {
             struct {
                 ShaderDescription shaderDesc;
                 const RenderPipeline *pipeline;
+                interop::float2 screenScale;
+                interop::float2 screenOffset;
                 RenderRect scissor;
-                RenderViewport viewport;
                 uint32_t indexStart;
                 uint32_t faceCount;
                 bool vertexTestZ : 1;
