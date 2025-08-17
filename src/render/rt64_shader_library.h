@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "plume_render_interface.h"
-
 #include "rt64_sampler_library.h"
 
 namespace RT64 {
