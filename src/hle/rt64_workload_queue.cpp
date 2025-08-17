@@ -105,6 +105,7 @@ namespace RT64 {
         vertexProcessor = std::make_unique<VertexProcessor>(ext.device);
         framebufferRenderer = std::make_unique<FramebufferRenderer>(ext.workloadGraphicsWorker, true, ext.createdGraphicsAPI, ext.shaderLibrary);
         renderFramebufferManager = std::make_unique<RenderFramebufferManager>(ext.device);
+        queryPool = ext.device->createQueryPool(2);
 
         projectionProcessor.setup(ext.workloadGraphicsWorker);
         transformProcessor.setup(ext.workloadGraphicsWorker);
@@ -297,7 +298,7 @@ namespace RT64 {
         RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
         const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
 
-        rendererProfiler.start();
+        rendererCPUProfiler.start();
 
         const bool aspectRatioAdjustment = (abs(workloadConfig.aspectRatioScale - 1.0f) > 1e-6f);
         const bool processProjections = aspectRatioAdjustment || prevFrame.matched|| curFrame.isDebuggerCameraEnabled(*this);
@@ -678,6 +679,8 @@ namespace RT64 {
 
             workerMutex.lock();
             ext.workloadGraphicsWorker->commandList->begin();
+            ext.workloadGraphicsWorker->commandList->resetQueryPool(queryPool.get(), 0, 2);
+            ext.workloadGraphicsWorker->commandList->writeTimestamp(queryPool.get(), 0);
             framebufferRenderer->endFramebuffers(ext.workloadGraphicsWorker, &workload.drawBuffers, &workload.outputBuffers, workloadConfig.raytracingEnabled);
             framebufferRenderer->recordSetup(ext.workloadGraphicsWorker, bufferUploaders, processRSP ? rspProcessor.get() : nullptr, processWorldVertices ? vertexProcessor.get() : nullptr, &workload.outputBuffers, workloadConfig.raytracingEnabled);
             
@@ -814,11 +817,17 @@ namespace RT64 {
                     fbPair.endFbOperations, targetManager, fixedResScale, f, workload.submissionFrame);
             }
 
+            ext.workloadGraphicsWorker->commandList->writeTimestamp(queryPool.get(), 1);
             ext.workloadGraphicsWorker->commandList->end();
             framebufferRenderer->waitForUploaders();
             ext.workloadGraphicsWorker->execute();
             ext.workloadGraphicsWorker->wait();
             workerMutex.unlock();
+
+            // Update the GPU profiler with the results from the timestamps of the frame.
+            queryPool->queryResults();
+            const uint64_t *frameTimestamps = queryPool->getResults();
+            rendererGPUProfiler.log(double(frameTimestamps[1] - frameTimestamps[0]) / 1000000.0);
 
             // Indicate to the texture cache it's safe to delete the textures if no locks are active.
             ext.textureCache->decrementLock();
@@ -829,9 +838,9 @@ namespace RT64 {
         }
 
         framebufferRenderer->advanceFrame(workloadConfig.raytracingEnabled);
-        rendererProfiler.end();
-        rendererProfiler.log();
-        rendererProfiler.reset();
+        rendererCPUProfiler.end();
+        rendererCPUProfiler.log();
+        rendererCPUProfiler.reset();
 #   endif
     }
 

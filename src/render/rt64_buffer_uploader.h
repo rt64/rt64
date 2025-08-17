@@ -10,6 +10,7 @@
 #include <condition_variable>
 
 #include "rt64_render_worker.h"
+#include "common/rt64_plume.h"
 
 namespace RT64 {
     struct BufferPair {

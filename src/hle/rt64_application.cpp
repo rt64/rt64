@@ -17,9 +17,8 @@
 
 //#define LOG_DISPLAY_LISTS
 
-namespace RT64 {
+namespace plume {
     // External functions to create the backends.
-
     extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
     extern std::unique_ptr<RenderInterface> CreateMetalInterface();
 #ifdef RT64_SDL_WINDOW_VULKAN
@@ -27,12 +26,16 @@ namespace RT64 {
 #else
     extern std::unique_ptr<RenderInterface> CreateVulkanInterface();
 #endif
+}
+
+namespace RT64 {
+    // Constants
 
     static std::unique_ptr<RenderInterface> CreateVulkanInterfaceWrapper(RenderWindow renderWindow) {
 #ifdef RT64_SDL_WINDOW_VULKAN
-        return CreateVulkanInterface(renderWindow);
+        return plume::CreateVulkanInterface(renderWindow);
 #else
-        return CreateVulkanInterface();
+        return plume::CreateVulkanInterface();
 #endif
     }
 
@@ -260,8 +263,9 @@ namespace RT64 {
         presentGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Present Graphics", RenderCommandListType::DIRECT);
 
         // Create the swap chain with the buffer count specified from the configuration.
+        // We specify a max latency of 1 as we use it to wait right before the next presentation call is issued.
         const uint32_t bufferCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
-        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM);
+        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM, 1);
 
         // Before configuring multisampling, make sure the device actually supports it for the formats we'll use. If it doesn't, turn off antialiasing in the configuration.
         const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR));

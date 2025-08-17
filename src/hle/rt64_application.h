@@ -20,7 +20,7 @@
 #include "preset/rt64_preset_scene.h"
 #include "render/rt64_render_worker.h"
 #include "render/rt64_shader_library.h"
-#include "rhi/rt64_render_interface.h"
+#include "plume_render_interface.h"
 
 #include "rt64_application_window.h"
 #include "rt64_interpreter.h"

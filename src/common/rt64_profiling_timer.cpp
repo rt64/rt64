@@ -51,6 +51,12 @@ namespace RT64 {
         historyIndex = (historyIndex + 1) % history.size();
     }
 
+    void ProfilingTimer::log(double value) {
+        assert(!history.empty());
+        history[historyIndex] = value;
+        historyIndex = (historyIndex + 1) % history.size();
+    }
+
     void ProfilingTimer::logAndRestart() {
         if (startedTimestamp == Timestamp{}) {
             reset();

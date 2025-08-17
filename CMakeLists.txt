@@ -10,10 +10,6 @@ endif()
 
 option(RT64_STATIC "Build RT64 as a static library" OFF)
 
-option(RT64_BUILD_EXAMPLES "Build examples for RT64" OFF)
-if (${RT64_BUILD_EXAMPLES})
-    set(RT64_STATIC ON)
-endif()
 
 option(RT64_SDL_WINDOW_VULKAN "Build RT64 to expect an SDL Window outside of Windows" OFF)
 
@@ -74,6 +70,7 @@ add_subdirectory(src/tools/file_to_c)
 add_subdirectory(src/contrib/re-spirv)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 add_subdirectory(src/contrib/zstd/build/cmake)
+add_subdirectory(src/contrib/plume)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Use /W4 for clang-cl, as -Wall maps to MSVC's /Wall which in turn maps to clang's -Weverything
@@ -82,7 +79,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     else()
         add_compile_options(-Wall -Wextra)
     endif()
-    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers)
+    add_compile_options(-Wno-nullability-completeness -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-missing-field-initializers -Wno-switch -Wno-tautological-undefined-compare)
     # imgui currently triggers some compiler warnings on clang 19 for function casts which leads to a failed build, so disable that warning on clang 19+
     if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.0)
         add_compile_options(-Wno-cast-function-type-mismatch)
@@ -296,6 +293,7 @@ add_compile_definitions(
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
+    add_compile_definitions("SDL_VULKAN_ENABLED")
     add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
 endif()
 
@@ -392,7 +390,6 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/shared/rt64_hlsl_json.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/rhi/rt64_render_hooks.cpp"
-    "${PROJECT_SOURCE_DIR}/src/vulkan/rt64_vulkan.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui.cpp"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui/imgui_demo.cpp"
@@ -411,12 +408,9 @@ include_directories(
     "${SDL2_INCLUDE_DIRS}"
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/contrib"
-    "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src"
+    "${PROJECT_SOURCE_DIR}/src/contrib/plume"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui"
     "${PROJECT_SOURCE_DIR}/src/contrib/hlslpp/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/Vulkan-Headers/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/VulkanMemoryAllocator/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-core/src/api"
     "${PROJECT_SOURCE_DIR}/src/contrib/nativefiledialog-extended/src/include"
 )
@@ -439,6 +433,7 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
 target_link_libraries(rt64 re-spirv)
 target_link_libraries(rt64 nfd)
 target_link_libraries(rt64 libzstd_static)
+target_link_libraries(rt64 plume)
 
 # Add tools.
 add_subdirectory(src/tools/texture_hasher)
@@ -449,17 +444,15 @@ if (APPLE)
     add_subdirectory(src/tools/spirv_cross_msl)
 
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/metal/rt64_metal.cpp"
         "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
     )
     target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
-    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics")
+    target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics -framework IOKit")
 endif()
 
 # Add any Windows-specific source files and libraries
 if (WIN32)
     target_sources(rt64 PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/d3d12/rt64_d3d12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_dx12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_win32.cpp"
     )
@@ -554,33 +547,3 @@ build_pixel_shader(  rt64 "src/shaders/PostProcessPS.hlsl")
 
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/src)
 
-if (RT64_BUILD_EXAMPLES)
-    add_executable(rhi_test "examples/rt64_render_interface.cpp" "examples/rhi_test.cpp")
-    target_link_libraries(rhi_test rt64)
-
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestSpecPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestColorPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestDecalPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTextureBindfulPS.hlsl")
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestTextureBindlessPS.hlsl")
-    build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestVS.hlsl")
-    build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestCS.hlsl")
-    build_compute_shader(rhi_test "examples/shaders/RenderInterfaceTestAsyncCS.hlsl")
-    if (NOT APPLE)
-        # TODO: Enable when RT is added to Metal.
-        build_ray_shader(rhi_test "examples/shaders/RenderInterfaceTestRT.hlsl")
-    endif()
-    build_pixel_shader(  rhi_test "examples/shaders/RenderInterfaceTestPostPS.hlsl")
-    build_vertex_shader( rhi_test "examples/shaders/RenderInterfaceTestPostVS.hlsl")
-
-    target_include_directories(rhi_test PRIVATE ${CMAKE_BINARY_DIR}/examples)
-
-    if (APPLE)
-        set_property (TARGET rhi_test APPEND_STRING PROPERTY
-            COMPILE_FLAGS "-fobjc-arc")
-        set_target_properties(rhi_test PROPERTIES
-            XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
-            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${CMAKE_CURRENT_SOURCE_DIR}/rt64.entitlements
-        )
-    endif()
-endif()
