@@ -409,12 +409,8 @@ include_directories(
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/contrib"
     "${PROJECT_SOURCE_DIR}/src/contrib/plume"
-    "${PROJECT_SOURCE_DIR}/src/contrib/volk"
-    "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/imgui"
     "${PROJECT_SOURCE_DIR}/src/contrib/hlslpp/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/Vulkan-Headers/include"
-    "${PROJECT_SOURCE_DIR}/src/contrib/VulkanMemoryAllocator/include"
     "${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-core/src/api"
     "${PROJECT_SOURCE_DIR}/src/contrib/nativefiledialog-extended/src/include"
 )
@@ -459,7 +455,6 @@ if (WIN32)
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_dx12.cpp"
         "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_win32.cpp"
-        "${PROJECT_SOURCE_DIR}/src/contrib/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp"
     )
     target_link_libraries(rt64
         delayimp.lib
