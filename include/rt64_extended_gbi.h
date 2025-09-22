@@ -106,9 +106,9 @@
 #define G_EX_BILERP_ONLY            0x1
 #define G_EX_BILERP_ALL             0x2
 
-#define G_EX_ASPECT_ADJUST          0x0
+#define G_EX_ASPECT_AUTO            0x0
 #define G_EX_ASPECT_STRETCH         0x1
-#define G_EX_ASPECT_AUTO            0x2
+#define G_EX_ASPECT_ADJUST          0x2
 
 // Represents the 8-byte commands in the F3D microcode family
 typedef union {
