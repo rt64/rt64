@@ -2003,7 +2003,7 @@ namespace RT64 {
         //appData.m_cursorRayDirection = Im3d::Vec3(rayDir.x, rayDir.y, rayDir.z);
         //appData.m_keyDown[Im3d::Mouse_Left] = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
         */
-
+        
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImGui::GetIO().WantCaptureMouse) {
             // We need to figure out the dimensions of where the viewport is being rendered at first.
             ext.sharedQueueResources->configurationMutex.lock();
@@ -2016,14 +2016,13 @@ namespace RT64 {
             VIRenderer::getViewportAndScissor(ext.swapChain, lastScreenVI, resolutionScale, downsampleMultiplier, viewport, scissor, fbHdRegion);
 
             // Convert the mouse coordinates to native coordinates.
-            // FIXME: This needs a lot more work to be compatible with games with less standard VI modes.
             hlslpp::float2 screenCursorPos;
+            hlslpp::float2 halfFbSize = hlslpp::float2(lastScreenVI.fbSize()) / 2.0f;
             ImVec2 nativeMousePos = ImGui::GetMousePos();
             const float aspectRatio = resolutionScale.x / resolutionScale.y;
-            screenCursorPos.x = ((nativeMousePos.x - (viewport.x + viewport.width / 2)) / viewport.width) * aspectRatio;
-            screenCursorPos.y = (nativeMousePos.y - (viewport.y + viewport.height / 2)) / viewport.height;
-            screenCursorPos.x = (VI::Width / 4) + screenCursorPos.x * (VI::Width / 2);
-            screenCursorPos.y = (VI::Height / 4) + screenCursorPos.y * (VI::Height / 2);
+            screenCursorPos.x = ((nativeMousePos.x - (viewport.x + viewport.width / 2)) / (viewport.width / 2)) * aspectRatio;
+            screenCursorPos.y = (nativeMousePos.y - (viewport.y + viewport.height / 2)) / (viewport.height / 2);
+            screenCursorPos = halfFbSize + screenCursorPos * halfFbSize;
             debuggerInspector.rightClick(workload, screenCursorPos);
         }
 

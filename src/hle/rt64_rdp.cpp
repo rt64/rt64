@@ -279,10 +279,14 @@ namespace RT64 {
     }
 
     void RDP::setCombine(uint64_t combine) {
+        interop::uint combineL = combine & 0xFFFFFFFFULL;
+        interop::uint combineH = (combine >> 32ULL) & 0xFFFFFFFFULL;
         interop::ColorCombiner &colorCombiner = colorCombinerStack[colorCombinerStackSize - 1];
-        colorCombiner.L = combine & 0xFFFFFFFFULL;
-        colorCombiner.H = (combine >> 32ULL) & 0xFFFFFFFFULL;
-        state->updateDrawStatusAttribute(DrawAttribute::Combine);
+        if (colorCombiner.L != combineL || colorCombiner.H != combineH) {
+            colorCombiner.L = combineL;
+            colorCombiner.H = combineH;
+            state->updateDrawStatusAttribute(DrawAttribute::Combine);
+        }
     }
 
     void RDP::pushCombine() {
@@ -922,9 +926,11 @@ namespace RT64 {
     }
 
     void RDP::setOtherMode(uint32_t high, uint32_t low) {
-        otherMode.H = high;
-        otherMode.L = low;
-        state->updateDrawStatusAttribute(DrawAttribute::OtherMode);
+        if (otherMode.H != high || otherMode.L != low) {
+            otherMode.H = high;
+            otherMode.L = low;
+            state->updateDrawStatusAttribute(DrawAttribute::OtherMode);
+        }
     }
     
     void RDP::setPrimDepth(uint16_t z, uint16_t dz) {
