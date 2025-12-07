@@ -94,6 +94,7 @@ namespace RT64 {
             float sampleScale = 1.0f;
             bool readColorFromStorage = false;
             bool readDepthFromStorage = false;
+            bool needsDiscard = false;
             bool ignore = false;
             std::unique_ptr<RenderFramebuffer> framebuffer;
         };
@@ -121,6 +122,7 @@ namespace RT64 {
             RenderFramebuffer *dstFramebuffer;
             RenderDescriptorSet *descriptorSet;
             interop::TextureCopyCB pushConstants;
+            bool dstNeedsDiscard;
         };
 
         struct CommandListCopies {
@@ -138,6 +140,7 @@ namespace RT64 {
             RenderTexture *dstTexture;
             interop::FbReinterpretCB reinterpretCB;
             RenderDescriptorSet *descriptorSet;
+            bool dstNeedsDiscard;
         };
 
         typedef std::pair<const RenderTexture *, RenderFormat> TextureFormatPair;
