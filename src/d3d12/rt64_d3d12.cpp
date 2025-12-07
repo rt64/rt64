@@ -1508,6 +1508,10 @@ namespace RT64 {
         auto makeBarrier = [&](ID3D12Resource *resource, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter, bool supportsUAV, D3D12_RESOURCE_BARRIER &resourceBarrier) {
             resourceBarrier = {};
 
+            if (type == RenderCommandListType::COPY) {
+                return false;
+            }
+
             if (stateBefore != stateAfter) {
                 resourceBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
                 resourceBarrier.Transition.StateBefore = stateBefore;
@@ -1970,6 +1974,11 @@ namespace RT64 {
         d3d->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
     }
 
+    void D3D12CommandList::discardTexture(const RenderTexture *texture) {
+        const D3D12Texture *interfaceTexture = static_cast<const D3D12Texture *>(texture);
+        d3d->DiscardResource(interfaceTexture->d3d, nullptr);
+    }
+
     void D3D12CommandList::checkDescriptorHeaps() {
         if (!descriptorHeapsSet) {
             ID3D12DescriptorHeap *descriptorHeaps[] = { device->viewHeapAllocator->shaderHeap, device->samplerHeapAllocator->shaderHeap };
@@ -2107,11 +2116,13 @@ namespace RT64 {
 
         this->device = device;
 
-        HRESULT res = device->d3d->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d));
+        HRESULT res = device->d3d->CreateFence(1, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d));
         if (FAILED(res)) {
             fprintf(stderr, "CreateFence failed with error code 0x%lX.\n", res);
             return;
         }
+
+        semaphoreValue = 1;
     }
 
     D3D12CommandSemaphore::~D3D12CommandSemaphore() {

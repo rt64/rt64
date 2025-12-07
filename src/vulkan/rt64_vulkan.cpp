@@ -3159,6 +3159,10 @@ namespace RT64 {
         vkCmdBuildAccelerationStructuresKHR(vk, 1, &buildGeometryInfo, &buildRangeInfoPtr);
     }
 
+    void VulkanCommandList::discardTexture(const RenderTexture *texture) {
+        // Not required in Vulkan.
+    }
+
     void VulkanCommandList::checkActiveRenderPass() {
         assert(targetFramebuffer != nullptr);
 

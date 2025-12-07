@@ -145,6 +145,7 @@ namespace RT64 {
 
             const RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(tileCopy.textureWidth, tileCopy.textureHeight, 1, RenderTarget::colorBufferFormat(targetManager.usesHDR), textureFlags);
             tileCopy.texture = renderWorker->device->createTexture(textureDesc);
+            tileCopy.needsDiscard = true;
         }
 
         if (tileCopy.framebuffer == nullptr) {
@@ -225,6 +226,11 @@ namespace RT64 {
         copyRegion.srcTexture = colorTarget.getResolvedTexture();
         copyRegion.dstTexture = tileCopy.texture.get();
 
+        if (tileCopy.needsDiscard) {
+            copyRegion.dstNeedsDiscard = true;
+            tileCopy.needsDiscard = false;
+        }
+
         if (colorTarget.textureCopyDescSet == nullptr) {
             colorTarget.textureCopyDescSet = std::make_unique<TextureCopyDescriptorSet>(renderWorker->device);
             colorTarget.textureCopyDescSet->setTexture(colorTarget.textureCopyDescSet->gInput, colorTarget.getResolvedTexture(), RenderTextureLayout::SHADER_READ, colorTarget.getResolvedTextureView());
@@ -297,6 +303,7 @@ namespace RT64 {
 
             const RenderTextureDesc textureDesc = RenderTextureDesc::Texture2D(dstTile.textureWidth, dstTile.textureHeight, 1, RenderTarget::colorBufferFormat(usesHDR), textureFlags);
             dstTile.texture = renderWorker->device->createTexture(textureDesc);
+            dstTile.needsDiscard = true;
         }
     }
 
@@ -328,6 +335,11 @@ namespace RT64 {
         c.usesHDR = usesHDR;
         dispatch.srcTexture = srcTile.texture.get();
         dispatch.dstTexture = dstTile.texture.get();
+
+        if (dstTile.needsDiscard) {
+            dispatch.dstNeedsDiscard = true;
+            dstTile.needsDiscard = false;
+        }
 
         // Assert for known reinterpretation cases only that are currently supported by the shader.
         assert("Unimplemented reinterpretation logic." && (
@@ -955,6 +967,10 @@ namespace RT64 {
 
             RenderDescriptorSet *lastDescriptorSet = nullptr;
             for (const CommandListCopyRegion &copy : cmdListCopies.cmdListCopyRegions) {
+                if (copy.dstNeedsDiscard) {
+                    renderWorker->commandList->discardTexture(copy.dstTexture);
+                }
+
                 renderWorker->commandList->setFramebuffer(copy.dstFramebuffer);
                 renderWorker->commandList->setViewports(RenderViewport(0.0f, 0.0f, copy.pushConstants.uvScale.x, copy.pushConstants.uvScale.y));
                 renderWorker->commandList->setScissors(RenderRect(0, 0, std::lround(copy.pushConstants.uvScale.x), std::lround(copy.pushConstants.uvScale.y)));
@@ -986,6 +1002,10 @@ namespace RT64 {
             renderWorker->commandList->setPipeline(shaderRecord.pipeline.get());
             renderWorker->commandList->setComputePipelineLayout(shaderRecord.pipelineLayout.get());
             for (const CommandListReinterpretDispatch &dispatch : cmdListReinterpretations.cmdListDispatches) {
+                if (dispatch.dstNeedsDiscard) {
+                    renderWorker->commandList->discardTexture(dispatch.dstTexture);
+                }
+
                 const interop::uint2 &res = dispatch.reinterpretCB.resolution;
                 const uint32_t dispatchX = (res.x + FB_COMMON_WORKGROUP_SIZE - 1) / FB_COMMON_WORKGROUP_SIZE;
                 const uint32_t dispatchY = (res.y + FB_COMMON_WORKGROUP_SIZE - 1) / FB_COMMON_WORKGROUP_SIZE;
