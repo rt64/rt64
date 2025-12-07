@@ -741,6 +741,10 @@ namespace RT64 {
         usedTimestamp++;
     }
 
+    uint64_t FramebufferManager::getUsedTimestamp() const {
+        return usedTimestamp;
+    }
+
     uint64_t FramebufferManager::findTileCopyId(uint32_t width, uint32_t height) {
         assert(width > 0);
         assert(height > 0);
