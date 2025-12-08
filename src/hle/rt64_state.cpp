@@ -356,10 +356,8 @@ namespace RT64 {
                         dstCallTile.reinterpretSiz = checkResult.siz;
                         dstCallTile.reinterpretFmt = checkResult.fmt;
 
-                        // Native samplers can't apply the texel shift and mask that tile reinterpretation requires.
-                        if (dstCallTile.reinterpretTile) {
-                            nativeSamplerSupported = false;
-                        }
+                        // Native samplers can't be used with tile copies, as they can reference a subregion of a larger texture.
+                        nativeSamplerSupported = false;
                     }
                     else {
                         dstCallTile.tileCopyUsed = false;
