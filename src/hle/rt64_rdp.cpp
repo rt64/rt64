@@ -445,6 +445,17 @@ namespace RT64 {
             tmemXorMask ^= 0x4;
         };
 
+        // As an optimization for large texture loads that end up wrapping around in TMEM, we skip rows that have no effect in the final result.
+        if ((tmemStride > 0) && ((wordsPerRow * tmemAdvance) <= tmemStride)) {
+            int32_t rowsToSkip = rowCount - (tmemMask + tmemStride) / tmemStride;
+            if (rowsToSkip > 0) {
+                tmemAddressRow += (tmemAddressRow + tmemStride * rowsToSkip) & tmemMask;
+                textureAddressRow += textureStride * rowsToSkip;
+                tmemXorMask = (rowsToSkip & 0x1) << 2;
+                rowCount -= rowsToSkip;
+            }
+        }
+
         while (rowCount > 0) {
             textureAddress = textureAddressRow;
             tmemAddress = tmemAddressRow;
