@@ -11,9 +11,6 @@
 #define ENABLE_HIGH_RESOLUTION_RENDERER 1
 
 namespace RT64 {
-    static const int ReferenceHeight = 240;
-    static const int ReferenceInterlacedHeight = 480;
-
     // WorkloadQueue
 
     WorkloadQueue::WorkloadQueue() {
@@ -123,14 +120,15 @@ namespace RT64 {
         framebufferRenderer->updateMultisampling();
     }
 
-    void WorkloadQueue::threadConfigurationUpdate(WorkloadConfiguration &workloadConfig) {
+    void WorkloadQueue::threadConfigurationUpdate(hlslpp::uint2 viFbSize, WorkloadConfiguration &workloadConfig) {
         const std::scoped_lock lock(ext.sharedResources->configurationMutex);
         const bool sizeChanged = ext.sharedResources->swapChainSizeChanged;
         ext.sharedResources->swapChainSizeChanged = false;
 
         // Compute the aspect ratio to be used for the frame.
-        // TODO: Derive aspect ratio source from VI mode.
-        workloadConfig.aspectRatioSource = (4.0f / 3.0f);
+        const uint32_t referenceHeight = (viFbSize[1] > 0) ? viFbSize.y : 240;
+        workloadConfig.aspectRatioSource = (viFbSize[1] > 0) ? float(viFbSize[0]) / float(viFbSize[1]) : (4.0f / 3.0f);
+
         const auto ratioMode = ext.sharedResources->userConfig.aspectRatio;
         switch (ratioMode) {
         case UserConfiguration::AspectRatio::Expand:
@@ -186,7 +184,7 @@ namespace RT64 {
         switch (resolutionMode) {
         case UserConfiguration::Resolution::WindowIntegerScale:
             if (ext.sharedResources->swapChainHeight > 0) {
-                resolutionMultiplier = std::max(float((ext.sharedResources->swapChainHeight + ReferenceHeight - 1) / ReferenceHeight), 1.0f);
+                resolutionMultiplier = std::max(float((ext.sharedResources->swapChainHeight + referenceHeight - 1) / referenceHeight), 1.0f);
             }
             else {
                 resolutionMultiplier = 1.0f;
@@ -425,9 +423,9 @@ namespace RT64 {
                     nativeColorHeight = fbPair.drawColorRect.bottom(true);
 
                     // When the target is much bigger than the reference height, we reduce the resolution scaling (but clamped to 1.0).
-                    const int referenceMiddleHeight = (ReferenceHeight + ReferenceInterlacedHeight) / 2;
+                    const uint32_t heightThreshold = (workload.viFbSize[1] > 0) ? ((workload.viFbSize[1] * 3) / 2) : 360;
                     uint32_t downsampleMultiplier = workloadConfig.downsampleMultiplier;
-                    if ((nativeColorHeight >= referenceMiddleHeight) && (fixedResScale[1] >= 2.0f)) {
+                    if ((nativeColorHeight >= heightThreshold) && (fixedResScale[1] >= 2.0f)) {
                         fixedResScale = hlslpp::max(fixedResScale / 2.0f, hlslpp::float2(1.0f, 1.0f));
                         downsampleMultiplier = std::max(downsampleMultiplier / 2U, 1U);
                     }
@@ -912,7 +910,7 @@ namespace RT64 {
 
                 ElapsedTimer workloadTimer;
                 workloadProfiler.start();
-                threadConfigurationUpdate(workloadConfig);
+                threadConfigurationUpdate(workload.viFbSize, workloadConfig);
 
                 // FIXME: This is a very hacky way to find out if we need to advance the frame if the workload was paused for the first time.
                 if (!workload.paused || (!gameFrames[curFrameIndex].workloads.empty() && (gameFrames[curFrameIndex].workloads[0] != (uint32_t)processCursor))) {

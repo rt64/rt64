@@ -15,27 +15,12 @@
 namespace RT64 {
     // VI
     
-    const uint32_t VI::Width = 640;
-    const uint32_t VI::Height = 480;
-
-    RectI VI::viewRectangle() const {
-        // TODO
-        RectI rect;
-        rect.x = 0;
-        rect.y = 0;
-        rect.w = Width;
-        rect.h = Height;
-        return rect;
+    hlslpp::float4 VI::viewRectangle() const {
+        return { 0.0f, 0.0f, 1.0f, 1.0f };
     }
 
-    RectI VI::cropRectangle() const {
-        // TODO
-        RectI rect;
-        rect.x = 0;
-        rect.y = 0;
-        rect.w = Width;
-        rect.h = Height;
-        return rect;
+    hlslpp::float4 VI::cropRectangle() const {
+        return { 0.0f, 0.0f, 1.0f, 1.0f };
     }
 
     float VI::gamma() const {

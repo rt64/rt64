@@ -1565,6 +1565,10 @@ namespace RT64 {
             workload.viOriginalRate = viHistory.logicalRateFromFactors();
         }
 
+        if (viHistory.top().vi.visible()) {
+            workload.viFbSize = viHistory.top().vi.fbSize();
+        }
+
         // Log and reset profilers.
         dlCpuProfiler.end();
         dlCpuProfiler.log();
@@ -2006,12 +2010,12 @@ namespace RT64 {
             // We need to figure out the dimensions of where the viewport is being rendered at first.
             ext.sharedQueueResources->configurationMutex.lock();
             const hlslpp::float2 resolutionScale = ext.sharedQueueResources->resolutionScale;
+            bool removeBlackBorders = ext.sharedQueueResources->enhancementConfig.presentation.removeBlackBorders;
             const uint32_t downsampleMultiplier = ext.userConfig->downsampleMultiplier;
             ext.sharedQueueResources->configurationMutex.unlock();
             RenderViewport viewport;
             RenderRect scissor;
-            hlslpp::float2 fbHdRegion;
-            VIRenderer::getViewportAndScissor(ext.swapChain, lastScreenVI, resolutionScale, downsampleMultiplier, viewport, scissor, fbHdRegion);
+            VIRenderer::getViewportAndScissor(ext.swapChain, lastScreenVI, resolutionScale, downsampleMultiplier, removeBlackBorders, viewport, scissor);
 
             // Convert the mouse coordinates to native coordinates.
             hlslpp::float2 screenCursorPos;
@@ -2149,6 +2153,7 @@ namespace RT64 {
                     ImGui::Text("Presentation");
                     ImGui::Indent();
                     enhanceConfigChanged = ImGui::Combo("Mode##Presentation", reinterpret_cast<int *>(&enhancementConfig.presentation.mode), "Console\0Skip Buffering\0Present Early\0") || enhanceConfigChanged;
+                    enhanceConfigChanged = ImGui::Checkbox("Remove Black Borders", &enhancementConfig.presentation.removeBlackBorders) || enhanceConfigChanged;
                     ImGui::Unindent();
                     ImGui::Text("Rect");
                     ImGui::Indent();

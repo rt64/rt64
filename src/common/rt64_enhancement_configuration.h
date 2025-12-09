@@ -20,6 +20,7 @@ namespace RT64 {
             };
 
             Mode mode;
+            bool removeBlackBorders;
         };
         
         struct Rect {
