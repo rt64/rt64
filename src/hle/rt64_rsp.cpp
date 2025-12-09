@@ -394,11 +394,14 @@ namespace RT64 {
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const VertexEXV1 *dlVerts = reinterpret_cast<const VertexEXV1 *>(state->fromRDRAM(rdramAddress));
         auto &velShorts = workload.drawData.velShorts;
+        auto &tcVelFloats = workload.drawData.tcVelFloats;
         for (uint32_t i = 0; i < vtxCount; i++) {
             const VertexEXV1 &src = dlVerts[i];
             velShorts.emplace_back(src.v.x - src.xp);
             velShorts.emplace_back(src.v.y - src.yp);
             velShorts.emplace_back(src.v.z - src.zp);
+            tcVelFloats.emplace_back(0.0f);
+            tcVelFloats.emplace_back(0.0f);
             vertices[dstIndex + i] = src.v;
         }
 
@@ -614,6 +617,7 @@ namespace RT64 {
         auto &posShorts = workload.drawData.posShorts;
         auto &velShorts = workload.drawData.velShorts;
         auto &tcFloats = workload.drawData.tcFloats;
+        auto &tcVelFloats = workload.drawData.tcVelFloats;
         auto &normColBytes = workload.drawData.normColBytes;
         auto &viewProjIndices = workload.drawData.viewProjIndices;
         auto &worldIndices = workload.drawData.worldIndices;
@@ -647,6 +651,8 @@ namespace RT64 {
                 velShorts.emplace_back(0);
                 velShorts.emplace_back(0);
                 velShorts.emplace_back(0);
+                tcVelFloats.emplace_back(0.0f);
+                tcVelFloats.emplace_back(0.0f);
             }
         }
 
@@ -688,6 +694,7 @@ namespace RT64 {
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
         auto &normColBytes = workload.drawData.normColBytes;
         auto &tcFloats = workload.drawData.tcFloats;
+        auto &tcVelFloats = workload.drawData.tcVelFloats;
         auto &fogIndices = workload.drawData.fogIndices;
         auto &lightIndices = workload.drawData.lightIndices;
         auto &lightCounts = workload.drawData.lightCounts;
@@ -714,6 +721,8 @@ namespace RT64 {
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 3]);
             tcFloats.emplace_back(tcFloats[globalIndex * 2 + 0]);
             tcFloats.emplace_back(tcFloats[globalIndex * 2 + 1]);
+            tcVelFloats.emplace_back(tcVelFloats[globalIndex * 2 + 0]);
+            tcVelFloats.emplace_back(tcVelFloats[globalIndex * 2 + 1]);
             viewProjIndices.emplace_back(viewProjIndices[globalIndex]);
             worldIndices.emplace_back(worldIndices[globalIndex]);
             fogIndices.emplace_back(fogIndices[globalIndex]);
@@ -1129,7 +1138,7 @@ namespace RT64 {
         state->updateDrawStatusAttribute(DrawAttribute::ExtendedType);
     }
 
-    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t aspect, uint8_t editable, bool idIsAddress, bool editGroup) {
+    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vpos, uint8_t vtc, uint8_t tile, uint8_t lookat, uint8_t order, uint8_t aspect, uint8_t editable, bool idIsAddress, bool editGroup) {
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
         auto setGroupProperties = [=](TransformGroup* dstGroup, bool newGroup) {
@@ -1140,8 +1149,10 @@ namespace RT64 {
                 dstGroup->scaleInterpolation = scale;
                 dstGroup->skewInterpolation = skew;
                 dstGroup->perspectiveInterpolation = persp;
-                dstGroup->vertexInterpolation = vert;
+                dstGroup->vertexInterpolation = vpos;
+                dstGroup->texcoordInterpolation = vtc;
                 dstGroup->tileInterpolation = tile;
+                dstGroup->lookAtInterpolation = lookat;
                 dstGroup->ordering = order;
                 dstGroup->aspectMode = aspect;
                 dstGroup->editable = editable;

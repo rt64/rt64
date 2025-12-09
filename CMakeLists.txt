@@ -364,6 +364,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/render/rt64_buffer_uploader.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_framebuffer_renderer.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_geometry_mode.cpp"
+    "${PROJECT_SOURCE_DIR}/src/render/rt64_look_at_processor.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_native_target.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_optimus.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_projection_processor.cpp"

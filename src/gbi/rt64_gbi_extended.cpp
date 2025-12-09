@@ -140,12 +140,14 @@ namespace RT64 {
             const uint8_t scale = (*dl)->p0(7, 2);
             const uint8_t skew = (*dl)->p0(9, 2);
             const uint8_t persp = (*dl)->p0(11, 2);
-            const uint8_t vert = (*dl)->p0(13, 2);
+            const uint8_t vpos = (*dl)->p0(13, 2);
+            const uint8_t vtc = (*dl)->p0(22, 2);
             const uint8_t tile = (*dl)->p0(15, 2);
             const uint8_t order = (*dl)->p0(17, 2);
             const uint8_t editable = (*dl)->p0(19, 1);
             const uint8_t aspect = (*dl)->p0(20, 2);
-            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, aspect, editable, idIsAddress, editGroup);
+            const uint8_t lookat = (*dl)->p0(24, 2);
+            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vpos, vtc, tile, lookat, order, aspect, editable, idIsAddress, editGroup);
         }
 
         void matrixGroupV1(State *state, DisplayList **dl) {

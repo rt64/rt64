@@ -46,6 +46,7 @@ namespace RT64 {
         drawData.posShorts.clear();
         drawData.velShorts.clear();
         drawData.tcFloats.clear();
+        drawData.tcVelFloats.clear();
         drawData.normColBytes.clear();
         drawData.viewProjIndices.clear();
         drawData.worldIndices.clear();
@@ -70,6 +71,7 @@ namespace RT64 {
         drawData.rspFog.clear();
         drawData.rspLights.clear();
         drawData.rspLookAt.clear();
+        drawData.lerpRspLookAt.clear();
         drawData.loadOperations.clear();
         drawData.worldTransforms.clear();
         drawData.viewTransforms.clear();
@@ -118,6 +120,7 @@ namespace RT64 {
         r.posShorts = { 0, 0 };
         r.velShorts = { 0, 0 };
         r.tcFloats = { 0, 0 };
+        r.tcVelFloats = { 0, 0 };
         r.normColBytes = { 0, 0 };
         r.viewProjIndices = { 0, 0 };
         r.worldIndices = { 0, 0 };
@@ -162,6 +165,7 @@ namespace RT64 {
         r.posShorts.second = drawData.posShorts.size();
         r.velShorts.second = drawData.velShorts.size();
         r.tcFloats.second = drawData.tcFloats.size();
+        r.tcVelFloats.second = drawData.tcVelFloats.size();
         r.normColBytes.second = drawData.normColBytes.size();
         r.viewProjIndices.second = drawData.viewProjIndices.size();
         r.worldIndices.second = drawData.worldIndices.size();
@@ -194,7 +198,8 @@ namespace RT64 {
         bufferUploader->submit(worker, {
             { drawData.posShorts.data(), drawRanges.posShorts, sizeof(int16_t), RenderBufferFlag::FORMATTED, { RenderFormat::R16_SINT }, &drawBuffers.positionBuffer },
             { drawData.velShorts.data(), drawRanges.velShorts, sizeof(int16_t), RenderBufferFlag::FORMATTED, { RenderFormat::R16_SINT }, &drawBuffers.velocityBuffer },
-            { drawData.tcFloats.data(), drawRanges.tcFloats, sizeof(float), RenderBufferFlag::FORMATTED | RenderBufferFlag::VERTEX, { RenderFormat::R32_FLOAT }, &drawBuffers.texcoordBuffer },
+            { drawData.tcFloats.data(), drawRanges.tcFloats, sizeof(float), RenderBufferFlag::FORMATTED, { RenderFormat::R32_FLOAT }, &drawBuffers.texcoordBuffer },
+            { drawData.tcVelFloats.data(), drawRanges.tcVelFloats, sizeof(float), RenderBufferFlag::FORMATTED, { RenderFormat::R32_FLOAT }, &drawBuffers.texcoordVelocityBuffer },
             { drawData.normColBytes.data(), drawRanges.normColBytes, sizeof(uint8_t), RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE, { RenderFormat::R8_UINT, RenderFormat::R8_SINT }, &drawBuffers.normalColorBuffer },
             { drawData.viewProjIndices.data(), drawRanges.viewProjIndices, sizeof(uint16_t), RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE, { RenderFormat::R16_UINT }, &drawBuffers.viewProjIndicesBuffer },
             { drawData.worldIndices.data(), drawRanges.worldIndices, sizeof(uint16_t), RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE, { RenderFormat::R16_UINT }, &drawBuffers.worldIndicesBuffer },
@@ -252,6 +257,7 @@ namespace RT64 {
         nextDrawDataRange(r.posShorts);
         nextDrawDataRange(r.velShorts);
         nextDrawDataRange(r.tcFloats);
+        nextDrawDataRange(r.tcVelFloats);
         nextDrawDataRange(r.normColBytes);
         nextDrawDataRange(r.viewProjIndices);
         nextDrawDataRange(r.worldIndices);

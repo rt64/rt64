@@ -303,22 +303,22 @@ typedef union {
         0 \
     )
 
-#define gEXMatrixGroup(cmd, id, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit, aspect) \
+#define gEXMatrixGroup(cmd, id, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit, aspect, tc, lookat) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIXGROUP_V1, 24, 0), \
         id, \
-        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17) | PARAM(edit, 1, 19) | PARAM(aspect, 2, 20), \
+        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17) | PARAM(edit, 1, 19) | PARAM(aspect, 2, 20) | PARAM(tc, 2, 22) | PARAM(lookat, 2, 24), \
         0 \
     )
 
 #define gEXMatrixGroupSimple(cmd, id, push, proj, pos, rot, persp, vert, tile, order, edit) \
-    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, pos, rot, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, persp, vert, tile, order, edit, G_EX_ASPECT_AUTO)
+    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, pos, rot, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, persp, vert, tile, order, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
 
 #define gEXMatrixGroupDecomposed(cmd, id, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit) \
-    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_DECOMPOSE, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit, G_EX_ASPECT_AUTO)
+    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_DECOMPOSE, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
     
 #define gEXMatrixGroupNoInterpolate(cmd, push, proj, edit) \
-    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO)
+    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
 
 #define gEXPopMatrixGroup(cmd, proj) \
     G_EX_COMMAND1(cmd, \

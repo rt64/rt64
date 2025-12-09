@@ -68,12 +68,20 @@ namespace RT64 {
             bool mapped = false;
         };
 
+        struct LookAtMap {
+            hlslpp::float3 deltaX = {};
+            hlslpp::float3 deltaY = {};
+            bool mapped = false;
+        };
+
         struct WorkloadMap {
             std::vector<ViewProjectionMap> viewProjections;
             std::vector<TransformMap> transforms;
             std::vector<TileMap> tiles;
+            std::vector<LookAtMap> lookAt;
             std::vector<bool> prevTransformsMapped;
             std::vector<bool> prevTilesMapped;
+            std::vector<bool> prevLookAtMapped;
             uint32_t prevWorkloadIndex = 0;
             bool mapped = false;
         };
@@ -92,6 +100,20 @@ namespace RT64 {
         uint32_t doTileMatching : 1;
     };
 
+    struct ModifiedBuffers {
+        bool positionVelocity = false;
+        bool texcoordVelocity = false;
+
+        void merge(const ModifiedBuffers &modifiedBuffers) {
+            positionVelocity |= modifiedBuffers.positionVelocity;
+            texcoordVelocity |= modifiedBuffers.texcoordVelocity;
+        }
+
+        bool empty() const {
+            return !positionVelocity && !texcoordVelocity;
+        }
+    };
+
     struct GameFrame {
         PresetScene presetScene;
         GameFrameMap frameMap;
@@ -103,9 +125,9 @@ namespace RT64 {
         bool areFramebufferPairsCompatible(const WorkloadQueue &workloadQueue, const GameIndices::FramebufferPair &first, const GameIndices::FramebufferPair &second);
         bool isSceneCompatible(const WorkloadQueue &workloadQueue, const GameScene &scene, const GameIndices::Projection &proj);
         void set(WorkloadQueue &workloadQueue, const uint32_t *workloadIndices, uint32_t indicesCount);
-        void match(RenderWorker *worker, WorkloadQueue &workloadQueue, const GameFrame &prevFrame, BufferUploader *velocityUploader, bool &velocityUploaderUsed, bool &tileInterpolationUsed);
-        void matchScene(WorkloadQueue &workloadQueue, const GameFrame &prevFrame, const GameScene &curScene, const GameScene &prevScene, std::set<uint32_t> &workloadsModified, bool &tileInterpolationUsed);
-        void matchTransform(Workload &curWorkload, const Workload &prevWorkload, GameFrameMap::WorkloadMap &curWorkloadMap, const GameFrameMap::WorkloadMap *prevWorkloadMap, uint32_t curTransformIndex, uint32_t prevTransformIndex, bool &modifiedVelocityBuffer);
+        void match(RenderWorker *worker, WorkloadQueue &workloadQueue, const GameFrame &prevFrame, BufferUploader *velocityUploader, bool &velocityUploaderUsed, bool &tileInterpolationUsed, bool &lookAtInterpolationUsed);
+        void matchScene(WorkloadQueue &workloadQueue, const GameFrame &prevFrame, const GameScene &curScene, const GameScene &prevScene, std::unordered_map<uint32_t, ModifiedBuffers> &workloadsModified, bool &tileInterpolationUsed, bool &lookAtInterpolationUsed);
+        void matchTransform(Workload &curWorkload, const Workload &prevWorkload, GameFrameMap::WorkloadMap &curWorkloadMap, const GameFrameMap::WorkloadMap *prevWorkloadMap, uint32_t curTransformIndex, uint32_t prevTransformIndex, ModifiedBuffers &modifiedBuffers);
         void buildCallHashMap(uint32_t sceneProjIndex, const Workload &workload, const Projection &proj, std::multimap<uint64_t, GameCallMap> &hashMap) const;
         void buildTransformIdMap(const Workload &workload, std::multimap<uint32_t, uint32_t> &idMap, std::vector<uint32_t> &ignoredIdVector) const;
         uint64_t hashFromCall(const GameCall &call, uint32_t matrixIdHash) const;
