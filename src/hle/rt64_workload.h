@@ -225,6 +225,7 @@ namespace RT64 {
         FramebufferChangePool fbChangePool;
         FramebufferStorage fbStorage;
         uint32_t viOriginalRate;
+        hlslpp::uint2 viFbSize = {};
         DebuggerRenderer debuggerRenderer;
         DebuggerCamera debuggerCamera;
         std::multimap<uint32_t, uint32_t> transformIdMap;

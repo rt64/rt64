@@ -98,6 +98,7 @@ namespace RT64 {
         const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
         hlslpp::float2 resolutionScale;
         EnhancementConfiguration::Presentation::Mode presentationMode;
+        bool removeBlackBorders;
         UserConfiguration::RefreshRate refreshRate;
         UserConfiguration::Filtering filtering;
         uint32_t viOriginalRate;
@@ -106,6 +107,7 @@ namespace RT64 {
             std::scoped_lock<std::mutex> configurationLock(ext.sharedResources->configurationMutex);
             resolutionScale = ext.sharedResources->resolutionScale;
             presentationMode = ext.sharedResources->enhancementConfig.presentation.mode;
+            removeBlackBorders = ext.sharedResources->enhancementConfig.presentation.removeBlackBorders;
             refreshRate = ext.sharedResources->userConfig.refreshRate;
             filtering = ext.sharedResources->userConfig.filtering;
             viOriginalRate = ext.sharedResources->viOriginalRate;
@@ -320,6 +322,7 @@ namespace RT64 {
                     renderParams.downsamplingScale = 1;
                     renderParams.filtering = filtering;
                     renderParams.vi = &present.screenVI;
+                    renderParams.removeBlackBorders = removeBlackBorders;
 
                     const bool useDownsampling = (colorTarget->downsampleMultiplier > 1);
                     if (useDownsampling) {

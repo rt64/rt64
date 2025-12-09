@@ -110,7 +110,7 @@ namespace RT64 {
         void waitForWorkloadId(uint64_t waitId);
         void setup(const External &ext);
         void updateMultisampling();
-        void threadConfigurationUpdate(WorkloadConfiguration &workloadConfig);
+        void threadConfigurationUpdate(hlslpp::uint2 viFbSize, WorkloadConfiguration &workloadConfig);
         void threadConfigurationValidate();
         void threadRenderFrame(GameFrame &curFrame, const GameFrame &prevFrame, const WorkloadConfiguration &workloadConfig,
             const DebuggerRenderer &debuggerRenderer, const DebuggerCamera &debuggerCamera, float curFrameWeight, float prevFrameWeight,
