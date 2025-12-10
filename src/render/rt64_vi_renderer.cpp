@@ -69,13 +69,12 @@ namespace RT64 {
 
         RenderViewport viewport;
         RenderRect scissor;
-        hlslpp::float2 fbHdRegion;
-        getViewportAndScissor(p.swapChain, *p.vi, p.resolutionScale, p.downsamplingScale, viewport, scissor, fbHdRegion);
+        getViewportAndScissor(p.swapChain, *p.vi, p.resolutionScale, p.downsamplingScale, p.removeBlackBorders, viewport, scissor);
         p.commandList->setViewports(viewport);
         p.commandList->setScissors(scissor);
 
         interop::VideoInterfaceCB pushConstants;
-        pushConstants.videoResolution = fbHdRegion;
+        pushConstants.videoResolution = computeHDSize(hlslpp::float2(p.vi->fbSize()), p.resolutionScale, p.downsamplingScale);
         pushConstants.textureResolution = { float(p.textureWidth), float(p.textureHeight) };
         pushConstants.gamma = p.vi->gamma();
 
@@ -87,7 +86,7 @@ namespace RT64 {
         p.commandList->drawInstanced(3, 1, 0, 0);
     }
 
-    void VIRenderer::getViewportAndScissor(const RenderSwapChain *swapChain, const VI &vi, hlslpp::float2 resolutionScale, uint32_t downsamplingScale, RenderViewport &viewport, RenderRect &scissor, hlslpp::float2 &fbHdRegion) {
+    void VIRenderer::getViewportAndScissor(const RenderSwapChain *swapChain, const VI &vi, hlslpp::float2 resolutionScale, uint32_t downsamplingScale, bool removeBlackBorders, RenderViewport &viewport, RenderRect &scissor) {
         // We define three different coordinate spaces to work with to translate the VI parameters into the Window.
         //
         // VideoSD: This corresponds to the SD TV Scanline space, which is what the VI natively works on.
@@ -101,24 +100,22 @@ namespace RT64 {
         // on the screen. To work around that, the viewport the buffer will be drawn in will be expanded so only
         // the region of interest is rendered. A scissor will cut it off correctly according to the coordinates
         // specified by the VI.
-        const hlslpp::float2 sdSize = { float(VI::Width), float(VI::Height) };
+        const hlslpp::float2 sdSize = removeBlackBorders ? hlslpp::float2(vi.fbSize()) : hlslpp::float2(320.0f, 240.0f);
         const hlslpp::float2 hdSize = computeHDSize(sdSize, resolutionScale, downsamplingScale);
         const hlslpp::float2 windowSize = { float(swapChain->getWidth()), float(swapChain->getHeight()) };
-        const hlslpp::uint2 fbSize = vi.fbSize();
-        const hlslpp::float2 fbSdRegion = { float(fbSize.x), float(fbSize.y) };
-        fbHdRegion = computeHDSize(fbSdRegion, resolutionScale, downsamplingScale);
 
         // Query the VI for the current rendering area.
+        hlslpp::float4 viViewRect = vi.viewRectangle() * sdSize.xyxy;
+        hlslpp::float4 viCropRect = vi.cropRectangle() * sdSize.xyxy;
+
         // Scale all the rectangles to the space of the Window.
-        RectI viViewRect = vi.viewRectangle();
-        RectI viCropRect = vi.cropRectangle();
         hlslpp::float2 topLeftViewport = fromSDtoHD({ float(viViewRect.x), float(viViewRect.y) }, sdSize, hdSize);
-        hlslpp::float2 bottomRightViewport = fromSDtoHD({ float(viViewRect.x + viViewRect.w), float(viViewRect.y + viViewRect.h) }, sdSize, hdSize);
+        hlslpp::float2 bottomRightViewport = fromSDtoHD({ float(viViewRect.x + viViewRect.z), float(viViewRect.y + viViewRect.w) }, sdSize, hdSize);
         topLeftViewport = fromHDtoWindow(topLeftViewport, hdSize, windowSize);
         bottomRightViewport = fromHDtoWindow(bottomRightViewport, hdSize, windowSize);
 
         hlslpp::float2 topLeftScissor = fromSDtoHD({ float(viCropRect.x), float(viCropRect.y) }, sdSize, hdSize);
-        hlslpp::float2 bottomRightScissor = fromSDtoHD({ float(viCropRect.x + viCropRect.w), float(viCropRect.y + viCropRect.h) }, sdSize, hdSize);
+        hlslpp::float2 bottomRightScissor = fromSDtoHD({ float(viCropRect.x + viCropRect.z), float(viCropRect.y + viCropRect.w) }, sdSize, hdSize);
         topLeftScissor = fromHDtoWindow(topLeftScissor, hdSize, windowSize);
         bottomRightScissor = fromHDtoWindow(bottomRightScissor, hdSize, windowSize);
 

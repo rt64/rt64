@@ -94,6 +94,7 @@ namespace RT64 {
             float sampleScale = 1.0f;
             bool readColorFromStorage = false;
             bool readDepthFromStorage = false;
+            bool needsDiscard = false;
             bool ignore = false;
             std::unique_ptr<RenderFramebuffer> framebuffer;
         };
@@ -121,6 +122,7 @@ namespace RT64 {
             RenderFramebuffer *dstFramebuffer;
             RenderDescriptorSet *descriptorSet;
             interop::TextureCopyCB pushConstants;
+            bool dstNeedsDiscard;
         };
 
         struct CommandListCopies {
@@ -138,6 +140,7 @@ namespace RT64 {
             RenderTexture *dstTexture;
             interop::FbReinterpretCB reinterpretCB;
             RenderDescriptorSet *descriptorSet;
+            bool dstNeedsDiscard;
         };
 
         typedef std::pair<const RenderTexture *, RenderFormat> TextureFormatPair;
@@ -169,6 +172,7 @@ namespace RT64 {
         Framebuffer *findMostRecentContaining(uint32_t addressStart, uint32_t addressEnd);
         void writeChanges(RenderWorker *renderWorker, const FramebufferChangePool &fbChangePool, const FramebufferOperation &op, RenderTargetManager &targetManager, const ShaderLibrary *shaderLibrary);
         void clearUsedTileCopies();
+        uint64_t getUsedTimestamp() const;
         uint64_t findTileCopyId(uint32_t width, uint32_t height);
         void createTileCopySetup(RenderWorker *renderWorker, const FramebufferOperation &op, hlslpp::float2 resolutionScale, RenderTargetManager &targetManager, std::unordered_set<RenderTarget *> *resizedTargets);
         void createTileCopyRecord(RenderWorker *renderWorker, const FramebufferOperation &op, const FramebufferStorage &fbStorage, RenderTargetManager &targetManager, 

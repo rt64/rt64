@@ -356,10 +356,8 @@ namespace RT64 {
                         dstCallTile.reinterpretSiz = checkResult.siz;
                         dstCallTile.reinterpretFmt = checkResult.fmt;
 
-                        // Native samplers can't apply the texel shift and mask that tile reinterpretation requires.
-                        if (dstCallTile.reinterpretTile) {
-                            nativeSamplerSupported = false;
-                        }
+                        // Native samplers can't be used with tile copies, as they can reference a subregion of a larger texture.
+                        nativeSamplerSupported = false;
                     }
                     else {
                         dstCallTile.tileCopyUsed = false;
@@ -1567,6 +1565,10 @@ namespace RT64 {
             workload.viOriginalRate = viHistory.logicalRateFromFactors();
         }
 
+        if (viHistory.top().vi.visible()) {
+            workload.viFbSize = viHistory.top().vi.fbSize();
+        }
+
         // Log and reset profilers.
         dlCpuProfiler.end();
         dlCpuProfiler.log();
@@ -2003,27 +2005,26 @@ namespace RT64 {
         //appData.m_cursorRayDirection = Im3d::Vec3(rayDir.x, rayDir.y, rayDir.z);
         //appData.m_keyDown[Im3d::Mouse_Left] = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
         */
-
+        
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImGui::GetIO().WantCaptureMouse) {
             // We need to figure out the dimensions of where the viewport is being rendered at first.
             ext.sharedQueueResources->configurationMutex.lock();
             const hlslpp::float2 resolutionScale = ext.sharedQueueResources->resolutionScale;
+            bool removeBlackBorders = ext.sharedQueueResources->enhancementConfig.presentation.removeBlackBorders;
             const uint32_t downsampleMultiplier = ext.userConfig->downsampleMultiplier;
             ext.sharedQueueResources->configurationMutex.unlock();
             RenderViewport viewport;
             RenderRect scissor;
-            hlslpp::float2 fbHdRegion;
-            VIRenderer::getViewportAndScissor(ext.swapChain, lastScreenVI, resolutionScale, downsampleMultiplier, viewport, scissor, fbHdRegion);
+            VIRenderer::getViewportAndScissor(ext.swapChain, lastScreenVI, resolutionScale, downsampleMultiplier, removeBlackBorders, viewport, scissor);
 
             // Convert the mouse coordinates to native coordinates.
-            // FIXME: This needs a lot more work to be compatible with games with less standard VI modes.
             hlslpp::float2 screenCursorPos;
+            hlslpp::float2 halfFbSize = hlslpp::float2(lastScreenVI.fbSize()) / 2.0f;
             ImVec2 nativeMousePos = ImGui::GetMousePos();
             const float aspectRatio = resolutionScale.x / resolutionScale.y;
-            screenCursorPos.x = ((nativeMousePos.x - (viewport.x + viewport.width / 2)) / viewport.width) * aspectRatio;
-            screenCursorPos.y = (nativeMousePos.y - (viewport.y + viewport.height / 2)) / viewport.height;
-            screenCursorPos.x = (VI::Width / 4) + screenCursorPos.x * (VI::Width / 2);
-            screenCursorPos.y = (VI::Height / 4) + screenCursorPos.y * (VI::Height / 2);
+            screenCursorPos.x = ((nativeMousePos.x - (viewport.x + viewport.width / 2)) / (viewport.width / 2)) * aspectRatio;
+            screenCursorPos.y = (nativeMousePos.y - (viewport.y + viewport.height / 2)) / (viewport.height / 2);
+            screenCursorPos = halfFbSize + screenCursorPos * halfFbSize;
             debuggerInspector.rightClick(workload, screenCursorPos);
         }
 
@@ -2152,6 +2153,7 @@ namespace RT64 {
                     ImGui::Text("Presentation");
                     ImGui::Indent();
                     enhanceConfigChanged = ImGui::Combo("Mode##Presentation", reinterpret_cast<int *>(&enhancementConfig.presentation.mode), "Console\0Skip Buffering\0Present Early\0") || enhanceConfigChanged;
+                    enhanceConfigChanged = ImGui::Checkbox("Remove Black Borders", &enhancementConfig.presentation.removeBlackBorders) || enhanceConfigChanged;
                     ImGui::Unindent();
                     ImGui::Text("Rect");
                     ImGui::Indent();

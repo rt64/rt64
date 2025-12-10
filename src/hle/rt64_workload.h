@@ -27,6 +27,7 @@ namespace RT64 {
         std::vector<int16_t> posShorts;
         std::vector<int16_t> velShorts;
         std::vector<float> tcFloats;
+        std::vector<float> tcVelFloats;
         std::vector<uint8_t> normColBytes;
         std::vector<uint16_t> viewProjIndices;
         std::vector<uint16_t> worldIndices;
@@ -59,10 +60,12 @@ namespace RT64 {
         std::vector<interop::GPUTile> gpuTiles;
         std::vector<DrawCallTile> callTiles;
         std::vector<interop::RSPViewport> rspViewports;
+        std::vector<int16_t> viewportClipRatios;
         std::vector<uint16_t> viewportOrigins;
         std::vector<interop::RSPFog> rspFog;
         std::vector<interop::RSPLight> rspLights;
         std::vector<interop::RSPLookAt> rspLookAt;
+        std::vector<interop::RSPLookAt> lerpRspLookAt;
         std::vector<LoadOperation> loadOperations;
         std::vector<float> triPosFloats;
         std::vector<float> triTcFloats;
@@ -102,6 +105,7 @@ namespace RT64 {
         Range posShorts;
         Range velShorts;
         Range tcFloats;
+        Range tcVelFloats;
         Range normColBytes;
         Range viewProjIndices;
         Range worldIndices;
@@ -133,6 +137,7 @@ namespace RT64 {
         BufferPair positionBuffer;
         BufferPair velocityBuffer;
         BufferPair texcoordBuffer;
+        BufferPair texcoordVelocityBuffer;
         BufferPair normalColorBuffer;
         BufferPair viewProjIndicesBuffer;
         BufferPair worldIndicesBuffer;
@@ -220,6 +225,7 @@ namespace RT64 {
         FramebufferChangePool fbChangePool;
         FramebufferStorage fbStorage;
         uint32_t viOriginalRate;
+        hlslpp::uint2 viFbSize = {};
         DebuggerRenderer debuggerRenderer;
         DebuggerCamera debuggerCamera;
         std::multimap<uint32_t, uint32_t> transformIdMap;

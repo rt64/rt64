@@ -11,7 +11,9 @@ namespace interop {
 #endif
     struct RasterParams {
         uint renderIndex;
-        float2 halfPixelOffset;
+        uint3 padding;
+        float2 screenScale;
+        float2 screenOffset;
     };
 #ifdef HLSL_CPU
 };

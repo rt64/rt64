@@ -55,6 +55,7 @@ int main(int argc, const char** argv) {
     // Write the C file with the array
     {
         std::ofstream output_c_file{output_c_path};
+        output_c_file << "#include <stddef.h>\n";
         output_c_file << "extern const char " << array_name << "[" << contents.size() << "];\n";
         output_c_file << "const char " << array_name << "[" << contents.size() << "] = {";
 
@@ -63,6 +64,9 @@ int main(int argc, const char** argv) {
         }
 
         output_c_file << "};\n";
+
+        output_c_file << "extern const size_t " << array_name << "_size;\n";
+        output_c_file << "const size_t " << array_name << "_size = sizeof(" << array_name << ") / sizeof(" << array_name << "[0]);\n";
     }
 
     // Write the header file with the extern array
@@ -72,7 +76,9 @@ int main(int argc, const char** argv) {
             "#ifdef __cplusplus\n"
             "  extern \"C\" {\n"
             "#endif\n"
+            "#include <stddef.h>\n"
             "extern const char " << array_name << "[" << contents.size() << "];\n"
+            "extern const size_t " << array_name << "_size;\n"
             "#ifdef __cplusplus\n"
             "  }\n"
             "#endif\n";
