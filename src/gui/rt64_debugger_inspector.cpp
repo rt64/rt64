@@ -166,7 +166,11 @@ namespace RT64 {
         auto textTransformGroup = [](const char *label, const TransformGroup &group) {
             ImGui::Text("%s", label);
             ImGui::Indent();
-            ImGui::Text("%u (POS %u ROT %u SCA %u ORDER %u)", group.matrixId, group.positionInterpolation, group.rotationInterpolation, group.scaleInterpolation, group.ordering);
+            ImGui::Text("0x%08X (POS %u ROT %u SCA %u SKEW %u PERSP %u VERT %u TC %u TILE %u LOOKAT %u ORDER %u ASPECT %u EDIT %u)",
+                group.matrixId,
+                group.positionInterpolation, group.rotationInterpolation, group.scaleInterpolation, group.skewInterpolation,
+                group.perspectiveInterpolation, group.vertexInterpolation, group.texcoordInterpolation, group.tileInterpolation,
+                group.lookAtInterpolation, group.ordering, group.aspectMode, group.editable);
             ImGui::Unindent();
         };
 
@@ -948,6 +952,7 @@ namespace RT64 {
                             ImGui::Text("Viewport Clip Ratios: %d %d %d %d", clipRatios[0], clipRatios[1], clipRatios[2], clipRatios[3]);
                             ImGui::Text("Viewport Rect: %d %d %d %d", viewportRect.ulx, viewportRect.uly, viewportRect.lrx, viewportRect.lry);
                             ImGui::NewLine();
+                            textTransformGroup("Matrix group:", drawData.transformGroups[drawData.viewProjTransformGroups[proj.transformsIndex]]);
                             textMatrix("View (estimate):", drawData.viewTransforms[proj.transformsIndex]);
                             ImGui::NewLine();
                             textMatrix("Projection (estimate):", drawData.projTransforms[proj.transformsIndex]);
