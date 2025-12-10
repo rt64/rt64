@@ -166,7 +166,11 @@ namespace RT64 {
         auto textTransformGroup = [](const char *label, const TransformGroup &group) {
             ImGui::Text("%s", label);
             ImGui::Indent();
-            ImGui::Text("0x%08X (POS %u ROT %u SCA %u ORDER %u)", group.matrixId, group.positionInterpolation, group.rotationInterpolation, group.scaleInterpolation, group.ordering);
+            ImGui::Text("0x%08X (POS %u ROT %u SCA %u SKEW %u PERSP %u VERT %u TC %u TILE %u LOOKAT %u ORDER %u ASPECT %u EDIT %u)",
+                group.matrixId,
+                group.positionInterpolation, group.rotationInterpolation, group.scaleInterpolation, group.skewInterpolation,
+                group.perspectiveInterpolation, group.vertexInterpolation, group.texcoordInterpolation, group.tileInterpolation,
+                group.lookAtInterpolation, group.ordering, group.aspectMode, group.editable);
             ImGui::Unindent();
         };
 
