@@ -87,7 +87,6 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 20.0)
         add_compile_options(-Wno-deprecated-literal-operator -Wno-nontrivial-memcall)
     endif()
-    add_compile_options(-Werror)
 endif()
 
 set(ANDROID_PLATFORM android-24)
