@@ -70,6 +70,11 @@ add_subdirectory(src/tools/file_to_c)
 add_subdirectory(src/contrib/re-spirv)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 add_subdirectory(src/contrib/zstd/build/cmake)
+
+if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
+    set(SDL_VULKAN_ENABLED TRUE)
+endif()
+
 add_subdirectory(src/contrib/plume)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
