@@ -122,7 +122,6 @@ namespace RT64 {
             RenderFramebuffer *dstFramebuffer;
             RenderDescriptorSet *descriptorSet;
             interop::TextureCopyCB pushConstants;
-            bool dstNeedsDiscard;
         };
 
         struct CommandListCopies {
@@ -140,7 +139,6 @@ namespace RT64 {
             RenderTexture *dstTexture;
             interop::FbReinterpretCB reinterpretCB;
             RenderDescriptorSet *descriptorSet;
-            bool dstNeedsDiscard;
         };
 
         typedef std::pair<const RenderTexture *, RenderFormat> TextureFormatPair;
@@ -150,6 +148,14 @@ namespace RT64 {
 
             void clear() {
                 cmdListDispatches.clear();
+            }
+        };
+
+        struct CommandListDiscards {
+            std::vector<RenderTexture *> cmdListDiscards;
+
+            void clear() {
+                cmdListDiscards.clear();
             }
         };
 
@@ -175,12 +181,12 @@ namespace RT64 {
         uint64_t getUsedTimestamp() const;
         uint64_t findTileCopyId(uint32_t width, uint32_t height);
         void createTileCopySetup(RenderWorker *renderWorker, const FramebufferOperation &op, hlslpp::float2 resolutionScale, RenderTargetManager &targetManager, std::unordered_set<RenderTarget *> *resizedTargets);
-        void createTileCopyRecord(RenderWorker *renderWorker, const FramebufferOperation &op, const FramebufferStorage &fbStorage, RenderTargetManager &targetManager, 
-            hlslpp::float2 resolutionScale, uint32_t maxFbPairIndex, CommandListCopies &cmdListCopies, const ShaderLibrary *shaderLibrary);
+        void createTileCopyRecord(RenderWorker *renderWorker, const FramebufferOperation &op, const FramebufferStorage &fbStorage, RenderTargetManager &targetManager,
+            hlslpp::float2 resolutionScale, uint32_t maxFbPairIndex, CommandListCopies &cmdListCopies, CommandListDiscards &cmdListDiscards, const ShaderLibrary *shaderLibrary);
 
         void reinterpretTileSetup(RenderWorker *renderWorker, const FramebufferOperation &op, hlslpp::float2 resolutionScale, bool usesHDR);
         void reinterpretTileRecord(RenderWorker *renderWorker, const FramebufferOperation &op, TextureCache &textureCache, hlslpp::float2 resolutionScale,
-            uint64_t submissionFrame, bool usesHDR, CommandListReinterpretations &cmdListReinterpretations);
+            uint64_t submissionFrame, bool usesHDR, CommandListReinterpretations &cmdListReinterpretations, CommandListDiscards &cmdListDiscards);
 
         bool makeFramebufferTile(Framebuffer *fb, uint32_t addressStart, uint32_t addressEnd, uint32_t lineWidth, uint32_t tileHeight, FramebufferTile &outTile, bool RGBA32);
 
@@ -208,9 +214,9 @@ namespace RT64 {
         void recordOperations(RenderWorker *renderWorker, const FramebufferChangePool *fbChangePool, const FramebufferStorage *fbStorage, const ShaderLibrary *shaderLibrary, TextureCache *textureCache,
             const std::vector<FramebufferOperation> &operations, RenderTargetManager &targetManager, hlslpp::float2 resolutionScale, uint32_t maxFbPairIndex,
             uint64_t submissionFrame);
-        
+
         // Execution must finish before calling this again. A convenience function around reset, setup and record.
-        void performOperations(RenderWorker *renderWorker, const FramebufferChangePool *fbChangePool, const FramebufferStorage *fbStorage, const ShaderLibrary *shaderLibrary, TextureCache *textureCache, 
+        void performOperations(RenderWorker *renderWorker, const FramebufferChangePool *fbChangePool, const FramebufferStorage *fbStorage, const ShaderLibrary *shaderLibrary, TextureCache *textureCache,
             const std::vector<FramebufferOperation> &operations, RenderTargetManager &targetManager, hlslpp::float2 resolutionScale, uint32_t maxFbPairIndex,
             uint64_t submissionFrame, std::unordered_set<RenderTarget *> *resizedTargets = nullptr);
 
