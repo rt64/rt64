@@ -17,6 +17,10 @@ endif()
 
 if (WIN32)
     add_compile_definitions(NOMINMAX)
+
+    # Dependencies that must be next to the DLL.
+    configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
+    configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxil.dll" "dxil.dll" COPYONLY)
 endif()
 
 set(ZSTD_LEGACY_SUPPORT OFF)
