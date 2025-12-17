@@ -161,6 +161,7 @@ namespace RT64 {
 
         std::unordered_map<uint32_t, Framebuffer> framebuffers;
         std::unordered_map<uint64_t, TileCopy> tileCopies;
+        std::unordered_map<uint64_t, uint64_t> reinterpretTileCache;
         std::unique_ptr<RenderTexture> dummyTLUTTexture;
         std::vector<std::unique_ptr<ReinterpretDescriptorSet>> descriptorReinterpretSets;
         uint32_t descriptorReinterpretSetsCount = 0;

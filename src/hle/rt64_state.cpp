@@ -651,10 +651,18 @@ namespace RT64 {
                 }
             }
             else if (callTile.reinterpretTile) {
-                bool ulScaleS = true;
-                bool ulScaleT = true;
-                interop::uint2 texelShift = { 0, 0 };
-                interop::uint2 texelMask = { UINT_MAX, UINT_MAX };
+                struct ReinterpretHashData {
+                    uint64_t tmemHashOrID = 0;
+                    uint64_t tlutHash = 0;
+                    uint8_t reinterpretSiz = 0;
+                    uint8_t reinterpretFmt = 0;
+                    bool ulScaleS = true;
+                    bool ulScaleT = true;
+                    interop::uint2 texelShift = { 0, 0 };
+                    interop::uint2 texelMask = { UINT_MAX, UINT_MAX };
+                };
+
+                ReinterpretHashData hashData;
 
                 // In cases where the tile pixel size is smaller than tile copy pixel size, we check for certain alignment conditions
                 // to improve the quality of the final result when the effect's resolution is increased.
@@ -669,8 +677,8 @@ namespace RT64 {
                     uint16_t rectMultiplier = drawCall.rectDsdx >> 10;
                     const bool powerOfTwo = ((rectMultiplier & (rectMultiplier - 1)) == 0);
                     if ((rectMultiplier > 1) && powerOfTwo && (callTile.loadTile.uls & 0x3) == 0) {
-                        texelMask.x = ~(rectMultiplier - 1);
-                        texelShift.x = (callTile.loadTile.uls >> 2) % rectMultiplier;
+                        hashData.texelMask.x = ~(rectMultiplier - 1);
+                        hashData.texelShift.x = (callTile.loadTile.uls >> 2) % rectMultiplier;
 
                         // This part fixes an artifact caused by how the scaling at high resolution affects the uls component. This is
                         // left under a special condition since it falls under the category of a developer intended fix rather than
@@ -684,27 +692,38 @@ namespace RT64 {
                         //
                         const bool ulsFix = ext.enhancementConfig->framebuffer.reinterpretFixULS;
                         if (ulsFix && ((callTile.loadTile.uls >> 2) <= (1 << sizDifference))) {
-                            ulScaleS = false;
+                            hashData.ulScaleS = false;
                         }
                     }
                 }
 
                 // Upload the TLUT as raw TMEM if the reinterpretation requires it.
-                uint64_t tlutHash = 0;
                 if (callTile.tlut > 0) {
                     const bool CI4 = (callTile.loadTile.siz == G_IM_SIZ_4b);
                     const uint16_t byteOffset = (RDP_TMEM_BYTES >> 1) + (CI4 ? (callTile.loadTile.palette << 7) : 0);
                     const uint16_t byteCount = CI4 ? 0x100 : 0x800;
-                    tlutHash = textureManager.uploadTMEM(this, {}, ext.textureCache, workload.submissionFrame, byteOffset, byteCount, 0, 0, 0);
+                    hashData.tlutHash = textureManager.uploadTMEM(this, {}, ext.textureCache, workload.submissionFrame, byteOffset, byteCount, 0, 0, 0);
                 }
 
-                // Create a tile copy and tile reinterperation operation and queue it.
-                uint64_t newTileId = framebufferManager.findTileCopyId(callTile.tileCopyWidth, callTile.tileCopyHeight);
-                FramebufferOperation fbOp = framebufferManager.makeTileReintepretation(callTile.tmemHashOrID, callTile.reinterpretSiz, callTile.reinterpretFmt,
-                    newTileId, callTile.loadTile.siz, callTile.loadTile.fmt, ulScaleS, ulScaleT, texelShift, texelMask, tlutHash, callTile.tlut);
+                hashData.tmemHashOrID = callTile.tmemHashOrID;
+                hashData.reinterpretSiz = callTile.reinterpretSiz;
+                hashData.reinterpretFmt = callTile.reinterpretFmt;
 
-                fbPair.startFbOperations.emplace_back(fbOp);
-                callTile.tmemHashOrID = newTileId;
+                uint64_t reinterpretHash = XXH3_64bits(&hashData, sizeof(hashData));
+                auto it = framebufferManager.reinterpretTileCache.find(reinterpretHash);
+                if (it != framebufferManager.reinterpretTileCache.end()) {
+                    callTile.tmemHashOrID = it->second;
+                }
+                else {
+                    // Create a tile copy and tile reinterperation operation and queue it.
+                    uint64_t newTileId = framebufferManager.findTileCopyId(callTile.tileCopyWidth, callTile.tileCopyHeight);
+                    FramebufferOperation fbOp = framebufferManager.makeTileReintepretation(hashData.tmemHashOrID, hashData.reinterpretSiz, hashData.reinterpretFmt,
+                        newTileId, callTile.loadTile.siz, callTile.loadTile.fmt, hashData.ulScaleS, hashData.ulScaleT, hashData.texelShift, hashData.texelMask, hashData.tlutHash, callTile.tlut);
+
+                    fbPair.startFbOperations.emplace_back(fbOp);
+                    framebufferManager.reinterpretTileCache[reinterpretHash] = newTileId;
+                    callTile.tmemHashOrID = newTileId;
+                }
             }
         };
 

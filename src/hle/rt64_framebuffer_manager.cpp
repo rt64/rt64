@@ -738,6 +738,7 @@ namespace RT64 {
 
     void FramebufferManager::clearUsedTileCopies() {
         scratchChangePool.reset();
+        reinterpretTileCache.clear();
         usedTimestamp++;
     }
 
