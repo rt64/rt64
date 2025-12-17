@@ -46,7 +46,6 @@ namespace RT64 {
         struct ViewProjectionMap {
             RigidBody rigidBody;
             uint32_t prevTransformIndex = 0;
-            uint8_t aspectMode = 0;
             bool mapped = false;
         };
 

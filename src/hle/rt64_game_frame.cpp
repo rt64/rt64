@@ -467,7 +467,6 @@ namespace RT64 {
                 uint8_t projectionScaleComponent = G_EX_COMPONENT_INTERPOLATE;
                 uint8_t projectionSkewComponent = G_EX_COMPONENT_INTERPOLATE;
                 uint8_t projectionPerspectiveComponent = G_EX_COMPONENT_INTERPOLATE;
-                uint8_t projectionAspectMode = G_EX_ASPECT_AUTO;
                 if ((curProjGroup.matrixId != G_EX_ID_IGNORE) && (curProjGroup.matrixId != G_EX_ID_AUTO)) {
                     projectionDecompose = curProjGroup.decompose;
                     projectionLinearComponent = curProjGroup.positionInterpolation;
@@ -475,7 +474,6 @@ namespace RT64 {
                     projectionScaleComponent = curProjGroup.scaleInterpolation;
                     projectionSkewComponent = curProjGroup.skewInterpolation;
                     projectionPerspectiveComponent = curProjGroup.perspectiveInterpolation;
-                    projectionAspectMode = curProjGroup.aspectMode;
                     viewProjMap.mapped = (curProjGroup.matrixId == prevProjGroup.matrixId);
                 }
                 else {
@@ -492,7 +490,6 @@ namespace RT64 {
                     viewProjMap.rigidBody.updateAngular(prevView, curView, projectionAngularComponent, projectionScaleComponent, projectionSkewComponent);
                     viewProjMap.rigidBody.updateDecomposition(curView, projectionDecompose);
                     viewProjMap.prevTransformIndex = prevProj.transformsIndex;
-                    viewProjMap.aspectMode = projectionAspectMode;
                 }
                 else {
                     viewProjMap.rigidBody = RigidBody();

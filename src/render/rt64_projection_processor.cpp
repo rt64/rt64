@@ -70,7 +70,6 @@ namespace RT64 {
             const interop::float4x4 *prevViewMatrix = nullptr;
             const RigidBody *rigidBody = nullptr;
             const GameFrameMap::WorkloadMap &workloadMap = p.curFrame->frameMap.workloads[sceneProj.workloadIndex];
-            uint8_t aspectMode = G_EX_ASPECT_AUTO;
             if ((p.prevFrame != nullptr) && workloadMap.mapped && !workload.debuggerCamera.enabled) {
                 const GameFrameMap::ViewProjectionMap &viewProjMap = workloadMap.viewProjections[proj.transformsIndex];
                 if (viewProjMap.mapped) {
@@ -78,13 +77,13 @@ namespace RT64 {
                     prevViewMatrix = &prevWorkload.drawData.viewTransforms[viewProjMap.prevTransformIndex];
                     prevProjMatrix = &prevWorkload.drawData.projTransforms[viewProjMap.prevTransformIndex];
                     rigidBody = &viewProjMap.rigidBody;
-                    aspectMode = viewProjMap.aspectMode;
                 }
             }
 
-            
-            bool adjustAspectRatio = (aspectMode == G_EX_ASPECT_ADJUST);
-            if (aspectMode == G_EX_ASPECT_AUTO) {
+            const uint32_t curProjGroupIndex = workload.drawData.viewProjTransformGroups[proj.transformsIndex];
+            const TransformGroup &curProjGroup = workload.drawData.transformGroups[curProjGroupIndex];
+            bool adjustAspectRatio = (curProjGroup.aspectMode == G_EX_ASPECT_ADJUST);
+            if (curProjGroup.aspectMode == G_EX_ASPECT_AUTO) {
                 FixedRect intersectionRect = proj.scissorRect;
                 if (proj.usesViewport()) {
                     const interop::RSPViewport &viewport = drawData.rspViewports[proj.transformsIndex];
