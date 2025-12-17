@@ -37,6 +37,47 @@ set(RT64_SHADER_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/src")
 set(RT64_SHADER_MODEL "6_3")
 set(RT64_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/src/shaders")
 
+# Private helper to reduce shader compilation verbosity.
+# Usage: _rt64_shader(<type> <source> <output_name> <entry_point> [SPEC_CONSTANTS] [EXTRA_ARGS ...])
+# <type> is one of: VS, PS, CS, LIB, PREPROCESS
+function(_rt64_shader TYPE SOURCE OUTPUT_NAME ENTRY_POINT)
+    cmake_parse_arguments(PARSE_ARGV 4 ARG "SPEC_CONSTANTS" "" "EXTRA_ARGS")
+
+    set(COMMON_ARGS
+        SHADER_MODEL ${RT64_SHADER_MODEL}
+        INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
+        OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR}
+    )
+    if(ARG_SPEC_CONSTANTS)
+        list(APPEND COMMON_ARGS SPEC_CONSTANTS)
+    endif()
+    if(ARG_EXTRA_ARGS)
+        list(APPEND COMMON_ARGS EXTRA_ARGS ${ARG_EXTRA_ARGS})
+    endif()
+
+    if(TYPE STREQUAL "VS")
+        plume_compile_vertex_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/${SOURCE}" "${OUTPUT_NAME}" "${ENTRY_POINT}" ${COMMON_ARGS})
+    elseif(TYPE STREQUAL "PS")
+        plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/${SOURCE}" "${OUTPUT_NAME}" "${ENTRY_POINT}" ${COMMON_ARGS})
+    elseif(TYPE STREQUAL "CS")
+        plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/${SOURCE}" "${OUTPUT_NAME}" "${ENTRY_POINT}" ${COMMON_ARGS})
+    elseif(TYPE STREQUAL "LIB")
+        # Library shaders don't use SHADER_MODEL, only INCLUDE_DIRS and OUTPUT_DIR
+        set(LIB_ARGS INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+        if(ARG_EXTRA_ARGS)
+            list(APPEND LIB_ARGS EXTRA_ARGS ${ARG_EXTRA_ARGS})
+        endif()
+        plume_compile_library_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/${SOURCE}" "${OUTPUT_NAME}" ${LIB_ARGS})
+    elseif(TYPE STREQUAL "PREPROCESS")
+        plume_preprocess_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/${SOURCE}" "${OUTPUT_NAME}"
+            VAR_NAME "${ENTRY_POINT}"
+            INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
+            OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+    else()
+        message(FATAL_ERROR "_rt64_shader: Unknown shader type '${TYPE}'")
+    endif()
+endfunction()
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Use /W4 for clang-cl, as -Wall maps to MSVC's /Wall which in turn maps to clang's -Weverything
     if (CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
@@ -257,148 +298,86 @@ endif()
 # Shader compilation using plume's infrastructure
 # ============================================================================
 
-plume_preprocess_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RenderParams.hlsli" "RenderParams.hlsli" VAR_NAME "RenderParams"
-    INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+_rt64_shader(PREPROCESS RenderParams.hlsli "RenderParams.hlsli" "RenderParams")
 
 if (WIN32)
-    plume_compile_library_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSLibrary"
-        INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-    plume_compile_library_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSLibraryMS"
-        INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D MULTISAMPLING OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-    plume_compile_library_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterVS.hlsl" "RasterVSLibrary"
-        INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+    _rt64_shader(LIB RasterPS.hlsl "RasterPSLibrary" "")
+    _rt64_shader(LIB RasterPS.hlsl "RasterPSLibraryMS" "" EXTRA_ARGS -D MULTISAMPLING)
+    _rt64_shader(LIB RasterVS.hlsl "RasterVSLibrary" "")
 endif()
 
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSDynamic" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D DYNAMIC_RENDER_PARAMS OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSDynamicMS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D DYNAMIC_RENDER_PARAMS -D MULTISAMPLING OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSSpecConstant" "PSMain"
-    SPEC_CONSTANTS SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSSpecConstantMS" "PSMain"
-    SPEC_CONSTANTS SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D MULTISAMPLING OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSSpecConstantFlat" "PSMain"
-    SPEC_CONSTANTS SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D VERTEX_FLAT_COLOR OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterPS.hlsl" "RasterPSSpecConstantFlatMS" "PSMain"
-    SPEC_CONSTANTS SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D VERTEX_FLAT_COLOR -D MULTISAMPLING OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_vertex_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterVS.hlsl" "RasterVSDynamic" "VSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D DYNAMIC_RENDER_PARAMS OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_vertex_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterVS.hlsl" "RasterVSSpecConstant" "VSMain"
-    SPEC_CONSTANTS SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_vertex_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RasterVS.hlsl" "RasterVSSpecConstantFlat" "VSMain"
-    SPEC_CONSTANTS SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS}
-    EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D VERTEX_FLAT_COLOR OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Raster shaders
+_rt64_shader(PS RasterPS.hlsl "RasterPSDynamic" "PSMain" EXTRA_ARGS -D DYNAMIC_RENDER_PARAMS)
+_rt64_shader(PS RasterPS.hlsl "RasterPSDynamicMS" "PSMain" EXTRA_ARGS -D DYNAMIC_RENDER_PARAMS -D MULTISAMPLING)
+_rt64_shader(PS RasterPS.hlsl "RasterPSSpecConstant" "PSMain" SPEC_CONSTANTS EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS)
+_rt64_shader(PS RasterPS.hlsl "RasterPSSpecConstantMS" "PSMain" SPEC_CONSTANTS EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D MULTISAMPLING)
+_rt64_shader(PS RasterPS.hlsl "RasterPSSpecConstantFlat" "PSMain" SPEC_CONSTANTS EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D VERTEX_FLAT_COLOR)
+_rt64_shader(PS RasterPS.hlsl "RasterPSSpecConstantFlatMS" "PSMain" SPEC_CONSTANTS EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D VERTEX_FLAT_COLOR -D MULTISAMPLING)
+_rt64_shader(VS RasterVS.hlsl "RasterVSDynamic" "VSMain" EXTRA_ARGS -D DYNAMIC_RENDER_PARAMS)
+_rt64_shader(VS RasterVS.hlsl "RasterVSSpecConstant" "VSMain" SPEC_CONSTANTS EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS)
+_rt64_shader(VS RasterVS.hlsl "RasterVSSpecConstantFlat" "VSMain" SPEC_CONSTANTS EXTRA_ARGS -D SPEC_CONSTANT_RENDER_PARAMS -D VERTEX_FLAT_COLOR)
 
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbChangesClearCS.hlsl" "FbChangesClearCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbChangesDrawColorPS.hlsl" "FbChangesDrawColorPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbChangesDrawDepthPS.hlsl" "FbChangesDrawDepthPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbReadAnyChangesCS.hlsl" "FbReadAnyChangesCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -O0 OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbReinterpretCS.hlsl" "FbReinterpretCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -O0 OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbReadAnyFullCS.hlsl" "FbReadAnyFullCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -O0 OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbWriteColorCS.hlsl" "FbWriteColorCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -O0 OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbWriteDepthCS.hlsl" "FbWriteDepthCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FbWriteDepthCS.hlsl" "FbWriteDepthCSMS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D MULTISAMPLING OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Framebuffer shaders
+_rt64_shader(CS FbChangesClearCS.hlsl "FbChangesClearCS" "CSMain")
+_rt64_shader(PS FbChangesDrawColorPS.hlsl "FbChangesDrawColorPS" "PSMain")
+_rt64_shader(PS FbChangesDrawDepthPS.hlsl "FbChangesDrawDepthPS" "PSMain")
+_rt64_shader(CS FbReadAnyChangesCS.hlsl "FbReadAnyChangesCS" "CSMain" EXTRA_ARGS -O0)
+_rt64_shader(CS FbReinterpretCS.hlsl "FbReinterpretCS" "CSMain" EXTRA_ARGS -O0)
+_rt64_shader(CS FbReadAnyFullCS.hlsl "FbReadAnyFullCS" "CSMain" EXTRA_ARGS -O0)
+_rt64_shader(CS FbWriteColorCS.hlsl "FbWriteColorCS" "CSMain" EXTRA_ARGS -O0)
+_rt64_shader(CS FbWriteDepthCS.hlsl "FbWriteDepthCS" "CSMain")
+_rt64_shader(CS FbWriteDepthCS.hlsl "FbWriteDepthCSMS" "CSMain" EXTRA_ARGS -D MULTISAMPLING)
 
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/GaussianFilterRGB3x3CS.hlsl" "GaussianFilterRGB3x3CS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/BoxFilterCS.hlsl" "BoxFilterCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/BicubicScalingCS.hlsl" "BicubicScalingCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/HistogramAverageCS.hlsl" "HistogramAverageCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/HistogramClearCS.hlsl" "HistogramClearCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/HistogramSetCS.hlsl" "HistogramSetCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/IdleCS.hlsl" "IdleCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/LuminanceHistogramCS.hlsl" "LuminanceHistogramCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Filter and histogram shaders
+_rt64_shader(CS GaussianFilterRGB3x3CS.hlsl "GaussianFilterRGB3x3CS" "CSMain")
+_rt64_shader(CS BoxFilterCS.hlsl "BoxFilterCS" "CSMain")
+_rt64_shader(CS BicubicScalingCS.hlsl "BicubicScalingCS" "CSMain")
+_rt64_shader(CS HistogramAverageCS.hlsl "HistogramAverageCS" "CSMain")
+_rt64_shader(CS HistogramClearCS.hlsl "HistogramClearCS" "CSMain")
+_rt64_shader(CS HistogramSetCS.hlsl "HistogramSetCS" "CSMain")
+_rt64_shader(CS IdleCS.hlsl "IdleCS" "CSMain")
+_rt64_shader(CS LuminanceHistogramCS.hlsl "LuminanceHistogramCS" "CSMain")
 
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/PostBlendDitherNoisePS.hlsl" "PostBlendDitherNoiseAddPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D ADD_MODE OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/PostBlendDitherNoisePS.hlsl" "PostBlendDitherNoiseSubPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SUB_MODE OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/PostBlendDitherNoisePS.hlsl" "PostBlendDitherNoiseSubNegativePS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SUB_MODE -D NEGATIVE_MODE OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Post blend dither noise shaders
+_rt64_shader(PS PostBlendDitherNoisePS.hlsl "PostBlendDitherNoiseAddPS" "PSMain" EXTRA_ARGS -D ADD_MODE)
+_rt64_shader(PS PostBlendDitherNoisePS.hlsl "PostBlendDitherNoiseSubPS" "PSMain" EXTRA_ARGS -D SUB_MODE)
+_rt64_shader(PS PostBlendDitherNoisePS.hlsl "PostBlendDitherNoiseSubNegativePS" "PSMain" EXTRA_ARGS -D SUB_MODE -D NEGATIVE_MODE)
 
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RSPModifyCS.hlsl" "RSPModifyCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RSPProcessCS.hlsl" "RSPProcessCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RSPWorldCS.hlsl" "RSPWorldCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RSPSmoothNormalCS.hlsl" "RSPSmoothNormalCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RSPVertexTestZCS.hlsl" "RSPVertexTestZCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RSPVertexTestZCS.hlsl" "RSPVertexTestZCSMS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D MULTISAMPLING OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# RSP shaders
+_rt64_shader(CS RSPModifyCS.hlsl "RSPModifyCS" "CSMain")
+_rt64_shader(CS RSPProcessCS.hlsl "RSPProcessCS" "CSMain")
+_rt64_shader(CS RSPWorldCS.hlsl "RSPWorldCS" "CSMain")
+_rt64_shader(CS RSPSmoothNormalCS.hlsl "RSPSmoothNormalCS" "CSMain")
+_rt64_shader(CS RSPVertexTestZCS.hlsl "RSPVertexTestZCS" "CSMain")
+_rt64_shader(CS RSPVertexTestZCS.hlsl "RSPVertexTestZCSMS" "CSMain" EXTRA_ARGS -D MULTISAMPLING)
 
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyColorToDepthPS.hlsl" "RtCopyColorToDepthPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyColorToDepthPS.hlsl" "RtCopyColorToDepth2XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_2X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyColorToDepthPS.hlsl" "RtCopyColorToDepth4XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_4X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyColorToDepthPS.hlsl" "RtCopyColorToDepth8XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_8X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyDepthToColorPS.hlsl" "RtCopyDepthToColorPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyDepthToColorPS.hlsl" "RtCopyDepthToColor2XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_2X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyDepthToColorPS.hlsl" "RtCopyDepthToColor4XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_4X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/RtCopyDepthToColorPS.hlsl" "RtCopyDepthToColor8XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_8X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Render target copy shaders
+_rt64_shader(PS RtCopyColorToDepthPS.hlsl "RtCopyColorToDepthPS" "PSMain")
+_rt64_shader(PS RtCopyColorToDepthPS.hlsl "RtCopyColorToDepth2XPS" "PSMain" EXTRA_ARGS -D SAMPLES_2X)
+_rt64_shader(PS RtCopyColorToDepthPS.hlsl "RtCopyColorToDepth4XPS" "PSMain" EXTRA_ARGS -D SAMPLES_4X)
+_rt64_shader(PS RtCopyColorToDepthPS.hlsl "RtCopyColorToDepth8XPS" "PSMain" EXTRA_ARGS -D SAMPLES_8X)
+_rt64_shader(PS RtCopyDepthToColorPS.hlsl "RtCopyDepthToColorPS" "PSMain")
+_rt64_shader(PS RtCopyDepthToColorPS.hlsl "RtCopyDepthToColor2XPS" "PSMain" EXTRA_ARGS -D SAMPLES_2X)
+_rt64_shader(PS RtCopyDepthToColorPS.hlsl "RtCopyDepthToColor4XPS" "PSMain" EXTRA_ARGS -D SAMPLES_4X)
+_rt64_shader(PS RtCopyDepthToColorPS.hlsl "RtCopyDepthToColor8XPS" "PSMain" EXTRA_ARGS -D SAMPLES_8X)
 
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/TextureCopyPS.hlsl" "TextureCopyPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_compute_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/TextureDecodeCS.hlsl" "TextureDecodeCS" "CSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/TextureResolvePS.hlsl" "TextureResolveSamples2XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_2X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/TextureResolvePS.hlsl" "TextureResolveSamples4XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_4X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/TextureResolvePS.hlsl" "TextureResolveSamples8XPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D SAMPLES_8X OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Texture shaders
+_rt64_shader(PS TextureCopyPS.hlsl "TextureCopyPS" "PSMain")
+_rt64_shader(CS TextureDecodeCS.hlsl "TextureDecodeCS" "CSMain")
+_rt64_shader(PS TextureResolvePS.hlsl "TextureResolveSamples2XPS" "PSMain" EXTRA_ARGS -D SAMPLES_2X)
+_rt64_shader(PS TextureResolvePS.hlsl "TextureResolveSamples4XPS" "PSMain" EXTRA_ARGS -D SAMPLES_4X)
+_rt64_shader(PS TextureResolvePS.hlsl "TextureResolveSamples8XPS" "PSMain" EXTRA_ARGS -D SAMPLES_8X)
 
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/VideoInterfacePS.hlsl" "VideoInterfacePSRegular" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/VideoInterfacePS.hlsl" "VideoInterfacePSPixel" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} EXTRA_ARGS -D PIXEL_ANTIALIASING OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Video interface shaders
+_rt64_shader(PS VideoInterfacePS.hlsl "VideoInterfacePSRegular" "PSMain")
+_rt64_shader(PS VideoInterfacePS.hlsl "VideoInterfacePSPixel" "PSMain" EXTRA_ARGS -D PIXEL_ANTIALIASING)
 
-plume_compile_vertex_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/FullScreenVS.hlsl" "FullScreenVS" "VSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_vertex_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/Im3DVS.hlsl" "Im3DVS" "VSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/ComposePS.hlsl" "ComposePS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/DebugPS.hlsl" "DebugPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/Im3DPS.hlsl" "Im3DPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
-plume_compile_pixel_shader(rt64 "${PROJECT_SOURCE_DIR}/src/shaders/PostProcessPS.hlsl" "PostProcessPS" "PSMain"
-    SHADER_MODEL ${RT64_SHADER_MODEL} INCLUDE_DIRS ${RT64_SHADER_INCLUDE_DIRS} OUTPUT_DIR ${RT64_SHADER_OUTPUT_DIR})
+# Misc shaders
+_rt64_shader(VS FullScreenVS.hlsl "FullScreenVS" "VSMain")
+_rt64_shader(VS Im3DVS.hlsl "Im3DVS" "VSMain")
+_rt64_shader(PS ComposePS.hlsl "ComposePS" "PSMain")
+_rt64_shader(PS DebugPS.hlsl "DebugPS" "PSMain")
+_rt64_shader(PS Im3DPS.hlsl "Im3DPS" "PSMain")
+_rt64_shader(PS PostProcessPS.hlsl "PostProcessPS" "PSMain")
 
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/src)
-
