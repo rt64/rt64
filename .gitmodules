@@ -31,9 +31,6 @@
 [submodule "src/contrib/nativefiledialog-extended"]
 	path = src/contrib/nativefiledialog-extended
 	url = https://github.com/btzy/nativefiledialog-extended
-[submodule "src/contrib/spirv-cross"]
-	path = src/contrib/spirv-cross
-	url = https://github.com/KhronosGroup/SPIRV-Cross.git
 [submodule "src/contrib/ddspp"]
 	path = src/contrib/ddspp
 	url = https://github.com/redorav/ddspp.git
