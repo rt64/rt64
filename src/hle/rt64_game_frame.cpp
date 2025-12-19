@@ -552,7 +552,7 @@ namespace RT64 {
                         const DrawCallTile &curCallTile = curWorkload.drawData.callTiles[curCall.callDesc.tileIndex + t];
                         const DrawCallTile &prevCallTile = prevWorkload.drawData.callTiles[prevCall.callDesc.tileIndex + t];
                         bool doTileMatching = curIt.second.doTileMatching && prevIt->second.doTileMatching;
-                        if (!doTileMatching || (curCallTile.tmemHashOrID != prevCallTile.tmemHashOrID)) {
+                        if (doTileMatching && (curCallTile.tmemHashOrID != prevCallTile.tmemHashOrID)) {
                             continue;
                         }
 
