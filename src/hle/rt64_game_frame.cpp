@@ -547,11 +547,12 @@ namespace RT64 {
                     }
                 }
 
-                if ((curCall.callDesc.tileCount == prevCall.callDesc.tileCount) && (curIt.second.doTileMatching && prevIt->second.doTileMatching)) {
+                if ((curCall.callDesc.tileCount == prevCall.callDesc.tileCount) && (curIt.second.doTileInterpolation && prevIt->second.doTileInterpolation)) {
                     for (uint32_t t = 0; t < curCall.callDesc.tileCount; t++) {
                         const DrawCallTile &curCallTile = curWorkload.drawData.callTiles[curCall.callDesc.tileIndex + t];
                         const DrawCallTile &prevCallTile = prevWorkload.drawData.callTiles[prevCall.callDesc.tileIndex + t];
-                        if (curCallTile.tmemHashOrID != prevCallTile.tmemHashOrID) {
+                        bool doTileMatching = curIt.second.doTileMatching && prevIt->second.doTileMatching;
+                        if (!doTileMatching || (curCallTile.tmemHashOrID != prevCallTile.tmemHashOrID)) {
                             continue;
                         }
 
@@ -785,6 +786,7 @@ namespace RT64 {
             const GameCall &call = proj.gameCalls[c];
             uint32_t matrixIdHash = 0;
             bool doTransformMatching = false;
+            bool doTileInterpolation = false;
             bool doTileMatching = false;
             for (uint32_t m = call.callDesc.minWorldMatrix; m <= call.callDesc.maxWorldMatrix; m++) {
                 const uint32_t groupIndex = workload.drawData.worldTransformGroups[m];
@@ -793,10 +795,11 @@ namespace RT64 {
 
                 const bool usesIdWithAutoOrdering = (group.matrixId != G_EX_ID_AUTO) && (group.matrixId != G_EX_ID_IGNORE) && (group.ordering == G_EX_ORDER_AUTO);
                 doTransformMatching = doTransformMatching || (group.matrixId == G_EX_ID_AUTO) || usesIdWithAutoOrdering;
-                doTileMatching = doTileMatching || (group.tileInterpolation != G_EX_COMPONENT_SKIP);
+                doTileInterpolation = doTileInterpolation || (group.tileInterpolation != G_EX_COMPONENT_SKIP);
+                doTileMatching = doTileMatching || (group.tileInterpolation == G_EX_COMPONENT_AUTO);
             }
 
-            hashMap.emplace(hashFromCall(call, matrixIdHash), GameCallMap{ sceneProjIndex, c, doTransformMatching, doTileMatching });
+            hashMap.emplace(hashFromCall(call, matrixIdHash), GameCallMap{ sceneProjIndex, c, doTransformMatching, doTileInterpolation, doTileMatching });
         }
     }
 

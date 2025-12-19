@@ -96,6 +96,7 @@ namespace RT64 {
         uint32_t sceneProjIndex : 10;
         uint32_t callIndex : 20;
         uint32_t doTransformMatching : 1;
+        uint32_t doTileInterpolation : 1;
         uint32_t doTileMatching : 1;
     };
 
