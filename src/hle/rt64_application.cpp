@@ -679,7 +679,7 @@ namespace RT64 {
     }
 
     void Application::updateUserConfig(bool discardFBs) {
-        sharedQueueResources->setUserConfig(userConfig, true);
+        sharedQueueResources->setUserConfig(userConfig, discardFBs);
     }
 
     void Application::updateEmulatorConfig() {
