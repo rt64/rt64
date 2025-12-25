@@ -124,9 +124,13 @@ namespace RT64 {
         const std::scoped_lock lock(ext.sharedResources->configurationMutex);
         const bool sizeChanged = ext.sharedResources->swapChainSizeChanged;
         ext.sharedResources->swapChainSizeChanged = false;
+        
+        // Retrieve the reference height to be used for determining the resolution scale. Impose a minimum in case
+        // the game is using too small of a portion of the VI.
+        const uint32_t MinimumReferenceHeight = 60;
+        const uint32_t referenceHeight = (viFbSize[1] > 0) ? std::max(viFbSize[1], MinimumReferenceHeight) : 240;
 
         // Compute the aspect ratio to be used for the frame.
-        const uint32_t referenceHeight = (viFbSize[1] > 0) ? viFbSize.y : 240;
         workloadConfig.aspectRatioSource = (viFbSize[1] > 0) ? float(viFbSize[0]) / float(viFbSize[1]) : (4.0f / 3.0f);
 
         const auto ratioMode = ext.sharedResources->userConfig.aspectRatio;
