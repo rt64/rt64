@@ -24,8 +24,8 @@
 
 namespace RT64 {
     struct DrawData {
-        std::vector<int16_t> posShorts;
-        std::vector<int16_t> velShorts;
+        std::vector<float> posFloats;
+        std::vector<float> velFloats;
         std::vector<float> tcFloats;
         std::vector<float> tcVelFloats;
         std::vector<uint8_t> normColBytes;
@@ -102,8 +102,8 @@ namespace RT64 {
     struct DrawRanges {
         typedef std::pair<size_t, size_t> Range;
 
-        Range posShorts;
-        Range velShorts;
+        Range posFloats;
+        Range velFloats;
         Range tcFloats;
         Range tcVelFloats;
         Range normColBytes;

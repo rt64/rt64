@@ -43,8 +43,8 @@ namespace RT64 {
     }
 
     void Workload::resetDrawData() {
-        drawData.posShorts.clear();
-        drawData.velShorts.clear();
+        drawData.posFloats.clear();
+        drawData.velFloats.clear();
         drawData.tcFloats.clear();
         drawData.tcVelFloats.clear();
         drawData.normColBytes.clear();
@@ -117,8 +117,8 @@ namespace RT64 {
 
     void Workload::resetDrawDataRanges() {
         auto &r = drawRanges;
-        r.posShorts = { 0, 0 };
-        r.velShorts = { 0, 0 };
+        r.posFloats = { 0, 0 };
+        r.velFloats = { 0, 0 };
         r.tcFloats = { 0, 0 };
         r.tcVelFloats = { 0, 0 };
         r.normColBytes = { 0, 0 };
@@ -162,8 +162,8 @@ namespace RT64 {
 
     void Workload::updateDrawDataRanges() {
         auto &r = drawRanges;
-        r.posShorts.second = drawData.posShorts.size();
-        r.velShorts.second = drawData.velShorts.size();
+        r.posFloats.second = drawData.posFloats.size();
+        r.velFloats.second = drawData.velFloats.size();
         r.tcFloats.second = drawData.tcFloats.size();
         r.tcVelFloats.second = drawData.tcVelFloats.size();
         r.normColBytes.second = drawData.normColBytes.size();
@@ -196,8 +196,8 @@ namespace RT64 {
     void Workload::uploadDrawData(RenderWorker *worker, BufferUploader *bufferUploader) {
         const RenderBufferFlags rtInputFlag = worker->device->getCapabilities().raytracing ? RenderBufferFlag::ACCELERATION_STRUCTURE_INPUT : RenderBufferFlag::NONE;
         bufferUploader->submit(worker, {
-            { drawData.posShorts.data(), drawRanges.posShorts, sizeof(int16_t), RenderBufferFlag::FORMATTED, { RenderFormat::R16_SINT }, &drawBuffers.positionBuffer },
-            { drawData.velShorts.data(), drawRanges.velShorts, sizeof(int16_t), RenderBufferFlag::FORMATTED, { RenderFormat::R16_SINT }, &drawBuffers.velocityBuffer },
+            { drawData.posFloats.data(), drawRanges.posFloats, sizeof(float), RenderBufferFlag::FORMATTED, { RenderFormat::R32_FLOAT }, &drawBuffers.positionBuffer },
+            { drawData.velFloats.data(), drawRanges.velFloats, sizeof(float), RenderBufferFlag::FORMATTED, { RenderFormat::R32_FLOAT }, &drawBuffers.velocityBuffer },
             { drawData.tcFloats.data(), drawRanges.tcFloats, sizeof(float), RenderBufferFlag::FORMATTED, { RenderFormat::R32_FLOAT }, &drawBuffers.texcoordBuffer },
             { drawData.tcVelFloats.data(), drawRanges.tcVelFloats, sizeof(float), RenderBufferFlag::FORMATTED, { RenderFormat::R32_FLOAT }, &drawBuffers.texcoordVelocityBuffer },
             { drawData.normColBytes.data(), drawRanges.normColBytes, sizeof(uint8_t), RenderBufferFlag::FORMATTED | RenderBufferFlag::STORAGE, { RenderFormat::R8_UINT, RenderFormat::R8_SINT }, &drawBuffers.normalColorBuffer },
@@ -254,8 +254,8 @@ namespace RT64 {
 
     void Workload::nextDrawDataRanges() {
         auto &r = drawRanges;
-        nextDrawDataRange(r.posShorts);
-        nextDrawDataRange(r.velShorts);
+        nextDrawDataRange(r.posFloats);
+        nextDrawDataRange(r.velFloats);
         nextDrawDataRange(r.tcFloats);
         nextDrawDataRange(r.tcVelFloats);
         nextDrawDataRange(r.normColBytes);

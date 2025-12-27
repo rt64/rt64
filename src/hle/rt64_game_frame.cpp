@@ -382,7 +382,7 @@ namespace RT64 {
             for (auto &it : workloadsModified) {
                 Workload &workload = workloadQueue.workloads[it.first];
                 if (it.second.positionVelocity) {
-                    uploads.emplace_back(BufferUploader::Upload{ workload.drawData.velShorts.data(), { 0, workload.drawData.velShorts.size() }, sizeof(int16_t), RenderBufferFlag::FORMATTED, { RenderFormat::R16_SINT }, &workload.drawBuffers.velocityBuffer });
+                    uploads.emplace_back(BufferUploader::Upload{ workload.drawData.velFloats.data(), { 0, workload.drawData.velFloats.size() }, sizeof(float), RenderBufferFlag::FORMATTED, { RenderFormat::R32_FLOAT }, &workload.drawBuffers.velocityBuffer });
                 }
 
                 if (it.second.texcoordVelocity) {
@@ -734,19 +734,19 @@ namespace RT64 {
         uint32_t prevVertexIndex = prevWorkload.drawData.worldTransformVertexIndices[prevTransformIndex];
         uint32_t prevVertexCount = prevWorkload.drawData.worldTransformVertexCount(prevTransformIndex);
         if (((curGroup.vertexInterpolation != G_EX_COMPONENT_SKIP) || (curGroup.texcoordInterpolation == G_EX_COMPONENT_AUTO)) && (curVertexCount == prevVertexCount)) {
-            const std::vector<int16_t> &curPosShorts = curWorkload.drawData.posShorts;
-            const std::vector<int16_t> &prevPosShorts = prevWorkload.drawData.posShorts;
-            std::vector<int16_t> &curVelShorts = curWorkload.drawData.velShorts;
-            curVertexHash = XXH3_64bits(&curPosShorts[curVertexIndex * 3], curVertexCount * 3 * sizeof(int16_t));
-            prevVertexHash = XXH3_64bits(&prevPosShorts[prevVertexIndex * 3], prevVertexCount * 3 * sizeof(int16_t));
+            const std::vector<float> &curPosFloats = curWorkload.drawData.posFloats;
+            const std::vector<float> &prevPosFloats = prevWorkload.drawData.posFloats;
+            std::vector<float> &curVelFloats = curWorkload.drawData.velFloats;
+            curVertexHash = XXH3_64bits(&curPosFloats[curVertexIndex * 3], curVertexCount * 3 * sizeof(float));
+            prevVertexHash = XXH3_64bits(&prevPosFloats[prevVertexIndex * 3], prevVertexCount * 3 * sizeof(float));
 
             if ((curGroup.vertexInterpolation != G_EX_COMPONENT_SKIP) && (curVertexHash != prevVertexHash)) {
-                const int16_t *curPosShortsRef = &curPosShorts[curVertexIndex * 3];
-                const int16_t *prevPosShortsRef = &prevPosShorts[prevVertexIndex * 3];
-                int16_t *curVelShortsRef = &curVelShorts[curVertexIndex * 3];
+                const float *curPosFloatsRef = &curPosFloats[curVertexIndex * 3];
+                const float *prevPosFloatsRef = &prevPosFloats[prevVertexIndex * 3];
+                float *curVelFloatsRef = &curVelFloats[curVertexIndex * 3];
                 for (uint32_t i = 0; i < curVertexCount; i++) {
                     for (uint32_t j = 0; j < 3; j++) {
-                        curVelShortsRef[i * 3 + j] = (curPosShortsRef[i * 3 + j] - prevPosShortsRef[i * 3 + j]);
+                        curVelFloatsRef[i * 3 + j] = (curPosFloatsRef[i * 3 + j] - prevPosFloatsRef[i * 3 + j]);
                     }
                 }
 
