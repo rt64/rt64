@@ -307,6 +307,12 @@ namespace RT64 {
             state->rsp->setNoN(!nearClipping);
         }
 
+        void matrixFloatV1(State *state, DisplayList **dl) {
+            uint8_t params = (*dl)->p1(0, 8) ^ state->rsp->pushMask;
+            *dl = *dl + 1;
+            state->rsp->matrixFloat((*dl)->w1, params);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -411,6 +417,7 @@ namespace RT64 {
             Map[G_EX_SETPROJMATRIXFLOAT_V1] = &setProjectionMatrixFloatV1;
             Map[G_EX_SETVIEWMATRIXFLOAT_V1] = &setViewMatrixFloatV1;
             Map[G_EX_SETNEARCLIPPING_V1] = &setNearClippingV1;
+            Map[G_EX_MATRIX_FLOAT_V1] = &matrixFloatV1;
             MapInitialized = true;
         }
     }

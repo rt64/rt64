@@ -233,7 +233,9 @@ namespace RT64 {
         uint32_t fromSegmentedMasked(uint32_t segAddress);
         uint32_t fromSegmentedMaskedPD(uint32_t segAddress);
         void setSegment(uint32_t seg, uint32_t address);
+        void matrixCommon(const hlslpp::float4x4 &floatMatrix, uint32_t address, uint8_t params);
         void matrix(uint32_t address, uint8_t params);
+        void matrixFloat(uint32_t address, uint8_t params);
         void popMatrix(uint32_t count);
         void pushProjectionMatrix();
         void popProjectionMatrix();

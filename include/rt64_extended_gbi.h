@@ -76,7 +76,8 @@
 #define G_EX_SETPROJMATRIXFLOAT_V1      0x00002D
 #define G_EX_SETVIEWMATRIXFLOAT_V1      0x00002E
 #define G_EX_SETNEARCLIPPING_V1         0x00002F
-#define G_EX_MAX                        0x000030
+#define G_EX_MATRIX_FLOAT_V1            0x000030
+#define G_EX_MAX                        0x000031
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -538,6 +539,14 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETNEARCLIPPING_V1, 24, 0), \
         PARAM(isEnabled, 1, 0) \
+    )
+
+#define gEXMatrixFloat(cmd, m, p) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIX_FLOAT_V1, 24, 0), \
+        PARAM((p), 8, 0), \
+        0, \
+        (unsigned)(m) \
     )
 
 #endif // RT64_EXTENDED_GBI

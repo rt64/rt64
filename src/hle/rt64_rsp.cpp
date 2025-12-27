@@ -131,11 +131,7 @@ namespace RT64 {
         segments[seg] = address;
     }
 
-    void RSP::matrix(uint32_t address, uint8_t params) {
-        const uint32_t rdramAddress = fromSegmentedMasked(address);
-        const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
-        const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
-
+    void RSP::matrixCommon(const hlslpp::float4x4 &floatMatrix, uint32_t address, uint8_t params) {
         // Projection matrix.
         hlslpp::float4x4 &viewMatrix = viewMatrixStack[projectionMatrixStackSize - 1];
         hlslpp::float4x4 &projMatrix = projMatrixStack[projectionMatrixStackSize - 1];
@@ -166,7 +162,7 @@ namespace RT64 {
             }
 
             projectionMatrixSegmentedAddress = address;
-            projectionMatrixPhysicalAddress = rdramAddress;
+            projectionMatrixPhysicalAddress = fromSegmentedMasked(address);
             projectionMatrixChanged = true;
             projectionMatrixInversed = false;
         }
@@ -185,10 +181,30 @@ namespace RT64 {
             }
 
             modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1] = address;
-            modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1] = rdramAddress;
+            modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1] = fromSegmentedMasked(address);
         }
-        
+
         modelViewProjChanged = true;
+    }
+
+    void RSP::matrix(uint32_t address, uint8_t params) {
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
+        const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
+        const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
+        matrixCommon(floatMatrix, address, params);
+    }
+
+    void RSP::matrixFloat(uint32_t address, uint8_t params) {
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
+        const float *floats = reinterpret_cast<float *>(state->fromRDRAM(rdramAddress));
+        const hlslpp::float4x4 floatMatrix(
+            floats[0], floats[1], floats[2], floats[3],
+            floats[4], floats[5], floats[6], floats[7],
+            floats[8], floats[9], floats[10], floats[11],
+            floats[12], floats[13], floats[14], floats[15]
+        );
+
+        matrixCommon(floatMatrix, address, params);
     }
 
     void RSP::popMatrix(uint32_t count) {
