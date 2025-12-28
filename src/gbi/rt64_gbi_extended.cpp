@@ -313,6 +313,13 @@ namespace RT64 {
             state->rsp->matrixFloat((*dl)->w1, params);
         }
 
+        void setVertexSegmentV1(State *state, DisplayList **dl) {
+            uint8_t isEnabled = (*dl)->p1(0, 1);
+            uint8_t vertexElement = (*dl)->p1(1, 4);
+            *dl = *dl + 1;
+            state->rsp->setVertexSegmentV1(isEnabled, vertexElement, (*dl)->w0, (*dl)->w1);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -418,6 +425,7 @@ namespace RT64 {
             Map[G_EX_SETVIEWMATRIXFLOAT_V1] = &setViewMatrixFloatV1;
             Map[G_EX_SETNEARCLIPPING_V1] = &setNearClippingV1;
             Map[G_EX_MATRIX_FLOAT_V1] = &matrixFloatV1;
+            Map[G_EX_SETVERTEXSEGMENT_V1] = &setVertexSegmentV1;
             MapInitialized = true;
         }
     }
