@@ -361,7 +361,7 @@ namespace RT64 {
         modelViewProjChanged = changed;
     }
 
-    void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertex(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -370,10 +370,10 @@ namespace RT64 {
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const Vertex *dlVerts = reinterpret_cast<const Vertex *>(state->fromRDRAM(rdramAddress));
         memcpy(&vertices[dstIndex], dlVerts, sizeof(Vertex) * vtxCount);
-        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true, sizeof(Vertex)>(rdramAddress, dstIndex, dstIndex + vtxCount);
     }
     
-    void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertexPD(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -396,10 +396,10 @@ namespace RT64 {
             dst.color.a = col[0];
         }
 
-        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true, sizeof(VertexPD)>(rdramAddress, dstIndex, dstIndex + vtxCount);
     }
 
-    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertexEXV1(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -409,23 +409,29 @@ namespace RT64 {
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const VertexEXV1 *dlVerts = reinterpret_cast<const VertexEXV1 *>(state->fromRDRAM(rdramAddress));
-        auto &velShorts = workload.drawData.velShorts;
+        auto &velFloats = workload.drawData.velFloats;
         auto &tcVelFloats = workload.drawData.tcVelFloats;
         for (uint32_t i = 0; i < vtxCount; i++) {
             const VertexEXV1 &src = dlVerts[i];
-            velShorts.emplace_back(src.v.x - src.xp);
-            velShorts.emplace_back(src.v.y - src.yp);
-            velShorts.emplace_back(src.v.z - src.zp);
+            velFloats.emplace_back(float(src.v.x - src.xp));
+            velFloats.emplace_back(float(src.v.y - src.yp));
+            velFloats.emplace_back(float(src.v.z - src.zp));
             tcVelFloats.emplace_back(0.0f);
             tcVelFloats.emplace_back(0.0f);
             vertices[dstIndex + i] = src.v;
         }
 
-        setVertexCommon<false>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<false, sizeof(VertexEXV1)>(rdramAddress, dstIndex, dstIndex + vtxCount);
     }
 
     void RSP::setVertexColorPD(uint32_t address) {
         vertexColorPDAddress = fromSegmentedMasked(address);
+    }
+
+    void RSP::setVertexSegmentV1(bool isEnabled, uint32_t vertexElement, uint32_t vertexAddress, uint32_t baseSegmentAddress) {
+        extended.vertexAddresses[vertexElement] = vertexAddress;
+        extended.baseSegmentAddresses[vertexElement] = baseSegmentAddress;
+        extended.vertexSegmentEnabled[vertexElement] = isEnabled;
     }
 
     Projection::Type RSP::getCurrentProjectionType() const {
@@ -474,8 +480,8 @@ namespace RT64 {
         projectionIndex = fbPair.changeProjection(curViewProjIndex, type);
     }
 
-    template<bool addEmptyVelocity>
-    void RSP::setVertexCommon(uint8_t dstIndex, uint8_t dstMax) {
+    template<bool addEmptyVelocity, uint32_t vertexSize>
+    void RSP::setVertexCommon(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax) {
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
 
@@ -630,8 +636,8 @@ namespace RT64 {
             curLookAtIndex = 0;
         }
 
-        auto &posShorts = workload.drawData.posShorts;
-        auto &velShorts = workload.drawData.velShorts;
+        auto &posFloats = workload.drawData.posFloats;
+        auto &velFloats = workload.drawData.velFloats;
         auto &tcFloats = workload.drawData.tcFloats;
         auto &tcVelFloats = workload.drawData.tcVelFloats;
         auto &normColBytes = workload.drawData.normColBytes;
@@ -647,9 +653,9 @@ namespace RT64 {
         const uint32_t globalIndex = workload.drawData.vertexCount();
         for (uint32_t i = dstIndex; i < dstMax; i++) {
             auto &v = vertices[i];
-            posShorts.emplace_back(v.x);
-            posShorts.emplace_back(v.y);
-            posShorts.emplace_back(v.z);
+            posFloats.emplace_back(v.x);
+            posFloats.emplace_back(v.y);
+            posFloats.emplace_back(v.z);
             normColBytes.emplace_back(v.color.r);
             normColBytes.emplace_back(v.color.g);
             normColBytes.emplace_back(v.color.b);
@@ -664,11 +670,24 @@ namespace RT64 {
             used[i] = false;
 
             if constexpr (addEmptyVelocity) {
-                velShorts.emplace_back(0);
-                velShorts.emplace_back(0);
-                velShorts.emplace_back(0);
+                velFloats.emplace_back(0.0f);
+                velFloats.emplace_back(0.0f);
+                velFloats.emplace_back(0.0f);
                 tcVelFloats.emplace_back(0.0f);
                 tcVelFloats.emplace_back(0.0f);
+            }
+        }
+        
+        if (extended.vertexSegmentEnabled[G_EX_VERTEX_POSITION]) {
+            uint32_t vertexRdramAddress = fromSegmentedMasked(extended.vertexAddresses[G_EX_VERTEX_POSITION]);
+            uint32_t baseRdramAddress = fromSegmentedMasked(extended.baseSegmentAddresses[G_EX_VERTEX_POSITION]);
+            float *vertexFloats = (float *)(state->fromRDRAM(vertexRdramAddress));
+            uint32_t j = globalIndex * 3;
+            uint32_t k = ((rdramAddress - baseRdramAddress) / vertexSize) * 3;
+            for (uint32_t i = dstIndex; i < dstMax; i++) {
+                posFloats[j++] = vertexFloats[k++];
+                posFloats[j++] = vertexFloats[k++];
+                posFloats[j++] = vertexFloats[k++];
             }
         }
 
@@ -719,18 +738,18 @@ namespace RT64 {
         auto &posScreen = workload.drawData.posScreen;
         uint32_t globalIndex = indices[dstIndex];
         if (used[dstIndex]) {
-            auto &posShorts = workload.drawData.posShorts;
-            auto &velShorts = workload.drawData.velShorts;
+            auto &posFloats = workload.drawData.posFloats;
+            auto &velFloats = workload.drawData.velFloats;
             auto &viewProjIndices = workload.drawData.viewProjIndices;
             auto &worldIndices = workload.drawData.worldIndices;
             auto &posTransformed = workload.drawData.posTransformed;
             const uint32_t newIndex = workload.drawData.vertexCount();
-            posShorts.emplace_back(posShorts[globalIndex * 3 + 0]);
-            posShorts.emplace_back(posShorts[globalIndex * 3 + 1]);
-            posShorts.emplace_back(posShorts[globalIndex * 3 + 2]);
-            velShorts.emplace_back(velShorts[globalIndex * 3 + 0]);
-            velShorts.emplace_back(velShorts[globalIndex * 3 + 1]);
-            velShorts.emplace_back(velShorts[globalIndex * 3 + 2]);
+            posFloats.emplace_back(posFloats[globalIndex * 3 + 0]);
+            posFloats.emplace_back(posFloats[globalIndex * 3 + 1]);
+            posFloats.emplace_back(posFloats[globalIndex * 3 + 2]);
+            velFloats.emplace_back(velFloats[globalIndex * 3 + 0]);
+            velFloats.emplace_back(velFloats[globalIndex * 3 + 1]);
+            velFloats.emplace_back(velFloats[globalIndex * 3 + 2]);
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 0]);
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 1]);
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 2]);
@@ -1250,6 +1269,8 @@ namespace RT64 {
         extended.invViewMatrix = hlslpp::float4x4::identity();
         extended.invProjMatrix = hlslpp::float4x4::identity();
         extended.invViewProjMatrix = hlslpp::float4x4::identity();
+        extended.vertexAddresses = {};
+        extended.baseSegmentAddresses = {};
         extended.forceBranch = false;
     }
 

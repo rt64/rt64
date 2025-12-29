@@ -907,7 +907,6 @@ namespace RT64 {
         const bool scaleLOD = ext.enhancementConfig->textureLOD.scale;
         const bool usesHDR = ext.shaderLibrary->usesHDR;
         const std::vector<uint32_t> &faceIndices = workload.drawData.faceIndices;
-        const std::vector<int16_t> &posShorts = workload.drawData.posShorts;
         uint32_t faceIndex = uint32_t(workload.drawRanges.faceIndices.first);
         uint32_t rawVertexIndex = uint32_t(workload.drawRanges.triPosFloats.first) / 4;
         for (uint32_t f = 0; f < workload.fbPairCount; f++) {

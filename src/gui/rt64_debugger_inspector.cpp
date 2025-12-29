@@ -719,7 +719,7 @@ namespace RT64 {
         }
 
         const auto &drawData = workload.drawData;
-        const auto &posShorts = drawData.posShorts;
+        const auto &posFloats = drawData.posFloats;
         const auto &tcFloats = drawData.tcFloats;
         const auto &normColBytes = drawData.normColBytes;
         const auto &viewProjIndices = drawData.viewProjIndices;
@@ -1038,8 +1038,8 @@ namespace RT64 {
                                         const uint32_t faceIndicesEnd = meshDesc.faceIndicesStart + callDesc.triangleCount * 3;
                                         for (uint32_t i = meshDesc.faceIndicesStart; i < faceIndicesEnd; i++) {
                                             const uint32_t v = faceIndices[i];
-                                            ImGui::Text("#%u: INDEX %u POS %d %d %d TC %0.2f %0.2f NORM/COL %u %u %u %u VIEWPROJ %u WORLD %u FOG %u LIGHT %u/%u LOOKAT %u POS_TF %0.2f %0.2f %0.2f %0.2f POS_SCR %0.2f %0.2f %0.4f",
-                                                i, v, posShorts[v * 3 + 0], posShorts[v * 3 + 1], posShorts[v * 3 + 2], tcFloats[v * 2 + 0], tcFloats[v * 2 + 1],
+                                            ImGui::Text("#%u: INDEX %u POS %0.2f %0.2f %0.2f TC %0.2f %0.2f NORM/COL %u %u %u %u VIEWPROJ %u WORLD %u FOG %u LIGHT %u/%u LOOKAT %u POS_TF %0.2f %0.2f %0.2f %0.2f POS_SCR %0.2f %0.2f %0.4f",
+                                                i, v, posFloats[v * 3 + 0], posFloats[v * 3 + 1], posFloats[v * 3 + 2], tcFloats[v * 2 + 0], tcFloats[v * 2 + 1],
                                                 normColBytes[v * 4 + 0], normColBytes[v * 4 + 1], normColBytes[v * 4 + 2], normColBytes[v * 4 + 3],
                                                 viewProjIndices[v], worldIndices[v], fogIndices[v], lightIndices[v], lightCounts[v], lookAtIndices[v],
                                                 posTransformed[v][0], posTransformed[v][1], posTransformed[v][2], posTransformed[v][3],

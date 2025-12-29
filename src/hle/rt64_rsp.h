@@ -221,6 +221,9 @@ namespace RT64 {
             hlslpp::float4x4 invViewMatrix;
             hlslpp::float4x4 invProjMatrix;
             hlslpp::float4x4 invViewProjMatrix;
+            std::array<uint32_t, G_EX_VERTEX_MAX> vertexAddresses;
+            std::array<uint32_t, G_EX_VERTEX_MAX> baseSegmentAddresses;
+            std::array<bool, G_EX_VERTEX_MAX> vertexSegmentEnabled;
             bool forceBranch;
         } extended;
 
@@ -246,12 +249,13 @@ namespace RT64 {
         void computeModelViewProj();
         void specialComputeModelViewProj();
         void setModelViewProjChanged(bool changed);
-        void setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
-        void setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
-        void setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
+        void setVertex(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
+        void setVertexPD(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
+        void setVertexEXV1(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
         void setVertexColorPD(uint32_t address);
-        template<bool addEmptyVelocity>
-        void setVertexCommon(uint8_t dstIndex, uint8_t dstMax);
+        void setVertexSegmentV1(bool isEnabled, uint32_t vertexElement, uint32_t vertexAddress, uint32_t baseSegmentAddress);
+        template<bool addEmptyVelocity, uint32_t vertexSize>
+        void setVertexCommon(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax);
         void modifyVertex(uint16_t dstIndex, uint16_t dstAttribute, uint32_t value);
         void setGeometryMode(uint32_t mask);
         void pushGeometryMode();
