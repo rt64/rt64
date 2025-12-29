@@ -113,25 +113,6 @@ namespace RT64 {
         return RenderViewport(left, top, right - left, bottom - top);
     }
 
-    FixedRect fixRect(FixedRect rect, const FixedRect &scissorRect, bool fixLR) {
-        // There's a very common error in many games where the fill rectangles are incorrectly configured
-        // with one less coordinate than what's required to fill out the screen because other rectangle methods
-        // under different modes require adding an extra coordinate. Since this behavior often breaks detection
-        // for widescreen hacks, an enhancement option to fix them is available given they're within the tolerance
-        // of one pixel from the scissor coordinates.
-        if (fixLR) {
-            if ((abs(scissorRect.lrx - rect.lrx) <= 4) && (rect.ulx < scissorRect.lrx)) {
-                rect.lrx = scissorRect.lrx;
-            }
-
-            if ((abs(scissorRect.lry - rect.lry) <= 4) && (rect.uly < scissorRect.lry)) {
-                rect.lry = scissorRect.lry;
-            }
-        }
-
-        return rect;
-    }
-    
     hlslpp::float3 viewPositionFrom(hlslpp::float4x4 viewI) {
         return viewI[3].xyz;
     }
@@ -1456,7 +1437,6 @@ namespace RT64 {
         const float aspectRatioScale = adjustRatio ? (p.aspectRatioTarget / p.aspectRatioSource) : 1.0f;
         InstanceDrawCall instanceDrawCall;
         interop::RenderIndices renderIndices;
-        FixedRect fixedRect;
         uint32_t globalCallIndex = 0;
         const float wideWidth = p.fbWidth * p.resolutionScale.x;
         const float originalWidth = p.fbWidth * p.resolutionScale.y;
@@ -1557,10 +1537,9 @@ namespace RT64 {
 
                     float invRatioScale = 1.0f / aspectRatioScale;
                     int32_t horizontalMisalignment = 0;
-                    fixedRect = fixRect(call.callDesc.rect, fbPair.scissorRect, p.fixRectLR);
 
                     // A rect that spans the whole width of the scissor.
-                    if ((fixedRect.ulx <= fbPair.scissorRect.ulx) && (fixedRect.lrx >= fbPair.scissorRect.lrx)) {
+                    if ((call.callDesc.rect.ulx <= fbPair.scissorRect.ulx) && (call.callDesc.rect.lrx >= fbPair.scissorRect.lrx)) {
                         invRatioScale = 1.0f;
                     }
                     // A regular rectangle that should correct its misalignment.
@@ -1568,7 +1547,7 @@ namespace RT64 {
                         horizontalMisalignment = int32_t(p.horizontalMisalignment);
                     }
 
-                    clearRect.rect = convertFixedRect(fixedRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
+                    clearRect.rect = convertFixedRect(call.callDesc.rect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
                 }
                 else if (call.callDesc.extendedType != DrawExtendedType::None) {
                     switch (call.callDesc.extendedType) {
@@ -1657,7 +1636,6 @@ namespace RT64 {
                         case Projection::Type::Rectangle: {
                             instanceDrawCall.type = InstanceDrawCall::Type::RegularRect;
                             triangles.indexStart = call.meshDesc.rawVertexStart;
-                            fixedRect = fixRect(call.callDesc.rect, fbPair.scissorRect, p.fixRectLR);
 
                             bool tileCopiesUsed = false;
                             for (uint32_t t = 0; (t < call.callDesc.tileCount) && !tileCopiesUsed; t++) {
@@ -1666,7 +1644,7 @@ namespace RT64 {
 
                             // The call's scissor spans the whole width of the framebuffer pair scissor. The rect must not be using extended origins.
                             const bool regularOrigins = (call.callDesc.rectLeftOrigin == G_EX_ORIGIN_NONE) && (call.callDesc.rectRightOrigin == G_EX_ORIGIN_NONE);
-                            const bool coversScissorWidth = regularOrigins && (fixedRect.ulx <= fbPair.scissorRect.ulx) && (fixedRect.lrx >= fbPair.scissorRect.lrx);
+                            const bool coversScissorWidth = regularOrigins && (call.callDesc.rect.ulx <= fbPair.scissorRect.ulx) && (call.callDesc.rect.lrx >= fbPair.scissorRect.lrx);
                             if (tileCopiesUsed || coversScissorWidth) {
                                 invRatioScale = 1.0f;
                             }
@@ -1674,7 +1652,7 @@ namespace RT64 {
                                 horizontalMisalignment = p.horizontalMisalignment;
                             }
 
-                            RenderViewport viewportRect = convertViewportRect(fixedRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
+                            RenderViewport viewportRect = convertViewportRect(call.callDesc.rect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
                             triangles.screenScale = { viewportRect.width / framebuffer.viewport.width, viewportRect.height / framebuffer.viewport.height };
                             triangles.screenOffset.x = halfPixelOffset.x + ((viewportRect.x + viewportRect.width / 2.0f) - halfViewportSize.x) / halfViewportSize.x;
                             triangles.screenOffset.y = halfPixelOffset.y + (halfViewportSize.y - (viewportRect.y + viewportRect.height / 2.0f)) / halfViewportSize.y;

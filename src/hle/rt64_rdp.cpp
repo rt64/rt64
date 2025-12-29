@@ -1168,6 +1168,23 @@ namespace RT64 {
         lrx += extAlignment.rightOffset;
         lry += extAlignment.bottomOffset;
 
+        // There's a very common error in many games where rectangles are incorrectly configured with one
+        // less pixel than what's required to fill out the screen because other rectangle methods under
+        // different modes require adding an extra coordinate. Since this behavior often breaks detection
+        // for widescreen hacks, an enhancement option to fix them is available given they're within the
+        // tolerance of one pixel from the scissor coordinates.
+        const FixedRect &scissorRect = state->rdp->scissorRectStack[scissorStackSize - 1];
+        const bool fixRectLR = state->ext.enhancementConfig->rect.fixRectLR;
+        if (!scissorRect.isNull() && fixRectLR) {
+            if ((abs(scissorRect.lrx - lrx) <= 4) && (ulx < scissorRect.lrx)) {
+                lrx = scissorRect.lrx;
+            }
+
+            if ((abs(scissorRect.lry - lry) <= 4) && (uly < scissorRect.lry)) {
+                lry = scissorRect.lry;
+            }
+        }
+
         const FixedRect drawRect(movedFromOrigin(ulx, extAlignment.leftOrigin), uly, movedFromOrigin(lrx, extAlignment.rightOrigin), lry);
         if (drawRect.isEmpty()) {
             return;
@@ -1187,7 +1204,6 @@ namespace RT64 {
             fbPair.changeProjection(0, Projection::Type::Rectangle);
         }
 
-        const FixedRect &scissorRect = state->rdp->scissorRectStack[scissorStackSize - 1];
         if (!scissorRect.isNull()) {
             fbPair.scissorRect.merge(scissorRect);
 

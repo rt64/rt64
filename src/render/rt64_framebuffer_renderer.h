@@ -144,7 +144,6 @@ namespace RT64 {
             uint64_t submissionFrame;
             float deltaTimeMs;
             bool ubershadersOnly;
-            bool fixRectLR;
             bool postBlendNoise;
             bool postBlendNoiseNegative;
             uint32_t maxGameCall;

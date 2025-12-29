@@ -1264,7 +1264,6 @@ namespace RT64 {
                         drawParams.submissionFrame = workload.submissionFrame;
                         drawParams.deltaTimeMs = 0.0f;
                         drawParams.ubershadersOnly = false;
-                        drawParams.fixRectLR = false;
                         drawParams.postBlendNoise = ext.emulatorConfig->dither.postBlendNoise;
                         drawParams.postBlendNoiseNegative = ext.emulatorConfig->dither.postBlendNoiseNegative;
                         drawParams.maxGameCall = UINT_MAX;

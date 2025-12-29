@@ -250,7 +250,6 @@ namespace RT64 {
         }
 #   endif
         
-        workloadConfig.fixRectLR = ext.sharedResources->enhancementConfig.rect.fixRectLR;
         workloadConfig.postBlendNoise = ext.sharedResources->emulatorConfig.dither.postBlendNoise;
         workloadConfig.postBlendNoiseNegative = ext.sharedResources->emulatorConfig.dither.postBlendNoiseNegative;
         
@@ -637,7 +636,6 @@ namespace RT64 {
                     drawParams.submissionFrame = workload.submissionFrame;
                     drawParams.deltaTimeMs = deltaTimeMs;
                     drawParams.ubershadersOnly = ubershadersOnly;
-                    drawParams.fixRectLR = workloadConfig.fixRectLR;
                     drawParams.postBlendNoise = workloadConfig.postBlendNoise;
                     drawParams.postBlendNoiseNegative = workloadConfig.postBlendNoiseNegative;
                     drawParams.maxGameCall = std::min(gameCallCountMax - gameCallCursor, fbPair.gameCallCount);
