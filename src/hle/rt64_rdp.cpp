@@ -978,8 +978,8 @@ namespace RT64 {
         scissorRect.lrx = std::clamp(movedFromOrigin(lrx + extAlignment.rightOffset, extAlignment.rightOrigin), extAlignment.leftBound, extAlignment.rightBound);
         scissorRect.lry = std::clamp(lry + extAlignment.bottomOffset, extAlignment.topBound, extAlignment.bottomBound);
         scissorModeStack[scissorStackSize - 1] = mode;
-        extended.scissorLeftOrigin = extAlignment.leftOrigin;
-        extended.scissorRightOrigin = extAlignment.rightOrigin;
+        extended.scissorLeftOriginStack[scissorStackSize - 1] = extAlignment.leftOrigin;
+        extended.scissorRightOriginStack[scissorStackSize - 1] = extAlignment.rightOrigin;
         state->updateDrawStatusAttribute(DrawAttribute::Scissor);
     }
 
@@ -987,6 +987,8 @@ namespace RT64 {
         if (scissorStackSize < RDP_EXTENDED_STACK_SIZE) {
             scissorRectStack[scissorStackSize] = scissorRectStack[scissorStackSize - 1];
             scissorModeStack[scissorStackSize] = scissorModeStack[scissorStackSize - 1];
+            extended.scissorLeftOriginStack[scissorStackSize] = extended.scissorLeftOriginStack[scissorStackSize - 1];
+            extended.scissorRightOriginStack[scissorStackSize] = extended.scissorRightOriginStack[scissorStackSize - 1];
             scissorStackSize++;
         }
     }
@@ -1071,8 +1073,8 @@ namespace RT64 {
     }
 
     void RDP::clearExtended() {
-        extended.scissorLeftOrigin = G_EX_ORIGIN_NONE;
-        extended.scissorRightOrigin = G_EX_ORIGIN_NONE;
+        extended.scissorLeftOriginStack[0] = G_EX_ORIGIN_NONE;
+        extended.scissorRightOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.drawExtendedFlags = {};
         extended.global.rect = ExtendedAlignment();
         extended.global.scissor = ExtendedAlignment();

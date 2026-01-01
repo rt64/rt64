@@ -212,8 +212,8 @@ namespace RT64 {
         if (drawStatus.isChanged(DrawAttribute::Scissor)) {
             drawCall.scissorRect = rdp->scissorRectStack[rdp->scissorStackSize - 1];
             drawCall.scissorMode = rdp->scissorModeStack[rdp->scissorStackSize - 1];
-            drawCall.scissorLeftOrigin = rdp->extended.scissorLeftOrigin;
-            drawCall.scissorRightOrigin = rdp->extended.scissorRightOrigin;
+            drawCall.scissorLeftOrigin = rdp->extended.scissorLeftOriginStack[rdp->scissorStackSize - 1];
+            drawCall.scissorRightOrigin = rdp->extended.scissorRightOriginStack[rdp->scissorStackSize - 1];
         }
         
         if (drawStatus.isChanged(DrawAttribute::Texture) || textureCheck) {

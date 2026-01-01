@@ -204,9 +204,10 @@ namespace RT64 {
                 int16_t viewportOffsetY;
             } global;
 
+            std::array<uint16_t, RSP_EXTENDED_STACK_SIZE> viewportOriginStack;
+
             DrawExtendedType drawExtendedType;
             DrawExtendedData drawExtendedData;
-            uint16_t viewportOrigin;
             std::array<TransformGroup, RSP_MATRIX_ID_STACK_SIZE> modelMatrixIdStack;
             int modelMatrixIdStackSize;
             bool modelMatrixIdStackChanged;

@@ -467,7 +467,7 @@ namespace RT64 {
             drawData.viewProjTransforms.emplace_back(hlslpp::mul(extended.invViewProjMatrix, viewProjMatrixStack[projectionMatrixStackSize - 1]));
             drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdGroupIndex);
             drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
-            drawData.viewportOrigins.emplace_back(extended.viewportOrigin);
+            drawData.viewportOrigins.emplace_back(extended.viewportOriginStack[viewportStackSize - 1]);
 
             for (uint32_t j = 0; j < 4; j++) {
                 drawData.viewportClipRatios.emplace_back(clipRatios[j]);
@@ -893,13 +893,14 @@ namespace RT64 {
         viewport.translate.x = float(state->rdp->movedFromOrigin(vp->vtrans[1], ori) + offx) / 4.0f;
         viewport.translate.y = float(vp->vtrans[0] + offy) / 4.0f;
         viewport.translate.z = float(vp->vtrans[3]) / DepthRange;
-        extended.viewportOrigin = ori;
+        extended.viewportOriginStack[viewportStackSize - 1] = ori;
         viewportChanged = true;
     }
 
     void RSP::pushViewport() {
         if (viewportStackSize < RSP_EXTENDED_STACK_SIZE) {
             viewportStack[viewportStackSize] = viewportStack[viewportStackSize - 1];
+            extended.viewportOriginStack[viewportStackSize] = extended.viewportOriginStack[viewportStackSize - 1];
             viewportStackSize++;
         }
     }
@@ -1251,7 +1252,7 @@ namespace RT64 {
     void RSP::clearExtended() {
         extended.drawExtendedType = DrawExtendedType::None;
         extended.drawExtendedData = {};
-        extended.viewportOrigin = G_EX_ORIGIN_NONE;
+        extended.viewportOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.global.viewportOrigin = G_EX_ORIGIN_NONE;
         extended.global.viewportOffsetX = 0;
         extended.global.viewportOffsetY = 0;
