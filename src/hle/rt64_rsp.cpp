@@ -1272,6 +1272,7 @@ namespace RT64 {
         extended.invViewProjMatrix = hlslpp::float4x4::identity();
         extended.vertexAddresses = {};
         extended.baseSegmentAddresses = {};
+        extended.vertexSegmentEnabled = {};
         extended.forceBranch = false;
     }
 
