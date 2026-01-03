@@ -262,16 +262,25 @@ namespace RT64 {
         workloadGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Workload Graphics", RenderCommandListType::DIRECT);
         presentGraphicsWorker = std::make_unique<RenderWorker>(device.get(), "Present Graphics", RenderCommandListType::DIRECT);
 
-        // Create the swap chain with the buffer count specified from the configuration.
-        // We specify a max latency of 1 as we use it to wait right before the next presentation call is issued.
-        const uint32_t bufferCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
+        // Create the swap chain with the texture count specified from the configuration.
+        RenderSwapChainDesc swapChainDesc;
+        swapChainDesc.renderWindow = appWindow->windowHandle;
+        swapChainDesc.format = RenderFormat::B8G8R8A8_UNORM;
+        swapChainDesc.textureCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
 
+        // Enable present wait if supported by the device. We specify a max latency of 1 as we use it to wait right before the nex
+        // presentation call is issued.
+        // 
         // FIXME: RT64 used to have an error where the swap chain's wait() function would wait for one extra frame under Vulkan. When
         // updating to using plume, this was corrected, but it exposed an issue with NVIDIA drivers (since 580.105.08 only on Linux)
         // where the wait() will take far more time than expected and cause stuttering. While this seems to work fine everywhere else,
         // we stick to the pre-plume approach to be safe.
-        const uint32_t maxFrameLatency = (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan) ? 2 : 1;
-        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(appWindow->windowHandle, bufferCount, RenderFormat::B8G8R8A8_UNORM, maxFrameLatency);
+        if (device->getCapabilities().presentWait) {
+            swapChainDesc.maxFrameLatency = (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan) ? 2 : 1;
+            swapChainDesc.enablePresentWait = true;
+        }
+
+        swapChain = presentGraphicsWorker->commandQueue->createSwapChain(swapChainDesc);
 
         // Before configuring multisampling, make sure the device actually supports it for the formats we'll use. If it doesn't, turn off antialiasing in the configuration.
         const RenderSampleCounts colorSampleCounts = device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR));
