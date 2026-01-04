@@ -480,6 +480,24 @@ namespace RT64 {
         projectionIndex = fbPair.changeProjection(curViewProjIndex, type);
     }
 
+    template<uint32_t floatCount, uint32_t vertexSize>
+    void RSP::readExtendedVertexSegment(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax, uint32_t globalIndex, uint32_t vertexElement) {
+        if (!extended.vertexSegmentEnabled[vertexElement]) {
+            return;
+        }
+
+        uint32_t vertexRdramAddress = fromSegmentedMasked(extended.vertexAddresses[vertexElement]);
+        uint32_t baseRdramAddress = fromSegmentedMasked(extended.baseSegmentAddresses[vertexElement]);
+        float *vertexFloats = (float *)(state->fromRDRAM(vertexRdramAddress));
+        uint32_t j = globalIndex * floatCount;
+        uint32_t k = ((rdramAddress - baseRdramAddress) / vertexSize) * floatCount;
+        for (uint32_t i = dstIndex; i < dstMax; i++) {
+            for (uint32_t f = 0; f < floatCount; f++) {
+                posFloats[j++] = vertexFloats[k++];
+            }
+        }
+    }
+
     template<bool addEmptyVelocity, uint32_t vertexSize>
     void RSP::setVertexCommon(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax) {
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
@@ -677,26 +695,17 @@ namespace RT64 {
                 tcVelFloats.emplace_back(0.0f);
             }
         }
-        
-        if (extended.vertexSegmentEnabled[G_EX_VERTEX_POSITION]) {
-            uint32_t vertexRdramAddress = fromSegmentedMasked(extended.vertexAddresses[G_EX_VERTEX_POSITION]);
-            uint32_t baseRdramAddress = fromSegmentedMasked(extended.baseSegmentAddresses[G_EX_VERTEX_POSITION]);
-            float *vertexFloats = (float *)(state->fromRDRAM(vertexRdramAddress));
-            uint32_t j = globalIndex * 3;
-            uint32_t k = ((rdramAddress - baseRdramAddress) / vertexSize) * 3;
-            for (uint32_t i = dstIndex; i < dstMax; i++) {
-                posFloats[j++] = vertexFloats[k++];
-                posFloats[j++] = vertexFloats[k++];
-                posFloats[j++] = vertexFloats[k++];
-            }
-        }
 
+        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_POSITION);
+        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_VELOCITY);
+
+        uint32_t floatIndex = globalIndex * 3;
         for (uint32_t i = dstIndex; i < dstMax; i++) {
-            auto &v = vertices[i];
-            const hlslpp::float4 tfPos = hlslpp::mul(hlslpp::float4(v.x, v.y, v.z, 1.0f), mvp);
+            const hlslpp::float4 tfPos = hlslpp::mul(hlslpp::float4(posFloats[floatIndex + 0], posFloats[floatIndex + 1], posFloats[floatIndex + 2], 1.0f), mvp);
             const interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
             posTransformed.emplace_back(tfPos);
             posScreen.emplace_back((tfPos.xyz / hlslpp::float3(tfPos.w, -tfPos.w, tfPos.w)) * viewport.scale + viewport.translate);
+            floatIndex += 3;
         }
 
         if (usesTextureGen) {

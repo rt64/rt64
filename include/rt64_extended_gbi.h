@@ -113,7 +113,8 @@
 #define G_EX_ASPECT_ADJUST          0x2
 
 #define G_EX_VERTEX_POSITION        0x0
-#define G_EX_VERTEX_MAX             0x1
+#define G_EX_VERTEX_VELOCITY        0x1
+#define G_EX_VERTEX_MAX             0x2
 
 #define G_EX_DISABLED               0x0
 #define G_EX_ENABLED                0x1
