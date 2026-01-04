@@ -481,7 +481,7 @@ namespace RT64 {
     }
 
     template<uint32_t floatCount, uint32_t vertexSize>
-    void RSP::readExtendedVertexSegment(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax, uint32_t globalIndex, uint32_t vertexElement) {
+    void RSP::readExtendedVertexSegment(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax, uint32_t globalIndex, uint32_t vertexElement, std::vector<float> &floatsVector) {
         if (!extended.vertexSegmentEnabled[vertexElement]) {
             return;
         }
@@ -493,7 +493,7 @@ namespace RT64 {
         uint32_t k = ((rdramAddress - baseRdramAddress) / vertexSize) * floatCount;
         for (uint32_t i = dstIndex; i < dstMax; i++) {
             for (uint32_t f = 0; f < floatCount; f++) {
-                posFloats[j++] = vertexFloats[k++];
+                floatsVector[j++] = vertexFloats[k++];
             }
         }
     }
@@ -696,8 +696,8 @@ namespace RT64 {
             }
         }
 
-        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_POSITION);
-        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_VELOCITY);
+        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_POSITION, posFloats);
+        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_VELOCITY, velFloats);
 
         uint32_t floatIndex = globalIndex * 3;
         for (uint32_t i = dstIndex; i < dstMax; i++) {

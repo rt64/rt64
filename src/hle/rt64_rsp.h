@@ -256,7 +256,7 @@ namespace RT64 {
         void setVertexColorPD(uint32_t address);
         void setVertexSegmentV1(bool isEnabled, uint32_t vertexElement, uint32_t vertexAddress, uint32_t baseSegmentAddress);
         template<uint32_t floatCount, uint32_t vertexSize>
-        void readExtendedVertexSegment(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax, uint32_t globalIndex, uint32_t vertexElement);
+        void readExtendedVertexSegment(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax, uint32_t globalIndex, uint32_t vertexElement, std::vector<float> &floatsVector);
         template<bool addEmptyVelocity, uint32_t vertexSize>
         void setVertexCommon(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax);
         void modifyVertex(uint16_t dstIndex, uint16_t dstAttribute, uint32_t value);
