@@ -268,7 +268,7 @@ namespace RT64 {
         swapChainDesc.format = RenderFormat::B8G8R8A8_UNORM;
         swapChainDesc.textureCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
 
-        // Enable present wait if supported by the device. We specify a max latency of 1 as we use it to wait right before the nex
+        // Enable present wait if supported by the device. We specify a max latency of 1 as we use it to wait right before the next
         // presentation call is issued.
         // 
         // FIXME: RT64 used to have an error where the swap chain's wait() function would wait for one extra frame under Vulkan. When
