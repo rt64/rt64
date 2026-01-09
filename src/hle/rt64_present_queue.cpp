@@ -424,26 +424,6 @@ namespace RT64 {
 
         presentIdCondition.notify_all();
     }
-
-    bool PresentQueue::detectPresentWait() {
-        if (!ext.device->getCapabilities().presentWait) {
-            return false;
-        }
-
-#ifdef _WIN32
-        // Present wait exhibits issues on NVIDIA when using a system with more than one monitor under Vulkan,
-        // where the driver will actively synchronize with the refresh rate of the wrong display. We disable
-        // the ability to do present wait as long as this issue remains.
-        bool isVulkan = (ext.createdGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan);
-        bool isNVIDIA = (ext.device->getDescription().vendor == RenderDeviceVendor::NVIDIA);
-        int monitorCount = GetSystemMetrics(SM_CMONITORS);
-        if (isVulkan && isNVIDIA && (monitorCount > 1)) {
-            return false;
-        }
-#endif
-
-        return true;
-    }
     
     void PresentQueue::threadAdvanceBarrier() {
         std::scoped_lock<std::mutex> cursorLock(cursorMutex);
@@ -458,7 +438,7 @@ namespace RT64 {
         drawSemaphore = ext.device->createCommandSemaphore();
 
         // Since the swap chain might not need a resize right away, detect present wait.
-        presentWaitEnabled = detectPresentWait();
+        presentWaitEnabled = ext.device->getCapabilities().presentWait;
 
         int processCursor = -1;
         bool skipPresent = false;
@@ -489,7 +469,6 @@ namespace RT64 {
                     ext.presentGraphicsWorker->wait();
                     swapChainValid = ext.swapChain->resize();
                     swapChainFramebuffers.clear();
-                    presentWaitEnabled = detectPresentWait();
 
                     if (swapChainValid) {
                         ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());

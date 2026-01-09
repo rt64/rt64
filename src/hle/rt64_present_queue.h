@@ -70,7 +70,6 @@ namespace RT64 {
         void threadPresent(const Present &present, bool &swapChainValid);
         void skipInterpolation();
         void notifyPresentId(const Present &present);
-        bool detectPresentWait();
         void threadAdvanceBarrier();
         void threadLoop();
     };
