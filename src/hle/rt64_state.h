@@ -145,6 +145,8 @@ namespace RT64 {
         void checkRDRAM();
         void fullSync();
         void fullSyncFramebufferPairTiles(Workload &workload, FramebufferPair &fbPair, uint32_t &loadOpCursor, uint32_t &rdpTileCursor);
+        void listProcessBegin();
+        void listProcessEnd();
         void updateScreen(const VI &newVI, bool fromEarlyPresent);
         void updateMultisampling();
         void inspect();

@@ -753,6 +753,14 @@ namespace RT64 {
         }
     }
     
+    void State::listProcessBegin() {
+        dlCpuProfiler.start();
+    }
+
+    void State::listProcessEnd() {
+        dlCpuProfiler.end();
+    }
+
     void State::fullSync() {
         flush();
         submitFramebufferPair(FramebufferPair::FlushReason::ProcessDisplayListsEnd);
