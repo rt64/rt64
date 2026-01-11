@@ -758,8 +758,8 @@ namespace RT64 {
             const std::vector<float> &curTcFloats = curWorkload.drawData.tcFloats;
             const std::vector<float> &prevTcFloats = prevWorkload.drawData.tcFloats;
             std::vector<float> &curVelFloats = curWorkload.drawData.tcVelFloats;
-            const float WrappingModulo = 256.0f;
-            const float WrappingModuloHalf = WrappingModulo / 2.0f;
+            const hlslpp::float2 WrappingModulo = curWorkload.extended.texcoordWrapPoint;
+            const hlslpp::float2 WrappingModuloHalf = WrappingModulo / 2.0f;
             uint64_t curTcHash = XXH3_64bits(&curTcFloats[curVertexIndex * 2], curVertexCount * 2 * sizeof(float));
             uint64_t prevTcHash = XXH3_64bits(&prevTcFloats[prevVertexIndex * 2], prevVertexCount * 2 * sizeof(float));
             if (((curGroup.texcoordInterpolation != G_EX_COMPONENT_AUTO) || (curVertexHash == prevVertexHash)) && (curTcHash != prevTcHash)) {
@@ -767,12 +767,15 @@ namespace RT64 {
                 const float *prevTcFloatsRef = &prevTcFloats[prevVertexIndex * 2];
                 float *curVelFloatsRef = &curVelFloats[curVertexIndex * 2];
                 for (uint32_t i = 0; i < curVertexCount; i++) {
-                    for (uint32_t j = 0; j < 2; j++) {
-                        curVelFloatsRef[i * 2 + j] = (curTcFloatsRef[i * 2 + j] - prevTcFloatsRef[i * 2 + j]);
+                    curVelFloatsRef[i * 2 + 0] = (curTcFloatsRef[i * 2 + 0] - prevTcFloatsRef[i * 2 + 0]);
+                    curVelFloatsRef[i * 2 + 1] = (curTcFloatsRef[i * 2 + 1] - prevTcFloatsRef[i * 2 + 1]);
 
-                        if (fabsf(curVelFloatsRef[i * 2 + j]) > WrappingModuloHalf) {
-                            curVelFloatsRef[i * 2 + j] -= lround(curVelFloatsRef[i * 2 + j] / WrappingModulo) * WrappingModulo;
-                        }
+                    if (fabsf(curVelFloatsRef[i * 2]) > WrappingModuloHalf[0]) {
+                        curVelFloatsRef[i * 2] -= lround(curVelFloatsRef[i * 2] / WrappingModulo[0]) * WrappingModulo[0];
+                    }
+
+                    if (fabsf(curVelFloatsRef[i * 2 + 1]) > WrappingModuloHalf[1]) {
+                        curVelFloatsRef[i * 2 + 1] -= lround(curVelFloatsRef[i * 2 + 1] / WrappingModulo[1]) * WrappingModulo[1];
                     }
                 }
             }

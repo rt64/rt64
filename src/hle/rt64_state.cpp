@@ -780,6 +780,7 @@ namespace RT64 {
         
         // Copy the current state's extended parameters into the workload.
         workload.extended.ditherNoiseStrength = extended.ditherNoiseStrength;
+        workload.extended.texcoordWrapPoint = extended.texcoordWrapPoint;
 
         auto emitTileWarning = [&](CommandWarning warning, size_t tileIndex) {
             warning.indexType = CommandWarning::IndexType::TileIndex;
@@ -2701,6 +2702,10 @@ namespace RT64 {
     
     void State::setExtendedRDRAM(bool isExtended) {
         extended.extendRDRAM = isExtended;
+    }
+
+    void State::setTexcoordWrapPoint(int16_t wrapU, int16_t wrapV) {
+        extended.texcoordWrapPoint = { wrapU / 4.0f, wrapV / 4.0f };
     }
 
     void State::startSpriteCommand(uint64_t replacementHash) {

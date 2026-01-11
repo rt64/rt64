@@ -320,6 +320,12 @@ namespace RT64 {
             state->rsp->setVertexSegmentV1(isEnabled, vertexElement, (*dl)->w0, (*dl)->w1);
         }
 
+        void setTexcoordWrapPointV1(State* state, DisplayList** dl) {
+            const int16_t wrapPointU = (*dl)->p1(16, 16);
+            const int16_t wrapPointV = (*dl)->p1(0, 16);
+            state->setTexcoordWrapPoint(wrapPointU, wrapPointV);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -426,6 +432,7 @@ namespace RT64 {
             Map[G_EX_SETNEARCLIPPING_V1] = &setNearClippingV1;
             Map[G_EX_MATRIX_FLOAT_V1] = &matrixFloatV1;
             Map[G_EX_SETVERTEXSEGMENT_V1] = &setVertexSegmentV1;
+            Map[G_EX_SETTEXCOORDWRAPPOINT_V1] = &setTexcoordWrapPointV1;
             MapInitialized = true;
         }
     }
