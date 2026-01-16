@@ -73,6 +73,8 @@ add_subdirectory(src/contrib/zstd/build/cmake)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
     set(PLUME_SDL_VULKAN_ENABLED TRUE)
+elseif (APPLE)
+    set(PLUME_APPLE_RETINA_ENABLED OFF)
 endif()
 
 add_subdirectory(src/contrib/plume)
