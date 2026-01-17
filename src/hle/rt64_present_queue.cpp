@@ -363,7 +363,7 @@ namespace RT64 {
                     commandList->end();
                     const RenderCommandList *commandList = ext.presentGraphicsWorker->commandList.get();
                     RenderCommandSemaphore *waitSemaphore = acquiredSemaphore.get();
-                    RenderCommandSemaphore *signalSemaphore = drawSemaphore.get();
+                    RenderCommandSemaphore *signalSemaphore = drawSemaphores[swapChainIndex].get();
                     ext.presentGraphicsWorker->commandQueue->executeCommandLists(&commandList, 1, &waitSemaphore, 1, &signalSemaphore, 1, ext.presentGraphicsWorker->commandFence.get());
                     ext.presentGraphicsWorker->wait();
                 }
@@ -398,7 +398,7 @@ namespace RT64 {
                     ext.swapChain->wait();
                 }
 
-                RenderCommandSemaphore *waitSemaphore = drawSemaphore.get();
+                RenderCommandSemaphore *waitSemaphore = drawSemaphores[swapChainIndex].get();
                 presentTimestamp = Timer::current();
                 swapChainValid = ext.swapChain->present(swapChainIndex, &waitSemaphore, 1);
                 presentProfiler.logAndRestart();
@@ -433,9 +433,8 @@ namespace RT64 {
     void PresentQueue::threadLoop() {
         Thread::setCurrentThreadName("RT64 Present");
 
-        // Create the semaphores used by the swap chains.
+        // Create the semaphore the acquire method will use.
         acquiredSemaphore = ext.device->createCommandSemaphore();
-        drawSemaphore = ext.device->createCommandSemaphore();
 
         // Since the swap chain might not need a resize right away, detect present wait.
         presentWaitEnabled = ext.device->getCapabilities().presentWait;
@@ -472,6 +471,11 @@ namespace RT64 {
 
                     if (swapChainValid) {
                         ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
+                        
+                        // Create as many semaphores to signal as textures there are.
+                        while (drawSemaphores.size() < ext.swapChain->getTextureCount()) {
+                            drawSemaphores.emplace_back(ext.device->createCommandSemaphore());
+                        }
                     }
                 }
 
