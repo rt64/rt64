@@ -436,6 +436,11 @@ namespace RT64 {
         // Create the semaphore the acquire method will use.
         acquiredSemaphore = ext.device->createCommandSemaphore();
 
+        // Create as many semaphores to signal as textures there are.
+        while (drawSemaphores.size() < ext.swapChain->getTextureCount()) {
+            drawSemaphores.emplace_back(ext.device->createCommandSemaphore());
+        }
+
         // Since the swap chain might not need a resize right away, detect present wait.
         presentWaitEnabled = ext.device->getCapabilities().presentWait;
 
@@ -472,7 +477,7 @@ namespace RT64 {
                     if (swapChainValid) {
                         ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
                         
-                        // Create as many semaphores to signal as textures there are.
+                        // Texture count could've changed after resize, so new semaphores are needed.
                         while (drawSemaphores.size() < ext.swapChain->getTextureCount()) {
                             drawSemaphores.emplace_back(ext.device->createCommandSemaphore());
                         }
