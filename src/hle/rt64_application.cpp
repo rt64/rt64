@@ -232,27 +232,28 @@ namespace RT64 {
             }
         }
         else if (deviceDescription.vendor == RenderDeviceVendor::AMD) {
-            if (automaticGraphicsAPI) {
+            if (automaticGraphicsAPI && (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12)) {
                 // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
                 bool isRX7 = deviceDescription.name.find("AMD Radeon RX 7") != std::string::npos;
                 bool isTheCoolerRX7 = deviceDescription.name.find("AMD Radeon(TM) RX 7") != std::string::npos;
                 bool isRDNA3 = isRX7 || isTheCoolerRX7;
-                bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
+                bool useHDRinD3D12 = (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
                 forceVulkanForCompatibility = isRDNA3 && useHDRinD3D12;
             }
         }
-#if 0
         else if (deviceDescription.vendor == RenderDeviceVendor::INTEL) {
-            if (automaticGraphicsAPI) {
-                const uint64_t BrokenIntelDriverD3D12 = 0x0000000000000000; // TBD
+            if (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
+                // End of life driver for Intel 6th Gen Processor Graphics. D3D12 fails with DXGI_ERROR_DEVICE_REMOVED after running a display list in RT64. Vulkan has been reported to work fine on this driver.
+                const uint64_t BrokenIntelDriverD3D12 = 0x1F000000650843; // 31.0.101.2115
                 if (deviceDescription.driverVersion <= BrokenIntelDriverD3D12) {
                     forceVulkanForCompatibility = true;
                 }
             }
         }
-#endif
-
+        
         if (forceVulkanForCompatibility) {
+            fprintf(stdout, "Falling back to Vulkan due to device workaround.\n");
+
             device.reset();
             renderInterface.reset();
             renderInterface = CreateVulkanInterfaceWrapper(appWindow->windowHandle);
