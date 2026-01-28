@@ -232,13 +232,19 @@ namespace RT64 {
             }
         }
         else if (deviceDescription.vendor == RenderDeviceVendor::AMD) {
-            if (automaticGraphicsAPI && (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12)) {
-                // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
-                bool isRX7 = deviceDescription.name.find("AMD Radeon RX 7") != std::string::npos;
-                bool isTheCoolerRX7 = deviceDescription.name.find("AMD Radeon(TM) RX 7") != std::string::npos;
-                bool isRDNA3 = isRX7 || isTheCoolerRX7;
-                bool useHDRinD3D12 = (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
-                forceVulkanForCompatibility = isRDNA3 && useHDRinD3D12;
+            if (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
+                const uint64_t BrokenAMDDriverD3D12 = 0x1800142B080004; // Jan 2019
+                if (deviceDescription.driverVersion <= BrokenAMDDriverD3D12) {
+                    forceVulkanForCompatibility = true;
+                }
+                else if (automaticGraphicsAPI) {
+                    // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
+                    bool isRX7 = deviceDescription.name.find("AMD Radeon RX 7") != std::string::npos;
+                    bool isTheCoolerRX7 = deviceDescription.name.find("AMD Radeon(TM) RX 7") != std::string::npos;
+                    bool isRDNA3 = isRX7 || isTheCoolerRX7;
+                    bool useHDRinD3D12 = (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
+                    forceVulkanForCompatibility = isRDNA3 && useHDRinD3D12;
+                }
             }
         }
         else if (deviceDescription.vendor == RenderDeviceVendor::INTEL) {
