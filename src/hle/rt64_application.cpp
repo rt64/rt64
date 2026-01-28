@@ -5,6 +5,7 @@
 #include "rt64_application.h"
 #include "rhi/rt64_render_hooks.h"
 
+#include <cinttypes>
 #include <filesystem>
 
 #include "common/rt64_dynamic_libraries.h"
@@ -131,30 +132,59 @@ namespace RT64 {
         // Resolve the graphics API option in case it's automatic.
         chosenGraphicsAPI = UserConfiguration::resolveGraphicsAPI(userConfig.graphicsAPI);
 
-        // Create a render interface with the preferred backend.
-        switch (chosenGraphicsAPI) {
-        case UserConfiguration::GraphicsAPI::D3D12:
+#   ifdef _WIN64
+        // Windows can try falling back to the other API option in case of failure.
+        const uint32_t CreationAttempts = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::Automatic) ? 2 : 1;
+#   else
+        const uint32_t CreationAttempts = 1;
+#   endif
+
+        for (uint32_t creationAttempt = 0; (creationAttempt < CreationAttempts) && (device == nullptr); creationAttempt++) {
 #       ifdef _WIN64
-            renderInterface = CreateD3D12Interface();
-            break;
-#       else
-            fprintf(stderr, "D3D12 is not supported on this platform. Please select a different Graphics API.\n");
-            return SetupResult::InvalidGraphicsAPI;
+            if (creationAttempt == 1) {
+                if (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
+                    fprintf(stderr, "Unable to initialize a D3D12 device. Falling back to Vulkan.\n");
+                    chosenGraphicsAPI = UserConfiguration::GraphicsAPI::Vulkan;
+                }
+                else if (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan) {
+                    fprintf(stderr, "Unable to initialize a Vulkan device. Falling back to D3D12.\n");
+                    chosenGraphicsAPI = UserConfiguration::GraphicsAPI::D3D12;
+                }
+
+                renderInterface.reset();
+            }
 #       endif
-        case UserConfiguration::GraphicsAPI::Metal:
+
+            // Create a render interface with the preferred backend.
+            switch (chosenGraphicsAPI) {
+            case UserConfiguration::GraphicsAPI::D3D12:
+#       ifdef _WIN64
+                renderInterface = CreateD3D12Interface();
+                break;
+#       else
+                fprintf(stderr, "D3D12 is not supported on this platform. Please select a different Graphics API.\n");
+                return SetupResult::InvalidGraphicsAPI;
+#       endif
+            case UserConfiguration::GraphicsAPI::Metal:
 #       ifdef __APPLE__
-            renderInterface = CreateMetalInterface();
-            break;
+                renderInterface = CreateMetalInterface();
+                break;
 #       else
-            fprintf(stderr, "Metal is not supported on this platform. Please select a different Graphics API.\n");
-            return SetupResult::InvalidGraphicsAPI;
+                fprintf(stderr, "Metal is not supported on this platform. Please select a different Graphics API.\n");
+                return SetupResult::InvalidGraphicsAPI;
 #       endif
-        case UserConfiguration::GraphicsAPI::Vulkan:
-            renderInterface = CreateVulkanInterfaceWrapper(appWindow->windowHandle);
-            break;
-        default:
-            fprintf(stderr, "Unknown Graphics API specified in configuration.\n");
-            return SetupResult::InvalidGraphicsAPI;
+            case UserConfiguration::GraphicsAPI::Vulkan:
+                renderInterface = CreateVulkanInterfaceWrapper(appWindow->windowHandle);
+                break;
+            default:
+                fprintf(stderr, "Unknown Graphics API specified in configuration.\n");
+                return SetupResult::InvalidGraphicsAPI;
+            }
+
+            if (renderInterface != nullptr) {
+                // Create the render device.
+                device = renderInterface->createDevice();
+            }
         }
 
         if (renderInterface == nullptr) {
@@ -162,29 +192,31 @@ namespace RT64 {
             return SetupResult::GraphicsAPINotFound;
         }
 
-        // Create the render device
-        device = renderInterface->createDevice();
         if (device == nullptr) {
             fprintf(stderr, "Unable to find compatible graphics device.\n");
             return SetupResult::GraphicsDeviceNotFound;
         }
 
+        // Print device information to console.
+        const RenderDeviceDescription& deviceDescription = device->getDescription();
+        fprintf(stdout, "Device Name: %s\n", deviceDescription.name.c_str(), deviceDescription.vendor);
+        fprintf(stdout, "Device Vendor: 0x%X\n", deviceDescription.vendor);
+        fprintf(stdout, "Driver Version: 0x%" PRIx64 "\n", deviceDescription.driverVersion);
+
         // Detect if the application should use hardware resolve or not.
         bool usesHardwareResolve = (userConfig.hardwareResolve != UserConfiguration::HardwareResolve::Disabled);
 
         // Driver workarounds.
-        const RenderDeviceVendor deviceVendor = device->getDescription().vendor;
-        const uint64_t driverVersion = device->getDescription().driverVersion;
         bool automaticGraphicsAPI = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::Automatic);
         bool forceVulkanForCompatibility = false;
-        if (deviceVendor == RenderDeviceVendor::NVIDIA) {
+        if (deviceDescription.vendor == RenderDeviceVendor::NVIDIA) {
             if (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
                 if (usesHardwareResolve) {
                     // MSAA Resolve in D3D12 is broken since 565.90. During Resolve operations, the contents from unrelated graphics commands in a queue can leak to other commands
                     // being run in a different queue even if the resources aren't shared at all. The workaround is to disable hardware resolve and use rasterization instead.
                     const uint64_t BrokenNVIDIADriverD3D12 = 0x00200000000f19be; // 565.90
                     const uint64_t FixedNVIDIADriverD3D12 = UINT64_MAX; // No driver is known to fix the issue at the moment.
-                    if ((driverVersion >= BrokenNVIDIADriverD3D12) && (driverVersion < FixedNVIDIADriverD3D12) && (userConfig.hardwareResolve == UserConfiguration::HardwareResolve::Automatic)) {
+                    if ((deviceDescription.driverVersion >= BrokenNVIDIADriverD3D12) && (deviceDescription.driverVersion < FixedNVIDIADriverD3D12) && (userConfig.hardwareResolve == UserConfiguration::HardwareResolve::Automatic)) {
                         usesHardwareResolve = false;
                     }
                 }
@@ -193,22 +225,32 @@ namespace RT64 {
                     // Driver 475.14 or below seems to have much better performance in Vulkan, almost twice as fast on a GT 730. The workaround is we switch to Vulkan.
                     // The reason behind this performance difference is currently unknown and doesn't show up in newer drivers or hardware.
                     const uint64_t UnderperformingNVIDIADriverD3D12 = 0x001e0000000e1d5a; // 475.14
-                    if (driverVersion <= UnderperformingNVIDIADriverD3D12) {
+                    if (deviceDescription.driverVersion <= UnderperformingNVIDIADriverD3D12) {
                         forceVulkanForCompatibility = true;
                     }
                 }
             }
         }
-        else if (deviceVendor == RenderDeviceVendor::AMD) {
+        else if (deviceDescription.vendor == RenderDeviceVendor::AMD) {
             if (automaticGraphicsAPI) {
                 // Wireframe artifacts have been reported when using a high-precision color format on RDNA3 GPUs in D3D12. The workaround is to switch to Vulkan if this is the case.
-                bool isRX7 = device->getDescription().name.find("AMD Radeon RX 7") != std::string::npos;
-                bool isTheCoolerRX7 = device->getDescription().name.find("AMD Radeon(TM) RX 7") != std::string::npos;
+                bool isRX7 = deviceDescription.name.find("AMD Radeon RX 7") != std::string::npos;
+                bool isTheCoolerRX7 = deviceDescription.name.find("AMD Radeon(TM) RX 7") != std::string::npos;
                 bool isRDNA3 = isRX7 || isTheCoolerRX7;
                 bool useHDRinD3D12 = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::D3D12) && (userConfig.internalColorFormat == UserConfiguration::InternalColorFormat::Automatic) && device->getCapabilities().preferHDR;
                 forceVulkanForCompatibility = isRDNA3 && useHDRinD3D12;
             }
         }
+#if 0
+        else if (deviceDescription.vendor == RenderDeviceVendor::INTEL) {
+            if (automaticGraphicsAPI) {
+                const uint64_t BrokenIntelDriverD3D12 = 0x0000000000000000; // TBD
+                if (deviceDescription.driverVersion <= BrokenIntelDriverD3D12) {
+                    forceVulkanForCompatibility = true;
+                }
+            }
+        }
+#endif
 
         if (forceVulkanForCompatibility) {
             device.reset();
@@ -316,7 +358,7 @@ namespace RT64 {
 
         // Compute the approximate pool for texture replacements from the dedicated video memory.
         const uint64_t MinimumTexturePoolSize = 512 * 1024 * 1024;
-        uint64_t texturePoolSize = std::max((device->getDescription().dedicatedVideoMemory * 2) / 3, MinimumTexturePoolSize);
+        uint64_t texturePoolSize = std::max((deviceDescription.dedicatedVideoMemory * 2) / 3, MinimumTexturePoolSize);
         textureCache->setReplacementPoolMaxSize(texturePoolSize);
 
 #   if RT_ENABLED
