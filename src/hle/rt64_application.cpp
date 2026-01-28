@@ -199,7 +199,7 @@ namespace RT64 {
 
         // Print device information to console.
         const RenderDeviceDescription& deviceDescription = device->getDescription();
-        fprintf(stdout, "Device Name: %s\n", deviceDescription.name.c_str(), deviceDescription.vendor);
+        fprintf(stdout, "Device Name: %s\n", deviceDescription.name.c_str());
         fprintf(stdout, "Device Vendor: 0x%X\n", deviceDescription.vendor);
         fprintf(stdout, "Driver Version: 0x%" PRIx64 "\n", deviceDescription.driverVersion);
 
