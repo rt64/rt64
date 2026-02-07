@@ -444,7 +444,7 @@ namespace RT64 {
         if (lerpRotation) {
             if (float(dot(a.rotation, b.rotation)) > 0.0f) {
                 if (useSlerp) {
-                    ret.rotation = slerp(a.rotation, b.rotation, 1.0f - weight);
+                    ret.rotation = slerp(a.rotation, b.rotation, weight);
                 }
                 else {
                     ret.rotation = lerp(a.rotation, b.rotation, weight);
@@ -452,7 +452,7 @@ namespace RT64 {
             }
             else {
                 if (useSlerp) {
-                    ret.rotation = slerp(a.rotation, -b.rotation, 1.0f - weight);
+                    ret.rotation = slerp(a.rotation, -b.rotation, weight);
                 }
                 else {
                     ret.rotation = lerp(a.rotation, -b.rotation, weight);
