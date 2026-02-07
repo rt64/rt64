@@ -56,6 +56,10 @@ namespace RT64 {
         lights.fill({});
         segments.fill(0);
         viewportStack[0] = {};
+        clipRatios[0] = 1;
+        clipRatios[1] = 1;
+        clipRatios[2] = -1;
+        clipRatios[3] = -1;
         textureState = {};
         curViewProjIndex = 0;
         curTransformIndex = 0;
@@ -127,11 +131,7 @@ namespace RT64 {
         segments[seg] = address;
     }
 
-    void RSP::matrix(uint32_t address, uint8_t params) {
-        const uint32_t rdramAddress = fromSegmentedMasked(address);
-        const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
-        const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
-
+    void RSP::matrixCommon(const hlslpp::float4x4 &floatMatrix, uint32_t address, uint8_t params) {
         // Projection matrix.
         hlslpp::float4x4 &viewMatrix = viewMatrixStack[projectionMatrixStackSize - 1];
         hlslpp::float4x4 &projMatrix = projMatrixStack[projectionMatrixStackSize - 1];
@@ -162,7 +162,7 @@ namespace RT64 {
             }
 
             projectionMatrixSegmentedAddress = address;
-            projectionMatrixPhysicalAddress = rdramAddress;
+            projectionMatrixPhysicalAddress = fromSegmentedMasked(address);
             projectionMatrixChanged = true;
             projectionMatrixInversed = false;
         }
@@ -181,10 +181,30 @@ namespace RT64 {
             }
 
             modelMatrixSegmentedAddressStack[modelMatrixStackSize - 1] = address;
-            modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1] = rdramAddress;
+            modelMatrixPhysicalAddressStack[modelMatrixStackSize - 1] = fromSegmentedMasked(address);
         }
-        
+
         modelViewProjChanged = true;
+    }
+
+    void RSP::matrix(uint32_t address, uint8_t params) {
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
+        const FixedMatrix *fixedMatrix = reinterpret_cast<FixedMatrix *>(state->fromRDRAM(rdramAddress));
+        const hlslpp::float4x4 floatMatrix = fixedMatrix->toMatrix4x4();
+        matrixCommon(floatMatrix, address, params);
+    }
+
+    void RSP::matrixFloat(uint32_t address, uint8_t params) {
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
+        const float *floats = reinterpret_cast<float *>(state->fromRDRAM(rdramAddress));
+        const hlslpp::float4x4 floatMatrix(
+            floats[0], floats[1], floats[2], floats[3],
+            floats[4], floats[5], floats[6], floats[7],
+            floats[8], floats[9], floats[10], floats[11],
+            floats[12], floats[13], floats[14], floats[15]
+        );
+
+        matrixCommon(floatMatrix, address, params);
     }
 
     void RSP::popMatrix(uint32_t count) {
@@ -293,6 +313,31 @@ namespace RT64 {
         modelViewProjChanged = false;
     }
 
+    static void setExtendedMatrixFloat(RSP &rsp, uint32_t address, hlslpp::float4x4 &matrix, hlslpp::float4x4 &invMatrix) {
+        const uint32_t rdramAddress = rsp.fromSegmentedMasked(address);
+        const float *floatMatrix = reinterpret_cast<float *>(rsp.state->fromRDRAM(rdramAddress));
+        for (uint32_t j = 0; j < 4; j++) {
+            for (uint32_t i = 0; i < 4; i++) {
+                matrix[j][i] = floatMatrix[j * 4 + i];
+            }
+        }
+
+        invMatrix = hlslpp::inverse(matrix);
+
+        rsp.extended.viewProjMatrix = hlslpp::mul(rsp.extended.viewMatrix, rsp.extended.projMatrix);
+        rsp.extended.invViewProjMatrix = hlslpp::inverse(rsp.extended.viewProjMatrix);
+        rsp.projectionMatrixChanged = true;
+        rsp.modelViewProjChanged = true;
+    }
+
+    void RSP::setProjectionMatrixFloat(uint32_t address) {
+        setExtendedMatrixFloat(*this, address, extended.projMatrix, extended.invProjMatrix);
+    }
+
+    void RSP::setViewMatrixFloat(uint32_t address) {
+        setExtendedMatrixFloat(*this, address, extended.viewMatrix, extended.invViewMatrix);
+    }
+
     void RSP::computeModelViewProj() {
         const hlslpp::float4x4 &viewProjMatrix = viewProjMatrixStack[projectionMatrixStackSize - 1];
         modelViewProjMatrix = hlslpp::mul(modelMatrixStack[modelMatrixStackSize - 1], viewProjMatrix);
@@ -316,7 +361,7 @@ namespace RT64 {
         modelViewProjChanged = changed;
     }
 
-    void RSP::setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertex(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -325,10 +370,10 @@ namespace RT64 {
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const Vertex *dlVerts = reinterpret_cast<const Vertex *>(state->fromRDRAM(rdramAddress));
         memcpy(&vertices[dstIndex], dlVerts, sizeof(Vertex) * vtxCount);
-        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true, sizeof(Vertex)>(rdramAddress, dstIndex, dstIndex + vtxCount);
     }
     
-    void RSP::setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertexPD(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -351,10 +396,10 @@ namespace RT64 {
             dst.color.a = col[0];
         }
 
-        setVertexCommon<true>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<true, sizeof(VertexPD)>(rdramAddress, dstIndex, dstIndex + vtxCount);
     }
 
-    void RSP::setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex) {
+    void RSP::setVertexEXV1(uint32_t address, uint32_t vtxCount, uint32_t dstIndex) {
         if ((dstIndex >= RSP_MAX_VERTICES) || ((dstIndex + vtxCount) > RSP_MAX_VERTICES)) {
             assert(false && "Vertex indices are not valid. DL is possibly corrupted.");
             return;
@@ -364,20 +409,29 @@ namespace RT64 {
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
         const uint32_t rdramAddress = fromSegmentedMasked(address);
         const VertexEXV1 *dlVerts = reinterpret_cast<const VertexEXV1 *>(state->fromRDRAM(rdramAddress));
-        auto &velShorts = workload.drawData.velShorts;
+        auto &velFloats = workload.drawData.velFloats;
+        auto &tcVelFloats = workload.drawData.tcVelFloats;
         for (uint32_t i = 0; i < vtxCount; i++) {
             const VertexEXV1 &src = dlVerts[i];
-            velShorts.emplace_back(src.v.x - src.xp);
-            velShorts.emplace_back(src.v.y - src.yp);
-            velShorts.emplace_back(src.v.z - src.zp);
+            velFloats.emplace_back(float(src.v.x - src.xp));
+            velFloats.emplace_back(float(src.v.y - src.yp));
+            velFloats.emplace_back(float(src.v.z - src.zp));
+            tcVelFloats.emplace_back(0.0f);
+            tcVelFloats.emplace_back(0.0f);
             vertices[dstIndex + i] = src.v;
         }
 
-        setVertexCommon<false>(dstIndex, dstIndex + vtxCount);
+        setVertexCommon<false, sizeof(VertexEXV1)>(rdramAddress, dstIndex, dstIndex + vtxCount);
     }
 
     void RSP::setVertexColorPD(uint32_t address) {
         vertexColorPDAddress = fromSegmentedMasked(address);
+    }
+
+    void RSP::setVertexSegmentV1(bool isEnabled, uint32_t vertexElement, uint32_t vertexAddress, uint32_t baseSegmentAddress) {
+        extended.vertexAddresses[vertexElement] = vertexAddress;
+        extended.baseSegmentAddresses[vertexElement] = baseSegmentAddress;
+        extended.vertexSegmentEnabled[vertexElement] = isEnabled;
     }
 
     Projection::Type RSP::getCurrentProjectionType() const {
@@ -408,12 +462,17 @@ namespace RT64 {
 
             uint32_t physicalAddress = projectionMatrixPhysicalAddressStack[projectionMatrixStackSize - 1];
             workload.physicalAddressTransformMap.emplace(physicalAddress, uint32_t(drawData.viewProjTransformGroups.size()));
-            drawData.viewTransforms.emplace_back(viewMatrixStack[projectionMatrixStackSize - 1]);
-            drawData.projTransforms.emplace_back(projMatrixStack[projectionMatrixStackSize - 1]);
-            drawData.viewProjTransforms.emplace_back(viewProjMatrixStack[projectionMatrixStackSize - 1]);
+            drawData.viewTransforms.emplace_back(hlslpp::mul(extended.invViewMatrix, viewMatrixStack[projectionMatrixStackSize - 1]));
+            drawData.projTransforms.emplace_back(hlslpp::mul(extended.invProjMatrix, projMatrixStack[projectionMatrixStackSize - 1]));
+            drawData.viewProjTransforms.emplace_back(hlslpp::mul(extended.invViewProjMatrix, viewProjMatrixStack[projectionMatrixStackSize - 1]));
             drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdGroupIndex);
             drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
-            drawData.viewportOrigins.emplace_back(extended.viewportOrigin);
+            drawData.viewportOrigins.emplace_back(extended.viewportOriginStack[viewportStackSize - 1]);
+
+            for (uint32_t j = 0; j < 4; j++) {
+                drawData.viewportClipRatios.emplace_back(clipRatios[j]);
+            }
+
             projectionMatrixChanged = false;
             viewportChanged = false;
         }
@@ -421,8 +480,26 @@ namespace RT64 {
         projectionIndex = fbPair.changeProjection(curViewProjIndex, type);
     }
 
-    template<bool addEmptyVelocity>
-    void RSP::setVertexCommon(uint8_t dstIndex, uint8_t dstMax) {
+    template<uint32_t floatCount, uint32_t vertexSize>
+    void RSP::readExtendedVertexSegment(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax, uint32_t globalIndex, uint32_t vertexElement, std::vector<float> &floatsVector) {
+        if (!extended.vertexSegmentEnabled[vertexElement]) {
+            return;
+        }
+
+        uint32_t vertexRdramAddress = fromSegmentedMasked(extended.vertexAddresses[vertexElement]);
+        uint32_t baseRdramAddress = fromSegmentedMasked(extended.baseSegmentAddresses[vertexElement]);
+        float *vertexFloats = (float *)(state->fromRDRAM(vertexRdramAddress));
+        uint32_t j = globalIndex * floatCount;
+        uint32_t k = ((rdramAddress - baseRdramAddress) / vertexSize) * floatCount;
+        for (uint32_t i = dstIndex; i < dstMax; i++) {
+            for (uint32_t f = 0; f < floatCount; f++) {
+                floatsVector[j++] = vertexFloats[k++];
+            }
+        }
+    }
+
+    template<bool addEmptyVelocity, uint32_t vertexSize>
+    void RSP::setVertexCommon(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax) {
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
 
@@ -443,7 +520,7 @@ namespace RT64 {
         if (modelViewProjChanged) {
             computeModelViewProj();
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
-            worldTransforms.emplace_back(modelMatrixStack[modelMatrixStackSize - 1]);
+            worldTransforms.emplace_back(hlslpp::mul(modelMatrixStack[modelMatrixStackSize - 1], extended.viewProjMatrix));
         }
         else if (modelViewProjInserted) {
 #       ifdef LOG_SPECIAL_MATRIX_OPERATIONS
@@ -458,7 +535,7 @@ namespace RT64 {
             }
 
             curTransformIndex = static_cast<uint16_t>(worldTransforms.size());
-            worldTransforms.emplace_back(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]));
+            worldTransforms.emplace_back(hlslpp::mul(hlslpp::mul(modelViewProjMatrix, invViewProjMatrixStack[projectionMatrixStackSize - 1]), extended.viewProjMatrix));
         }
 
         if (addWorldTransform) {
@@ -577,9 +654,10 @@ namespace RT64 {
             curLookAtIndex = 0;
         }
 
-        auto &posShorts = workload.drawData.posShorts;
-        auto &velShorts = workload.drawData.velShorts;
+        auto &posFloats = workload.drawData.posFloats;
+        auto &velFloats = workload.drawData.velFloats;
         auto &tcFloats = workload.drawData.tcFloats;
+        auto &tcVelFloats = workload.drawData.tcVelFloats;
         auto &normColBytes = workload.drawData.normColBytes;
         auto &viewProjIndices = workload.drawData.viewProjIndices;
         auto &worldIndices = workload.drawData.worldIndices;
@@ -593,9 +671,9 @@ namespace RT64 {
         const uint32_t globalIndex = workload.drawData.vertexCount();
         for (uint32_t i = dstIndex; i < dstMax; i++) {
             auto &v = vertices[i];
-            posShorts.emplace_back(v.x);
-            posShorts.emplace_back(v.y);
-            posShorts.emplace_back(v.z);
+            posFloats.emplace_back(v.x);
+            posFloats.emplace_back(v.y);
+            posFloats.emplace_back(v.z);
             normColBytes.emplace_back(v.color.r);
             normColBytes.emplace_back(v.color.g);
             normColBytes.emplace_back(v.color.b);
@@ -610,18 +688,24 @@ namespace RT64 {
             used[i] = false;
 
             if constexpr (addEmptyVelocity) {
-                velShorts.emplace_back(0);
-                velShorts.emplace_back(0);
-                velShorts.emplace_back(0);
+                velFloats.emplace_back(0.0f);
+                velFloats.emplace_back(0.0f);
+                velFloats.emplace_back(0.0f);
+                tcVelFloats.emplace_back(0.0f);
+                tcVelFloats.emplace_back(0.0f);
             }
         }
 
+        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_POSITION, posFloats);
+        readExtendedVertexSegment<3, vertexSize>(rdramAddress, dstIndex, dstMax, globalIndex, G_EX_VERTEX_VELOCITY, velFloats);
+
+        uint32_t floatIndex = globalIndex * 3;
         for (uint32_t i = dstIndex; i < dstMax; i++) {
-            auto &v = vertices[i];
-            const hlslpp::float4 tfPos = hlslpp::mul(hlslpp::float4(v.x, v.y, v.z, 1.0f), mvp);
+            const hlslpp::float4 tfPos = hlslpp::mul(hlslpp::float4(posFloats[floatIndex + 0], posFloats[floatIndex + 1], posFloats[floatIndex + 2], 1.0f), mvp);
             const interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
             posTransformed.emplace_back(tfPos);
             posScreen.emplace_back((tfPos.xyz / hlslpp::float3(tfPos.w, -tfPos.w, tfPos.w)) * viewport.scale + viewport.translate);
+            floatIndex += 3;
         }
 
         if (usesTextureGen) {
@@ -654,6 +738,7 @@ namespace RT64 {
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
         auto &normColBytes = workload.drawData.normColBytes;
         auto &tcFloats = workload.drawData.tcFloats;
+        auto &tcVelFloats = workload.drawData.tcVelFloats;
         auto &fogIndices = workload.drawData.fogIndices;
         auto &lightIndices = workload.drawData.lightIndices;
         auto &lightCounts = workload.drawData.lightCounts;
@@ -662,24 +747,26 @@ namespace RT64 {
         auto &posScreen = workload.drawData.posScreen;
         uint32_t globalIndex = indices[dstIndex];
         if (used[dstIndex]) {
-            auto &posShorts = workload.drawData.posShorts;
-            auto &velShorts = workload.drawData.velShorts;
+            auto &posFloats = workload.drawData.posFloats;
+            auto &velFloats = workload.drawData.velFloats;
             auto &viewProjIndices = workload.drawData.viewProjIndices;
             auto &worldIndices = workload.drawData.worldIndices;
             auto &posTransformed = workload.drawData.posTransformed;
             const uint32_t newIndex = workload.drawData.vertexCount();
-            posShorts.emplace_back(posShorts[globalIndex * 3 + 0]);
-            posShorts.emplace_back(posShorts[globalIndex * 3 + 1]);
-            posShorts.emplace_back(posShorts[globalIndex * 3 + 2]);
-            velShorts.emplace_back(velShorts[globalIndex * 3 + 0]);
-            velShorts.emplace_back(velShorts[globalIndex * 3 + 1]);
-            velShorts.emplace_back(velShorts[globalIndex * 3 + 2]);
+            posFloats.emplace_back(posFloats[globalIndex * 3 + 0]);
+            posFloats.emplace_back(posFloats[globalIndex * 3 + 1]);
+            posFloats.emplace_back(posFloats[globalIndex * 3 + 2]);
+            velFloats.emplace_back(velFloats[globalIndex * 3 + 0]);
+            velFloats.emplace_back(velFloats[globalIndex * 3 + 1]);
+            velFloats.emplace_back(velFloats[globalIndex * 3 + 2]);
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 0]);
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 1]);
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 2]);
             normColBytes.emplace_back(normColBytes[globalIndex * 4 + 3]);
             tcFloats.emplace_back(tcFloats[globalIndex * 2 + 0]);
             tcFloats.emplace_back(tcFloats[globalIndex * 2 + 1]);
+            tcVelFloats.emplace_back(tcVelFloats[globalIndex * 2 + 0]);
+            tcVelFloats.emplace_back(tcVelFloats[globalIndex * 2 + 1]);
             viewProjIndices.emplace_back(viewProjIndices[globalIndex]);
             worldIndices.emplace_back(worldIndices[globalIndex]);
             fogIndices.emplace_back(fogIndices[globalIndex]);
@@ -815,13 +902,14 @@ namespace RT64 {
         viewport.translate.x = float(state->rdp->movedFromOrigin(vp->vtrans[1], ori) + offx) / 4.0f;
         viewport.translate.y = float(vp->vtrans[0] + offy) / 4.0f;
         viewport.translate.z = float(vp->vtrans[3]) / DepthRange;
-        extended.viewportOrigin = ori;
+        extended.viewportOriginStack[viewportStackSize - 1] = ori;
         viewportChanged = true;
     }
 
     void RSP::pushViewport() {
         if (viewportStackSize < RSP_EXTENDED_STACK_SIZE) {
             viewportStack[viewportStackSize] = viewportStack[viewportStackSize - 1];
+            extended.viewportOriginStack[viewportStackSize] = extended.viewportOriginStack[viewportStackSize - 1];
             viewportStackSize++;
         }
     }
@@ -854,8 +942,17 @@ namespace RT64 {
         lightsChanged = true;
     }
 
-    void RSP::setClipRatio(uint32_t clipRatio) {
-        // TODO
+    void RSP::setClipRatioEdge(uint8_t index, int16_t value) {
+        assert(index < clipRatios.size());
+        clipRatios[index] = value;
+        viewportChanged = true;
+    }
+
+    void RSP::setClipRatioAll(int16_t value) {
+        setClipRatioEdge(0, value);
+        setClipRatioEdge(1, value);
+        setClipRatioEdge(2, -value);
+        setClipRatioEdge(3, -value);
     }
 
     void RSP::setPerspNorm(uint32_t perspNorm) {
@@ -1086,7 +1183,7 @@ namespace RT64 {
         state->updateDrawStatusAttribute(DrawAttribute::ExtendedType);
     }
 
-    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup) {
+    void RSP::matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vpos, uint8_t vtc, uint8_t tile, uint8_t lookat, uint8_t order, uint8_t aspect, uint8_t editable, bool idIsAddress, bool editGroup) {
         assert((idIsAddress == editGroup) && "This case is not supported yet.");
 
         auto setGroupProperties = [=](TransformGroup* dstGroup, bool newGroup) {
@@ -1097,9 +1194,12 @@ namespace RT64 {
                 dstGroup->scaleInterpolation = scale;
                 dstGroup->skewInterpolation = skew;
                 dstGroup->perspectiveInterpolation = persp;
-                dstGroup->vertexInterpolation = vert;
+                dstGroup->vertexInterpolation = vpos;
+                dstGroup->texcoordInterpolation = vtc;
                 dstGroup->tileInterpolation = tile;
+                dstGroup->lookAtInterpolation = lookat;
                 dstGroup->ordering = order;
+                dstGroup->aspectMode = aspect;
                 dstGroup->editable = editable;
             }
         };
@@ -1161,7 +1261,7 @@ namespace RT64 {
     void RSP::clearExtended() {
         extended.drawExtendedType = DrawExtendedType::None;
         extended.drawExtendedData = {};
-        extended.viewportOrigin = G_EX_ORIGIN_NONE;
+        extended.viewportOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.global.viewportOrigin = G_EX_ORIGIN_NONE;
         extended.global.viewportOffsetX = 0;
         extended.global.viewportOffsetY = 0;
@@ -1173,6 +1273,15 @@ namespace RT64 {
         extended.viewProjMatrixIdStackSize = 1;
         extended.viewProjMatrixIdStackChanged = false;
         extended.curViewProjMatrixIdGroupIndex = 0;
+        extended.viewMatrix = hlslpp::float4x4::identity();
+        extended.projMatrix = hlslpp::float4x4::identity();
+        extended.viewProjMatrix = hlslpp::float4x4::identity();
+        extended.invViewMatrix = hlslpp::float4x4::identity();
+        extended.invProjMatrix = hlslpp::float4x4::identity();
+        extended.invViewProjMatrix = hlslpp::float4x4::identity();
+        extended.vertexAddresses = {};
+        extended.baseSegmentAddresses = {};
+        extended.vertexSegmentEnabled = {};
         extended.forceBranch = false;
     }
 

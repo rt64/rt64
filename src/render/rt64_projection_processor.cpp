@@ -42,15 +42,15 @@ namespace RT64 {
         }
 
         for (size_t s = 0; s < p.curFrame->perspectiveScenes.size(); s++) {
-            processScene(p, p.curFrame->perspectiveScenes[s], s, true);
+            processScene(p, p.curFrame->perspectiveScenes[s], s);
         }
 
         for (size_t s = 0; s < p.curFrame->orthographicScenes.size(); s++) {
-            processScene(p, p.curFrame->orthographicScenes[s], s, false);
+            processScene(p, p.curFrame->orthographicScenes[s], s);
         }
     }
 
-    void ProjectionProcessor::processScene(const ProcessParams &p, const GameScene &scene, size_t sceneIndex, bool useScissorDetection) {
+    void ProjectionProcessor::processScene(const ProcessParams &p, const GameScene &scene, size_t sceneIndex) {
         for (size_t i = 0; i < scene.projections.size(); i++) {
             const GameIndices::Projection &sceneProj = scene.projections[i];
             Workload &workload = p.workloadQueue->workloads[sceneProj.workloadIndex];
@@ -65,20 +65,40 @@ namespace RT64 {
                 continue;
             }
 
-            // Custom origin must not be in use to be able to use the stretched viewport.
-            bool stretchAspectRatio = false;
-            if (useScissorDetection) {
-                if (!proj.scissorRect.isNull()) {
-                    bool coversWholeWidth = (proj.scissorRect.ulx <= fbPair.scissorRect.ulx) && (proj.scissorRect.lrx >= fbPair.scissorRect.lrx);
-                    bool horizontalRatio = (proj.scissorRect.width(true, true) > proj.scissorRect.height(true, true));
-                    stretchAspectRatio = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+            // Check the current mapping for the projection.
+            const interop::float4x4 *prevProjMatrix = nullptr;
+            const interop::float4x4 *prevViewMatrix = nullptr;
+            const RigidBody *rigidBody = nullptr;
+            const GameFrameMap::WorkloadMap &workloadMap = p.curFrame->frameMap.workloads[sceneProj.workloadIndex];
+            if ((p.prevFrame != nullptr) && workloadMap.mapped && !workload.debuggerCamera.enabled) {
+                const GameFrameMap::ViewProjectionMap &viewProjMap = workloadMap.viewProjections[proj.transformsIndex];
+                if (viewProjMap.mapped) {
+                    const Workload &prevWorkload = p.workloadQueue->workloads[workloadMap.prevWorkloadIndex];
+                    prevViewMatrix = &prevWorkload.drawData.viewTransforms[viewProjMap.prevTransformIndex];
+                    prevProjMatrix = &prevWorkload.drawData.projTransforms[viewProjMap.prevTransformIndex];
+                    rigidBody = &viewProjMap.rigidBody;
                 }
             }
-            else {
-                stretchAspectRatio = (viewportOrigin == G_EX_ORIGIN_NONE);
-            }
 
-            float projRatioScale = stretchAspectRatio ? (1.0f / p.aspectRatioScale) : 1.0f;
+            const uint32_t curProjGroupIndex = workload.drawData.viewProjTransformGroups[proj.transformsIndex];
+            const TransformGroup &curProjGroup = workload.drawData.transformGroups[curProjGroupIndex];
+            bool adjustAspectRatio = (curProjGroup.aspectMode == G_EX_ASPECT_ADJUST);
+            if (curProjGroup.aspectMode == G_EX_ASPECT_AUTO) {
+                FixedRect intersectionRect = proj.scissorRect;
+                if (proj.usesViewport()) {
+                    const interop::RSPViewport &viewport = drawData.rspViewports[proj.transformsIndex];
+                    const int16_t *viewportClipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
+                    intersectionRect = intersectionRect.intersection(viewport.rect(viewportClipRatios));
+                }
+
+                if (!intersectionRect.isEmpty()) {
+                    bool coversWholeWidth = (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
+                    bool horizontalRatio = (intersectionRect.width(true, true) > intersectionRect.height(true, true));
+                    adjustAspectRatio = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                }
+            }
+ 
+            float projRatioScale = adjustAspectRatio ? (1.0f / p.aspectRatioScale) : 1.0f;
             interop::float4x4 &viewMatrix = drawData.modViewTransforms[proj.transformsIndex];
             interop::float4x4 &projMatrix = drawData.modProjTransforms[proj.transformsIndex];
             interop::float4x4 &viewProjMatrix = drawData.modViewProjTransforms[proj.transformsIndex];
@@ -93,20 +113,6 @@ namespace RT64 {
             }
 
             adjustProjectionMatrix(projMatrix, projRatioScale);
-
-            const interop::float4x4 *prevProjMatrix = nullptr;
-            const interop::float4x4 *prevViewMatrix = nullptr;
-            const RigidBody *rigidBody = nullptr;
-            const GameFrameMap::WorkloadMap &workloadMap = p.curFrame->frameMap.workloads[sceneProj.workloadIndex];
-            if ((p.prevFrame != nullptr) && workloadMap.mapped && !workload.debuggerCamera.enabled) {
-                const GameFrameMap::ViewProjectionMap &viewProjMap = workloadMap.viewProjections[proj.transformsIndex];
-                if (viewProjMap.mapped) {
-                    const Workload &prevWorkload = p.workloadQueue->workloads[workloadMap.prevWorkloadIndex];
-                    prevViewMatrix = &prevWorkload.drawData.viewTransforms[viewProjMap.prevTransformIndex];
-                    prevProjMatrix = &prevWorkload.drawData.projTransforms[viewProjMap.prevTransformIndex];
-                    rigidBody = &viewProjMap.rigidBody;
-                }
-            }
 
             interop::float4x4 &prevViewTransform = drawData.prevViewTransforms[proj.transformsIndex];
             interop::float4x4 &prevProjTransform = drawData.prevProjTransforms[proj.transformsIndex];

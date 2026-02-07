@@ -50,7 +50,7 @@ namespace RT64 {
         std::atomic<bool> viewRDRAM = false;
         std::vector<std::unique_ptr<RenderFramebuffer>> swapChainFramebuffers;
         std::unique_ptr<RenderCommandSemaphore> acquiredSemaphore;
-        std::unique_ptr<RenderCommandSemaphore> drawSemaphore;
+        std::vector<std::unique_ptr<RenderCommandSemaphore>> drawSemaphores;
         std::unique_ptr<VIRenderer> viRenderer;
         std::unique_ptr<Inspector> inspector;
         ProfilingTimer presentProfiler = ProfilingTimer(120);
@@ -70,7 +70,6 @@ namespace RT64 {
         void threadPresent(const Present &present, bool &swapChainValid);
         void skipInterpolation();
         void notifyPresentId(const Present &present);
-        bool detectPresentWait();
         void threadAdvanceBarrier();
         void threadLoop();
     };

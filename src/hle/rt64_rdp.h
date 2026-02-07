@@ -94,8 +94,8 @@ namespace RT64 {
                 ExtendedAlignment scissor;
             } global;
 
-            uint16_t scissorLeftOrigin;
-            uint16_t scissorRightOrigin;
+            uint16_t scissorLeftOriginStack[RDP_EXTENDED_STACK_SIZE];
+            uint16_t scissorRightOriginStack[RDP_EXTENDED_STACK_SIZE];
             DrawExtendedFlags drawExtendedFlags;
         } extended;
 

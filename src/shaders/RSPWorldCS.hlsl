@@ -12,8 +12,8 @@ struct RSPWorldCB {
 };
 
 [[vk::push_constant]] ConstantBuffer<RSPWorldCB> gConstants : register(b0);
-Buffer<int> srcPos : register(t1);
-Buffer<int> srcVel : register(t2);
+Buffer<float> srcPos : register(t1);
+Buffer<float> srcVel : register(t2);
 Buffer<int> srcNorm : register(t3);
 Buffer<uint> srcIndices : register(t4);
 StructuredBuffer<float4x4> worldMats : register(t5);

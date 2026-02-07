@@ -217,7 +217,7 @@ namespace RT64 {
     void RenderTarget::resolveFromTarget(RenderWorker *worker, RenderTarget *src, const ShaderLibrary *shaderLibrary) {
         assert(!usesResolve() && "The target must not be an MSAA target to allow resolving from other targets.");
 
-        const bool hwResolve = shaderLibrary->usesHardwareResolve;
+        const bool hwResolve = shaderLibrary->usesHardwareResolve && worker->device->getCapabilities().resolveRegion;
         RenderTextureBarrier resolveBarriers[] = {
             RenderTextureBarrier(src->texture.get(), hwResolve ? RenderTextureLayout::RESOLVE_SOURCE : RenderTextureLayout::SHADER_READ),
             RenderTextureBarrier(texture.get(), hwResolve ? RenderTextureLayout::RESOLVE_DEST : RenderTextureLayout::COLOR_WRITE)

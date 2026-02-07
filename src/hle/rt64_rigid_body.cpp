@@ -93,12 +93,45 @@ namespace RT64 {
             return lerpMatrixComponents(fallbackPrev, fallbackCur, lerpTranslation, lerpRotation, lerpPerspective, weight);
         }
 
-        const DecomposedTransform& prevTransform = transforms[transformIndex ^ 1];
-        const DecomposedTransform& curTransform = transforms[transformIndex];
+        const DecomposedTransform &prevTransform = transforms[transformIndex ^ 1];
+        DecomposedTransform prevTransformCopy = prevTransform;
+        const DecomposedTransform &curTransform = transforms[transformIndex];
+        DecomposedTransform lerpedTransform;
+        
+        // When the coordinate system is flipped between transforms due to a different sign in the determinant, we bias the rotation and scale of the
+        // previous transform to be similar to the new one by producing a transform that produces an equivalent matrix but with a rotation and scale
+        // that are closer to what's intended. This is necessary to improve interpolation between objects that use mirroring in animations.
+        if (prevTransformCopy.coordinateFlip != curTransform.coordinateFlip) {
+            constexpr float Pi = 3.14159265f;
+            const hlslpp::quaternion &prevRot = prevTransformCopy.rotation;
+            hlslpp::quaternion xRot = hlslpp::mul(prevTransformCopy.rotation, hlslpp::quaternion::rotation_axis(hlslpp::float3(1.0f, 0.0, 0.0f), Pi));
+            hlslpp::quaternion yRot = hlslpp::mul(prevTransformCopy.rotation, hlslpp::quaternion::rotation_axis(hlslpp::float3(0.0f, 1.0, 0.0f), Pi));
+            hlslpp::quaternion zRot = hlslpp::mul(prevTransformCopy.rotation, hlslpp::quaternion::rotation_axis(hlslpp::float3(0.0f, 0.0, 1.0f), Pi));
+            float rotDotProduct = abs(hlslpp::dot(prevTransformCopy.rotation, curTransform.rotation));
+            float xRotDotProduct = abs(hlslpp::dot(xRot, curTransform.rotation));
+            float yRotDotProduct = abs(hlslpp::dot(yRot, curTransform.rotation));
+            float zRotDotProduct = abs(hlslpp::dot(zRot, curTransform.rotation));
+            if (xRotDotProduct > rotDotProduct) {
+                prevTransformCopy.rotation = xRot;
+                prevTransformCopy.scale = hlslpp::float3(prevTransform.scale.x, -prevTransform.scale.y, -prevTransform.scale.z);
+                rotDotProduct = xRotDotProduct;
+            }
+
+            if (yRotDotProduct > rotDotProduct) {
+                prevTransformCopy.rotation = yRot;
+                prevTransformCopy.scale = hlslpp::float3(-prevTransform.scale.x, prevTransform.scale.y, -prevTransform.scale.z);
+                rotDotProduct = yRotDotProduct;
+            }
+
+            if (zRotDotProduct > rotDotProduct) {
+                prevTransformCopy.rotation = zRot;
+                prevTransformCopy.scale = hlslpp::float3(-prevTransform.scale.x, -prevTransform.scale.y, prevTransform.scale.z);
+            }
+        }
 
         // Lerp the two transforms.
-        DecomposedTransform lerpedTransform = lerpTransforms(prevTransform, curTransform, weight,
-            lerpTranslation, lerpRotation, lerpScale, lerpSkew, lerpPerspective, slerp);
+        lerpedTransform = lerpTransforms(prevTransformCopy, curTransform, weight, lerpTranslation, lerpRotation, lerpScale, lerpSkew, lerpPerspective, slerp);
+
         // Compose a matrix from the resultant transform.
         return recomposeMatrix(lerpedTransform.rotation, lerpedTransform.scale, lerpedTransform.skew, lerpedTransform.translation, lerpedTransform.perspective);
     }

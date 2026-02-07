@@ -73,8 +73,13 @@
 #define G_EX_POPGEOMETRYMODE_V1         0x00002A
 #define G_EX_SETDITHERNOISESTRENGTH_V1  0x00002B
 #define G_EX_SETRDRAMEXTENDED_V1        0x00002C
-#define G_EX_SETNEARCLIPPING_V1         0x00002D
-#define G_EX_MAX                        0x00002E
+#define G_EX_SETPROJMATRIXFLOAT_V1      0x00002D
+#define G_EX_SETVIEWMATRIXFLOAT_V1      0x00002E
+#define G_EX_SETNEARCLIPPING_V1         0x00002F
+#define G_EX_MATRIX_FLOAT_V1            0x000030
+#define G_EX_SETVERTEXSEGMENT_V1        0x000031
+#define G_EX_SETTEXCOORDWRAPPOINT_V1    0x000032
+#define G_EX_MAX                        0x000033
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -103,6 +108,17 @@
 #define G_EX_BILERP_NONE            0x0
 #define G_EX_BILERP_ONLY            0x1
 #define G_EX_BILERP_ALL             0x2
+
+#define G_EX_ASPECT_AUTO            0x0
+#define G_EX_ASPECT_STRETCH         0x1
+#define G_EX_ASPECT_ADJUST          0x2
+
+#define G_EX_VERTEX_POSITION        0x0
+#define G_EX_VERTEX_VELOCITY        0x1
+#define G_EX_VERTEX_MAX             0x2
+
+#define G_EX_DISABLED               0x0
+#define G_EX_ENABLED                0x1
 
 // Represents the 8-byte commands in the F3D microcode family
 typedef union {
@@ -297,22 +313,22 @@ typedef union {
         0 \
     )
 
-#define gEXMatrixGroup(cmd, id, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit) \
+#define gEXMatrixGroup(cmd, id, mode, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit, aspect, tc, lookat) \
     G_EX_COMMAND2(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIXGROUP_V1, 24, 0), \
         id, \
-        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17) | PARAM(edit, 1, 19), \
+        PARAM(push, 1, 0) | PARAM((proj) != 0, 1, 1) | PARAM(mode, 1, 2) | PARAM(pos, 2, 3) | PARAM(rot, 2, 5) | PARAM(scale, 2, 7) | PARAM(skew, 2, 9) | PARAM(persp, 2, 11) | PARAM(vert, 2, 13) | PARAM(tile, 2, 15) | PARAM(order, 2, 17) | PARAM(edit, 1, 19) | PARAM(aspect, 2, 20) | PARAM(tc, 2, 22) | PARAM(lookat, 2, 24), \
         0 \
     )
 
-#define gEXMatrixGroupSimple(cmd, id, push, proj, pos, rot, persp, vert, tile, order, edit) \
-    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, pos, rot, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, persp, vert, tile, order, edit)
+#define gEXMatrixGroupSimple(cmd, id, push, proj, pos, rot, persp, vert, tile, order, edit, tc, lookat) \
+    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, pos, rot, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, persp, vert, tile, order, edit, G_EX_ASPECT_AUTO, tc, lookat)
 
-#define gEXMatrixGroupDecomposed(cmd, id, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit) \
-    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_DECOMPOSE, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit)
+#define gEXMatrixGroupDecomposed(cmd, id, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit, tc, lookat) \
+    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_DECOMPOSE, push, proj, pos, rot, scale, skew, persp, vert, tile, order, edit, G_EX_ASPECT_AUTO, tc, lookat)
     
 #define gEXMatrixGroupNoInterpolate(cmd, push, proj, edit) \
-    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit)
+    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP)
 
 #define gEXPopMatrixGroup(cmd, proj) \
     G_EX_COMMAND1(cmd, \
@@ -370,6 +386,18 @@ typedef union {
         PARAM((v0), 8, 0) | PARAM((count), 8, 8), \
         0, \
         (unsigned)(vtx) \
+    )
+
+#define gEXSetProjMatrixFloat(cmd, matrix) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETPROJMATRIXFLOAT_V1, 24, 0), \
+        (unsigned)(matrix) \
+    )
+
+#define gEXSetViewMatrixFloat(cmd, matrix) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETVIEWMATRIXFLOAT_V1, 24, 0), \
+        (unsigned)(matrix) \
     )
 
 #define gEXPushViewport(cmd) \
@@ -520,6 +548,28 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETNEARCLIPPING_V1, 24, 0), \
         PARAM(isEnabled, 1, 0) \
+    )
+
+#define gEXMatrixFloat(cmd, m, p) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_MATRIX_FLOAT_V1, 24, 0), \
+        PARAM((p), 8, 0), \
+        0, \
+        (unsigned)(m) \
+    )
+
+#define gEXSetVertexSegment(cmd, vertexElement, isEnabled, vertexAddress, baseSegmentAddress) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETVERTEXSEGMENT_V1, 24, 0), \
+        PARAM((isEnabled), 1, 0) | PARAM((vertexElement), 4, 1), \
+        (unsigned)(vertexAddress), \
+        (unsigned)(baseSegmentAddress) \
+    )
+
+#define gEXSetTexcoordWrapPoint(cmd, wrapPointU, wrapPointV) \
+    G_EX_COMMAND1(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETTEXCOORDWRAPPOINT_V1, 24, 0), \
+        PARAM(wrapPointU, 16, 16) | PARAM(wrapPointV, 16, 0) \
     )
 
 #endif // RT64_EXTENDED_GBI
