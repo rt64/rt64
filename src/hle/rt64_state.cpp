@@ -106,6 +106,7 @@ namespace RT64 {
         drawCall.rectDtdy = 0;
         drawCall.rectLeftOrigin = G_EX_ORIGIN_NONE;
         drawCall.rectRightOrigin = G_EX_ORIGIN_NONE;
+        drawCall.rectAspect = G_EX_ASPECT_AUTO;
         drawCall.scissorRect.reset();
         drawCall.scissorMode = 0;
         drawCall.scissorLeftOrigin = G_EX_ORIGIN_NONE;
