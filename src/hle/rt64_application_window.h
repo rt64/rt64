@@ -45,6 +45,7 @@ namespace RT64 {
         RenderWindow windowHandle = {};
 #if defined(__APPLE__)
         std::unique_ptr<CocoaWindow> windowWrapper;
+        SDL_MetalView metalView = nullptr;
 #endif
         Listener *listener;
         uint32_t refreshRate = 0;

@@ -37,6 +37,20 @@ namespace RT64 {
             HookedApplicationWindow = nullptr;
         }
 
+#   if defined(__APPLE__)
+        // Destroy the Metal view before destroying the window
+        if (metalView != nullptr) {
+            SDL_Metal_DestroyView(metalView);
+            metalView = nullptr;
+        }
+#   endif
+
+        // Cleanup SDL window
+        if (sdlWindow != nullptr) {
+            SDL_DestroyWindow(sdlWindow);
+            sdlWindow = nullptr;
+        }
+
 #   ifdef _WIN32
         if (windowHook != nullptr) {
             UnhookWindowsHookEx(windowHook);
@@ -154,8 +168,8 @@ namespace RT64 {
         windowHandle.window = wmInfo.info.x11.window;
 #   elif defined(__APPLE__)
         windowHandle.window = sdlWindow;
-        SDL_MetalView view = SDL_Metal_CreateView(sdlWindow);
-        windowHandle.view = SDL_Metal_GetLayer(view);
+        metalView = SDL_Metal_CreateView(sdlWindow);
+        windowHandle.view = SDL_Metal_GetLayer(metalView);
 #   else
         static_assert(false && "Unimplemented");
 #   endif
