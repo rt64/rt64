@@ -499,7 +499,13 @@ namespace RT64 {
             uploadThread->join();
             uploadThread.reset();
         }
-        
+
+        // Drain any stream results the upload thread didn't process.
+        for (const StreamResult &result : streamResultQueue) {
+            delete result.texture;
+        }
+        streamResultQueue.clear();
+
         descriptorSets.clear();
         tmemUploadResources.clear();
         replacementUploadResources.clear();

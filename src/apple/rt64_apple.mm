@@ -3,6 +3,6 @@
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 
-const char* GetHomeDirectory() {
-    return strdup([NSHomeDirectory() UTF8String]);
+std::string GetHomeDirectory() {
+    return std::string([NSHomeDirectory() UTF8String]);
 }

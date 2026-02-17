@@ -34,11 +34,15 @@ namespace RT64 {
         CoTaskMemFree(knownPath);
 #   elif defined(__linux__) || defined(__APPLE__)
         const char *homeDir = getenv("HOME");
+#       if defined(__APPLE__)
+        std::string homeDirStr;
+#       endif
         if (homeDir == nullptr) {
 #       if defined(__linux__)
             homeDir = getpwuid(getuid())->pw_dir;
 #       elif defined(__APPLE__)
-            homeDir = GetHomeDirectory();
+            homeDirStr = GetHomeDirectory();
+            homeDir = homeDirStr.c_str();
 #       endif
         }
 

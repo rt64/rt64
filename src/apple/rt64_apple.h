@@ -4,4 +4,6 @@
 
 #pragma once
 
-const char* GetHomeDirectory();
+#include <string>
+
+std::string GetHomeDirectory();

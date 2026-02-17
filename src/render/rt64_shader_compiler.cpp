@@ -42,6 +42,7 @@ namespace RT64 {
         if (FAILED(resultCode)) {
             IDxcBlobEncoding *error;
             HRESULT hr = result->GetErrorBuffer(&error);
+            result->Release();
             if (FAILED(hr)) {
                 throw std::runtime_error("Failed to get shader compiler error");
             }
@@ -50,6 +51,7 @@ namespace RT64 {
             std::vector<char> infoLog(error->GetBufferSize() + 1);
             memcpy(infoLog.data(), error->GetBufferPointer(), error->GetBufferSize());
             infoLog[error->GetBufferSize()] = 0;
+            error->Release();
 
             RT64_LOG_PRINTF("Shader compilation error: %s\n", infoLog.data());
             throw std::runtime_error("Shader compilation error: " + std::string(infoLog.data()));
@@ -93,9 +95,10 @@ namespace RT64 {
 
         IDxcOperationResult *result = nullptr;
         dxcCompiler->Compile(textBlob, L"", entryName.c_str(), profile.c_str(), arguments.data(), (UINT32)(arguments.size()), nullptr, 0, nullptr, &result);
+        textBlob->Release();
         checkResultForError(result);
         result->GetResult(shaderBlob);
-        textBlob->Release();
+        result->Release();
     }
 
     void ShaderCompiler::link(const std::wstring &entryName, const std::wstring &profile, IDxcBlob **libraryBlobs,
@@ -112,15 +115,17 @@ namespace RT64 {
             res = dxcLinker->RegisterLibrary(libraryBlobNames[i], libraryBlobs[i]);
             if (FAILED(res)) {
                 fprintf(stderr, "RegisterLibrary failed with error code 0x%lX.\n", res);
+                dxcLinker->Release();
                 return;
             }
         }
 
         IDxcOperationResult *result = nullptr;
         dxcLinker->Link(entryName.c_str(), profile.c_str(), libraryBlobNames, libraryBlobCount, nullptr, 0, &result);
+        dxcLinker->Release();
         checkResultForError(result);
         result->GetResult(shaderBlob);
-        dxcLinker->Release();
+        result->Release();
     }
 };
 

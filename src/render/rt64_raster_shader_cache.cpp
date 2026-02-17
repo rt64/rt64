@@ -43,6 +43,7 @@ namespace RT64 {
             {
                 std::unique_lock<std::mutex> queueLock(shaderCache->descQueueMutex);
                 shaderCache->descQueueActiveCount--;
+                shaderCache->descQueueChanged.notify_all();
                 shaderCache->descQueueChanged.wait(queueLock, [this]() {
                     return !threadRunning || !shaderCache->descQueue.empty();
                 });
@@ -135,16 +136,11 @@ namespace RT64 {
     }
     
     void RasterShaderCache::waitForAll() {
-        {
-            std::unique_lock<std::mutex> queueLock(descQueueMutex);
-            descQueue = std::queue<ShaderDescription>();
-        }
-
-        bool keepWaiting = false;
-        do {
-            std::unique_lock<std::mutex> queueLock(descQueueMutex);
-            keepWaiting = (descQueueActiveCount > 0);
-        } while (keepWaiting);
+        std::unique_lock<std::mutex> queueLock(descQueueMutex);
+        descQueue = std::queue<ShaderDescription>();
+        descQueueChanged.wait(queueLock, [this]() {
+            return descQueueActiveCount == 0;
+        });
     }
 
     void RasterShaderCache::destroyAll() {
