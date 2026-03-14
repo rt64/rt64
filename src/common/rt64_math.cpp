@@ -243,7 +243,7 @@ namespace RT64 {
     }
 
     bool decomposeMatrix(const hlslpp::float4x4& mtx, hlslpp::quaternion& rotation, hlslpp::float3& scale, hlslpp::float3& skew,
-        hlslpp::float3& translation, hlslpp::float4& perspective)
+        hlslpp::float3& translation, hlslpp::float4& perspective, bool &coordinateFlip)
     {
         hlslpp::float4x4 LocalMatrix(mtx);
 
@@ -346,7 +346,8 @@ namespace RT64 {
         // Check for a coordinate system flip.  If the determinant
         // is -1, then negate the matrix and the scaling factors.
         Pdum3 = cross(Row[1], Row[2]);
-        if(dot(Row[0], Pdum3).x < 0.0f) {
+        coordinateFlip = dot(Row[0], Pdum3).x < 0.0f;
+        if(coordinateFlip) {
             for(size_t i = 0; i < 3; i++) {
                 scale[i] *= -1.0f;
                 Row[i] *= -1.0f;
@@ -423,7 +424,7 @@ namespace RT64 {
     }
 
     DecomposedTransform::DecomposedTransform(const hlslpp::float4x4& mtx) {
-        valid = decomposeMatrix(mtx, rotation, scale, skew, translation, perspective);
+        valid = decomposeMatrix(mtx, rotation, scale, skew, translation, perspective, coordinateFlip);
     }
 
     DecomposedTransform lerpTransforms(const DecomposedTransform& a, const DecomposedTransform& b, float weight,

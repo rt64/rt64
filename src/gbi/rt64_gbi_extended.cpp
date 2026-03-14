@@ -140,11 +140,14 @@ namespace RT64 {
             const uint8_t scale = (*dl)->p0(7, 2);
             const uint8_t skew = (*dl)->p0(9, 2);
             const uint8_t persp = (*dl)->p0(11, 2);
-            const uint8_t vert = (*dl)->p0(13, 2);
+            const uint8_t vpos = (*dl)->p0(13, 2);
+            const uint8_t vtc = (*dl)->p0(22, 2);
             const uint8_t tile = (*dl)->p0(15, 2);
             const uint8_t order = (*dl)->p0(17, 2);
             const uint8_t editable = (*dl)->p0(19, 1);
-            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vert, tile, order, editable, idIsAddress, editGroup);
+            const uint8_t aspect = (*dl)->p0(20, 2);
+            const uint8_t lookat = (*dl)->p0(24, 2);
+            state->rsp->matrixId(id, push, proj, mode, pos, rot, scale, skew, persp, vpos, vtc, tile, lookat, order, aspect, editable, idIsAddress, editGroup);
         }
 
         void matrixGroupV1(State *state, DisplayList **dl) {
@@ -291,9 +294,36 @@ namespace RT64 {
             state->setExtendedRDRAM(extended);
         }
 
+        void setProjectionMatrixFloatV1(State *state, DisplayList **dl) {
+            state->rsp->setProjectionMatrixFloat((*dl)->w1);
+        }
+
+        void setViewMatrixFloatV1(State *state, DisplayList **dl) {
+            state->rsp->setViewMatrixFloat((*dl)->w1);
+        }
+
         void setNearClippingV1(State *state, DisplayList **dl) {
             const uint8_t nearClipping = (*dl)->p1(0, 1);
             state->rsp->setNoN(!nearClipping);
+        }
+
+        void matrixFloatV1(State *state, DisplayList **dl) {
+            uint8_t params = (*dl)->p1(0, 8) ^ state->rsp->pushMask;
+            *dl = *dl + 1;
+            state->rsp->matrixFloat((*dl)->w1, params);
+        }
+
+        void setVertexSegmentV1(State *state, DisplayList **dl) {
+            uint8_t isEnabled = (*dl)->p1(0, 1);
+            uint8_t vertexElement = (*dl)->p1(1, 4);
+            *dl = *dl + 1;
+            state->rsp->setVertexSegmentV1(isEnabled, vertexElement, (*dl)->w0, (*dl)->w1);
+        }
+
+        void setTexcoordWrapPointV1(State* state, DisplayList** dl) {
+            const int16_t wrapPointU = (*dl)->p1(16, 16);
+            const int16_t wrapPointV = (*dl)->p1(0, 16);
+            state->setTexcoordWrapPoint(wrapPointU, wrapPointV);
         }
 
         void noOpHook(State *state, DisplayList **dl) {
@@ -397,7 +427,12 @@ namespace RT64 {
             Map[G_EX_POPGEOMETRYMODE_V1] = &popGeometryModeV1;
             Map[G_EX_SETDITHERNOISESTRENGTH_V1] = &setDitherNoiseStrengthV1;
             Map[G_EX_SETRDRAMEXTENDED_V1] = &setRDRAMExtendedV1;
+            Map[G_EX_SETPROJMATRIXFLOAT_V1] = &setProjectionMatrixFloatV1;
+            Map[G_EX_SETVIEWMATRIXFLOAT_V1] = &setViewMatrixFloatV1;
             Map[G_EX_SETNEARCLIPPING_V1] = &setNearClippingV1;
+            Map[G_EX_MATRIX_FLOAT_V1] = &matrixFloatV1;
+            Map[G_EX_SETVERTEXSEGMENT_V1] = &setVertexSegmentV1;
+            Map[G_EX_SETTEXCOORDWRAPPOINT_V1] = &setTexcoordWrapPointV1;
             MapInitialized = true;
         }
     }

@@ -19,26 +19,27 @@ struct RSPProcessCB {
 };
 
 [[vk::push_constant]] ConstantBuffer<RSPProcessCB> gConstants : register(b0);
-Buffer<int> srcPos : register(t1);
-Buffer<int> srcVel : register(t2);
+Buffer<float> srcPos : register(t1);
+Buffer<float> srcVel : register(t2);
 Buffer<float> srcTc : register(t3);
-Buffer<uint> srcCol : register(t4);
-Buffer<int> srcNorm : register(t5);
-Buffer<uint> srcViewProjIndices : register(t6);
-Buffer<uint> srcWorldIndices : register(t7);
-Buffer<uint> srcFogIndices : register(t8);
-Buffer<uint> srcLightIndices : register(t9);
-Buffer<uint> srcLightCounts : register(t10);
-Buffer<uint> srcLookAtIndices : register(t11);
-StructuredBuffer<RSPViewport> rspViewportVector : register(t12);
-StructuredBuffer<RSPFog> rspFogVector : register(t13);
-StructuredBuffer<RSPLight> rspLightVector : register(t14);
-StructuredBuffer<RSPLookAt> rspLookAtVector : register(t15);
-StructuredBuffer<float4x4> viewProjTransforms : register(t16);
-StructuredBuffer<float4x4> worldTransforms : register(t17);
-RWStructuredBuffer<float4> dstPos : register(u18);
-RWStructuredBuffer<float2> dstTc : register(u19);
-RWStructuredBuffer<float4> dstCol : register(u20);
+Buffer<float> srcTcVel : register(t4);
+Buffer<uint> srcCol : register(t5);
+Buffer<int> srcNorm : register(t6);
+Buffer<uint> srcViewProjIndices : register(t7);
+Buffer<uint> srcWorldIndices : register(t8);
+Buffer<uint> srcFogIndices : register(t9);
+Buffer<uint> srcLightIndices : register(t10);
+Buffer<uint> srcLightCounts : register(t11);
+Buffer<uint> srcLookAtIndices : register(t12);
+StructuredBuffer<RSPViewport> rspViewportVector : register(t13);
+StructuredBuffer<RSPFog> rspFogVector : register(t14);
+StructuredBuffer<RSPLight> rspLightVector : register(t15);
+StructuredBuffer<RSPLookAt> rspLookAtVector : register(t16);
+StructuredBuffer<float4x4> viewProjTransforms : register(t17);
+StructuredBuffer<float4x4> worldTransforms : register(t18);
+RWStructuredBuffer<float4> dstPos : register(u19);
+RWStructuredBuffer<float2> dstTc : register(u20);
+RWStructuredBuffer<float4> dstCol : register(u21);
 
 [numthreads(GROUP_SIZE, 1, 1)]
 void CSMain(uint vertexIndex : SV_DispatchThreadID) {
@@ -85,6 +86,10 @@ void CSMain(uint vertexIndex : SV_DispatchThreadID) {
         const uint extractedIndex = (lookAtIndex >> RSP_LOOKAT_INDEX_SHIFT);
         const RSPLookAt lookAt = rspLookAtVector[extractedIndex];
         tc = computeTextureGen(tc, norm, lookAt, textureGenLinear, worldMat);
+    }
+    else {
+        float2 tcVel = float2(srcTcVel[tcIndex + 0], srcTcVel[tcIndex + 1]);
+        tc -= tcVel * (1.0f - gConstants.curFrameWeight);
     }
 
     // Lighting.

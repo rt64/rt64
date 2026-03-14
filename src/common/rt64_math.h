@@ -36,7 +36,7 @@ namespace RT64 {
     float pseudoRandom(uint32_t &s);
     hlslpp::float2 barycentricCoordinates(const hlslpp::float2 p, const hlslpp::float2 a, const hlslpp::float2 b, const hlslpp::float2 c);
     bool decomposeMatrix(const hlslpp::float4x4& mtx, hlslpp::quaternion& rotation, hlslpp::float3& scale, hlslpp::float3& skew,
-        hlslpp::float3& translation, hlslpp::float4& perspective);
+        hlslpp::float3& translation, hlslpp::float4& perspective, bool &coordinateFlip);
     hlslpp::float4x4 recomposeMatrix(const hlslpp::quaternion& rotation, const hlslpp::float3& scale, const hlslpp::float3& skew,
         const hlslpp::float3& translation, const hlslpp::float4& perspective);
     
@@ -46,6 +46,7 @@ namespace RT64 {
         hlslpp::float3 skew;
         hlslpp::float3 translation;
         hlslpp::float4 perspective;
+        bool coordinateFlip = false;
         bool valid = false;
 
         DecomposedTransform() = default;

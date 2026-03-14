@@ -70,6 +70,13 @@ add_subdirectory(src/tools/file_to_c)
 add_subdirectory(src/contrib/re-spirv)
 add_subdirectory(src/contrib/nativefiledialog-extended)
 add_subdirectory(src/contrib/zstd/build/cmake)
+
+if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
+    set(PLUME_SDL_VULKAN_ENABLED TRUE)
+elseif (APPLE)
+    set(PLUME_APPLE_RETINA_ENABLED OFF)
+endif()
+
 add_subdirectory(src/contrib/plume)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -292,7 +299,7 @@ add_compile_definitions(
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
-    add_compile_definitions("SDL_VULKAN_ENABLED")
+    add_compile_definitions("PLUME_SDL_VULKAN_ENABLED")
     add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
 endif()
 
@@ -361,6 +368,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/render/rt64_buffer_uploader.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_framebuffer_renderer.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_geometry_mode.cpp"
+    "${PROJECT_SOURCE_DIR}/src/render/rt64_look_at_processor.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_native_target.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_optimus.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_projection_processor.cpp"

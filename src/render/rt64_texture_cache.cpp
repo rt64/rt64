@@ -59,7 +59,6 @@ namespace RT64 {
         replacementDirectories.clear();
         resolvedHashVersions.clear();
         fileSystemStreamResolvedPaths.clear();
-        fileSystemHashVersions.clear();
 
         usedTexturePoolSize = 0;
         cachedTexturePoolSize = 0;

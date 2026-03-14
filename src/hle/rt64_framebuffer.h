@@ -15,6 +15,20 @@
 namespace RT64 {
     struct RenderTarget;
 
+    struct TileCopyCache {
+        std::unordered_map<uint64_t, uint64_t> tileCopies;
+        uint64_t usedTimestamp = 0;
+        uint64_t writeTimestamp = 0;
+
+        void update(uint64_t newUsedTimestamp, uint64_t newWriteTimestamp) {
+            if ((usedTimestamp != newUsedTimestamp) || (writeTimestamp != newWriteTimestamp)) {
+                tileCopies.clear();
+                usedTimestamp = newUsedTimestamp;
+                writeTimestamp = newWriteTimestamp;
+            }
+        }
+    };
+
     struct Framebuffer {
         enum class Type {
             None,
@@ -39,6 +53,7 @@ namespace RT64 {
         uint32_t RAMBytes;
         uint64_t RAMHash;
         std::array<uint32_t, 4> ditherPatterns;
+        TileCopyCache tileCopyCache;
         bool widthChanged;
         bool sizChanged;
         bool rdramChanged;
@@ -75,8 +90,7 @@ namespace RT64 {
         uint32_t lineWidth;
         uint32_t ditherPattern;
 
-        bool valid() const {
-            return (bottom > top) && (right > left);
-        }
+        bool valid() const;
+        uint64_t hash() const;
     };
 };

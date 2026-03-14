@@ -150,22 +150,36 @@ namespace RT64 {
             uint32_t fbEnd = fb->addressStart + fb->imageRowBytes(fb->width) * fb->maxHeight;
             bool syncRequired = (fb->addressStart < addressEnd) && (fbEnd > addressStart);
             fbManager.insertRegionsTMEM(fb->addressStart, tmemStart, std::min(tmemWords, uint32_t(RDP_TMEM_WORDS)), tmemMask, RGBA32, syncRequired, couldMakeTile ? &regionIterators : nullptr);
-
+            
             if (couldMakeTile) {
-                // Make a new tile copy resource.
-                const uint32_t newTileWidth = fbTile.right - fbTile.left;
-                const uint32_t newTileHeight = fbTile.bottom - fbTile.top;
-                uint64_t newTileId = fbManager.findTileCopyId(newTileWidth, newTileHeight);
+                // Update the timestamp so the cache is discarded if they're not a match.
+                fb->tileCopyCache.update(fbManager.getUsedTimestamp(), fb->lastWriteTimestamp);
 
-                // If valid, store the FB tile and the copy ID in the relevant regions.
+                uint64_t newTileId;
+                uint64_t tileCopyHash = fbTile.hash();
+                auto it = fb->tileCopyCache.tileCopies.find(tileCopyHash);
+                if (it != fb->tileCopyCache.tileCopies.end()) {
+                    newTileId = it->second;
+                }
+                else {
+                    // Make a new tile copy resource.
+                    const uint32_t newTileWidth = fbTile.right - fbTile.left;
+                    const uint32_t newTileHeight = fbTile.bottom - fbTile.top;
+                    newTileId = fbManager.findTileCopyId(newTileWidth, newTileHeight);
+
+                    // Queue the operation to make the tile copy.
+                    FramebufferOperation fbOp = fbManager.makeTileCopyTMEM(newTileId, fbTile);
+                    state->drawFbOperations.emplace_back(fbOp);
+
+                    // Store the tile copy in the map.
+                    fb->tileCopyCache.tileCopies[tileCopyHash] = newTileId;
+                }
+
+                // Store the FB tile and the copy ID in the relevant regions.
                 for (FramebufferManager::RegionIterator regionIt : regionIterators) {
                     regionIt->fbTile = fbTile;
                     regionIt->tileCopyId = newTileId;
                 }
-                
-                // Queue the operation to make the tile copy.
-                FramebufferOperation fbOp = fbManager.makeTileCopyTMEM(newTileId, fbTile);
-                state->drawFbOperations.emplace_back(fbOp);
             }
         }
     }
@@ -279,10 +293,14 @@ namespace RT64 {
     }
 
     void RDP::setCombine(uint64_t combine) {
+        interop::uint combineL = combine & 0xFFFFFFFFULL;
+        interop::uint combineH = (combine >> 32ULL) & 0xFFFFFFFFULL;
         interop::ColorCombiner &colorCombiner = colorCombinerStack[colorCombinerStackSize - 1];
-        colorCombiner.L = combine & 0xFFFFFFFFULL;
-        colorCombiner.H = (combine >> 32ULL) & 0xFFFFFFFFULL;
-        state->updateDrawStatusAttribute(DrawAttribute::Combine);
+        if (colorCombiner.L != combineL || colorCombiner.H != combineH) {
+            colorCombiner.L = combineL;
+            colorCombiner.H = combineH;
+            state->updateDrawStatusAttribute(DrawAttribute::Combine);
+        }
     }
 
     void RDP::pushCombine() {
@@ -426,6 +444,17 @@ namespace RT64 {
             textureAddressRow += textureStride;
             tmemXorMask ^= 0x4;
         };
+
+        // As an optimization for large texture loads that end up wrapping around in TMEM, we skip rows that have no effect in the final result.
+        if ((tmemStride > 0) && ((wordsPerRow * tmemAdvance) <= tmemStride)) {
+            int32_t rowsToSkip = rowCount - (tmemMask + tmemStride) / tmemStride;
+            if (rowsToSkip > 0) {
+                tmemAddressRow += (tmemAddressRow + tmemStride * rowsToSkip) & tmemMask;
+                textureAddressRow += textureStride * rowsToSkip;
+                tmemXorMask = (rowsToSkip & 0x1) << 2;
+                rowCount -= rowsToSkip;
+            }
+        }
 
         while (rowCount > 0) {
             textureAddress = textureAddressRow;
@@ -922,9 +951,11 @@ namespace RT64 {
     }
 
     void RDP::setOtherMode(uint32_t high, uint32_t low) {
-        otherMode.H = high;
-        otherMode.L = low;
-        state->updateDrawStatusAttribute(DrawAttribute::OtherMode);
+        if (otherMode.H != high || otherMode.L != low) {
+            otherMode.H = high;
+            otherMode.L = low;
+            state->updateDrawStatusAttribute(DrawAttribute::OtherMode);
+        }
     }
     
     void RDP::setPrimDepth(uint16_t z, uint16_t dz) {
@@ -947,8 +978,8 @@ namespace RT64 {
         scissorRect.lrx = std::clamp(movedFromOrigin(lrx + extAlignment.rightOffset, extAlignment.rightOrigin), extAlignment.leftBound, extAlignment.rightBound);
         scissorRect.lry = std::clamp(lry + extAlignment.bottomOffset, extAlignment.topBound, extAlignment.bottomBound);
         scissorModeStack[scissorStackSize - 1] = mode;
-        extended.scissorLeftOrigin = extAlignment.leftOrigin;
-        extended.scissorRightOrigin = extAlignment.rightOrigin;
+        extended.scissorLeftOriginStack[scissorStackSize - 1] = extAlignment.leftOrigin;
+        extended.scissorRightOriginStack[scissorStackSize - 1] = extAlignment.rightOrigin;
         state->updateDrawStatusAttribute(DrawAttribute::Scissor);
     }
 
@@ -956,6 +987,8 @@ namespace RT64 {
         if (scissorStackSize < RDP_EXTENDED_STACK_SIZE) {
             scissorRectStack[scissorStackSize] = scissorRectStack[scissorStackSize - 1];
             scissorModeStack[scissorStackSize] = scissorModeStack[scissorStackSize - 1];
+            extended.scissorLeftOriginStack[scissorStackSize] = extended.scissorLeftOriginStack[scissorStackSize - 1];
+            extended.scissorRightOriginStack[scissorStackSize] = extended.scissorRightOriginStack[scissorStackSize - 1];
             scissorStackSize++;
         }
     }
@@ -1040,8 +1073,8 @@ namespace RT64 {
     }
 
     void RDP::clearExtended() {
-        extended.scissorLeftOrigin = G_EX_ORIGIN_NONE;
-        extended.scissorRightOrigin = G_EX_ORIGIN_NONE;
+        extended.scissorLeftOriginStack[0] = G_EX_ORIGIN_NONE;
+        extended.scissorRightOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.drawExtendedFlags = {};
         extended.global.rect = ExtendedAlignment();
         extended.global.scissor = ExtendedAlignment();
@@ -1137,6 +1170,23 @@ namespace RT64 {
         lrx += extAlignment.rightOffset;
         lry += extAlignment.bottomOffset;
 
+        // There's a very common error in many games where rectangles are incorrectly configured with one
+        // less pixel than what's required to fill out the screen because other rectangle methods under
+        // different modes require adding an extra coordinate. Since this behavior often breaks detection
+        // for widescreen hacks, an enhancement option to fix them is available given they're within the
+        // tolerance of one pixel from the scissor coordinates.
+        const FixedRect &scissorRect = state->rdp->scissorRectStack[scissorStackSize - 1];
+        const bool fixRectLR = state->ext.enhancementConfig->rect.fixRectLR;
+        if (!scissorRect.isNull() && fixRectLR) {
+            if ((abs(scissorRect.lrx - lrx) <= 4) && (ulx < scissorRect.lrx)) {
+                lrx = scissorRect.lrx;
+            }
+
+            if ((abs(scissorRect.lry - lry) <= 4) && (uly < scissorRect.lry)) {
+                lry = scissorRect.lry;
+            }
+        }
+
         const FixedRect drawRect(movedFromOrigin(ulx, extAlignment.leftOrigin), uly, movedFromOrigin(lrx, extAlignment.rightOrigin), lry);
         if (drawRect.isEmpty()) {
             return;
@@ -1156,7 +1206,6 @@ namespace RT64 {
             fbPair.changeProjection(0, Projection::Type::Rectangle);
         }
 
-        const FixedRect &scissorRect = state->rdp->scissorRectStack[scissorStackSize - 1];
         if (!scissorRect.isNull()) {
             fbPair.scissorRect.merge(scissorRect);
 

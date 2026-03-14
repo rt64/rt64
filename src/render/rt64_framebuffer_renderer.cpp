@@ -112,36 +112,7 @@ namespace RT64 {
         right = correctMisalignment(right, rightOrigin);
         return RenderViewport(left, top, right - left, bottom - top);
     }
-    
-    void moveViewportRect(RenderViewport &viewport, hlslpp::float2 resScale, float middleViewport, float extOriginPercentage, float horizontalMisalignment, uint16_t origin) {
-        if (origin < G_EX_ORIGIN_NONE) {
-            viewport.x += ((middleViewport * origin) / G_EX_ORIGIN_CENTER) * extOriginPercentage + middleViewport * (1.0f - extOriginPercentage);
-            viewport.x -= horizontalMisalignment;
-        }
-        else {
-            viewport.x += middleViewport;
-        }
-    }
 
-    FixedRect fixRect(FixedRect rect, const FixedRect &scissorRect, bool fixLR) {
-        // There's a very common error in many games where the fill rectangles are incorrectly configured
-        // with one less coordinate than what's required to fill out the screen because other rectangle methods
-        // under different modes require adding an extra coordinate. Since this behavior often breaks detection
-        // for widescreen hacks, an enhancement option to fix them is available given they're within the tolerance
-        // of one pixel from the scissor coordinates.
-        if (fixLR) {
-            if ((abs(scissorRect.lrx - rect.lrx) <= 4) && (rect.ulx < scissorRect.lrx)) {
-                rect.lrx = scissorRect.lrx;
-            }
-
-            if ((abs(scissorRect.lry - rect.lry) <= 4) && (rect.uly < scissorRect.lry)) {
-                rect.lry = scissorRect.lry;
-            }
-        }
-
-        return rect;
-    }
-    
     hlslpp::float3 viewPositionFrom(hlslpp::float4x4 viewI) {
         return viewI[3].xyz;
     }
@@ -152,6 +123,15 @@ namespace RT64 {
 
     RenderColor toRenderColor(hlslpp::float4 v) {
         return { v.x, v.y, v.z, v.w };
+    }
+
+    static RenderRect viewportScissorIntersection(const RenderViewport &viewport, const RenderRect &scissor) {
+        return RenderRect{
+            std::max(static_cast<int32_t>(std::floor(viewport.x)), scissor.left),
+            std::max(static_cast<int32_t>(std::floor(viewport.y)), scissor.top),
+            std::min(static_cast<int32_t>(std::ceil(viewport.x + viewport.width)), scissor.right),
+            std::min(static_cast<int32_t>(std::ceil(viewport.y + viewport.height)), scissor.bottom)
+        };
     }
 
     // RasterScene
@@ -489,7 +469,6 @@ namespace RT64 {
         InstanceDrawCall::Type previousCallType = InstanceDrawCall::Type::Unknown;
         bool previousVertexTestZ = false;
         const RenderPipeline *previousPipeline = nullptr;
-        RenderViewport previousViewport;
         RenderRect previousScissor;
         interop::RasterParams rasterParams;
         RenderDescriptorSet *descRealFbSet = framebuffer.descRealFbSet->get();
@@ -499,13 +478,13 @@ namespace RT64 {
             previousCallType = InstanceDrawCall::Type::Unknown;
             previousVertexTestZ = false;
             previousPipeline = nullptr;
-            previousViewport = RenderViewport();
             previousScissor = RenderRect();
             worker->commandList->setGraphicsPipelineLayout(rendererPipelineLayout);
             worker->commandList->setGraphicsDescriptorSet(descCommonSet->get(), 0);
             worker->commandList->setGraphicsDescriptorSet(descTextureSet->get(), 1);
             worker->commandList->setGraphicsDescriptorSet(descTextureSet->get(), 2);
             worker->commandList->setGraphicsDescriptorSet(depthState ? descRealFbSet : descDummyFbSet, 3);
+            worker->commandList->setViewports(framebuffer.viewport);
         };
 
         auto switchToDepthRead = [&]() {
@@ -566,8 +545,8 @@ namespace RT64 {
                 const auto &triangles = drawCall.triangles;
                 assert(triangles.pipeline != nullptr);
 
-                // Draw calls can sometimes end up with empty viewports or scissors and cause validation errors. We just skip them.
-                if (triangles.viewport.isEmpty() || triangles.scissor.isEmpty()) {
+                // Draw calls can sometimes end up with empty scissors and cause validation errors. We just skip them.
+                if (triangles.scissor.isEmpty()) {
                     continue;
                 }
 
@@ -581,12 +560,6 @@ namespace RT64 {
                 else if (!depthDecal && depthWrite) {
                     switchToDepthWrite();
                 }
-                
-                if (previousViewport != triangles.viewport) {
-                    rasterParams.halfPixelOffset = { 1.0f / triangles.viewport.width, -1.0f / triangles.viewport.height};
-                    worker->commandList->setViewports(triangles.viewport);
-                    previousViewport = triangles.viewport;
-                }
 
                 if (previousScissor != triangles.scissor) {
                     worker->commandList->setScissors(triangles.scissor);
@@ -599,7 +572,10 @@ namespace RT64 {
                 }
                 
                 rasterParams.renderIndex = i;
+                rasterParams.screenScale = triangles.screenScale;
+                rasterParams.screenOffset = triangles.screenOffset;
                 worker->commandList->setGraphicsPushConstants(0, &rasterParams);
+
                 drawCallTriangles(drawCall);
 
                 // Simulate dither noise.
@@ -1461,24 +1437,29 @@ namespace RT64 {
         const float aspectRatioScale = adjustRatio ? (p.aspectRatioTarget / p.aspectRatioSource) : 1.0f;
         InstanceDrawCall instanceDrawCall;
         interop::RenderIndices renderIndices;
-        FixedRect fixedRect;
         uint32_t globalCallIndex = 0;
         const float wideWidth = p.fbWidth * p.resolutionScale.x;
         const float originalWidth = p.fbWidth * p.resolutionScale.y;
         const float commonHeight = float(p.targetHeight);
+        framebuffer.viewport = RenderViewport(0.0f, 0.0f, wideWidth, commonHeight);
+        
+        const interop::float2 halfViewportSize = { framebuffer.viewport.width / 2.0f, framebuffer.viewport.height / 2.0f };
+        const interop::float2 halfPixelOffset = { 1.0f / framebuffer.viewport.width, -1.0f / framebuffer.viewport.height };
         const float middleViewport = (wideWidth / 2.0f) - (originalWidth / 2.0f);
         const float extOriginPercentage = p.extAspectPercentage;
-        RenderViewport rawViewportWide(0.0f, 0.0f, wideWidth, commonHeight);
-        RenderViewport rawViewportOriginal(0.0f, 0.0f, originalWidth, commonHeight);
         uint32_t vertexTestZFaceIndicesStart = 0;
         int32_t vertexTestZCallIndex = -1;
+        RenderViewport viewportClip;
         for (uint32_t pr = 0; (pr < fbPair.projectionCount) && (globalCallIndex < p.maxGameCall); pr++) {
             const Projection &proj = fbPair.projections[pr];
-            const bool perspProj = (proj.type == Projection::Type::Perspective);
+            if (proj.scissorRect.isNull()) {
+                continue;
+            }
 
 #       if RT_ENABLED
             // TODO: Move heuristics of RT proj elsewhere?
             // TODO: Use detected scenes logic instead.
+            const bool perspProj = (proj.type == Projection::Type::Perspective);
             bool rtProj = p.rtEnabled && perspProj && fbPair.depthWrite && targetDrawCall.rtScenes.empty(); // TODO: Remove the last condition once multiple heaps per RT scene are supported.
 
             // Make sure the matrices are compatible if we're switching to a new projection.
@@ -1496,7 +1477,35 @@ namespace RT64 {
             }
 #       endif
             
+            auto &triangles = instanceDrawCall.triangles;
+            triangles.screenScale = { 1.0f, 1.0f };
+            triangles.screenOffset = halfPixelOffset;
+
+            float projInvRatioScale = 1.0f / aspectRatioScale;
+            const int16_t *viewportClipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
             const uint16_t viewportOrigin = drawData.viewportOrigins[proj.transformsIndex];
+            if (proj.usesViewport()) {
+                // The call's scissor spans the whole width of the framebuffer pair scissor. Custom origin must not be in use to be able to use the stretched viewport.
+                const auto &viewport = drawData.rspViewports[proj.transformsIndex];
+                FixedRect intersectionRect = proj.scissorRect.intersection(viewport.rect(viewportClipRatios));
+                bool coversWholeWidth = !intersectionRect.isEmpty() && (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
+                bool horizontalRatio = !intersectionRect.isEmpty() && (intersectionRect.width(true, true) > intersectionRect.height(true, true));
+                bool useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                if (useWideViewport) {
+                    projInvRatioScale = 1.0f;
+                }
+                else {
+                    triangles.screenScale.x = originalWidth / wideWidth;
+
+                    if (viewportOrigin < G_EX_ORIGIN_NONE) {
+                        const float centerOffset = ((middleViewport * viewportOrigin) / G_EX_ORIGIN_CENTER) * extOriginPercentage + middleViewport * (1.0f - extOriginPercentage);
+                        triangles.screenOffset.x = halfPixelOffset.x + ((centerOffset - middleViewport) / halfViewportSize.x);
+                    }
+                }
+
+                viewportClip = convertViewportRect(viewport.rect(viewportClipRatios), p.resolutionScale, p.fbWidth, projInvRatioScale, extOriginPercentage, 0.0f, viewportOrigin, viewportOrigin);
+            }
+
             for (uint32_t d = 0; (d < proj.gameCallCount) && (globalCallIndex < p.maxGameCall); d++) {
                 const GameCall &call = proj.gameCalls[d];
                 renderIndices.instanceIndex = call.callDesc.callIndex;
@@ -1528,10 +1537,9 @@ namespace RT64 {
 
                     float invRatioScale = 1.0f / aspectRatioScale;
                     int32_t horizontalMisalignment = 0;
-                    fixedRect = fixRect(call.callDesc.rect, fbPair.scissorRect, p.fixRectLR);
 
                     // A rect that spans the whole width of the scissor.
-                    if ((fixedRect.ulx <= fbPair.scissorRect.ulx) && (fixedRect.lrx >= fbPair.scissorRect.lrx)) {
+                    if ((call.callDesc.rect.ulx <= fbPair.scissorRect.ulx) && (call.callDesc.rect.lrx >= fbPair.scissorRect.lrx)) {
                         invRatioScale = 1.0f;
                     }
                     // A regular rectangle that should correct its misalignment.
@@ -1539,7 +1547,7 @@ namespace RT64 {
                         horizontalMisalignment = int32_t(p.horizontalMisalignment);
                     }
 
-                    clearRect.rect = convertFixedRect(fixedRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
+                    clearRect.rect = convertFixedRect(call.callDesc.rect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
                 }
                 else if (call.callDesc.extendedType != DrawExtendedType::None) {
                     switch (call.callDesc.extendedType) {
@@ -1597,7 +1605,6 @@ namespace RT64 {
                     else 
 #               endif
                     {
-                        auto &triangles = instanceDrawCall.triangles;
                         triangles.shaderDesc = call.shaderDesc;
 
                         RasterShader *gpuShader = p.ubershadersOnly ? nullptr : p.rasterShaderCache->getGPUShader(call.shaderDesc);
@@ -1623,33 +1630,12 @@ namespace RT64 {
                         case Projection::Type::Orthographic: {
                             instanceDrawCall.type = InstanceDrawCall::Type::IndexedTriangles;
                             triangles.indexStart = triangles.vertexTestZ ? vertexTestZFaceIndicesStart : call.meshDesc.faceIndicesStart;
-
-                            // Custom origin must not be in use to be able to use the stretched viewport.
-                            bool useWideViewport = false;
-                            if (proj.type == Projection::Type::Perspective) {
-                                // The call's scissor spans the whole width of the framebuffer pair scissor. The viewport must not be using an extended origin.
-                                useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && (call.callDesc.scissorRect.ulx <= fbPair.scissorRect.ulx) && (call.callDesc.scissorRect.lrx <= fbPair.scissorRect.lrx);
-                            }
-                            else {
-                                // Always use the wide viewport with orthographic projections.
-                                useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE);
-                            }
-
-                            if (useWideViewport) {
-                                invRatioScale = 1.0f;
-                                triangles.viewport = rawViewportWide;
-                            }
-                            else {
-                                triangles.viewport = rawViewportOriginal;
-                                moveViewportRect(triangles.viewport, p.resolutionScale, middleViewport, extOriginPercentage, horizontalMisalignment, viewportOrigin);
-                            }
-
+                            invRatioScale = projInvRatioScale;
                             break;
                         }
                         case Projection::Type::Rectangle: {
                             instanceDrawCall.type = InstanceDrawCall::Type::RegularRect;
                             triangles.indexStart = call.meshDesc.rawVertexStart;
-                            fixedRect = fixRect(call.callDesc.rect, fbPair.scissorRect, p.fixRectLR);
 
                             bool tileCopiesUsed = false;
                             for (uint32_t t = 0; (t < call.callDesc.tileCount) && !tileCopiesUsed; t++) {
@@ -1658,7 +1644,7 @@ namespace RT64 {
 
                             // The call's scissor spans the whole width of the framebuffer pair scissor. The rect must not be using extended origins.
                             const bool regularOrigins = (call.callDesc.rectLeftOrigin == G_EX_ORIGIN_NONE) && (call.callDesc.rectRightOrigin == G_EX_ORIGIN_NONE);
-                            const bool coversScissorWidth = regularOrigins && (fixedRect.ulx <= fbPair.scissorRect.ulx) && (fixedRect.lrx >= fbPair.scissorRect.lrx);
+                            const bool coversScissorWidth = regularOrigins && (call.callDesc.rect.ulx <= fbPair.scissorRect.ulx) && (call.callDesc.rect.lrx >= fbPair.scissorRect.lrx);
                             if (tileCopiesUsed || coversScissorWidth) {
                                 invRatioScale = 1.0f;
                             }
@@ -1666,7 +1652,10 @@ namespace RT64 {
                                 horizontalMisalignment = p.horizontalMisalignment;
                             }
 
-                            triangles.viewport = convertViewportRect(fixedRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
+                            RenderViewport viewportRect = convertViewportRect(call.callDesc.rect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, horizontalMisalignment, call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
+                            triangles.screenScale = { viewportRect.width / framebuffer.viewport.width, viewportRect.height / framebuffer.viewport.height };
+                            triangles.screenOffset.x = halfPixelOffset.x + ((viewportRect.x + viewportRect.width / 2.0f) - halfViewportSize.x) / halfViewportSize.x;
+                            triangles.screenOffset.y = halfPixelOffset.y + (halfViewportSize.y - (viewportRect.y + viewportRect.height / 2.0f)) / halfViewportSize.y;
 
                             if (p.postBlendNoise) {
                                 // Indicate if post blend dither noise should be applied.
@@ -1680,7 +1669,6 @@ namespace RT64 {
                         case Projection::Type::Triangle: {
                             instanceDrawCall.type = InstanceDrawCall::Type::RawTriangles;
                             triangles.indexStart = call.meshDesc.rawVertexStart;
-                            triangles.viewport = rawViewportWide;
                             break;
                         }
                         case Projection::Type::None:
@@ -1689,12 +1677,15 @@ namespace RT64 {
                         }
 
                         triangles.scissor = convertFixedRect(call.callDesc.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, int32_t(horizontalMisalignment), call.callDesc.scissorLeftOrigin, call.callDesc.scissorRightOrigin);
+
+                        bool usesViewport = (proj.type == Projection::Type::Perspective) || (proj.type == Projection::Type::Orthographic);
+                        if (usesViewport) {
+                            triangles.scissor = viewportScissorIntersection(viewportClip, triangles.scissor);
+                        }
                         
-                        if (triangles.vertexTestZ) {
-                            if ((proj.type == Projection::Type::Perspective) || (proj.type == Projection::Type::Orthographic)) {
-                                instanceDrawCallVector[vertexTestZCallIndex].vertexTestZ.indexCount += call.callDesc.triangleCount * 3;
-                                vertexTestZFaceIndicesStart += call.callDesc.triangleCount * 3;
-                            }
+                        if (triangles.vertexTestZ && usesViewport) {
+                            instanceDrawCallVector[vertexTestZCallIndex].vertexTestZ.indexCount += call.callDesc.triangleCount * 3;
+                            vertexTestZFaceIndicesStart += call.callDesc.triangleCount * 3;
                         }
                     }
                 }
@@ -1727,7 +1718,7 @@ namespace RT64 {
                         rtScene.prevProjMatrix = drawData.prevProjTransforms[proj.transformsIndex];
 
                         const auto &viewport = drawData.rspViewports[proj.transformsIndex];
-                        rtScene.viewport = convertViewportRect(viewport.rect(), p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0.0f, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
+                        rtScene.viewport = convertViewportRect(viewport.rect(viewportClipRatios), p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0.0f, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
                         rtScene.scissor = convertFixedRect(proj.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, 0, G_EX_ORIGIN_NONE, G_EX_ORIGIN_NONE);
 
                         rtScene.presetScene = p.presetScene;

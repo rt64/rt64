@@ -21,8 +21,8 @@ LIBRARY_EXPORT void RasterVS(const RenderParams rp, in float4 iPosition, in floa
         ndcPos.xyz *= ndcPos.w;
     }
     
-    // Add half-pixel offset for rasterization.
-    ndcPos.xy += gConstants.halfPixelOffset * ndcPos.w;
+    // Apply screen scale and offset.
+    ndcPos.xy = (ndcPos.xy * gConstants.screenScale) + gConstants.screenOffset * ndcPos.w;
     
     // Output a fixed depth value for the entire triangle.
     const OtherMode otherMode = { rp.omL, rp.omH };

@@ -15,27 +15,12 @@
 namespace RT64 {
     // VI
     
-    const uint32_t VI::Width = 640;
-    const uint32_t VI::Height = 480;
-
-    RectI VI::viewRectangle() const {
-        // TODO
-        RectI rect;
-        rect.x = 0;
-        rect.y = 0;
-        rect.w = Width;
-        rect.h = Height;
-        return rect;
+    hlslpp::float4 VI::viewRectangle() const {
+        return { 0.0f, 0.0f, 1.0f, 1.0f };
     }
 
-    RectI VI::cropRectangle() const {
-        // TODO
-        RectI rect;
-        rect.x = 0;
-        rect.y = 0;
-        rect.w = Width;
-        rect.h = Height;
-        return rect;
+    hlslpp::float4 VI::cropRectangle() const {
+        return { 0.0f, 0.0f, 1.0f, 1.0f };
     }
 
     float VI::gamma() const {
@@ -124,16 +109,19 @@ namespace RT64 {
         // that was just fixed to eliminate interlacing.
         size.y = lround(float(vRegion.vEnd - vRegion.vStart) / (2.0f * yScaleFloat() * (float(size.x) / float(width))));
 
-        // Most of the time, the height is missing a few rows because the framebuffer is offset 
-        // at the origin and an extra row is left at the end to account for filtering.
-        // We add two extra rows to whatever result we get and try to get the closest clean 
-        // multiplier of the specified Division factor.
-        const uint32_t ExtraRows = 2;
-        const uint32_t Divisor = 4;
-        size.y += ExtraRows;
-        size.y = lround(float(size.y) / Divisor) * Divisor;
-
-        return size;
+        if ((size.x > 0) && (size.y > 0)) {
+            // Most of the time, the height is missing a few rows because the framebuffer is offset
+            // at the origin and an extra row is left at the end to account for filtering.
+            // We add two extra rows to whatever result we get and try to get the closest clean
+            // multiplier of the specified Division factor.
+            const uint32_t ExtraRows = 2;
+            const uint32_t Divisor = 4;
+            size.y += ExtraRows;
+            size.y = lround(float(size.y) / Divisor) * Divisor;
+            return size;
+        } else {
+            return hlslpp::uint2(0, 0);
+        }
     }
 
     float VI::xScaleFloat() const {

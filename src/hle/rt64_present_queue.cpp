@@ -98,6 +98,7 @@ namespace RT64 {
         const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
         hlslpp::float2 resolutionScale;
         EnhancementConfiguration::Presentation::Mode presentationMode;
+        bool removeBlackBorders;
         UserConfiguration::RefreshRate refreshRate;
         UserConfiguration::Filtering filtering;
         uint32_t viOriginalRate;
@@ -106,6 +107,7 @@ namespace RT64 {
             std::scoped_lock<std::mutex> configurationLock(ext.sharedResources->configurationMutex);
             resolutionScale = ext.sharedResources->resolutionScale;
             presentationMode = ext.sharedResources->enhancementConfig.presentation.mode;
+            removeBlackBorders = ext.sharedResources->enhancementConfig.presentation.removeBlackBorders;
             refreshRate = ext.sharedResources->userConfig.refreshRate;
             filtering = ext.sharedResources->userConfig.filtering;
             viOriginalRate = ext.sharedResources->viOriginalRate;
@@ -320,6 +322,7 @@ namespace RT64 {
                     renderParams.downsamplingScale = 1;
                     renderParams.filtering = filtering;
                     renderParams.vi = &present.screenVI;
+                    renderParams.removeBlackBorders = removeBlackBorders;
 
                     const bool useDownsampling = (colorTarget->downsampleMultiplier > 1);
                     if (useDownsampling) {
@@ -360,7 +363,7 @@ namespace RT64 {
                     commandList->end();
                     const RenderCommandList *commandList = ext.presentGraphicsWorker->commandList.get();
                     RenderCommandSemaphore *waitSemaphore = acquiredSemaphore.get();
-                    RenderCommandSemaphore *signalSemaphore = drawSemaphore.get();
+                    RenderCommandSemaphore *signalSemaphore = drawSemaphores[swapChainIndex].get();
                     ext.presentGraphicsWorker->commandQueue->executeCommandLists(&commandList, 1, &waitSemaphore, 1, &signalSemaphore, 1, ext.presentGraphicsWorker->commandFence.get());
                     ext.presentGraphicsWorker->wait();
                 }
@@ -395,7 +398,7 @@ namespace RT64 {
                     ext.swapChain->wait();
                 }
 
-                RenderCommandSemaphore *waitSemaphore = drawSemaphore.get();
+                RenderCommandSemaphore *waitSemaphore = drawSemaphores[swapChainIndex].get();
                 presentTimestamp = Timer::current();
                 swapChainValid = ext.swapChain->present(swapChainIndex, &waitSemaphore, 1);
                 presentProfiler.logAndRestart();
@@ -421,26 +424,6 @@ namespace RT64 {
 
         presentIdCondition.notify_all();
     }
-
-    bool PresentQueue::detectPresentWait() {
-        if (!ext.device->getCapabilities().presentWait) {
-            return false;
-        }
-
-#ifdef _WIN32
-        // Present wait exhibits issues on NVIDIA when using a system with more than one monitor under Vulkan,
-        // where the driver will actively synchronize with the refresh rate of the wrong display. We disable
-        // the ability to do present wait as long as this issue remains.
-        bool isVulkan = (ext.createdGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan);
-        bool isNVIDIA = (ext.device->getDescription().vendor == RenderDeviceVendor::NVIDIA);
-        int monitorCount = GetSystemMetrics(SM_CMONITORS);
-        if (isVulkan && isNVIDIA && (monitorCount > 1)) {
-            return false;
-        }
-#endif
-
-        return true;
-    }
     
     void PresentQueue::threadAdvanceBarrier() {
         std::scoped_lock<std::mutex> cursorLock(cursorMutex);
@@ -450,12 +433,16 @@ namespace RT64 {
     void PresentQueue::threadLoop() {
         Thread::setCurrentThreadName("RT64 Present");
 
-        // Create the semaphores used by the swap chains.
+        // Create the semaphore the acquire method will use.
         acquiredSemaphore = ext.device->createCommandSemaphore();
-        drawSemaphore = ext.device->createCommandSemaphore();
+
+        // Create as many semaphores to signal as textures there are.
+        while (drawSemaphores.size() < ext.swapChain->getTextureCount()) {
+            drawSemaphores.emplace_back(ext.device->createCommandSemaphore());
+        }
 
         // Since the swap chain might not need a resize right away, detect present wait.
-        presentWaitEnabled = detectPresentWait();
+        presentWaitEnabled = ext.device->getCapabilities().presentWait;
 
         int processCursor = -1;
         bool skipPresent = false;
@@ -486,10 +473,14 @@ namespace RT64 {
                     ext.presentGraphicsWorker->wait();
                     swapChainValid = ext.swapChain->resize();
                     swapChainFramebuffers.clear();
-                    presentWaitEnabled = detectPresentWait();
 
                     if (swapChainValid) {
                         ext.sharedResources->setSwapChainSize(ext.swapChain->getWidth(), ext.swapChain->getHeight());
+                        
+                        // Texture count could've changed after resize, so new semaphores are needed.
+                        while (drawSemaphores.size() < ext.swapChain->getTextureCount()) {
+                            drawSemaphores.emplace_back(ext.device->createCommandSemaphore());
+                        }
                     }
                 }
 

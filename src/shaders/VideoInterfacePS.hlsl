@@ -13,7 +13,7 @@ SamplerState gSampler : register(s2);
 float4 SampleInput(float2 uv) {
     const float2 LowerRight = gConstants.videoResolution / gConstants.textureResolution;
     const float2 HalfPixel = float2(0.5f, 0.5f) / gConstants.textureResolution;
-    float2 outsideBorder = step(LowerRight - HalfPixel, uv);
+    float2 outsideBorder = step(LowerRight, uv);
     float4 sampledColor = gInput.SampleLevel(gSampler, clamp(uv, HalfPixel, LowerRight - HalfPixel), 0);
     float4 gammaCorrectedColor = pow(sampledColor, gConstants.gamma);
     gammaCorrectedColor.rgb *= max(1.0f - outsideBorder.x - outsideBorder.y, 0.0f);

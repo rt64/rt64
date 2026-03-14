@@ -156,6 +156,7 @@ namespace RT64 {
         int projectionIndex;
         std::array<interop::RSPViewport, RSP_EXTENDED_STACK_SIZE> viewportStack;
         int viewportStackSize;
+        std::array<int16_t, 4> clipRatios;
         std::array<Vertex, RSP_MAX_VERTICES> vertices;
         std::array<uint32_t, RSP_MAX_VERTICES> indices;
         std::bitset<RSP_MAX_VERTICES> used;
@@ -203,9 +204,10 @@ namespace RT64 {
                 int16_t viewportOffsetY;
             } global;
 
+            std::array<uint16_t, RSP_EXTENDED_STACK_SIZE> viewportOriginStack;
+
             DrawExtendedType drawExtendedType;
             DrawExtendedData drawExtendedData;
-            uint16_t viewportOrigin;
             std::array<TransformGroup, RSP_MATRIX_ID_STACK_SIZE> modelMatrixIdStack;
             int modelMatrixIdStackSize;
             bool modelMatrixIdStackChanged;
@@ -214,6 +216,15 @@ namespace RT64 {
             int viewProjMatrixIdStackSize;
             bool viewProjMatrixIdStackChanged;
             int curViewProjMatrixIdGroupIndex;
+            hlslpp::float4x4 viewMatrix;
+            hlslpp::float4x4 projMatrix;
+            hlslpp::float4x4 viewProjMatrix;
+            hlslpp::float4x4 invViewMatrix;
+            hlslpp::float4x4 invProjMatrix;
+            hlslpp::float4x4 invViewProjMatrix;
+            std::array<uint32_t, G_EX_VERTEX_MAX> vertexAddresses;
+            std::array<uint32_t, G_EX_VERTEX_MAX> baseSegmentAddresses;
+            std::array<bool, G_EX_VERTEX_MAX> vertexSegmentEnabled;
             bool forceBranch;
         } extended;
 
@@ -226,21 +237,28 @@ namespace RT64 {
         uint32_t fromSegmentedMasked(uint32_t segAddress);
         uint32_t fromSegmentedMaskedPD(uint32_t segAddress);
         void setSegment(uint32_t seg, uint32_t address);
+        void matrixCommon(const hlslpp::float4x4 &floatMatrix, uint32_t address, uint8_t params);
         void matrix(uint32_t address, uint8_t params);
+        void matrixFloat(uint32_t address, uint8_t params);
         void popMatrix(uint32_t count);
         void pushProjectionMatrix();
         void popProjectionMatrix();
         void insertMatrix(uint32_t address, uint32_t value);
         void forceMatrix(uint32_t address);
+        void setProjectionMatrixFloat(uint32_t address);
+        void setViewMatrixFloat(uint32_t address);
         void computeModelViewProj();
         void specialComputeModelViewProj();
         void setModelViewProjChanged(bool changed);
-        void setVertex(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
-        void setVertexPD(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
-        void setVertexEXV1(uint32_t address, uint8_t vtxCount, uint32_t dstIndex);
+        void setVertex(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
+        void setVertexPD(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
+        void setVertexEXV1(uint32_t address, uint32_t vtxCount, uint32_t dstIndex);
         void setVertexColorPD(uint32_t address);
-        template<bool addEmptyVelocity>
-        void setVertexCommon(uint8_t dstIndex, uint8_t dstMax);
+        void setVertexSegmentV1(bool isEnabled, uint32_t vertexElement, uint32_t vertexAddress, uint32_t baseSegmentAddress);
+        template<uint32_t floatCount, uint32_t vertexSize>
+        void readExtendedVertexSegment(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax, uint32_t globalIndex, uint32_t vertexElement, std::vector<float> &floatsVector);
+        template<bool addEmptyVelocity, uint32_t vertexSize>
+        void setVertexCommon(uint32_t rdramAddress, uint32_t dstIndex, uint32_t dstMax);
         void modifyVertex(uint16_t dstIndex, uint16_t dstAttribute, uint32_t value);
         void setGeometryMode(uint32_t mask);
         void pushGeometryMode();
@@ -255,7 +273,8 @@ namespace RT64 {
         void setLight(uint8_t index, uint32_t address);
         void setLightColor(uint8_t index, uint32_t value);
         void setLightCount(uint8_t count);
-        void setClipRatio(uint32_t clipRatio);
+        void setClipRatioEdge(uint8_t index, int16_t value);
+        void setClipRatioAll(int16_t value);
         void setPerspNorm(uint32_t perspNorm);
         void setLookAt(uint8_t index, uint32_t address);
         void setLookAtVectors(interop::float3 x, interop::float3 y);
@@ -276,7 +295,7 @@ namespace RT64 {
         void setViewportAlign(uint16_t ori, int16_t offx, int16_t offy);
         void vertexTestZ(uint8_t vtxIndex);
         void endVertexTestZ();
-        void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vert, uint8_t tile, uint8_t order, uint8_t editable, bool idIsAddress, bool editGroup);
+        void matrixId(uint32_t id, bool push, bool proj, bool decompose, uint8_t pos, uint8_t rot, uint8_t scale, uint8_t skew, uint8_t persp, uint8_t vpos, uint8_t vtc, uint8_t tile, uint8_t lookat, uint8_t order, uint8_t aspect, uint8_t editable, bool idIsAddress, bool editGroup);
         void popMatrixId(uint8_t count, bool proj);
         void forceBranch(bool force);
         void extendRDRAM(bool isExtended);

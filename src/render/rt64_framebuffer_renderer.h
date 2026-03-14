@@ -117,6 +117,7 @@ namespace RT64 {
             std::unique_ptr<FramebufferRendererDescriptorFramebufferSet> descDummyFbSet;
             std::set<RenderTarget *> transitionRenderTargetSet;
             RenderTargetDrawCall renderTargetDrawCall;
+            RenderViewport viewport;
         };
 
         std::vector<Framebuffer> framebufferVector;
@@ -143,7 +144,6 @@ namespace RT64 {
             uint64_t submissionFrame;
             float deltaTimeMs;
             bool ubershadersOnly;
-            bool fixRectLR;
             bool postBlendNoise;
             bool postBlendNoiseNegative;
             uint32_t maxGameCall;
