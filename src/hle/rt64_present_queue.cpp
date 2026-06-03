@@ -271,14 +271,16 @@ namespace RT64 {
 
         // setup intermediate buffer/texture for postprocess pipeline
         const uint32_t lastIntermediateWidth = intermediateFramebuffer ? intermediateFramebuffer.get()->getWidth() : 0;
-        hlslpp::uint2 fbSize = present.screenVI.fbSize();
-        if (colorTarget != nullptr && lastIntermediateWidth != fbSize.x) {
+        RenderViewport viewport;
+        // todo: downsample param
+        VIRenderer::getFXViewport(present.screenVI, resolutionScale, 1, removeBlackBorders, viewport);
+        if (colorTarget != nullptr && lastIntermediateWidth != viewport.width) {
             intermediateFramebuffer.reset();
             intermediateTexture.reset();
 
             intermediateTexture = ext.device->createTexture(
                 plume::RenderTextureDesc::ColorTarget(
-                    fbSize.x, fbSize.y, RenderFormat::B8G8R8A8_UNORM
+                    viewport.width, viewport.height, RenderFormat::B8G8R8A8_UNORM
                 )
             );
 
@@ -374,7 +376,7 @@ namespace RT64 {
 
                 if (renderParams.texture != nullptr) {
                     commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(renderParams.texture, RenderTextureLayout::SHADER_READ));
-                    viRenderer->render(renderParams);
+                    viRenderer->render(renderParams, !libraReady);
 
                     if (libraReady) {
                         Librashader::LibraFrameParams frameparams;

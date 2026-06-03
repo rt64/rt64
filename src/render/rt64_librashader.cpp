@@ -129,7 +129,7 @@ namespace RT64 {
             input, output, NULL, NULL, NULL);
 
         // D3D12 needs an extra reminder or imgui gets hidden by fx
-        //lp.commandList->setFramebuffer(lp.outputFramebuffer);
+        lp.commandList->setFramebuffer(lp.outputFramebuffer);
 #endif
 
 #if LIBRA_RUNTIME_VULKAN
@@ -187,6 +187,7 @@ namespace RT64 {
         }
 
         currentRuntimeParams.clear();
+        currentShaderPath.clear();
     }
 
     bool Librashader::setup(RenderDevice *device, std::string path) {
