@@ -14,6 +14,8 @@ namespace RT64 {
 
     PresentQueue::PresentQueue() {
         reset();
+
+        librafx = std::make_unique<Librashader>();
     }
 
     PresentQueue::~PresentQueue() {
@@ -22,6 +24,7 @@ namespace RT64 {
 
         if (presentThread != nullptr) {
             presentThread->join();
+            librafx.get()->reset();
             delete presentThread;
         }
 
@@ -265,6 +268,25 @@ namespace RT64 {
                 swapChainFramebuffers[i] = ext.device->createFramebuffer(RenderFramebufferDesc(&swapChainTexture, 1));
             }
         }
+
+        // setup intermediate buffer/texture for postprocess pipeline
+        const uint32_t lastIntermediateWidth = intermediateFramebuffer ? intermediateFramebuffer.get()->getWidth() : 0;
+        hlslpp::uint2 fbSize = present.screenVI.fbSize();
+        if (colorTarget != nullptr && lastIntermediateWidth != fbSize.x) {
+            intermediateFramebuffer.reset();
+            intermediateTexture.reset();
+
+            intermediateTexture = ext.device->createTexture(
+                plume::RenderTextureDesc::ColorTarget(
+                    fbSize.x, fbSize.y, RenderFormat::B8G8R8A8_UNORM
+                )
+            );
+
+            const RenderTexture* localIntermediateTexture = intermediateTexture.get();
+            intermediateFramebuffer = ext.device->createFramebuffer(RenderFramebufferDesc(&localIntermediateTexture, 1));
+        }
+
+        librafx.get()->updateShader(ext.device, desiredShader);
         
         for (int32_t i = 0; i < framesToPresent; i++) {
             uint32_t frameCountersNextPresented = 0;

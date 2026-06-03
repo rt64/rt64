@@ -12,6 +12,7 @@ option(RT64_STATIC "Build RT64 as a static library" OFF)
 
 
 option(RT64_SDL_WINDOW_VULKAN "Build RT64 to expect an SDL Window outside of Windows" OFF)
+option(RT64_LIBRASHADER "Build RT64 with post-processing support via librashader" OFF)
 
 if (NOT ${RT64_STATIC})
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -303,6 +304,11 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
     add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
 endif()
 
+if (RT64_LIBRASHADER)
+    add_compile_definitions("RT64_LIBRASHADER")
+    include_directories("${PROJECT_SOURCE_DIR}/src/contrib/librashader/include")
+endif()
+
 set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/common/rt64_common.cpp"
     "${PROJECT_SOURCE_DIR}/src/common/rt64_dynamic_libraries.cpp"
@@ -368,6 +374,7 @@ set (SOURCES
     "${PROJECT_SOURCE_DIR}/src/render/rt64_buffer_uploader.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_framebuffer_renderer.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_geometry_mode.cpp"
+    "${PROJECT_SOURCE_DIR}/src/render/rt64_librashader.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_look_at_processor.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_native_target.cpp"
     "${PROJECT_SOURCE_DIR}/src/render/rt64_optimus.cpp"

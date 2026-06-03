@@ -46,3 +46,6 @@
 [submodule "src/contrib/plume"]
 	path = src/contrib/plume
 	url = https://github.com/renderbag/plume.git
+[submodule "src/contrib/librashader"]
+	path = src/contrib/librashader
+	url = https://github.com/SnowflakePowered/librashader
