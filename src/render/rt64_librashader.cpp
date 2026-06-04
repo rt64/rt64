@@ -138,6 +138,9 @@ namespace RT64 {
             .height = vkOutput->desc.height
         };
 
+        // Vulkan seems to explode without a "fresh" commandlist with nothing done to it
+        lp.commandList->end();
+
         lp.commandList->begin();
 
         libra_error_t frameErr = libra.vk_filter_chain_frame(&vk_filterChain, vkCmdList, lp.frameCount,
@@ -191,10 +194,6 @@ namespace RT64 {
         lp.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(lp.inputTexture, RenderTextureLayout::SHADER_READ));
         lp.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(lp.outputTexture, RenderTextureLayout::COLOR_WRITE));
         lp.commandList->setFramebuffer(lp.outputFramebuffer);
-
-        // Vulkan seems to explode without a "fresh" commandlist with nothing done to it
-        if (gfxAPI == GraphicsAPI::Vulkan)
-            lp.commandList->end();
 
         // librashader hookup
         libra_viewport_t viewport = { lp.viewport.x, lp.viewport.y, lp.viewport.width, lp.viewport.height };
