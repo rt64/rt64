@@ -5,6 +5,7 @@
 #pragma once
 
 #include "common/rt64_plume.h"
+#include "common/rt64_user_configuration.h"
 #include "render/rt64_render_worker.h"
 
 namespace RT64 {
@@ -39,7 +40,9 @@ namespace RT64 {
             size_t frameCount;
         };
 
-        Librashader();
+        UserConfiguration::GraphicsAPI gfxAPI;
+
+        Librashader(UserConfiguration::GraphicsAPI api);
         ~Librashader();
         std::string getCurrentShader();
         std::vector<LibraRuntimeParam>& getRuntimeParams();

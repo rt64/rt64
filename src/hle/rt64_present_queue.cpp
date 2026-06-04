@@ -14,8 +14,6 @@ namespace RT64 {
 
     PresentQueue::PresentQueue() {
         reset();
-
-        librafx = std::make_unique<Librashader>();
     }
 
     PresentQueue::~PresentQueue() {
@@ -89,6 +87,7 @@ namespace RT64 {
     void PresentQueue::setup(const External &ext) {
         this->ext = ext;
 
+        librafx = std::make_unique<Librashader>(ext.createdGraphicsAPI);
         viRenderer = std::make_unique<VIRenderer>();
 
         presentThreadRunning = true;
