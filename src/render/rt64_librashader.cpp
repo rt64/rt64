@@ -55,7 +55,7 @@ namespace RT64 {
     }
 
     Librashader::~Librashader() { 
-        // todo: cleanup of libra instance?
+        reset();
     }
 
 #if _WIN32
