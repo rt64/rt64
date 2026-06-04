@@ -380,6 +380,8 @@ namespace RT64 {
 
                     if (libraReady) {
                         Librashader::LibraFrameParams frameparams;
+                        VIRenderer::getViewportAndScissor(ext.swapChain, present.screenVI, resolutionScale, 1, removeBlackBorders,
+                                                          frameparams.viewport, frameparams.scissor);
                         frameparams.commandList = commandList;
                         frameparams.frameCount = frameCounters.count;
                         frameparams.inputTexture = localIntermediateTexture;

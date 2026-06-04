@@ -34,6 +34,8 @@ namespace RT64 {
             RenderTexture *inputTexture = nullptr;
             RenderTexture *outputTexture = nullptr;
             RenderWorker *worker = nullptr;
+            RenderRect scissor;
+            RenderViewport viewport;
             size_t frameCount;
         };
 

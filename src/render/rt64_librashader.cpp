@@ -3,12 +3,14 @@
 //
 
 /*
+ * Integration with librashader for postprocessing
+ *
+ *
 librashader feature dev:
 TODO/ISSUES:
 - Metal support is missing
-- Need to support dx/vulkan in same build by checking current config instead of preproc only
+- Handle graphic backends dynamically
 - Preprocessor cleanup for non-librashader builds
-- 4:3 Scaling is stretched, needs appropriate viewport
 */
 
 #include "rt64_librashader.h"
@@ -32,6 +34,8 @@ namespace RT64 {
     // Librashader
     libra_instance_t libra;
     libra_shader_preset_t preset = nullptr;
+
+    libra_preset_ctx_t libraContext;
 
 #if LIBRA_RUNTIME_D3D12
     libra_d3d12_filter_chain_t dx_filterChain = nullptr;
@@ -101,7 +105,6 @@ namespace RT64 {
         lp.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(lp.inputTexture, RenderTextureLayout::SHADER_READ));
         lp.commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(lp.outputTexture, RenderTextureLayout::COLOR_WRITE));
         lp.commandList->setFramebuffer(lp.outputFramebuffer);
-        lp.commandList->clearColor();
 
 #ifdef LIBRA_RUNTIME_VULKAN
         // Vulkan seems to explode without a "fresh" commandlist with nothing done to it
@@ -109,6 +112,7 @@ namespace RT64 {
 #endif
 
         // librashader hookup
+        libra_viewport_t viewport = { lp.viewport.x, lp.viewport.y, lp.viewport.width, lp.viewport.height };
 
         // todo: Needs to work more like inspector, check active config
 #if LIBRA_RUNTIME_D3D12
@@ -126,7 +130,7 @@ namespace RT64 {
         output.handle = output_handle;
 
         libra_error_t frameErr = libra.d3d12_filter_chain_frame(&dx_filterChain, d3d12CmdList, lp.frameCount,
-            input, output, NULL, NULL, NULL);
+            input, output, &viewport, NULL, NULL);
 
         // D3D12 needs an extra reminder or imgui gets hidden by fx
         lp.commandList->setFramebuffer(lp.outputFramebuffer);
@@ -186,6 +190,10 @@ namespace RT64 {
             preset = nullptr;
         }
 
+        if (libraContext) {
+            libra.preset_ctx_free(&libraContext);
+        }
+
         currentRuntimeParams.clear();
         currentShaderPath.clear();
     }
@@ -193,7 +201,12 @@ namespace RT64 {
     bool Librashader::setup(RenderDevice *device, std::string path) {
         reset();
 
-        libra_error_t err = libra.preset_create(path.c_str(), &preset);
+        libra.preset_ctx_create(&libraContext);
+
+        libra_preset_opt_t opts;
+        opts.original_aspect_uniforms = true;
+
+        libra_error_t err = libra.preset_create_with_options(path.c_str(), &libraContext, &opts, &preset);
         // todo: error checks for preset create and get runtime params
         //libra.preset_print(&preset);
 
