@@ -9,8 +9,6 @@
 librashader feature dev:
 TODO/ISSUES:
 - Metal support is missing
-- Preprocessor cleanup for non-librashader builds
-- Vulkan is showing different scissor/offset bug in 4:3, may be similar to d3d12 issue recently patched
 */
 
 #include "rt64_librashader.h"
@@ -24,7 +22,6 @@ TODO/ISSUES:
 #include "plume_vulkan.h"
 #define LIBRA_RUNTIME_VULKAN 1
 
-#include "librashader.h"
 #include "librashader_ld.h"
 
 #include "common/rt64_user_configuration.h"
