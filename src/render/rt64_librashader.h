@@ -46,6 +46,7 @@ namespace RT64 {
         ~Librashader();
         std::string getCurrentShader();
         std::vector<LibraRuntimeParam>& getRuntimeParams();
+        bool isLoaded();
         void updateRuntimeParam(const LibraRuntimeParam param);
         bool updateShader(RenderDevice* device, const std::string desiredShader);
         bool ready();

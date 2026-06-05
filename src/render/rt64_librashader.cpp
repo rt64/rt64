@@ -47,7 +47,6 @@ namespace RT64 {
 
     Librashader::Librashader(UserConfiguration::GraphicsAPI api) {
         libra = librashader_load_instance();
-
         this->gfxAPI = api;
     }
 
@@ -152,6 +151,10 @@ namespace RT64 {
         return currentRuntimeParams;
     }
 
+    bool Librashader::isLoaded() {
+        return libra.instance_loaded;
+    }
+
     void Librashader::updateRuntimeParam(LibraRuntimeParam parameter) {
 #if _WIN32
         if (dx_filterChain) {
@@ -165,7 +168,7 @@ namespace RT64 {
     }
 
     bool Librashader::updateShader(RenderDevice* device, const std::string desiredShader) {
-        if (desiredShader != getCurrentShader()) {
+        if (isLoaded() && desiredShader != getCurrentShader()) {
             if (desiredShader.empty())
                 reset();
             else

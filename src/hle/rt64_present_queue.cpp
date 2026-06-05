@@ -22,7 +22,6 @@ namespace RT64 {
 
         if (presentThread != nullptr) {
             presentThread->join();
-            librafx.get()->reset();
             delete presentThread;
         }
 

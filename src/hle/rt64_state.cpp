@@ -2206,6 +2206,10 @@ namespace RT64 {
                 if (ImGui::BeginTabItem("FX")) {
                     const bool shaderLoad = ImGui::Button("Load Shader");
 
+                    if (!ext.presentQueue->librafx.get()->isLoaded()) {
+                        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Librashader not found, post-processing is disabled.");
+                    }
+
                     if (shaderLoad) {
                         std::filesystem::path requestedPath = FileDialog::getOpenFilename({ FileFilter("SLANGP Presets", "slangp") });
                         if (!requestedPath.empty()) {
