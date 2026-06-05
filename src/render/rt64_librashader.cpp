@@ -59,10 +59,10 @@ namespace RT64 {
         auto* d3d12Device = static_cast<plume::D3D12Device*>(device);
 
         const filter_chain_d3d12_opt_t filterOptions = {
-            LIBRASHADER_CURRENT_VERSION,
-            false, // Force use of hlsl
-            false, // Force disable mipmaps
-            false  // Disable cache
+            .version = LIBRASHADER_CURRENT_VERSION,
+            .force_hlsl_pipeline = false,
+            .force_no_mipmaps = false,
+            .disable_cache = false
         };
 
         return libra.d3d12_filter_chain_create(&preset, d3d12Device->d3d,
