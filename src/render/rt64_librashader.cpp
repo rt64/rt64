@@ -249,7 +249,7 @@ namespace RT64 {
         currentShaderPath.clear();
     }
 
-    bool Librashader::setup(RenderDevice *device, std::string path) {
+    bool Librashader::setup(RenderDevice *device, const std::string path) {
         reset();
 
         libra.preset_ctx_create(&libraContext);

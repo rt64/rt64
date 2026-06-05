@@ -51,7 +51,9 @@ namespace RT64 {
         bool updateShader(RenderDevice* device, const std::string desiredShader);
         bool ready();
         void reset();
-        bool setup(RenderDevice* device, std::string path);
         void postprocess(const LibraFrameParams &p);
+
+      private:
+        bool setup(RenderDevice* device, const std::string path);
     };
 }
