@@ -371,7 +371,7 @@ void addRiceHash(const std::filesystem::path &directory, const std::string &hash
 
     // Redo the hash if necessary by loading from TMEM. If it requires raw TMEM, the hash is already correct.
     std::string currentHashName;
-    if (redoHash && !RT64::TMEMHasher::requiresRawTMEM(drawTile, drawWidth, drawHeight)) {
+    if (redoHash && !RT64::TMEMHasher::requiresRawTMEM(drawTile, drawWidth, drawHeight, toHashTLUT(drawTLUT))) {
         std::vector<uint8_t> tmemBytes;
         if (!loadBytesFromFile(directory / (hashNameWithSuffix + TMEMExtension), tmemBytes)) {
             return;
