@@ -8,9 +8,38 @@
 
 #include "rt64_present_queue.h"
 
+#ifdef __APPLE__
+#   include <Foundation/NSAutoreleasePool.hpp>
+#endif
+
 #define ENABLE_HIGH_RESOLUTION_RENDERER 1
 
 namespace RT64 {
+    namespace {
+#ifdef __APPLE__
+        struct ScopedAutoreleasePool {
+            NS::AutoreleasePool *pool = nullptr;
+
+            ScopedAutoreleasePool() {
+                pool = NS::AutoreleasePool::alloc()->init();
+            }
+
+            ~ScopedAutoreleasePool() {
+                pool->drain();
+            }
+
+            ScopedAutoreleasePool(const ScopedAutoreleasePool &) = delete;
+            ScopedAutoreleasePool &operator=(const ScopedAutoreleasePool &) = delete;
+        };
+#else
+        struct ScopedAutoreleasePool {
+            ScopedAutoreleasePool() = default;
+            ScopedAutoreleasePool(const ScopedAutoreleasePool &) = delete;
+            ScopedAutoreleasePool &operator=(const ScopedAutoreleasePool &) = delete;
+        };
+#endif
+    }
+
     static const int ReferenceHeight = 240;
     static const int ReferenceInterlacedHeight = 480;
 
@@ -851,6 +880,7 @@ namespace RT64 {
 
     void WorkloadQueue::renderThreadLoop() {
         Thread::setCurrentThreadName("RT64 Workload");
+        ScopedAutoreleasePool threadPool;
 
         WorkloadConfiguration workloadConfig;
         int64_t logicalTicks = 0;
@@ -873,6 +903,7 @@ namespace RT64 {
             }
 
             if (processCursor >= 0) {
+                ScopedAutoreleasePool workloadPool;
                 std::unique_lock<std::mutex> threadLock(threadMutex);
                 Workload &workload = workloads[processCursor];
                 ext.presentQueue->waitForPresentId(workload.presentId);
@@ -1164,6 +1195,7 @@ namespace RT64 {
         // This workaround is not required if the driver is configured to be at the "Max Performance" power state.
 
         Thread::setCurrentThreadName("RT64 Idle");
+        ScopedAutoreleasePool threadPool;
 
         const ShaderRecord &idle = ext.shaderLibrary->idle;
         RenderCommandList *commandList = ext.workloadGraphicsWorker->commandList.get();
@@ -1176,6 +1208,7 @@ namespace RT64 {
             }
 
             if (threadsRunning) {
+                ScopedAutoreleasePool idlePool;
                 if (workerMutex.try_lock()) {
                     commandList->begin();
                     commandList->setPipeline(idle.pipeline.get());
