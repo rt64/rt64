@@ -1847,13 +1847,18 @@ namespace RT64 {
     }
 
     MetalCommandList::~MetalCommandList() {
-        mtl->release();
+        if (mtl != nullptr) {
+            mtl->release();
+        }
     }
 
     void MetalCommandList::begin() {
         assert(mtl == nullptr);
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
         mtl = queue->mtl->commandBufferWithUnretainedReferences();
         mtl->setLabel(MTLSTR("RT64 Command List"));
+        mtl->retain();
+        releasePool->release();
     }
 
     void MetalCommandList::end() {
@@ -2763,8 +2768,11 @@ namespace RT64 {
         activeType = EncoderType::Blit;
 
         if (activeBlitEncoder == nullptr) {
+            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
             activeBlitEncoder = mtl->blitCommandEncoder(device->renderInterface->reusableBlitDescriptor);
             activeBlitEncoder->setLabel(MTLSTR("Copy Blit Encoder"));
+            activeBlitEncoder->retain();
+            releasePool->release();
         }
     }
 
@@ -2783,9 +2791,12 @@ namespace RT64 {
         activeType = EncoderType::Resolve;
 
         if (activeResolveComputeEncoder == nullptr) {
+            NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
             activeResolveComputeEncoder = mtl->computeCommandEncoder();
             activeResolveComputeEncoder->setLabel(MTLSTR("Resolve Texture Encoder"));
             activeResolveComputeEncoder->setComputePipelineState(device->renderInterface->resolveTexturePipelineState);
+            activeResolveComputeEncoder->retain();
+            releasePool->release();
         }
     }
 
@@ -2868,7 +2879,9 @@ namespace RT64 {
         assert(commandListCount > 0);
 
         // Create a new command buffer to encode the wait semaphores into
+        NS::AutoreleasePool *releasePool = NS::AutoreleasePool::alloc()->init();
         MTL::CommandBuffer* cmdBuffer = mtl->commandBufferWithUnretainedReferences();
+        cmdBuffer->retain();
         cmdBuffer->setLabel(MTLSTR("Wait Command Buffer"));
         cmdBuffer->enqueue();
 
@@ -2878,6 +2891,8 @@ namespace RT64 {
         }
 
         cmdBuffer->commit();
+        cmdBuffer->release();
+        releasePool->release();
 
         // Commit all command lists except the last one
 
