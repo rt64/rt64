@@ -1058,8 +1058,6 @@ namespace RT64 {
         // Create texture with configured descriptor and alignment
         MTL::TextureDescriptor *descriptor = MTL::TextureDescriptor::textureBufferDescriptor(pixelFormat, width, options, usage);
         this->texture = buffer->mtl->newTexture(descriptor, 0, bytesPerRow);
-
-        descriptor->release();
     }
 
     MetalBufferFormattedView::~MetalBufferFormattedView() {
@@ -1173,7 +1171,7 @@ namespace RT64 {
         assert(format == RenderShaderFormat::METAL);
 
         this->format = format;
-        this->functionName = (entryPointName != nullptr) ? NS::String::string(entryPointName, NS::UTF8StringEncoding) : MTLSTR("");
+        this->functionName = NS::String::alloc()->init(entryPointName != nullptr ? entryPointName : "", NS::UTF8StringEncoding);
 
         NS::Error *error = nullptr;
         const dispatch_data_t dispatchData = dispatch_data_create(data, size, dispatch_get_main_queue(), ^{});
