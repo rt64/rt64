@@ -196,9 +196,10 @@ namespace RT64 {
         FramebufferOperation makeTileReintepretation(uint64_t srcTileId, uint8_t srcSiz, uint8_t srcFmt, uint64_t dstTileId, uint8_t dstSiz, uint8_t dstFmt, bool ulScaleS, bool ulScaleT,
             interop::uint2 texelShift, interop::uint2 texelMask, uint64_t tlutHash, uint32_t tlutFormat);
 
-        CheckCopyResult checkTileCopyTMEM(uint32_t tmem, uint32_t lineWidth, uint8_t siz, uint8_t fmt, uint16_t uls);
+        CheckCopyResult checkRegionsTMEM(uint32_t tmemStart, uint32_t tmemEnd, uint32_t lineWidth, uint8_t siz, uint8_t fmt, uint16_t uls, bool usesTLUT, uint8_t palette, bool allowTileCopies);
         void insertRegionsTMEM(uint32_t addressStart, uint32_t tmemStart, uint32_t tmemWords, uint32_t tmemMask, bool RGBA32, bool syncRequired, std::vector<RegionIterator> *resultRegions);
         void discardRegionsTMEM(uint32_t tmemStart, uint32_t tmemWords, uint32_t tmemMask);
+        void synchronizeRegionsTMEM();
         void storeRAM(FramebufferStorage &fbStorage, const uint8_t *RDRAM, uint32_t fbPairIndex);
         void checkRAM(const uint8_t *RDRAM, std::vector<Framebuffer *> &differentFbs, bool updateHashes);
         void uploadRAM(RenderWorker *renderWorker, Framebuffer **differentFbs, size_t differentFbsCount, FramebufferChangePool &fbChangePool, const uint8_t *RDRAM, bool canDiscard, std::vector<FramebufferOperation> &fbOps,

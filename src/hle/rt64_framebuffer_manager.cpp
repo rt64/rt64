@@ -625,112 +625,144 @@ namespace RT64 {
         }
     }
 
-    FramebufferManager::CheckCopyResult FramebufferManager::checkTileCopyTMEM(uint32_t tmem, uint32_t lineWidth, uint8_t siz, uint8_t fmt, uint16_t uls) {
-        const bool RGBA32 = (siz == G_IM_SIZ_32b) && (fmt == G_IM_FMT_RGBA);
-        if (RGBA32) {
-            tmem = tmem & RDP_TMEM_MASK128;
+    void FramebufferManager::synchronizeRegionsTMEM() {
+        auto it = activeRegionsTMEM.begin();
+        while (it != activeRegionsTMEM.end()) {
+            it->syncRequired = false;
+            it++;
         }
+    }
 
+    FramebufferManager::CheckCopyResult FramebufferManager::checkRegionsTMEM(uint32_t tmemStart, uint32_t tmemEnd, uint32_t lineWidth, uint8_t siz, uint8_t fmt, uint16_t uls, bool usesTLUT, uint8_t palette, bool allowTileCopies) {
+        const bool RGBA32 = (siz == G_IM_SIZ_32b) && (fmt == G_IM_FMT_RGBA);
         CheckCopyResult result;
         auto it = activeRegionsTMEM.begin();
         while (it != activeRegionsTMEM.end()) {
-            if ((tmem >= it->tmemStart) && (tmem < it->tmemEnd)) {
-                if (it->syncRequired) {
-                    result.syncRequired = true;
-                }
+            if (!result.syncRequired && it->syncRequired && (tmemStart < it->tmemEnd) && (it->tmemStart < tmemEnd)) {
+                result.syncRequired = true;
+            }
 
-                if (it->fbTile.valid()) {
-                    bool validCopy = false;
-                    bool reinterpret = false;
-                    uint32_t tileWidth = (it->fbTile.right - it->fbTile.left);
-                    uint32_t tileLineWidth = it->fbTile.lineWidth;
+            if (allowTileCopies && it->fbTile.valid() && (tmemStart >= it->tmemStart) && (tmemEnd <= it->tmemEnd)) {
+                bool validCopy = false;
+                bool reinterpret = false;
+                uint32_t tileWidth = (it->fbTile.right - it->fbTile.left);
+                uint32_t tileLineWidth = it->fbTile.lineWidth;
 
-                    // Tile reinterpreation is not required when using RGBA16 and Depth tile copies. Allow
-                    // the framebuffer manager to perform the conversion instead that preserves the precision.
-                    if ((it->fbTile.siz == G_IM_SIZ_16b) && (siz == G_IM_SIZ_16b) &&
-                        (
-                            ((it->fbTile.fmt == G_IM_FMT_RGBA) && (fmt == G_IM_FMT_DEPTH)) ||
-                            ((it->fbTile.fmt == G_IM_FMT_DEPTH) && (fmt == G_IM_FMT_RGBA))
-                            )
+                // Tile reinterpreation is not required when using RGBA16 and Depth tile copies. Allow
+                // the framebuffer manager to perform the conversion instead that preserves the precision.
+                if ((it->fbTile.siz == G_IM_SIZ_16b) && (siz == G_IM_SIZ_16b) &&
+                    (
+                        ((it->fbTile.fmt == G_IM_FMT_RGBA) && (fmt == G_IM_FMT_DEPTH)) ||
+                        ((it->fbTile.fmt == G_IM_FMT_DEPTH) && (fmt == G_IM_FMT_RGBA))
                         )
-                    {
-                        // Do nothing.
-                    }
-                    // Tile reinterpretation is always enabled if the source is an 8-bit FB, since special 
-                    // sampling and decoding are required.
-                    else if (it->fbTile.siz == G_IM_SIZ_8b) {
-                        reinterpret = true;
-                    }
-                    // Tile reinterpretation is also required if the formats are different. A strict format
-                    // difference here is not necessarily true in the case of certain formats that are actually
-                    // compatible and behave the same way. This logic can be improved in that regard to detect
-                    // less false positives.
-                    else if (it->fbTile.fmt != fmt) {
-                        reinterpret = true;
-                    }
-
-                    // Detect whether the actual width and pixel size matches, and if it doesn't, if the sizes
-                    // are compatible.
-                    if ((tileLineWidth == lineWidth) && (it->fbTile.siz == siz)) {
-                        validCopy = true;
-                    }
-                    else if ((tileLineWidth < lineWidth) && (it->fbTile.siz > siz)) {
-                        uint8_t sizDifference = (it->fbTile.siz - siz);
-                        uint32_t sizMultiplier = (1 << sizDifference);
-                        if ((tileLineWidth * sizMultiplier) == lineWidth) {
-                            tileWidth *= sizMultiplier;
-                            tileLineWidth *= sizMultiplier;
-                            validCopy = true;
-                            reinterpret = true;
-                        }
-                    }
-                    else if ((tileLineWidth > lineWidth) && (it->fbTile.siz < siz)) {
-                        uint8_t sizDifference = (siz - it->fbTile.siz);
-                        uint32_t sizMultiplier = (1 << sizDifference);
-                        if ((lineWidth * sizMultiplier) == tileLineWidth) {
-                            tileWidth /= sizMultiplier;
-                            tileLineWidth /= sizMultiplier;
-                            validCopy = true;
-                            reinterpret = true;
-                        }
-                    }
-
-                    // Special condition for RGBA32. Verify if an equivalent region exists in the upper half of TMEM.
-                    if (validCopy && RGBA32) {
-                        const uint32_t TMEMUpper = RDP_TMEM_WORDS >> 1;
-                        auto searchIt = activeRegionsTMEM.begin();
-                        while (searchIt != activeRegionsTMEM.end()) {
-                            if ((searchIt != it) &&
-                                (searchIt->tileCopyId == it->tileCopyId) &&
-                                (searchIt->tmemStart == (it->tmemStart + TMEMUpper)) &&
-                                (searchIt->tmemEnd == (it->tmemEnd + TMEMUpper)))
-                            {
-                                break;
-                            }
-
-                            searchIt++;
-                        }
-
-                        if (searchIt == activeRegionsTMEM.end()) {
-                            validCopy = false;
-                        }
-                    }
-
-                    if (validCopy) {
-                        result.tileId = it->tileCopyId;
-                        result.tileWidth = tileWidth;
-                        result.lineWidth = tileLineWidth;
-                        result.tileHeight = it->fbTile.bottom - it->fbTile.top;
-                        result.fmt = it->fbTile.fmt;
-                        result.siz = it->fbTile.siz;
-                        result.reinterpret = reinterpret;
-                    }
-
-                    return result;
+                    )
+                {
+                    // Do nothing.
                 }
+                // Tile reinterpretation is always enabled if the source is an 8-bit FB, since special 
+                // sampling and decoding are required.
+                else if (it->fbTile.siz == G_IM_SIZ_8b) {
+                    reinterpret = true;
+                }
+                // Tile reinterpretation is also required if the formats are different. A strict format
+                // difference here is not necessarily true in the case of certain formats that are actually
+                // compatible and behave the same way. This logic can be improved in that regard to detect
+                // less false positives.
+                else if (it->fbTile.fmt != fmt) {
+                    reinterpret = true;
+                }
+
+                // Detect whether the actual width and pixel size matches, and if it doesn't, if the sizes
+                // are compatible.
+                if ((tileLineWidth == lineWidth) && (it->fbTile.siz == siz)) {
+                    validCopy = true;
+                }
+                else if ((tileLineWidth < lineWidth) && (it->fbTile.siz > siz)) {
+                    uint8_t sizDifference = (it->fbTile.siz - siz);
+                    uint32_t sizMultiplier = (1 << sizDifference);
+                    if ((tileLineWidth * sizMultiplier) == lineWidth) {
+                        tileWidth *= sizMultiplier;
+                        tileLineWidth *= sizMultiplier;
+                        validCopy = true;
+                        reinterpret = true;
+                    }
+                }
+                else if ((tileLineWidth > lineWidth) && (it->fbTile.siz < siz)) {
+                    uint8_t sizDifference = (siz - it->fbTile.siz);
+                    uint32_t sizMultiplier = (1 << sizDifference);
+                    if ((lineWidth * sizMultiplier) == tileLineWidth) {
+                        tileWidth /= sizMultiplier;
+                        tileLineWidth /= sizMultiplier;
+                        validCopy = true;
+                        reinterpret = true;
+                    }
+                }
+
+                // Special condition for RGBA32. Verify if an equivalent region exists in the upper half of TMEM.
+                if (validCopy && RGBA32) {
+                    const uint32_t TMEMUpper = RDP_TMEM_WORDS >> 1;
+                    auto searchIt = activeRegionsTMEM.begin();
+                    while (searchIt != activeRegionsTMEM.end()) {
+                        if ((searchIt != it) &&
+                            (searchIt->tileCopyId == it->tileCopyId) &&
+                            (searchIt->tmemStart == (it->tmemStart + TMEMUpper)) &&
+                            (searchIt->tmemEnd == (it->tmemEnd + TMEMUpper)))
+                        {
+                            break;
+                        }
+
+                        searchIt++;
+                    }
+
+                    if (searchIt == activeRegionsTMEM.end()) {
+                        validCopy = false;
+                    }
+                }
+
+                if (validCopy) {
+                    result.tileId = it->tileCopyId;
+                    result.tileWidth = tileWidth;
+                    result.lineWidth = tileLineWidth;
+                    result.tileHeight = it->fbTile.bottom - it->fbTile.top;
+                    result.fmt = it->fbTile.fmt;
+                    result.siz = it->fbTile.siz;
+                    result.reinterpret = reinterpret;
+                }
+
+                return result;
             }
 
             it++;
+        }
+
+        // When using TLUT or RGBA32, the upper region of TMEM must also be checked for possible synchronizations,
+        // as it is sampled by the texture. It's not really necessary to check all possible individual
+        // pixels sampled by the texture, so we check for the entire upper region of TMEM when it's CI8,
+        // and only the pixels indicated by the palette value when it's CI4. If it's RGBA32, we just offset
+        // the current region being checked into the upper area of TMEM.
+        if (usesTLUT && !result.syncRequired) {
+            if (RGBA32) {
+                tmemStart += 256;
+                tmemEnd += 256;
+            }
+            else if (siz == G_IM_SIZ_4b) {
+                tmemStart = 256 + palette * 16;
+                tmemEnd = tmemStart + 16;
+            }
+            else {
+                tmemStart = 256;
+                tmemEnd = 512;
+            }
+
+            auto it = activeRegionsTMEM.begin();
+            while (it != activeRegionsTMEM.end()) {
+                if (it->syncRequired && (tmemStart < it->tmemEnd) && (it->tmemStart < tmemEnd)) {
+                    result.syncRequired = true;
+                    break;
+                }
+
+                it++;
+            }
         }
 
         return result;

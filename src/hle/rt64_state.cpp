@@ -291,7 +291,7 @@ namespace RT64 {
 
                     // Check if we need to use raw TMEM decoding because the tile can sample more bytes than TMEM actually allows.
                     assert((dstCallTile.sampleWidth > 0) && (dstCallTile.sampleHeight > 0) && "Sample size calculation can only result in non-zero values.");
-                    dstCallTile.rawTMEM = TMEMHasher::requiresRawTMEM(tile, dstCallTile.sampleWidth, dstCallTile.sampleHeight);
+                    dstCallTile.rawTMEM = TMEMHasher::requiresRawTMEM(tile, dstCallTile.sampleWidth, dstCallTile.sampleHeight, dstCallTile.tlut);
                     
                     auto &dstRDPTile = drawData.rdpTiles[drawCall.tileIndex + t];
                     dstRDPTile.fmt = tile.fmt;
@@ -336,12 +336,33 @@ namespace RT64 {
                     if ((tile.maskt > 0) && (tile.cmt & G_TX_CLAMP)) {
                         nativeSamplerSupported = nativeSamplerSupported && clampAlignedToMask(tile.maskt, tile.ult, tile.lrt);
                     }
+
+                    // Determine the range of TMEM that this tile can sample from.
+                    const bool usesTLUT = rdp->otherMode.textLUT() > 0;
+                    uint32_t checkTMEMStart = tile.tmem;
+                    if (RGBA32 || usesTLUT) {
+                        checkTMEMStart = tile.tmem & RDP_TMEM_MASK128;
+                    }
+
+                    // Compute the area of TMEM to check. If it loads so many rows to the point it wraps around TMEM, just check
+                    // the entire relevant region of TMEM and disable checking for any tile copies altogether.
+                    const uint32_t TMEMBytes = 4096;
+                    const uint32_t tmemSize = RGBA32 ? (TMEMBytes >> 1) : TMEMBytes;
+                    const uint32_t lastRowBytes = dstCallTile.sampleWidth << std::min(tile.siz, uint8_t(G_IM_SIZ_16b)) >> 1;
+                    const uint32_t bytesToHash = (tile.line << 3) * (dstCallTile.sampleHeight - 1) + lastRowBytes;
+                    bool tileCopiesAllowed = true;
+                    uint32_t checkTMEMEnd = checkTMEMStart + (bytesToHash >> 3);
+                    if (checkTMEMEnd > tmemSize) {
+                        checkTMEMStart = 0;
+                        checkTMEMEnd = tmemSize;
+                        tileCopiesAllowed = false;
+                    }
                     
                     // Check if there's any valid tile copies that could be used. The line width requirement has to match for 
                     // the tile copy to make sense, but whether enough pixels are available in the copy according to the sampling
                     // done by the calls is determined in a later step.
                     FramebufferManager::CheckCopyResult checkResult;
-                    checkResult = framebufferManager.checkTileCopyTMEM(tile.tmem, dstCallTile.lineWidth, tile.siz, tile.fmt, tile.uls);
+                    checkResult = framebufferManager.checkRegionsTMEM(checkTMEMStart, checkTMEMEnd, dstCallTile.lineWidth, tile.siz, tile.fmt, tile.uls, usesTLUT, tile.palette, tileCopiesAllowed);
                     dstCallTile.syncRequired = checkResult.syncRequired;
 
                     if (gpuCopiesEnabled && checkResult.valid()) {
@@ -363,6 +384,11 @@ namespace RT64 {
                     else {
                         dstCallTile.tileCopyUsed = false;
                         dstCallTile.tmemHashOrID = rdp->tileReplacementHashes[tileIndex];
+
+                        if (checkResult.syncRequired) {
+                            FramebufferPair &fbPair = workload.fbPairs[workload.currentFramebufferPairIndex()];
+                            fbPair.syncRequired = true;
+                        }
                     }
 
                     if (nativeSamplerSupported) {
@@ -574,6 +600,10 @@ namespace RT64 {
                 depthFb->lastWriteFmt = G_IM_FMT_DEPTH;
                 depthFb->lastWriteTimestamp = writeTimestamp;
                 framebufferManager.changeRAM(depthFb, depthFb->addressStart, depthFb->addressStart + depthFbBytes);
+            }
+
+            if (fbPair.syncRequired) {
+                framebufferManager.synchronizeRegionsTMEM();
             }
         }
 
@@ -880,7 +910,7 @@ namespace RT64 {
                 minTexcoord.y = std::max(minTexcoord.y, 0);
                 maxTexcoord.y = std::min(maxTexcoord.y, maskHeight);
             }
-
+            
             // Invalidate the use of the tile copy if the texcoord range can't fit inside the tile copy.
             if (callTile.tileCopyUsed) {
                 const bool insufficientWidth = (maxTexcoord.x > callTile.tileCopyWidth);
@@ -901,7 +931,7 @@ namespace RT64 {
                 if (bigTextureCheck) {
                     callTile.sampleWidth = maxTexcoord.x;
                     callTile.sampleHeight = maxTexcoord.y;
-                    callTile.rawTMEM = TMEMHasher::requiresRawTMEM(callTile.loadTile, maxTexcoord.x, maxTexcoord.y);
+                    callTile.rawTMEM = TMEMHasher::requiresRawTMEM(callTile.loadTile, maxTexcoord.x, maxTexcoord.y, callTile.tlut);
                 }
             }
 
