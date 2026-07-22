@@ -49,7 +49,7 @@ jobs:
           sudo make install
           sudo cp -av /usr/local/lib/libSDL* /lib/x86_64-linux-gnu/
           echo ::endgroup::
-      - uses: pkgxdev/setup@v1
+      - uses: pkgxdev/setup@v5
         if: runner.os == 'macOS'
         with:
           +: zlib.net
