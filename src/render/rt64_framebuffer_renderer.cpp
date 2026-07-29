@@ -1531,7 +1531,7 @@ namespace RT64 {
                             clearRect.color = toRenderColor(ColorConverter::RGBA32::toRGBAF(call.callDesc.fillColor));
                         }
                         else {
-                            clearRect.color = toRenderColor(ColorConverter::RGBA16::toRGBAF(call.callDesc.fillColor & 0xFFFF));
+                            clearRect.color = toRenderColor(ColorConverter::RGBA16::toRGBCVGF(call.callDesc.fillColor & 0xFFFF, shaderLibrary->usesHDR));
                         }
                     }
 
