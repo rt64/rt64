@@ -1150,7 +1150,9 @@ namespace RT64 {
                 drawRect.lry = std::max(drawRect.lry, int32_t(hlslpp::ceil(v.y).x * 4.0f));
             }
 
-            drawRect = scissorRect.intersection(drawRect);
+            const interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
+            const FixedRect viewportClipRect = viewport.rect(clipRatios.data());
+            drawRect = viewportClipRect.intersection(scissorRect.intersection(drawRect));
             if (!drawRect.isNull()) {
                 fbPair.drawColorRect.merge(drawRect);
                 if (otherModeStack[otherModeStackSize - 1].zUpd()) {
