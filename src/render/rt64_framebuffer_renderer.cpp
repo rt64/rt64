@@ -1489,8 +1489,7 @@ namespace RT64 {
                 const auto &viewport = drawData.rspViewports[proj.transformsIndex];
                 FixedRect intersectionRect = proj.scissorRect.intersection(viewport.rect(viewportClipRatios));
                 bool coversWholeWidth = !intersectionRect.isEmpty() && (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
-                bool horizontalRatio = !intersectionRect.isEmpty() && (intersectionRect.width(true, true) > intersectionRect.height(true, true));
-                bool useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                bool useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth;
                 if (useWideViewport) {
                     projInvRatioScale = 1.0f;
                 }
