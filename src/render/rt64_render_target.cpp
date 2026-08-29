@@ -496,15 +496,6 @@ namespace RT64 {
         misalignmentX = (nativeAlignment - (expandedPixels % nativeAlignment)) % nativeAlignment;
     }
 
-    hlslpp::float2 RenderTarget::computeFixedResolutionScale(uint32_t nativeWidth, hlslpp::float2 resolutionScale) {
-        long expandedColorWidthClamped = std::clamp(lround(nativeWidth * resolutionScale.x), 1L, RenderTarget::MaxDimension);
-
-        // Alter the resolution scale so it outputs an even resolution number.
-        expandedColorWidthClamped += expandedColorWidthClamped & 0x1;
-        resolutionScale.x = float(expandedColorWidthClamped) / float(nativeWidth);
-        return resolutionScale;
-    }
-
     RenderFormat RenderTarget::colorBufferFormat(bool usesHDR) {
         return usesHDR ? RenderFormat::R16G16B16A16_UNORM : RenderFormat::R8G8B8A8_UNORM;
     }

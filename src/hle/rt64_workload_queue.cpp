@@ -401,7 +401,7 @@ namespace RT64 {
                 vertexProcessor->process(vertexParams);
             }
 
-            hlslpp::float2 fixedResScale;
+            hlslpp::float2 resolutionScale;
             Framebuffer *colorFb;
             Framebuffer *depthFb;
             uint32_t nativeColorWidth;
@@ -418,7 +418,7 @@ namespace RT64 {
                 const FramebufferPair &fbPair = workload.fbPairs[f];
                 const auto &colorImg = fbPair.colorImage;
                 const auto &depthImg = fbPair.depthImage;
-                fixedResScale = workloadConfig.resolutionScale;
+                resolutionScale = workloadConfig.resolutionScale;
                 if (!fbPair.drawColorRect.isEmpty()) {
                     colorFb = nullptr;
                     depthFb = nullptr;
@@ -428,8 +428,8 @@ namespace RT64 {
                     // When the target is much bigger than the reference height, we reduce the resolution scaling (but clamped to 1.0).
                     const uint32_t heightThreshold = (workload.viFbSize[1] > 0) ? ((workload.viFbSize[1] * 3) / 2) : 360;
                     uint32_t downsampleMultiplier = workloadConfig.downsampleMultiplier;
-                    if ((nativeColorHeight >= heightThreshold) && (fixedResScale[1] >= 2.0f)) {
-                        fixedResScale = hlslpp::max(fixedResScale / 2.0f, hlslpp::float2(1.0f, 1.0f));
+                    if ((nativeColorHeight >= heightThreshold) && (resolutionScale[1] >= 2.0f)) {
+                        resolutionScale = hlslpp::max(resolutionScale / 2.0f, hlslpp::float2(1.0f, 1.0f));
                         downsampleMultiplier = std::max(downsampleMultiplier / 2U, 1U);
                     }
 
@@ -462,8 +462,7 @@ namespace RT64 {
                         fbKey.modifierKey = overrideTargetModifier;
                     }
 
-                    fixedResScale = RenderTarget::computeFixedResolutionScale(colorImg.width, fixedResScale);
-                    RenderTarget::computeScaledSize(nativeColorWidth, nativeColorHeight, fixedResScale, targetWidth, targetHeight, targetMisalignX);
+                    RenderTarget::computeScaledSize(nativeColorWidth, nativeColorHeight, resolutionScale, targetWidth, targetHeight, targetMisalignX);
 
                     rtWidth = targetWidth;
                     rtHeight = targetHeight;
@@ -473,7 +472,7 @@ namespace RT64 {
                     if (depthFb != nullptr) {
                         fbKey.depthTargetKey = RenderTargetKey(depthFb->addressStart, depthFb->width, depthFb->siz, Framebuffer::Type::Depth);
                         depthTarget = &targetManager.get(fbKey.depthTargetKey);
-                        depthTarget->resolutionScale = fixedResScale;
+                        depthTarget->resolutionScale = resolutionScale;
                         rtWidth = std::max(rtWidth, depthTarget->width);
                         rtHeight = std::max(rtHeight, depthTarget->height);
                         chosenRt = depthTarget;
@@ -489,10 +488,10 @@ namespace RT64 {
                     }
 
                     assert(chosenRt != nullptr);
-                    chosenRt->resolutionScale = fixedResScale;
+                    chosenRt->resolutionScale = resolutionScale;
                     chosenRt->downsampleMultiplier = downsampleMultiplier;
                     chosenRt->misalignX = targetMisalignX;
-                    chosenRt->invMisalignX = (targetMisalignX > 0) ? (std::lround(fixedResScale.y) - targetMisalignX) : 0;
+                    chosenRt->invMisalignX = (targetMisalignX > 0) ? (std::lround(resolutionScale.y) - targetMisalignX) : 0;
 
                     assert((colorTarget != nullptr) || (depthTarget != nullptr));
                     return true;
@@ -570,8 +569,8 @@ namespace RT64 {
                     }
                 }
 
-                fbManager.setupOperations(ext.workloadGraphicsWorker, fbPair.startFbOperations, fixedResScale, targetManager, &resizedTargets);
-                fbManager.setupOperations(ext.workloadGraphicsWorker, fbPair.endFbOperations, fixedResScale, targetManager, &resizedTargets);
+                fbManager.setupOperations(ext.workloadGraphicsWorker, fbPair.startFbOperations, resolutionScale, targetManager, &resizedTargets);
+                fbManager.setupOperations(ext.workloadGraphicsWorker, fbPair.endFbOperations, resolutionScale, targetManager, &resizedTargets);
             }
 
             // Make sure all depth targets are at least bigger than their corresponding color targets.
@@ -626,7 +625,7 @@ namespace RT64 {
                     drawParams.targetWidth = targetWidth;
                     drawParams.targetHeight = targetHeight;
                     drawParams.rasterShaderCache = ext.rasterShaderCache;
-                    drawParams.resolutionScale = fixedResScale;
+                    drawParams.resolutionScale = resolutionScale;
                     drawParams.aspectRatioSource = workloadConfig.aspectRatioSource;
                     drawParams.aspectRatioTarget = workloadConfig.aspectRatioTarget;
                     drawParams.extAspectPercentage = workloadConfig.extAspectPercentage;
@@ -710,7 +709,7 @@ namespace RT64 {
                 const FramebufferPair &fbPair = workload.fbPairs[f];
                 bool validTargets = getTargetsFromPair(f);
                 fbManager.recordOperations(ext.workloadGraphicsWorker, &workload.fbChangePool, &workload.fbStorage, ext.shaderLibrary, ext.textureCache,
-                    fbPair.startFbOperations, targetManager, fixedResScale, f, workload.submissionFrame);
+                    fbPair.startFbOperations, targetManager, resolutionScale, f, workload.submissionFrame);
 
                 if (validTargets) {
                     const auto &colorImg = fbPair.colorImage;
@@ -814,7 +813,7 @@ namespace RT64 {
                     const uint64_t writeTimestamp = fbManager.nextWriteTimestamp();
                     FixedRect depthFbRect;
                     if (colorFb != nullptr) {
-                        colorFb->lastWriteRect.merge(fbPair.drawColorRect.scaled(fixedResScale.x, fixedResScale.y));
+                        colorFb->lastWriteRect.merge(fbPair.drawColorRect.scaled(resolutionScale.x, resolutionScale.y));
                         colorFb->lastWriteType = Framebuffer::Type::Color;
                         colorFb->lastWriteFmt = colorImg.fmt;
                         colorFb->lastWriteTimestamp = writeTimestamp;
@@ -826,7 +825,7 @@ namespace RT64 {
                     
                     const bool depthWrite = ((colorFb == nullptr) || depthFbChanged || depthFbTypeChanged || fbPair.depthWrite) && (depthFb != nullptr);
                     if (depthWrite && !depthFbRect.isNull()) {
-                        depthFb->lastWriteRect.merge(depthFbRect.scaled(fixedResScale.x, fixedResScale.y));
+                        depthFb->lastWriteRect.merge(depthFbRect.scaled(resolutionScale.x, resolutionScale.y));
                         depthFb->lastWriteType = Framebuffer::Type::Depth;
                         depthFb->lastWriteFmt = G_IM_FMT_DEPTH;
                         depthFb->lastWriteTimestamp = writeTimestamp;
@@ -834,7 +833,7 @@ namespace RT64 {
                 }
                 
                 fbManager.recordOperations(ext.workloadGraphicsWorker, &workload.fbChangePool, &workload.fbStorage, ext.shaderLibrary, ext.textureCache,
-                    fbPair.endFbOperations, targetManager, fixedResScale, f, workload.submissionFrame);
+                    fbPair.endFbOperations, targetManager, resolutionScale, f, workload.submissionFrame);
             }
 
             ext.workloadGraphicsWorker->commandList->writeTimestamp(queryPool.get(), 1);

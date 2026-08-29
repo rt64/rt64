@@ -71,7 +71,6 @@ namespace RT64 {
         RenderTextureView *getResolvedTextureView() const;
         bool isEmpty() const;
         static void computeScaledSize(uint32_t nativeWidth, uint32_t nativeHeight, hlslpp::float2 resolutionScale, uint32_t &scaledWidth, uint32_t &scaledHeight, uint32_t &misalignmentX);
-        static hlslpp::float2 computeFixedResolutionScale(uint32_t nativeWidth, hlslpp::float2 resolutionScale);
         static RenderFormat colorBufferFormat(bool usesHDR);
         static RenderFormat depthBufferFormat();
     };
