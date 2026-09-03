@@ -2230,6 +2230,58 @@ namespace RT64 {
                     ImGui::EndTabItem();
                 }
 
+                if (ImGui::BeginTabItem("FX")) {
+                    const bool shaderLoad = ImGui::Button("Load Shader");
+
+                    if (!ext.presentQueue->librafx.get()->isLoaded()) {
+                        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Librashader not found, post-processing is disabled.");
+                    }
+
+                    if (shaderLoad) {
+                        std::filesystem::path requestedPath = FileDialog::getOpenFilename({ FileFilter("SLANGP Presets", "slangp") });
+                        if (!requestedPath.empty()) {
+                            ext.presentQueue->desiredShader = requestedPath.string();
+                        }
+                    }
+
+                    if (ext.presentQueue->librafx.get()->ready()) {
+                        ImGui::SameLine();
+
+                        const bool clearShader = ImGui::Button("Clear Shader");
+                        if (clearShader) {
+                            ext.presentQueue->desiredShader.clear();
+                            ext.presentQueue->librafx.get()->reset();
+                        }
+
+                        ImGui::NewLine();
+                        ImGui::Text("Current Parameters: ");
+                        ImGui::SameLine();
+                        ImGui::Text(ext.presentQueue->librafx.get()->getCurrentShader().c_str());
+                        ImGui::NewLine();
+
+                        for (auto& param : ext.presentQueue->librafx.get()->getRuntimeParams()) {
+                            ImGui::Text(param.description.c_str());
+
+                            if (ImGui::SliderFloat(param.name.c_str(), &param.current_value, param.min, param.max)) {
+                                ext.presentQueue->librafx.get()->updateRuntimeParam(param);
+                            }
+                        }
+
+                        ImGui::NewLine();
+                        ImGui::NewLine();
+
+                        if (ImGui::Button("Apply Defaults")) {
+                            for (auto& param : ext.presentQueue->librafx.get()->getRuntimeParams()) {
+                                param.current_value = param.initial;
+                                ext.presentQueue->librafx.get()->updateRuntimeParam(param);
+                            }
+                        }
+
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
                 if (ImGui::BeginTabItem("Textures")) {
                     for (const ReplacementDirectory &replacementDirectory : ext.textureCache->textureMap.replacementMap.replacementDirectories) {
                         const std::string replacementPath = replacementDirectory.dirOrZipPath.u8string();
