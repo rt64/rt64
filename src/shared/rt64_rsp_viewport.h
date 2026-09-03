@@ -13,7 +13,9 @@ namespace interop {
 #endif
     struct RSPViewport {
         float3 scale;
+        float _padScale;
         float3 translate;
+        float _padTranslate;
 
         static RSPViewport identity() {
             RSPViewport viewport;

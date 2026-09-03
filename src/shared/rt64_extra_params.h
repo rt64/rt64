@@ -39,17 +39,18 @@ namespace interop {
         float roughnessFactor;
         float refractionFactor;
         float shadowCatcherFactor;
-        float3 specularColor;
         float specularExponent;
         float solidAlphaMultiplier;
         float shadowAlphaMultiplier;
+        float3 specularColor;
         float depthOrderBias;
-        float depthDecalBias;
-        float shadowRayBias;
         float3 selfLight;
-        uint lightGroupMaskBits;
+        float depthDecalBias;
         float4 diffuseColorMix;
+        float shadowRayBias;
+        uint lightGroupMaskBits;
         uint enabledAttributes;
+        uint _padEnd;
 
 #ifdef HLSL_CPU
         void applyExtraAttributes(const ExtraParams &src) {

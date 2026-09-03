@@ -11,7 +11,9 @@ namespace interop {
 #endif
     struct RasterParams {
         uint renderIndex;
-        uint3 padding;
+        uint _pad0;
+        uint _pad1;
+        uint _pad2;
         float2 screenScale;
         float2 screenOffset;
     };
