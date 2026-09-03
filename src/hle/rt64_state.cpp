@@ -255,6 +255,7 @@ namespace RT64 {
                 for (uint32_t t = 0; t < drawCall.tileCount; t++) {
                     const uint8_t tileIndex = (tileIndexBase + t) % RDP_TILES;
                     const auto &tile = rdp->tiles[tileIndex];
+                    const interop::float2 &tileScroll = rdp->extended.tileScrolls[tileIndex];
                     const uint32_t callTileIndex = drawCall.tileIndex + t;
                     auto &dstCallTile = drawData.callTiles[callTileIndex];
 
@@ -292,7 +293,7 @@ namespace RT64 {
                     // Check if we need to use raw TMEM decoding because the tile can sample more bytes than TMEM actually allows.
                     assert((dstCallTile.sampleWidth > 0) && (dstCallTile.sampleHeight > 0) && "Sample size calculation can only result in non-zero values.");
                     dstCallTile.rawTMEM = TMEMHasher::requiresRawTMEM(tile, dstCallTile.sampleWidth, dstCallTile.sampleHeight, dstCallTile.tlut);
-                    
+
                     auto &dstRDPTile = drawData.rdpTiles[drawCall.tileIndex + t];
                     dstRDPTile.fmt = tile.fmt;
                     dstRDPTile.siz = tile.siz;
@@ -303,20 +304,20 @@ namespace RT64 {
                     dstRDPTile.maskt = (tile.maskt > 0) ? (1 << tile.maskt) : 0;
                     dstRDPTile.shifts = ShiftScaleMap[tile.shifts];
                     dstRDPTile.shiftt = ShiftScaleMap[tile.shiftt];
-                    dstRDPTile.uls = float(tile.uls);
-                    dstRDPTile.ult = float(tile.ult);
+                    dstRDPTile.uls = float(tile.uls) + tileScroll.x;
+                    dstRDPTile.ult = float(tile.ult) + tileScroll.y;
                     dstRDPTile.cms = tile.cms | ((tile.masks == 0) ? G_TX_CLAMP : 0);
                     dstRDPTile.cmt = tile.cmt | ((tile.maskt == 0) ? G_TX_CLAMP : 0);
 
                     // Since we can't simulate not sending the triangle coefficients individually and it falls in the realm
                     // of undefined behavior, when the texture state is off, we merely clamp the result.
                     if (drawCall.textureOn) {
-                        dstRDPTile.lrs = float(tile.lrs);
-                        dstRDPTile.lrt = float(tile.lrt);
+                        dstRDPTile.lrs = float(tile.lrs) + tileScroll.x;
+                        dstRDPTile.lrt = float(tile.lrt) + tileScroll.y;
                     }
                     else {
-                        dstRDPTile.lrs = float(tile.uls);
-                        dstRDPTile.lrt = float(tile.ult);
+                        dstRDPTile.lrs = dstRDPTile.uls;
+                        dstRDPTile.lrt = dstRDPTile.ult;
                         dstRDPTile.cms |= G_TX_CLAMP;
                         dstRDPTile.cmt |= G_TX_CLAMP;
                     }

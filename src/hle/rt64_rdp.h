@@ -95,6 +95,7 @@ namespace RT64 {
                 uint8_t rectAspect;
             } global;
 
+            std::array<interop::float2, RDP_TILES> tileScrolls;
             uint16_t scissorLeftOriginStack[RDP_EXTENDED_STACK_SIZE];
             uint16_t scissorRightOriginStack[RDP_EXTENDED_STACK_SIZE];
             DrawExtendedFlags drawExtendedFlags;
@@ -157,6 +158,7 @@ namespace RT64 {
         void popCombine();
         void setTile(uint8_t tile, uint8_t fmt, uint8_t siz, uint16_t line, uint16_t tmem, uint8_t palette, uint8_t cmt, uint8_t cms, uint8_t maskt, uint8_t masks, uint8_t shiftt, uint8_t shifts);
         void setTileSize(uint8_t tile, uint16_t uls, uint16_t ult, uint16_t lrs, uint16_t lrt);
+        void setTileScrollFloat(uint8_t tile, float uls, float ult);
         void clearTileReplacementHash(uint8_t tile);
         void setTileReplacementHash(uint8_t tile, uint64_t replacementHash);
         void loadTileOperation(const LoadTile &loadTile, const LoadTexture &loadTexture, bool deferred);
