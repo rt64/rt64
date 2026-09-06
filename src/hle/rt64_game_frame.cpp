@@ -252,8 +252,9 @@ namespace RT64 {
         return matchResult;
     }
 
-    void GameFrame::match(RenderWorker *worker, WorkloadQueue &workloadQueue, const GameFrame &prevFrame, BufferUploader *velocityUploader, bool &velocityUploaderUsed, bool &tileInterpolationUsed, bool &lookAtInterpolationUsed) {
+    void GameFrame::match(RenderWorker *worker, WorkloadQueue &workloadQueue, const GameFrame &prevFrame, BufferUploader *velocityUploader, bool &velocityUploaderUsed, bool &tileInterpolationUsed, bool &fogInterpolationUsed, bool &lookAtInterpolationUsed) {
         tileInterpolationUsed = false;
+        fogInterpolationUsed = false;
         lookAtInterpolationUsed = false;
         matched = true;
 
@@ -278,12 +279,16 @@ namespace RT64 {
             workloadMap.transforms.resize(curWorkload.drawData.worldTransforms.size());
             workloadMap.tiles.clear();
             workloadMap.tiles.resize(curWorkload.drawData.rdpTiles.size());
+            workloadMap.fog.clear();
+            workloadMap.fog.resize(curWorkload.drawData.rspFog.size());
             workloadMap.lookAt.clear();
             workloadMap.lookAt.resize(curWorkload.drawData.rspLookAt.size());
             workloadMap.prevTransformsMapped.clear();
             workloadMap.prevTransformsMapped.resize(prevWorkload.drawData.worldTransforms.size());
             workloadMap.prevTilesMapped.clear();
             workloadMap.prevTilesMapped.resize(prevWorkload.drawData.rdpTiles.size());
+            workloadMap.prevFogMapped.clear();
+            workloadMap.prevFogMapped.resize(prevWorkload.drawData.rspFog.size());
             workloadMap.prevLookAtMapped.clear();
             workloadMap.prevLookAtMapped.resize(prevWorkload.drawData.rspLookAt.size());
 
@@ -366,7 +371,7 @@ namespace RT64 {
                     continue;
                 }
 
-                matchScene(workloadQueue, prevFrame, curScenes[candidate.curIndex], prevScenes[candidate.prevIndex], workloadsModified, tileInterpolationUsed, lookAtInterpolationUsed);
+                matchScene(workloadQueue, prevFrame, curScenes[candidate.curIndex], prevScenes[candidate.prevIndex], workloadsModified, tileInterpolationUsed, fogInterpolationUsed, lookAtInterpolationUsed);
                 curScenesMatched[candidate.curIndex] = true;
                 prevScenesMatched[candidate.prevIndex] = true;
             }
@@ -398,7 +403,7 @@ namespace RT64 {
         }
     }
 
-    void GameFrame::matchScene(WorkloadQueue &workloadQueue, const GameFrame &prevFrame, const GameScene &curScene, const GameScene &prevScene, std::unordered_map<uint32_t, ModifiedBuffers> &workloadsModified, bool &tileInterpolationUsed, bool &lookAtInterpolationUsed) {
+    void GameFrame::matchScene(WorkloadQueue &workloadQueue, const GameFrame &prevFrame, const GameScene &curScene, const GameScene &prevScene, std::unordered_map<uint32_t, ModifiedBuffers> &workloadsModified, bool &tileInterpolationUsed, bool &fogInterpolationUsed, bool &lookAtInterpolationUsed) {
         if (curScene.projections.empty() || prevScene.projections.empty()) {
             return;
         }
@@ -512,9 +517,11 @@ namespace RT64 {
         // FIXME: Transform set needs to be done per unique workload detected.
         thread_local std::set<IndexPair> transformCheckSet;
         thread_local std::set<IndexPair> tileCheckSet;
+        thread_local std::set<IndexPair> fogCheckSet;
         thread_local std::set<IndexPair> lookAtCheckSet;
         transformCheckSet.clear();
         tileCheckSet.clear();
+        fogCheckSet.clear();
         lookAtCheckSet.clear();
 
         // Traverse the map and fill the set with all the combinations of transforms to check.
@@ -560,10 +567,24 @@ namespace RT64 {
                     }
                 }
 
+                // TODO: Check for matrix group's parameters.
+                const uint32_t fogMask = G_LIGHTING | G_TEXTURE_GEN;
+                const bool curUsesFog = (curCall.callDesc.geometryMode & fogMask) == fogMask;
+                const bool prevUsesFog = (prevCall.callDesc.geometryMode & fogMask) == fogMask;
+                if (curUsesFog && prevUsesFog) {
+                    // FIXME: We assume the same fog is used throughout the entire draw call, so we only check the first vertex.
+                    const uint32_t curVertexIndex = curWorkload.drawData.faceIndices[curCall.meshDesc.faceIndicesStart];
+                    const uint32_t prevVertexIndex = prevWorkload.drawData.faceIndices[prevCall.meshDesc.faceIndicesStart];
+                    const uint32_t curFogIndex = curWorkload.drawData.fogIndices[curVertexIndex] - 1;
+                    const uint32_t prevFogIndex = prevWorkload.drawData.fogIndices[prevVertexIndex] - 1;
+                    fogCheckSet.emplace(curFogIndex, prevFogIndex);
+                }
+
+                // TODO: Check for matrix group's parameters.
                 const uint32_t textureGenMask = G_LIGHTING | G_TEXTURE_GEN;
                 const bool curUsesTextureGen = (curCall.callDesc.geometryMode & textureGenMask) == textureGenMask;
                 const bool prevUsesTextureGen = (prevCall.callDesc.geometryMode & textureGenMask) == textureGenMask;
-                if (curUsesTextureGen && prevUsesTextureGen && (true && true)) { // TODO: Do look at matching condition.
+                if (curUsesTextureGen && prevUsesTextureGen) { 
                     // FIXME: We assume the same look at is used throughout the entire draw call, so we only check the first vertex.
                     const uint32_t curVertexIndex = curWorkload.drawData.faceIndices[curCall.meshDesc.faceIndicesStart];
                     const uint32_t prevVertexIndex = prevWorkload.drawData.faceIndices[prevCall.meshDesc.faceIndicesStart];
@@ -680,6 +701,32 @@ namespace RT64 {
             curTileMap.mapped = true;
             firstCurWorkloadMap.prevTilesMapped[indices.second] = true;
             tileInterpolationUsed = tileInterpolationUsed || tileScrolled;
+        }
+
+        // Check for fog matches.
+        for (const IndexPair &indices : fogCheckSet) {
+            if (firstCurWorkloadMap.fog[indices.first].mapped) {
+                continue;
+            }
+
+            if (firstCurWorkloadMap.prevFogMapped[indices.second]) {
+                continue;
+            }
+
+            GameFrameMap::FogMap &curFogMap = firstCurWorkloadMap.fog[indices.first];
+            if (firstPrevWorkloadMap != nullptr) {
+                const GameFrameMap::FogMap &prevFogMap = firstPrevWorkloadMap->fog[indices.second];
+                curFogMap = prevFogMap;
+            }
+
+            const interop::RSPFog &curFog = firstCurWorkload.drawData.rspFog[indices.first];
+            const interop::RSPFog &prevFog = firstPrevWorkload.drawData.rspFog[indices.second];
+            bool fogMoved = true;
+            curFogMap.mapped = true;
+            curFogMap.deltaMul = curFog.mul - prevFog.mul;
+            curFogMap.deltaOffset = curFog.offset - prevFog.offset;
+            firstCurWorkloadMap.prevFogMapped[indices.second] = true;
+            fogInterpolationUsed = fogInterpolationUsed || fogMoved;
         }
 
         // Check for look at matches.
