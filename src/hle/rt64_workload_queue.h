@@ -13,6 +13,7 @@
 #include "render/rt64_projection_processor.h"
 #include "render/rt64_raster_shader_cache.h"
 #include "render/rt64_tile_processor.h"
+#include "render/rt64_fog_processor.h"
 #include "render/rt64_look_at_processor.h"
 #include "render/rt64_transform_processor.h"
 
@@ -85,6 +86,7 @@ namespace RT64 {
         std::unique_ptr<FramebufferRenderer> framebufferRenderer;
         std::unique_ptr<RenderFramebufferManager> renderFramebufferManager;
         TileProcessor tileProcessor;
+        FogProcessor fogProcessor;
         LookAtProcessor lookAtProcessor;
         TransformProcessor transformProcessor;
         ProjectionProcessor projectionProcessor;
@@ -116,7 +118,7 @@ namespace RT64 {
         void threadRenderFrame(GameFrame &curFrame, const GameFrame &prevFrame, const WorkloadConfiguration &workloadConfig,
             const DebuggerRenderer &debuggerRenderer, const DebuggerCamera &debuggerCamera, float curFrameWeight, float prevFrameWeight,
             float deltaTimeMs, RenderTargetKey overrideTargetKey, int32_t overrideTargetFbPairIndex, RenderTarget *overrideTarget,
-            uint32_t overrideTargetModifier, bool uploadVelocity, bool uploadExtras, bool interpolateTiles, bool interpolateLookAts);
+            uint32_t overrideTargetModifier, bool uploadVelocity, bool uploadExtras, bool interpolateTiles, bool interpolateFogs, bool interpolateLookAts);
 
         void threadAdvanceBarrier();
         void threadAdvanceWorkloadId(uint64_t newWorkloadId);

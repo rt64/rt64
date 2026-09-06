@@ -1206,6 +1206,7 @@ namespace RT64 {
                 dstGroup->vertexInterpolation = vpos;
                 dstGroup->texcoordInterpolation = vtc;
                 dstGroup->tileInterpolation = tile;
+                // dstGroup->fogInterpolation = TODO;
                 dstGroup->lookAtInterpolation = lookat;
                 dstGroup->ordering = order;
                 dstGroup->aspectMode = aspect;

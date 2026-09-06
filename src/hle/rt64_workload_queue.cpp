@@ -107,6 +107,7 @@ namespace RT64 {
         projectionProcessor.setup(ext.workloadGraphicsWorker);
         transformProcessor.setup(ext.workloadGraphicsWorker);
         tileProcessor.setup(ext.workloadGraphicsWorker);
+        fogProcessor.setup(ext.workloadGraphicsWorker);
         lookAtProcessor.setup(ext.workloadGraphicsWorker);
 
         threadsRunning = true;
@@ -292,7 +293,8 @@ namespace RT64 {
     void WorkloadQueue::threadRenderFrame(GameFrame &curFrame, const GameFrame &prevFrame, const WorkloadConfiguration &workloadConfig,
         const DebuggerRenderer &debuggerRenderer, const DebuggerCamera &debuggerCamera, float curFrameWeight, float prevFrameWeight,
         float deltaTimeMs, RenderTargetKey overrideTargetKey, int32_t overrideTargetFbPairIndex, RenderTarget *overrideTarget,
-        uint32_t overrideTargetModifier, bool uploadVelocity, bool uploadExtras, bool interpolateTiles, bool interpolateLookAts)
+        uint32_t overrideTargetModifier, bool uploadVelocity, bool uploadExtras, bool interpolateTiles, bool interpolateFogs,
+        bool interpolateLookAts)
     {
 #   if ENABLE_HIGH_RESOLUTION_RENDERER
         std::scoped_lock<std::mutex> managerLock(ext.sharedResources->workloadMutex);
@@ -346,6 +348,20 @@ namespace RT64 {
             tileProcessor.process(tileParams);
             tileProcessor.upload(tileParams);
             uploadTiles = true;
+        }
+
+        bool uploadFogs = false;
+        if (interpolateFogs) {
+            FogProcessor::ProcessParams fogParams;
+            fogParams.worker = ext.workloadGraphicsWorker;
+            fogParams.workloadQueue = this;
+            fogParams.curFrame = &curFrame;
+            fogParams.prevFrame = &prevFrame;
+            fogParams.curFrameWeight = curFrameWeight;
+            fogParams.prevFrameWeight = prevFrameWeight;
+            fogProcessor.process(fogParams);
+            fogProcessor.upload(fogParams);
+            uploadFogs = true;
         }
 
         bool uploadLookAts = false;
@@ -685,6 +701,11 @@ namespace RT64 {
                 uploadTiles = false;
             }
 
+            if (uploadFogs) {
+                bufferUploaders.emplace_back(fogProcessor.bufferUploader.get());
+                uploadFogs = false;
+            }
+
             if (uploadLookAts) {
                 bufferUploaders.emplace_back(lookAtProcessor.bufferUploader.get());
                 uploadLookAts = false;
@@ -976,11 +997,12 @@ namespace RT64 {
                 bool generateInterpolatedFrames = false;
                 bool velocityUploaderUsed = false;
                 bool tileInterpolationUsed = false;
+                bool fogInterpolationUsed = false;
                 bool lookAtInterpolationUsed = false;
                 if (requiresFrameMatching) {
                     matchingProfiler.reset();
                     matchingProfiler.start();
-                    curFrame.match(ext.workloadGraphicsWorker, *this, prevFrame, ext.workloadVelocityUploader, velocityUploaderUsed, tileInterpolationUsed, lookAtInterpolationUsed);
+                    curFrame.match(ext.workloadGraphicsWorker, *this, prevFrame, ext.workloadVelocityUploader, velocityUploaderUsed, tileInterpolationUsed, fogInterpolationUsed, lookAtInterpolationUsed);
                     matchingProfiler.end();
                     matchingProfiler.log();
 
@@ -1117,7 +1139,8 @@ namespace RT64 {
 
                     int64_t renderTimeMicro = workloadTimer.elapsedMicroseconds();
                     threadRenderFrame(curFrame, prevFrame, workloadConfig, workload.debuggerRenderer, workload.debuggerCamera, curFrameWeight, prevFrameWeight, deltaTimeMs,
-                        interpolationTargetKey, interpolationTargetFbPairIndex, overrideTarget, overrideModifier, velocityUploaderUsed, uploadExtras, tileInterpolationUsed, lookAtInterpolationUsed);
+                        interpolationTargetKey, interpolationTargetFbPairIndex, overrideTarget, overrideModifier, velocityUploaderUsed, uploadExtras, tileInterpolationUsed,
+                        fogInterpolationUsed, lookAtInterpolationUsed);
 
                     // Add total time the frame took to render.
                     renderTimeTotalMicro += workloadTimer.elapsedMicroseconds() - renderTimeMicro;
