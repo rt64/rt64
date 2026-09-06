@@ -40,6 +40,7 @@ namespace RT64 {
         std::vector<hlslpp::float4> posTransformed;
         std::vector<hlslpp::float3> posScreen;
         std::vector<interop::RDPParams> rdpParams;
+        std::vector<interop::RDPParams> lerpRdpParams;
         std::vector<interop::ExtraParams> extraParams;
         std::vector<interop::RenderParams> renderParams;
         std::vector<interop::float4x4> viewTransforms;
@@ -63,6 +64,7 @@ namespace RT64 {
         std::vector<int16_t> viewportClipRatios;
         std::vector<uint16_t> viewportOrigins;
         std::vector<interop::RSPFog> rspFog;
+        std::vector<interop::RSPFog> lerpRspFog;
         std::vector<interop::RSPLight> rspLights;
         std::vector<interop::RSPLookAt> rspLookAt;
         std::vector<interop::RSPLookAt> lerpRspLookAt;
