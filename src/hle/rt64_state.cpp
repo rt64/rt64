@@ -1838,6 +1838,19 @@ namespace RT64 {
     void State::updateScreen(const VI &newVI, bool fromEarlyPresent) {
         // If the debugger has paused the plugin, keep submitting the last workload and screen VI for rendering and a present event.
         if (debuggerInspector.paused && !fromEarlyPresent) {
+            // Inspect the workload that is about to be RE-submitted, not the one
+            // the last unpaused frame left behind.
+            //
+            // lastWorkloadIndex is assigned writeCursor just before a workload is
+            // submitted, which is correct while running: the inspector writes
+            // debuggerDesc.highlightColor into that workload and it is then drawn,
+            // so hover highlighting works. While paused nothing new is submitted
+            // and repeatLastWorkload() re-renders previousWriteCursor() instead,
+            // so the inspector was painting a workload that is never drawn --
+            // hovering a framebuffer, projection or draw call in the paused
+            // debugger highlighted nothing at all.
+            lastWorkloadIndex = ext.workloadQueue->previousWriteCursor();
+
             if (ext.userConfig->developerMode) {
                 inspect();
             }
