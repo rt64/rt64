@@ -568,7 +568,7 @@ namespace RT64 {
                 }
 
                 // TODO: Check for matrix group's parameters.
-                const uint32_t fogMask = G_LIGHTING | G_TEXTURE_GEN;
+                const uint32_t fogMask = G_FOG;
                 const bool curUsesFog = (curCall.callDesc.geometryMode & fogMask) == fogMask;
                 const bool prevUsesFog = (prevCall.callDesc.geometryMode & fogMask) == fogMask;
                 if (curUsesFog && prevUsesFog) {
