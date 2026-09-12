@@ -1675,7 +1675,19 @@ namespace RT64 {
                             break;
                         }
 
-                        triangles.scissor = convertFixedRect(call.callDesc.scissorRect, p.resolutionScale, p.fbWidth, invRatioScale, extOriginPercentage, int32_t(horizontalMisalignment), call.callDesc.scissorLeftOrigin, call.callDesc.scissorRightOrigin);
+                        // Scissor aspect can override the scaling determined by the draw call.
+                        float scissorInvRatioScale = invRatioScale;
+                        float scissorHorizontalMisalignment = horizontalMisalignment;
+                        if (call.callDesc.scissorAspect == G_EX_ASPECT_STRETCH) {
+                            scissorInvRatioScale = 1.0f;
+                            scissorHorizontalMisalignment = 0.0f;
+                        }
+                        else if (call.callDesc.scissorAspect == G_EX_ASPECT_ADJUST) {
+                            scissorInvRatioScale = 1.0f / aspectRatioScale;
+                            scissorHorizontalMisalignment = p.horizontalMisalignment;
+                        }
+
+                        triangles.scissor = convertFixedRect(call.callDesc.scissorRect, p.resolutionScale, p.fbWidth, scissorInvRatioScale, extOriginPercentage, int32_t(scissorHorizontalMisalignment), call.callDesc.scissorLeftOrigin, call.callDesc.scissorRightOrigin);
 
                         bool usesViewport = (proj.type == Projection::Type::Perspective) || (proj.type == Projection::Type::Orthographic);
                         if (usesViewport) {

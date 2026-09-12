@@ -111,6 +111,7 @@ namespace RT64 {
         drawCall.scissorMode = 0;
         drawCall.scissorLeftOrigin = G_EX_ORIGIN_NONE;
         drawCall.scissorRightOrigin = G_EX_ORIGIN_NONE;
+        drawCall.scissorAspect = G_EX_ASPECT_AUTO;
         drawCall.colorCombiner = { 0, 0 };
         drawCall.otherMode = { 0, 0 };
         drawCall.geometryMode = 0;
