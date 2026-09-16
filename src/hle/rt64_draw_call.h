@@ -91,6 +91,7 @@ namespace RT64 {
         uint32_t loadIndex;
         uint32_t loadCount;
         uint8_t rectAspect;
+        uint8_t scissorAspect;
         uint8_t scissorMode;
         uint8_t textureOn;
         uint8_t textureTile;

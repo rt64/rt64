@@ -93,6 +93,7 @@ namespace RT64 {
                 ExtendedAlignment rect;
                 ExtendedAlignment scissor;
                 uint8_t rectAspect;
+                uint8_t scissorAspect;
             } global;
 
             uint16_t scissorLeftOriginStack[RDP_EXTENDED_STACK_SIZE];
@@ -196,6 +197,7 @@ namespace RT64 {
         void setRectAlign(const ExtendedAlignment &extAlignment);
         void setScissorAlign(const ExtendedAlignment &extAlignment);
         void setRectAspect(uint8_t aspect);
+        void setScissorAspect(uint8_t aspect);
         void forceUpscale2D(bool force);
         void forceTrueBilerp(uint8_t mode);
         void forceScaleLOD(bool force);
