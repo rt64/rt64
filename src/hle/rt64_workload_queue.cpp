@@ -18,21 +18,29 @@ namespace RT64 {
     }
 
     WorkloadQueue::~WorkloadQueue() {
+        requestStop();
+        joinThreads();
+    }
+
+    void WorkloadQueue::requestStop() {
         threadsRunning = false;
         cursorCondition.notify_all();
         idleCondition.notify_all();
+        workloadIdCondition.notify_all();
+    }
 
+    void WorkloadQueue::joinThreads() {
         if (renderThread != nullptr) {
             renderThread->join();
             delete renderThread;
+            renderThread = nullptr;
         }
 
         if (idleThread != nullptr) {
             idleThread->join();
             delete idleThread;
+            idleThread = nullptr;
         }
-
-        workloadIdCondition.notify_all();
     }
 
     void WorkloadQueue::reset() {

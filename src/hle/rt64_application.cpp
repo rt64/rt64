@@ -679,6 +679,23 @@ namespace RT64 {
 #   endif
 
         state.reset();
+
+        if (workloadQueue != nullptr) {
+            workloadQueue->requestStop();
+        }
+
+        if (presentQueue != nullptr) {
+            presentQueue->requestStop();
+        }
+
+        if (workloadQueue != nullptr) {
+            workloadQueue->joinThreads();
+        }
+
+        if (presentQueue != nullptr) {
+            presentQueue->joinThread();
+        }
+
         workloadQueue.reset();
         presentQueue.reset();
 

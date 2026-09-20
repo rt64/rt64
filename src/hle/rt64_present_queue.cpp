@@ -17,15 +17,22 @@ namespace RT64 {
     }
 
     PresentQueue::~PresentQueue() {
+        requestStop();
+        joinThread();
+    }
+
+    void PresentQueue::requestStop() {
         presentThreadRunning = false;
         cursorCondition.notify_all();
+        presentIdCondition.notify_all();
+    }
 
+    void PresentQueue::joinThread() {
         if (presentThread != nullptr) {
             presentThread->join();
             delete presentThread;
+            presentThread = nullptr;
         }
-
-        presentIdCondition.notify_all();
     }
 
     void PresentQueue::reset() {

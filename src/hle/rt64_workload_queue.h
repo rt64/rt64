@@ -103,6 +103,9 @@ namespace RT64 {
 
         WorkloadQueue();
         ~WorkloadQueue();
+
+        void requestStop();
+        void joinThreads();
         void reset();
         void advanceToNextWorkload();
         void repeatLastWorkload();

@@ -60,6 +60,9 @@ namespace RT64 {
 
         PresentQueue();
         ~PresentQueue();
+
+        void requestStop();
+        void joinThread();
         void reset();
         void advanceToNextPresent();
         void repeatLastPresent();
