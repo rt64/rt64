@@ -87,7 +87,7 @@ namespace RT64 {
     }
 
     Application::SetupResult Application::setup(uint32_t threadId) {
-#   ifdef _WIN64
+#   if defined(_WIN32) || defined(_WIN64)
         if (!DynamicLibraries::load()) {
             fprintf(stderr, "Failed to load dynamic libraries. Make sure the dependencies are next to the Plugin's DLL.\n");
             return SetupResult::Success;
@@ -132,7 +132,7 @@ namespace RT64 {
         // Resolve the graphics API option in case it's automatic.
         chosenGraphicsAPI = UserConfiguration::resolveGraphicsAPI(userConfig.graphicsAPI);
 
-#   ifdef _WIN64
+#   if defined(_WIN32) || defined(_WIN64)
         // Windows can try falling back to the other API option in case of failure.
         const uint32_t CreationAttempts = (userConfig.graphicsAPI == UserConfiguration::GraphicsAPI::Automatic) ? 2 : 1;
 #   else
@@ -140,7 +140,7 @@ namespace RT64 {
 #   endif
 
         for (uint32_t creationAttempt = 0; (creationAttempt < CreationAttempts) && (device == nullptr); creationAttempt++) {
-#       ifdef _WIN64
+#       if defined(_WIN32) || defined(_WIN64)
             if (creationAttempt == 1) {
                 if (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::D3D12) {
                     fprintf(stderr, "Unable to initialize a D3D12 device. Falling back to Vulkan.\n");
@@ -158,7 +158,7 @@ namespace RT64 {
             // Create a render interface with the preferred backend.
             switch (chosenGraphicsAPI) {
             case UserConfiguration::GraphicsAPI::D3D12:
-#       ifdef _WIN64
+#       if defined(_WIN32) || defined(_WIN64)
                 renderInterface = CreateD3D12Interface();
                 break;
 #       else
@@ -561,7 +561,7 @@ namespace RT64 {
         rasterShaderCache->shaderUber->waitForPipelineCreation();
     }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     bool Application::windowMessageFilter(unsigned int message, WPARAM wParam, LPARAM lParam) {
         if (userConfig.developerMode && (presentQueue != nullptr) && (state != nullptr) && !FileDialog::isOpen) {
             const std::lock_guard lock(presentQueue->inspectorMutex);

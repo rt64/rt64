@@ -23,7 +23,7 @@ static unsigned bitScanForward64(uint64_t val) {
         __assume(0);
     }
 #endif
-#elif defined(__GNUC__) && (__GNUC__ >= 4) && defined(__LP64__)
+#elif defined(__clang__) || (defined(__GNUC__) && (__GNUC__ >= 4))
     return (unsigned)__builtin_ctzll(val);
 #elif defined(__ICCARM__)
     return (unsigned)__builtin_ctzll(val);

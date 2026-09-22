@@ -7,7 +7,7 @@
 #include <cassert>
 #include <thread>
 
-#if defined(_WIN64)
+#if defined(_WIN32) || defined(_WIN64)
 #   include <Windows.h>
 #   include "utf8conv/utf8conv.h"
 #elif defined(__linux__)
@@ -15,7 +15,7 @@
 #endif
 
 namespace RT64 {
-#   if defined(_WIN32)
+#   if defined(_WIN32) || defined(_WIN64)
     static int toWindowsPriority(Thread::Priority priority) {
         switch (priority) {
         case Thread::Priority::Idle:
@@ -40,7 +40,7 @@ namespace RT64 {
     // Thread
 
     void Thread::setCurrentThreadName(const std::string &str) {
-#   if defined(_WIN32)
+#   if defined(_WIN32) || defined(_WIN64)
         std::wstring nameWide = win32::Utf8ToUtf16(str);
         SetThreadDescription(GetCurrentThread(), nameWide.c_str());
 #   elif defined(__linux__)
@@ -53,7 +53,7 @@ namespace RT64 {
     }
 
     void Thread::setCurrentThreadPriority(Priority priority) {
-#   if defined(_WIN32)
+#   if defined(_WIN32) || defined(_WIN64)
         SetThreadPriority(GetCurrentThread(), toWindowsPriority(priority));
 #   elif defined(__linux__) || defined(__APPLE__)
         // On Linux, thread priorities can't be changed under the default scheduler policy (SCHED_OTHER) and the other policies
@@ -67,7 +67,7 @@ namespace RT64 {
     }
 
     void Thread::sleepMilliseconds(uint32_t millis) {
-#   if defined(_WIN32)
+#   if defined(_WIN32) || defined(_WIN64)
         // The implementations of std::chrono::sleep_until and sleep_for were affected by changing the system clock backwards in older versions
         // of Microsoft's STL. This was fixed as of Visual Studio 2022 17.9, but to be safe RT64 uses Win32 Sleep directly.
         Sleep(millis);

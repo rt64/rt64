@@ -42,9 +42,21 @@ if (WIN32)
         __PRFCHWINTRIN_H
     )
 
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(RT64_WINDOWS_ARCH x86)
+        file(GLOB sdk_libraries "C:/Program Files (x86)/Windows Kits/10/Lib/10.*/um/x86")
+        list(SORT sdk_libraries COMPARE NATURAL ORDER DESCENDING)
+        find_library(RT64_DXC_LIBRARY dxcompiler HINTS "$ENV{WindowsSdkDir}/Lib/$ENV{WindowsSDKVersion}/um/x86" ${sdk_libraries} REQUIRED)
+        find_path(RT64_DXC_DIRECTORY dxcompiler.dll HINTS "$ENV{WindowsSdkDir}/Redist/D3D/x86" "C:/Program Files (x86)/Windows Kits/10/Redist/D3D/x86" REQUIRED)
+    else()
+        set(RT64_WINDOWS_ARCH x64)
+        set(RT64_DXC_LIBRARY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64/dxcompiler.lib")
+        set(RT64_DXC_DIRECTORY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64")
+    endif()
+
     # Dependencies that must be next to the DLL.
-    configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
-    configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxil.dll" "dxil.dll" COPYONLY)
+    configure_file("${RT64_DXC_DIRECTORY}/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
+    configure_file("${RT64_DXC_DIRECTORY}/dxil.dll" "dxil.dll" COPYONLY)
 elseif (APPLE)
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         # find zlib and include in dyld path
@@ -288,7 +300,7 @@ endfunction()
 if (WIN32)
     set(SDL2_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include")
     set(SDL2_LIBRARIES "SDL2" "SDL2main")
-    link_directories("${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/x64")
+    link_directories("${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/${RT64_WINDOWS_ARCH}")
 else()
     find_package(SDL2 REQUIRED)
 endif()
@@ -436,6 +448,10 @@ else()
     add_library(rt64 SHARED ${SOURCES})
 endif()
 
+if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    target_compile_definitions(rt64 PUBLIC ImTextureID=ImU64)
+endif()
+
 set_target_properties(rt64 PROPERTIES OUTPUT_NAME "rt64")
 set_target_properties(rt64 PROPERTIES PREFIX "")
 
@@ -474,7 +490,7 @@ if (WIN32)
         D3D12
         DXGI
         Shcore.lib
-        ${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64/dxcompiler.lib)
+        ${RT64_DXC_LIBRARY})
 
     target_include_directories(rt64 PRIVATE ${zstd_SOURCE_DIR}/lib)
 endif()
