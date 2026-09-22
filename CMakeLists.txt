@@ -36,7 +36,6 @@ function(preprocess INFILE OUTFILE OPTIONS)
 endfunction()
 
 if (WIN32)
-    set (DXC "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc.exe")
     add_compile_definitions(
         NOMINMAX
         __PRFCHWINTRIN_H
@@ -44,15 +43,12 @@ if (WIN32)
 
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
         set(RT64_WINDOWS_ARCH x86)
-        file(GLOB sdk_libraries "C:/Program Files (x86)/Windows Kits/10/Lib/10.*/um/x86")
-        list(SORT sdk_libraries COMPARE NATURAL ORDER DESCENDING)
-        find_library(RT64_DXC_LIBRARY dxcompiler HINTS "$ENV{WindowsSdkDir}/Lib/$ENV{WindowsSDKVersion}/um/x86" ${sdk_libraries} REQUIRED)
-        find_path(RT64_DXC_DIRECTORY dxcompiler.dll HINTS "$ENV{WindowsSdkDir}/Redist/D3D/x86" "C:/Program Files (x86)/Windows Kits/10/Redist/D3D/x86" REQUIRED)
     else()
         set(RT64_WINDOWS_ARCH x64)
-        set(RT64_DXC_LIBRARY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64/dxcompiler.lib")
-        set(RT64_DXC_DIRECTORY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64")
     endif()
+    set(RT64_DXC_LIBRARY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/${RT64_WINDOWS_ARCH}/dxcompiler.lib")
+    set(RT64_DXC_DIRECTORY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/${RT64_WINDOWS_ARCH}")
+    set(DXC "${RT64_DXC_DIRECTORY}/dxc.exe")
 
     # Dependencies that must be next to the DLL.
     configure_file("${RT64_DXC_DIRECTORY}/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
@@ -446,10 +442,6 @@ if (${RT64_STATIC})
     add_library(rt64 STATIC ${SOURCES})
 else()
     add_library(rt64 SHARED ${SOURCES})
-endif()
-
-if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-    target_compile_definitions(rt64 PUBLIC ImTextureID=ImU64)
 endif()
 
 set_target_properties(rt64 PROPERTIES OUTPUT_NAME "rt64")

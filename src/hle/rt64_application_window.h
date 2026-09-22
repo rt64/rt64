@@ -5,7 +5,7 @@
 #pragma once
 
 #include "common/rt64_plume.h"
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 #include <Windows.h>
 #elif defined(__APPLE__)
 #include "apple/rt64_apple.h"
@@ -37,7 +37,7 @@ namespace RT64 {
             // Return false otherwise for the default message handler to take over.
             virtual bool sdlEventFilter(SDL_Event *event) = 0;
 
-#       if defined(_WIN32) || defined(_WIN64)
+#       if defined(_WIN32)
             virtual bool windowMessageFilter(unsigned int message, WPARAM wParam, LPARAM lParam) = 0;
 #       endif
         };
@@ -57,7 +57,7 @@ namespace RT64 {
         void *sdlEventFilterUserdata = nullptr;
         bool sdlEventFilterInstalled = false;
 
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         HHOOK windowHook = nullptr;
         HMENU windowMenu = nullptr;
         RECT lastWindowRect = {};
@@ -75,7 +75,7 @@ namespace RT64 {
         void sdlCheckFilterInstallation();
         static int sdlEventFilter(void *userdata, SDL_Event *event);
 
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         void windowMessage(UINT message, WPARAM wParam, LPARAM lParam);
         static LRESULT CALLBACK windowHookCallback(int nCode, WPARAM wParam, LPARAM lParam);
 #   endif

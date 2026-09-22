@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <SDL.h>
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 #   include <Windows.h>
 #   include <ShellScalingAPI.h>
 #elif defined(__linux__)
@@ -37,7 +37,7 @@ namespace RT64 {
             HookedApplicationWindow = nullptr;
         }
 
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         if (windowHook != nullptr) {
             UnhookWindowsHookEx(windowHook);
         }
@@ -69,7 +69,7 @@ namespace RT64 {
             }
 
             if (sdlWindow == nullptr) {
-#           if defined(_WIN32) || defined(_WIN64)
+#           if defined(_WIN32)
                 assert(HookedApplicationWindow == nullptr);
                 assert(threadId != 0);
                 windowHook = SetWindowsHookEx(WH_GETMESSAGE, &windowHookCallback, NULL, threadId);
@@ -89,7 +89,7 @@ namespace RT64 {
             uint32_t left, top, width, height;
         } bounds{};
 
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
 
         RECT rect;
@@ -143,7 +143,7 @@ namespace RT64 {
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(sdlWindow, &wmInfo);
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         windowHandle = wmInfo.info.win.window;
 #   elif defined(RT64_SDL_WINDOW_VULKAN)
         windowHandle = sdlWindow;
@@ -160,7 +160,7 @@ namespace RT64 {
         static_assert(false && "Unimplemented");
 #   endif
 
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         setup(windowHandle, listener, GetCurrentThreadId());
 #   elif defined(__APPLE__)
         uint64_t tid;
@@ -176,7 +176,7 @@ namespace RT64 {
             return;
         }
 
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         if (newFullScreen) {
             // Save if window is maximized or not
             WINDOWPLACEMENT windowPlacement;
@@ -240,7 +240,7 @@ namespace RT64 {
     }
 
     void ApplicationWindow::makeResizable() {
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         LONG_PTR lStyle = GetWindowLongPtr(windowHandle, GWL_STYLE);
         windowMenu = GetMenu(windowHandle);
         lStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
@@ -249,7 +249,7 @@ namespace RT64 {
     }
 
     void ApplicationWindow::detectRefreshRate() {
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         HMONITOR monitor = MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST);
         MONITORINFOEX info = {};
         info.cbSize = sizeof(info);
@@ -342,7 +342,7 @@ namespace RT64 {
         int32_t newWindowLeft = INT32_MAX;
         int32_t newWindowTop = INT32_MAX;
 
-#   if defined(_WIN32) || defined(_WIN64)
+#   if defined(_WIN32)
         RECT rect;
         GetWindowRect(windowHandle, &rect);
         newWindowLeft = rect.left;
@@ -371,7 +371,7 @@ namespace RT64 {
         }
     }
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
     void ApplicationWindow::windowMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         if (listener->windowMessageFilter(message, wParam, lParam)) {
             return;
