@@ -7,7 +7,7 @@
 #include <cassert>
 #include <thread>
 
-#if defined(_WIN64)
+#if defined(_WIN32)
 #   include <Windows.h>
 #   include "utf8conv/utf8conv.h"
 #elif defined(__linux__)

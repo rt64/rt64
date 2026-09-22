@@ -36,15 +36,23 @@ function(preprocess INFILE OUTFILE OPTIONS)
 endfunction()
 
 if (WIN32)
-    set (DXC "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc.exe")
     add_compile_definitions(
         NOMINMAX
         __PRFCHWINTRIN_H
     )
 
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(RT64_WINDOWS_ARCH x86)
+    else()
+        set(RT64_WINDOWS_ARCH x64)
+    endif()
+    set(RT64_DXC_LIBRARY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/${RT64_WINDOWS_ARCH}/dxcompiler.lib")
+    set(RT64_DXC_DIRECTORY "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/${RT64_WINDOWS_ARCH}")
+    set(DXC "${RT64_DXC_DIRECTORY}/dxc.exe")
+
     # Dependencies that must be next to the DLL.
-    configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
-    configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxil.dll" "dxil.dll" COPYONLY)
+    configure_file("${RT64_DXC_DIRECTORY}/dxcompiler.dll" "dxcompiler.dll" COPYONLY)
+    configure_file("${RT64_DXC_DIRECTORY}/dxil.dll" "dxil.dll" COPYONLY)
 elseif (APPLE)
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         # find zlib and include in dyld path
@@ -288,7 +296,7 @@ endfunction()
 if (WIN32)
     set(SDL2_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include")
     set(SDL2_LIBRARIES "SDL2" "SDL2main")
-    link_directories("${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/x64")
+    link_directories("${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/${RT64_WINDOWS_ARCH}")
 else()
     find_package(SDL2 REQUIRED)
 endif()
@@ -471,7 +479,7 @@ if (WIN32)
         D3D12
         DXGI
         Shcore.lib
-        ${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64/dxcompiler.lib)
+        ${RT64_DXC_LIBRARY})
 
     target_include_directories(rt64 PRIVATE ${zstd_SOURCE_DIR}/lib)
 endif()
