@@ -37,7 +37,10 @@ endfunction()
 
 if (WIN32)
     set (DXC "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc.exe")
-    add_compile_definitions(NOMINMAX)
+    add_compile_definitions(
+        NOMINMAX
+        __PRFCHWINTRIN_H
+    )
 
     # Dependencies that must be next to the DLL.
     configure_file("${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll" "dxcompiler.dll" COPYONLY)

@@ -219,6 +219,7 @@ namespace RT64 {
             hlslpp::float4x4 viewMatrix;
             hlslpp::float4x4 projMatrix;
             hlslpp::float4x4 viewProjMatrix;
+            hlslpp::float3x3 viewProjRotationMatrix;
             hlslpp::float4x4 invViewMatrix;
             hlslpp::float4x4 invProjMatrix;
             hlslpp::float4x4 invViewProjMatrix;

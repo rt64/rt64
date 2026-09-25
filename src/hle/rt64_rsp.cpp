@@ -325,9 +325,12 @@ namespace RT64 {
         invMatrix = hlslpp::inverse(matrix);
 
         rsp.extended.viewProjMatrix = hlslpp::mul(rsp.extended.viewMatrix, rsp.extended.projMatrix);
+        rsp.extended.viewProjRotationMatrix = hlslpp::float3x3(rsp.extended.viewProjMatrix);
         rsp.extended.invViewProjMatrix = hlslpp::inverse(rsp.extended.viewProjMatrix);
         rsp.projectionMatrixChanged = true;
         rsp.modelViewProjChanged = true;
+        rsp.lightsChanged = true;
+        rsp.lookAtChanged = true;
     }
 
     void RSP::setProjectionMatrixFloat(uint32_t address) {
@@ -593,11 +596,12 @@ namespace RT64 {
                     }
                     else {
                         rspLight.posDir = {
-                            static_cast<float>(light.dir.dirx),
-                            static_cast<float>(light.dir.diry),
-                            static_cast<float>(light.dir.dirz)
+                             static_cast<float>(light.dir.dirx),
+                             static_cast<float>(light.dir.diry),
+                             static_cast<float>(light.dir.dirz)
                         };
 
+                        rspLight.posDir = hlslpp::mul(rspLight.posDir, extended.viewProjRotationMatrix);
                         rspLight.kc = 0;
                         rspLight.kl = 0;
                         rspLight.kq = 0;
@@ -639,8 +643,11 @@ namespace RT64 {
         if (usesTextureGen) {
             if (lookAtChanged) {
                 auto &rspLookAtVector = workload.drawData.rspLookAt;
+                interop::RSPLookAt vertexLookAt = lookAt;
                 vertexLookAtIndex = static_cast<uint32_t>(rspLookAtVector.size());
-                rspLookAtVector.emplace_back(lookAt);
+                vertexLookAt.x = hlslpp::mul(vertexLookAt.x, extended.viewProjRotationMatrix);
+                vertexLookAt.y = hlslpp::mul(vertexLookAt.y, extended.viewProjRotationMatrix);
+                rspLookAtVector.emplace_back(vertexLookAt);
                 lookAtChanged = false;
             }
 
@@ -1143,7 +1150,9 @@ namespace RT64 {
                 drawRect.lry = std::max(drawRect.lry, int32_t(hlslpp::ceil(v.y).x * 4.0f));
             }
 
-            drawRect = scissorRect.intersection(drawRect);
+            const interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
+            const FixedRect viewportClipRect = viewport.rect(clipRatios.data());
+            drawRect = viewportClipRect.intersection(scissorRect.intersection(drawRect));
             if (!drawRect.isNull()) {
                 fbPair.drawColorRect.merge(drawRect);
                 if (otherModeStack[otherModeStackSize - 1].zUpd()) {
@@ -1276,6 +1285,7 @@ namespace RT64 {
         extended.viewMatrix = hlslpp::float4x4::identity();
         extended.projMatrix = hlslpp::float4x4::identity();
         extended.viewProjMatrix = hlslpp::float4x4::identity();
+        extended.viewProjRotationMatrix = hlslpp::float3x3::identity();
         extended.invViewMatrix = hlslpp::float4x4::identity();
         extended.invProjMatrix = hlslpp::float4x4::identity();
         extended.invViewProjMatrix = hlslpp::float4x4::identity();

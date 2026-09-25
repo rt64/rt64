@@ -24,13 +24,14 @@
 #define USE_FOR_LOOPS 0
 #endif
 
-void computeLOD(OtherMode otherMode, uint rdpTileCount, float2 primLOD, float resLodScale, float ddxuvx, float ddyuvy, inout int tileIndex0, inout int tileIndex1, out float lodFraction) {
+void computeLOD(OtherMode otherMode, uint rdpTileCount, float2 primLOD, float resLodScale, float2 ddxUV, float2 ddyUV, inout int tileIndex0, inout int tileIndex1, out float lodFraction) {
     const bool usesLOD = (otherMode.textLOD() == G_TL_LOD);
     if (usesLOD) {
         const bool lodSharpen = (otherMode.textDetail() & G_TD_SHARPEN) != 0;
         const bool lodDetail = (otherMode.textDetail() & G_TD_DETAIL) != 0;
         const int tileMax = int(rdpTileCount) - 1;
-        float maxDst = max(abs(ddxuvx), abs(ddyuvy)) * resLodScale;
+        float2 maxDdUV = max(abs(ddxUV), abs(ddyUV));
+        float maxDst = max(maxDdUV.x, maxDdUV.y) * resLodScale;
         if (lodDetail || lodSharpen) {
             maxDst = max(maxDst, primLOD.y);
         }
@@ -213,7 +214,7 @@ float4 sampleTextureLevel(const RDPTile rdpTile, const GPUTile gpuTile, bool fil
     }
 }
 
-float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputUV, float2 ddxUVx, float2 ddyUVy, const RDPTile rdpTile, const GPUTile gpuTile, bool nextPixelBug) {
+float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputUV, float2 ddxUV, float2 ddyUV, const RDPTile rdpTile, const GPUTile gpuTile, bool nextPixelBug) {
     const bool texturePerspective = (otherMode.textPersp() == G_TP_PERSP);
     const bool applyCorrection = (!texturePerspective && !renderFlagRect(renderFlags));
 
@@ -274,9 +275,9 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
         // Retrieve the dimensions of the texture for either type of sampler.
         Texture2D texture = gTextures[NonUniformResourceIndex(gpuTile.textureIndex)];
         if (nativeSampler == NATIVE_SAMPLER_NONE) {
-            float2 ddxUVxScaled = ddxUVx * gpuTile.tcScale;
-            float2 ddxUVyScaled = ddyUVy * gpuTile.tcScale;
-            float ddMax = max(dot(ddxUVxScaled, ddxUVxScaled), dot(ddxUVyScaled, ddxUVyScaled));
+            float2 ddxUVScaled = ddxUV * gpuTile.tcScale;
+            float2 ddyUVScaled = ddyUV * gpuTile.tcScale;
+            float ddMax = max(dot(ddxUVScaled, ddxUVScaled), dot(ddyUVScaled, ddyUVScaled));
             float mipBias = -0.25f;
             mip = 0.5 * log2(ddMax) + mipBias;
             float maxMip = float(gpuTile.textureDimensions.z - 1);
@@ -288,30 +289,30 @@ float4 sampleTexture(OtherMode otherMode, RenderFlags renderFlags, float2 inputU
             // Must normalize the texture coordinate and the derivatives.
             float2 nativeUVCoord = uvCoord / gpuTile.textureDimensions.xy;
             float2 originalSize = gpuTile.textureDimensions.xy / gpuTile.tcScale;
-            float2 ddxUVxNorm = ddxUVx / originalSize;
-            float2 ddxUVyNorm = ddyUVy / originalSize;
+            float2 ddxUVNorm = ddxUV / originalSize;
+            float2 ddyUVNorm = ddyUV / originalSize;
             
             // Choose the native sampler that was determined to be compatible.
             switch (nativeSampler) {
                 case NATIVE_SAMPLER_WRAP_WRAP:
-                    return texture.SampleGrad(gLinearWrapWrapSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearWrapWrapSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_WRAP_MIRROR:
-                    return texture.SampleGrad(gLinearWrapMirrorSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearWrapMirrorSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_WRAP_CLAMP:
-                    return texture.SampleGrad(gLinearWrapClampSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearWrapClampSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_MIRROR_WRAP:
-                    return texture.SampleGrad(gLinearMirrorWrapSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearMirrorWrapSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_MIRROR_MIRROR:
-                    return texture.SampleGrad(gLinearMirrorMirrorSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearMirrorMirrorSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_MIRROR_CLAMP:
-                    return texture.SampleGrad(gLinearMirrorClampSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearMirrorClampSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_CLAMP_WRAP:
-                    return texture.SampleGrad(gLinearClampWrapSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearClampWrapSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_CLAMP_MIRROR:
-                    return texture.SampleGrad(gLinearClampMirrorSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearClampMirrorSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
                 case NATIVE_SAMPLER_CLAMP_CLAMP:
                 default:
-                    return texture.SampleGrad(gLinearClampClampSampler, nativeUVCoord, ddxUVxNorm, ddxUVyNorm);
+                    return texture.SampleGrad(gLinearClampClampSampler, nativeUVCoord, ddxUVNorm, ddyUVNorm);
             }
         }
     }

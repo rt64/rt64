@@ -1645,7 +1645,7 @@ namespace RT64 {
                             // The call's scissor spans the whole width of the framebuffer pair scissor. The rect must not be using extended origins.
                             const bool regularOrigins = (call.callDesc.rectLeftOrigin == G_EX_ORIGIN_NONE) && (call.callDesc.rectRightOrigin == G_EX_ORIGIN_NONE);
                             const bool coversScissorWidth = regularOrigins && (call.callDesc.rect.ulx <= fbPair.scissorRect.ulx) && (call.callDesc.rect.lrx >= fbPair.scissorRect.lrx);
-                            if (tileCopiesUsed || coversScissorWidth) {
+                            if ((tileCopiesUsed || coversScissorWidth || call.callDesc.rectAspect == G_EX_ASPECT_STRETCH) && (call.callDesc.rectAspect != G_EX_ASPECT_ADJUST)) {
                                 invRatioScale = 1.0f;
                             }
                             else {

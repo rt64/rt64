@@ -64,21 +64,29 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float
     int2 pixelPosSeed = floor(vertexPosition.xy);
     uint randomSeed = initRand(FrParams.frameCount, instanceIndex * pixelPosSeed.y * pixelPosSeed.x, 16); // TODO: Review seed.
 
+    // The F3D family of microcodes has a bug where polygons are clipped earlier than expected despite the depth being computed
+    // in a wider range of values. Not accounting for this can lead to geometry showing up that should otherwise be invisible.
+    // This max range was determined by using a test ROM against an LLE implementation.
+    // FIXME: This should be turned off for non-F3D microcodes.
+    const bool simulateDepthClipF3D = true;
+    const float MaxDepth = simulateDepthClipF3D && !renderFlagRect(rp.flags) && !zSourcePrim ? (1022.0f / 1024.0f) : 1.0f;
+    
+    // FIXME: This can be implemented by checking feature support for the API and embedding the depth bounds into the pipeline.
+    const bool pipelineDepthBounds = false;
+    
     // Handle no-nearclipping by clamping the minimum depth and manually clipping above the maximum.
     if (depthClampNear) {
         // Since depth clip is disabled on the PSO so near clip can be ignored, we manually clip any values above the allowed depth.
-        if (vertexPosition.z > 1.0f) {
+        if (vertexPosition.z > MaxDepth) {
             return false;
         }
     }
-#ifdef DYNAMIC_RENDER_PARAMS
-    // We emulate depth clip on the dynamic version of the shader.
-    else {
-        if ((vertexPosition.z < 0.0f) || (vertexPosition.z > 1.0f)) {
+    // Do depth clipping manually on the fragment shader if pipeline's depth bounds are not being used due to lack of hardware support.
+    else if (!pipelineDepthBounds) {
+        if ((vertexPosition.z < 0.0f) || (vertexPosition.z > MaxDepth)) {
             return false;
         }
     }
-#endif
 
     if (depthDecal) {
         // Sample the depth buffer for this pixel to compare for the decal check.
@@ -103,13 +111,13 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float
         }
     }
     
-    float ddxuvx = ddx(vertexUV.x);
-    float ddyuvy = ddy(vertexUV.y);
+    float2 ddxVertexUV = ddx(vertexUV);
+    float2 ddyVertexUV = ddy(vertexUV);
     float2 lowResUV = vertexUV;
     if (!renderFlagUpscale2D(rp.flags)) {
         float2 screenPos = floor(vertexPosition.xy);
         screenPos.x += FbParams.horizontalMisalignment;
-        lowResUV -= fmod(screenPos.xy, FbParams.resolutionScale.yy) * float2(ddxuvx, ddyuvy);
+        lowResUV -= fmod(screenPos.xy, FbParams.resolutionScale.yy) * float2(ddxVertexUV.x, ddyVertexUV.y);
     }
     
     int tileIndex0 = 0;
@@ -120,7 +128,7 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float
         lodScale = FbParams.resolutionScale.y;
     }
     
-    computeLOD(otherMode, instanceRenderIndices[gConstants.renderIndex].rdpTileCount, instanceRDPParams[instanceIndex].primLOD, lodScale, ddxuvx, ddyuvy, tileIndex0, tileIndex1, lodFraction);
+    computeLOD(otherMode, instanceRenderIndices[gConstants.renderIndex].rdpTileCount, instanceRDPParams[instanceIndex].primLOD, lodScale, ddxVertexUV, ddyVertexUV, tileIndex0, tileIndex1, lodFraction);
 
     float4 texVal0 = float4(0.0f, 0.0f, 0.0f, 1.0f);
     float4 texVal1 = float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -135,7 +143,7 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float
         
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
-        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), rdpTile, gpuTile, false);
+        texVal0 = sampleTexture(otherMode, rp.flags, textureUV, ddxVertexUV, ddyVertexUV, rdpTile, gpuTile, false);
     }
     
     if (renderFlagUsesTexture1(rp.flags)) {
@@ -151,7 +159,7 @@ LIBRARY_EXPORT bool RasterPS(const RenderParams rp, float4 vertexPosition, float
         const GPUTile gpuTile = GPUTiles[globalTileIndex];
         const float2 textureUV = gpuTileFlagHighRes(gpuTile.flags) ? vertexUV : lowResUV;
         const uint nativeSampler = renderFlagNativeSampler1(rp.flags);
-        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddx(vertexUV), ddy(vertexUV), rdpTile, gpuTile, oneCycleHardwareBug);
+        texVal1 = sampleTexture(otherMode, rp.flags, textureUV, ddxVertexUV, ddyVertexUV, rdpTile, gpuTile, oneCycleHardwareBug);
     }
     
     // Color combiner.
