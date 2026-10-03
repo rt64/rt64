@@ -114,7 +114,13 @@ namespace RT64 {
         ProfilingTimer dlCpuProfiler = ProfilingTimer(120);
         ProfilingTimer screenCpuProfiler = ProfilingTimer(120);
         ProfilingTimer viChangedProfiler = ProfilingTimer(120);
+        std::filesystem::path loadPackPath;
+        std::filesystem::path loadDirectoryPath;
         std::filesystem::path dumpingTexturesDirectory;
+        std::filesystem::path nextDumpingTexturesDirectory;
+        std::vector<ReplacementDirectory> multiLoadReplacementPaths;
+        bool multiLoadPackInProgress = false;
+        bool multiLoadDirectoryInProgress = false;
         bool configurationSaveQueued = false;
         uint64_t workloadId = 0;
         uint64_t presentId = 0;

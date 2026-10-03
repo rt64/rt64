@@ -4,4 +4,10 @@
 
 #pragma once
 
-const char* GetHomeDirectory();
+#include <functional>
+
+const char *GetHomeDirectory();
+
+namespace apple {
+    void dispatchOnMainThread(std::function<void()> func);
+};

@@ -268,18 +268,24 @@ namespace RT64 {
                     ImGui::OpenPopup(ReplaceOutdatedModalId);
                 }
                 else {
-                    std::filesystem::path textureFilename = FileDialog::getOpenFilename({ FileFilter("Image Files", "dds,png") });
-                    if (!textureFilename.empty()) {
-                        std::filesystem::path directoryPath = textureCache.textureMap.replacementMap.replacementDirectories.front().dirOrZipPath;
-                        std::filesystem::path relativePath = std::filesystem::relative(textureFilename, directoryPath);
-                        if (!relativePath.empty()) {
-                            textureCache.addReplacement(replacementHash, relativePath.u8string(), shift);
-                        }
-                        else {
-                            ImGui::OpenPopup(ReplaceErrorModalId);
-                        }
-                    }
+                    FileDialog::getOpenFilename({ FileFilter("Image Files", "dds,png") }, [&, replacementHash](const std::filesystem::path &path) {
+                        replaceTextureFilename = path;
+                        replaceTextureHash = replacementHash;
+                    });
                 }
+            }
+
+            if (!replaceTextureFilename.empty() && (replaceTextureHash == replacementHash)) {
+                std::filesystem::path directoryPath = textureCache.textureMap.replacementMap.replacementDirectories.front().dirOrZipPath;
+                std::filesystem::path relativePath = std::filesystem::relative(replaceTextureFilename, directoryPath);
+                if (!relativePath.empty()) {
+                    textureCache.addReplacement(replacementHash, relativePath.u8string(), shift);
+                }
+                else {
+                    ImGui::OpenPopup(ReplaceErrorModalId);
+                }
+
+                replaceTextureFilename.clear();
             }
 
             ImGui::SameLine();
@@ -1232,17 +1238,23 @@ namespace RT64 {
                                         uint32_t textureIndex = 0;
                                         const Texture *texture = nullptr;
                                         if (ImGui::Button("Dump TMEM")) {
-                                            textureCache.useTexture(callTile.tmemHashOrID, workload.submissionFrame, textureIndex);
+                                            FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") }, [&](const std::filesystem::path &path) {
+                                                dumpTMEMPath = path;
+                                                dumpTMEMHash = callTile.tmemHashOrID;
+                                            });
+                                        }
+
+                                        if (!dumpTMEMPath.empty()) {
+                                            textureCache.useTexture(dumpTMEMHash, workload.submissionFrame, textureIndex);
                                             texture = textureCache.getTexture(textureIndex);
                                             if (texture != nullptr) {
-                                                std::filesystem::path binFilename = FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") });
-                                                if (!binFilename.empty()) {
-                                                    std::ofstream o(binFilename, std::ios_base::out | std::ios_base::binary);
-                                                    if (o.is_open()) {
-                                                        o.write(reinterpret_cast<const char *>(texture->bytesTMEM.data()), texture->bytesTMEM.size());
-                                                    }
+                                                std::ofstream o(dumpTMEMPath, std::ios_base::out | std::ios_base::binary);
+                                                if (o.is_open()) {
+                                                    o.write(reinterpret_cast<const char *>(texture->bytesTMEM.data()), texture->bytesTMEM.size());
                                                 }
                                             }
+
+                                            dumpTMEMPath.clear();
                                         }
 
                                         ImGui::Unindent();
@@ -1563,20 +1575,16 @@ namespace RT64 {
                                 bool vertexShaderButton = ImGui::Button("Dump Vertex Shader");
                                 if (pixelShaderButton || vertexShaderButton) {
                                     RasterShaderText shaderText = RasterShader::generateShaderText(call.shaderDesc, true);
-                                    std::filesystem::path shaderFilename = FileDialog::getSaveFilename({ FileFilter("HLSL", "hlsl") });
-                                    if (!shaderFilename.empty()) {
-                                        std::ofstream o(shaderFilename);
-                                        if (o.is_open()) {
-                                            if (pixelShaderButton) {
-                                                o << shaderText.pixelShader;
+                                    std::string shaderString = pixelShaderButton ? shaderText.pixelShader : shaderText.vertexShader;
+                                    FileDialog::getSaveFilename({ FileFilter("HLSL", "hlsl") }, [shaderString](const std::filesystem::path &path) {
+                                        if (!path.empty()) {
+                                            std::ofstream o(path);
+                                            if (o.is_open()) {
+                                                o << shaderString;
+                                                o.close();
                                             }
-                                            else if (vertexShaderButton) {
-                                                o << shaderText.vertexShader;
-                                            }
-
-                                            o.close();
                                         }
-                                    }
+                                    });
                                 }
 
                                 ImGui::Unindent();

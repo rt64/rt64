@@ -26,7 +26,8 @@ namespace RT64 {
         std::string deletePresetName = "";
         char newPresetName[256] = "";
         bool renameRequested = false;
-        std::filesystem::path libraryPath;
+        std::filesystem::path openLibraryPath;
+        std::filesystem::path saveLibraryPath;
 
         bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
             return ImGui::Checkbox("##enabled", &presetIt->second.enabled);
@@ -90,9 +91,22 @@ namespace RT64 {
             ImGui::NewLine();
             const bool newPreset = ImGui::Button("New preset");
             ImGui::SameLine();
-            const bool loadLibrary = ImGui::Button("Load library");
+
+            const FileFilter jsonFilter("JSON", "json");
+            if (ImGui::Button("Load library")) {
+                FileDialog::getOpenFilename({ jsonFilter }, [&](const std::filesystem::path &path) {
+                    openLibraryPath = path;
+                });
+            }
+
             ImGui::SameLine();
-            const bool saveLibrary = ImGui::Button("Save library");
+
+            if (ImGui::Button("Save library")) {
+                FileDialog::getSaveFilename({ jsonFilter }, [&](const std::filesystem::path &path) {
+                    saveLibraryPath = path;
+                });
+            }
+
             if (newPreset) {
                 ImGui::OpenPopup(NewPresetNameModalId);
                 selectedPresetName = std::string();
@@ -104,22 +118,17 @@ namespace RT64 {
                 renameRequested = false;
             }
 
-            const FileFilter jsonFilter("JSON", "json");
-            if (loadLibrary) {
-                libraryPath = FileDialog::getOpenFilename({ jsonFilter });
-                if (!libraryPath.empty()) {
-                    library.presetMap.clear();
-                    library.load(libraryPath);
-                    changed = true;
-                }
+            if (!openLibraryPath.empty()) {
+                library.presetMap.clear();
+                library.load(openLibraryPath);
+                changed = true;
+                openLibraryPath.clear();
             }
 
-            if (saveLibrary) {
-                libraryPath = FileDialog::getSaveFilename({ jsonFilter });
-                if (!libraryPath.empty()) {
-                    library.save(libraryPath);
-                    changed = true;
-                }
+            if (!saveLibraryPath.empty()) {
+                library.save(saveLibraryPath);
+                changed = true;
+                saveLibraryPath.clear();
             }
 
             if (ImGui::BeginPopupModal(NewPresetNameModalId)) {

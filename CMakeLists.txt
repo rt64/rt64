@@ -455,8 +455,11 @@ if (APPLE)
 
     target_sources(rt64 PRIVATE
         "${PROJECT_SOURCE_DIR}/src/apple/rt64_apple.mm"
+        "${PROJECT_SOURCE_DIR}/src/contrib/imgui/backends/imgui_impl_metal.mm"
     )
-    target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/metal-cpp")
+
+    target_compile_definitions(rt64 PRIVATE IMGUI_IMPL_METAL_CPP)
+    target_include_directories(rt64 PRIVATE "${PROJECT_SOURCE_DIR}/src/contrib/plume/contrib/metal-cpp")
     target_link_libraries(rt64 "-framework Metal -framework QuartzCore -framework CoreGraphics -framework IOKit")
 endif()
 
