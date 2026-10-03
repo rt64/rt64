@@ -24,8 +24,11 @@ namespace RT64 {
         CallIndices highightCallIndices;
         std::filesystem::path replaceTextureFilename;
         uint64_t replaceTextureHash;
+        std::filesystem::path dumpPNGPath;
         std::filesystem::path dumpTMEMPath;
-        uint64_t dumpTMEMHash;
+        LoadTile dumpPNGLoadTile;
+        uint32_t dumpPNGTlut;
+        uint64_t dumpTextureHash;
         bool openCall;
         std::vector<CallIndices> popupCalls;
         bool paused;

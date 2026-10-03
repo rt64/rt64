@@ -6,11 +6,11 @@
 
 #include "FbRendererCommon.hlsli"
 #include "Math.hlsli"
-#include "TextureDecoder.hlsli"
 
 #include "shared/rt64_other_mode.h"
 #include "shared/rt64_render_flags.h"
 #include "shared/rt64_render_params.h"
+#include "shared/rt64_texture_decoder.h"
 
 #define SIMULATE_LOW_PRECISION 1
 #define FIX_UPSCALING_PRECISION 1

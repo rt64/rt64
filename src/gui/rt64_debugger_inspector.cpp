@@ -8,10 +8,12 @@
 #include <cinttypes>
 
 #include "imgui/imgui.h"
+#include "stb/stb_image_write.h"
 #include "xxHash/xxh3.h"
 
 #include "common/rt64_common.h"
 #include "common/rt64_math.h"
+#include "common/rt64_tmem_decoder.h"
 #include "common/rt64_tmem_hasher.h"
 #include "hle/rt64_color_converter.h"
 #include "hle/rt64_vi.h"
@@ -41,6 +43,10 @@ namespace RT64 {
         }
 
         return lhs.drawCallIndex < rhs.drawCallIndex;
+    }
+
+    static void stbi_write_func_ofstream(void *context, void *data, int size) {
+        ((std::ofstream *)(context))->write((const char *)(data), size);
     }
 
     DebuggerInspector::DebuggerInspector() {
@@ -1237,15 +1243,40 @@ namespace RT64 {
 
                                         uint32_t textureIndex = 0;
                                         const Texture *texture = nullptr;
-                                        if (ImGui::Button("Dump TMEM")) {
-                                            FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") }, [&](const std::filesystem::path &path) {
-                                                dumpTMEMPath = path;
-                                                dumpTMEMHash = callTile.tmemHashOrID;
+
+                                        if (ImGui::Button("Dump PNG")) {
+                                            FileDialog::getSaveFilename({ FileFilter("PNG Files", "png") }, [&](const std::filesystem::path &path) {
+                                                dumpPNGPath = path;
+                                                dumpPNGLoadTile = callTile.loadTile;
+                                                dumpPNGTlut = callDesc.otherMode.textLUT();
+                                                dumpTextureHash = callTile.tmemHashOrID;
                                             });
                                         }
 
-                                        if (!dumpTMEMPath.empty()) {
-                                            textureCache.useTexture(dumpTMEMHash, workload.submissionFrame, textureIndex);
+                                        if (!dumpPNGPath.empty() && (dumpTextureHash == callTile.tmemHashOrID)) {
+                                            textureCache.useTexture(callTile.tmemHashOrID, workload.submissionFrame, textureIndex);
+                                            texture = textureCache.getTexture(textureIndex);
+                                            if (texture != nullptr) {
+                                                std::ofstream o(dumpPNGPath, std::ios_base::out | std::ios_base::binary);
+                                                if (o.is_open()) {
+                                                    std::vector<uint32_t> rgbaPixels;
+                                                    TMEMDecoder::decodeToRGBA32(texture->bytesTMEM.data(), dumpPNGLoadTile, texture->width, texture->height, dumpPNGTlut, rgbaPixels);
+                                                    stbi_write_png_to_func(&stbi_write_func_ofstream, &o, texture->width, texture->height, 4, rgbaPixels.data(), texture->width * sizeof(uint32_t));
+                                                }
+                                            }
+                                        }
+
+                                        ImGui::SameLine();
+
+                                        if (ImGui::Button("Dump TMEM")) {
+                                            FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") }, [&](const std::filesystem::path &path) {
+                                                dumpTMEMPath = path;
+                                                dumpTextureHash = callTile.tmemHashOrID;
+                                            });
+                                        }
+
+                                        if (!dumpTMEMPath.empty() && (dumpTextureHash == callTile.tmemHashOrID)) {
+                                            textureCache.useTexture(dumpTextureHash, workload.submissionFrame, textureIndex);
                                             texture = textureCache.getTexture(textureIndex);
                                             if (texture != nullptr) {
                                                 std::ofstream o(dumpTMEMPath, std::ios_base::out | std::ios_base::binary);
@@ -1255,6 +1286,10 @@ namespace RT64 {
                                             }
 
                                             dumpTMEMPath.clear();
+                                        }
+
+                                        if (callTile.rawTMEM) {
+                                            ImGui::Text("Tile parameters are misconfigured. A replacement texture can't be dumped accurately to PNG.");
                                         }
 
                                         ImGui::Unindent();
