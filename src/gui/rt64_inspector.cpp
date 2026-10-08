@@ -54,15 +54,10 @@ namespace RT64 {
     struct VulkanContext {
         VkDevice device = VK_NULL_HANDLE;
         VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
         ~VulkanContext() {
             if (renderPass != VK_NULL_HANDLE) {
                 vkDestroyRenderPass(device, renderPass, nullptr);
-            }
-
-            if (descriptorPool != VK_NULL_HANDLE) {
-                vkDestroyDescriptorPool(device, descriptorPool, nullptr);
             }
         }
     };
@@ -134,7 +129,6 @@ namespace RT64 {
             vulkanContext = std::make_unique<VulkanContext>();
             vulkanContext->device = interfaceDevice->vk;
             vulkanContext->renderPass = VulkanGraphicsPipeline::createRenderPass(interfaceDevice, &interfaceSwapChain->pickedSurfaceFormat.format, 1, VK_FORMAT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT);
-            vulkanContext->descriptorPool = VulkanDescriptorSet::createDescriptorPool(interfaceDevice, typeCounts, false);
 
             ImGui_ImplVulkan_InitInfo initInfo = {};
             initInfo.Instance = interfaceDevice->renderInterface->instance;
@@ -142,10 +136,11 @@ namespace RT64 {
             initInfo.Device = vulkanContext->device;
             initInfo.QueueFamily = interfaceSwapChain->commandQueue->familyIndex;
             initInfo.Queue = interfaceSwapChain->commandQueue->queue->vk;
-            initInfo.DescriptorPool = vulkanContext->descriptorPool;
+            initInfo.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE;
             initInfo.MinImageCount = 2;
             initInfo.ImageCount = 2;
             initInfo.CheckVkResultFn = &checkVulkanResult;
+            initInfo.PipelineInfoMain.RenderPass = vulkanContext->renderPass;
 
             ImGui_ImplVulkan_Init(&initInfo);
             break;
