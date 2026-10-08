@@ -60,6 +60,7 @@ namespace RT64 {
 
         rsp = std::make_unique<RSP>(this);
         rdp = std::make_unique<RDP>(this);
+        dialogResults = std::make_shared<FileDialogResults>();
 
         reset();
     }
@@ -2231,6 +2232,7 @@ namespace RT64 {
                 }
 
                 if (ImGui::BeginTabItem("Textures")) {
+                    std::lock_guard lock(dialogResults->mutex);
                     for (const ReplacementDirectory &replacementDirectory : ext.textureCache->textureMap.replacementMap.replacementDirectories) {
                         const std::string replacementPath = replacementDirectory.dirOrZipPath.u8string();
                         ImGui::Text("Texture replacement path: %s", replacementPath.c_str());
@@ -2267,15 +2269,17 @@ namespace RT64 {
                     ImGui::EndChild();
 
                     if (ImGui::Button("Load pack")) {
-                        FileDialog::getOpenFilename({ FileFilter("RTZ Files", "rtz") }, [&](const std::filesystem::path &path) {
-                            loadPackPath = path;
+                        FileDialog::getOpenFilename({ FileFilter("RTZ Files", "rtz") }, [=](const std::filesystem::path &path) {
+                            std::lock_guard lock(dialogResults->mutex);
+                            dialogResults->loadPackPath = path;
                         });
                     }
 
                     ImGui::SameLine();
                     if (ImGui::Button("Load directory")) {
-                        FileDialog::getDirectoryPath([&](const std::filesystem::path &path) {
-                            loadDirectoryPath = path;
+                        FileDialog::getDirectoryPath([=](const std::filesystem::path &path) {
+                            std::lock_guard lock(dialogResults->mutex);
+                            dialogResults->loadDirectoryPath = path;
                         });
                     }
 
@@ -2285,8 +2289,9 @@ namespace RT64 {
                     ImGui::SameLine();
                     if (ImGui::Button(dumpingTexturesDirectory.empty() ? "Start dumping textures" : "Stop dumping textures")) {
                         if (dumpingTexturesDirectory.empty()) {
-                            FileDialog::getDirectoryPath([&](const std::filesystem::path &path) {
-                                nextDumpingTexturesDirectory = path;
+                            FileDialog::getDirectoryPath([=](const std::filesystem::path &path) {
+                                std::lock_guard lock(dialogResults->mutex);
+                                dialogResults->nextDumpingTexturesDirectory = path;
                             });
                         }
                         else {
@@ -2294,19 +2299,19 @@ namespace RT64 {
                         }
                     }
 
-                    if (!loadPackPath.empty()) {
-                        ext.textureCache->loadReplacementDirectory(ReplacementDirectory(loadPackPath));
-                        loadPackPath.clear();
+                    if (!dialogResults->loadPackPath.empty()) {
+                        ext.textureCache->loadReplacementDirectory(ReplacementDirectory(dialogResults->loadPackPath));
+                        dialogResults->loadPackPath.clear();
                     }
-                    else if (!loadDirectoryPath.empty()) {
-                        ext.textureCache->loadReplacementDirectory(ReplacementDirectory(loadDirectoryPath));
-                        loadDirectoryPath.clear();
+                    else if (!dialogResults->loadDirectoryPath.empty()) {
+                        ext.textureCache->loadReplacementDirectory(ReplacementDirectory(dialogResults->loadDirectoryPath));
+                        dialogResults->loadDirectoryPath.clear();
                     }
                     else if (saveDirectory) {
                         ext.textureCache->saveReplacementDatabase();
                     }
-                    else if (!nextDumpingTexturesDirectory.empty()) {
-                        dumpingTexturesDirectory = nextDumpingTexturesDirectory;
+                    else if (!dialogResults->nextDumpingTexturesDirectory.empty()) {
+                        dumpingTexturesDirectory = dialogResults->nextDumpingTexturesDirectory;
                         textureManager.dumpedSet.clear();
                     }
 
@@ -2327,40 +2332,42 @@ namespace RT64 {
                     }
 
                     if (ImGui::Button("Load packs")) {
-                        multiLoadPackInProgress = true;
+                        dialogResults->multiLoadPackInProgress = true;
                     }
 
                     ImGui::SameLine();
 
                     if (ImGui::Button("Load directories")) {
-                        multiLoadDirectoryInProgress = true;
+                        dialogResults->multiLoadDirectoryInProgress = true;
                     }
 
                     ImGui::SameLine();
 
-                    if (multiLoadPackInProgress) {
-                        FileDialog::getOpenFilename({ FileFilter("RTZ Files", "rtz") }, [&](const std::filesystem::path &path) {
+                    if (dialogResults->multiLoadPackInProgress) {
+                        FileDialog::getOpenFilename({ FileFilter("RTZ Files", "rtz") }, [=](const std::filesystem::path &path) {
+                            std::lock_guard lock(dialogResults->mutex);
                             if (path.empty()) {
-                                multiLoadPackInProgress = false;
+                                dialogResults->multiLoadPackInProgress = false;
                             }
                             else {
-                                multiLoadReplacementPaths.emplace_back(path);
+                                dialogResults->multiLoadReplacementPaths.emplace_back(path);
                             }
                         });
                     }
-                    else if (multiLoadDirectoryInProgress) {
-                        FileDialog::getDirectoryPath([&](const std::filesystem::path &path) {
+                    else if (dialogResults->multiLoadDirectoryInProgress) {
+                        FileDialog::getDirectoryPath([=](const std::filesystem::path &path) {
+                            std::lock_guard lock(dialogResults->mutex);
                             if (path.empty()) {
-                                multiLoadDirectoryInProgress = false;
+                                dialogResults->multiLoadDirectoryInProgress = false;
                             }
                             else {
-                                multiLoadReplacementPaths.emplace_back(path);
+                                dialogResults->multiLoadReplacementPaths.emplace_back(path);
                             }
                         });
                     }
-                    else if (!multiLoadReplacementPaths.empty()) {
-                        ext.textureCache->loadReplacementDirectories(multiLoadReplacementPaths);
-                        multiLoadReplacementPaths.clear();
+                    else if (!dialogResults->multiLoadReplacementPaths.empty()) {
+                        ext.textureCache->loadReplacementDirectories(dialogResults->multiLoadReplacementPaths);
+                        dialogResults->multiLoadReplacementPaths.clear();
                     }
 
                     ImGui::EndTabItem();

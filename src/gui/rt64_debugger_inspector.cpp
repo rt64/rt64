@@ -69,6 +69,7 @@ namespace RT64 {
         camera.fov = 0.75f;
         viewTransformGroups = false;
         viewNativeSamplers = false;
+        dialogResults = std::make_shared<FileDialogResults>();
     }
 
     std::string DebuggerInspector::framebufferPairName(const Workload &workload, uint32_t fbPairIndex) {
@@ -165,6 +166,7 @@ namespace RT64 {
     }
     
     void DebuggerInspector::inspect(RenderWorker *directWorker, const VI &vi, Workload &workload, FramebufferManager &fbManager, TextureCache &textureCache, DrawCallKey &outDrawCallKey, bool &outCreateDrawCallKey, RenderWindow window) {
+        std::lock_guard lock(dialogResults->mutex);
         const char ReplaceErrorModalId[] = "Replace error";
         const char ReplaceOutdatedModalId[] = "Replace outdated";
         const char ReplaceDirectoryOnlyModalId[] = "Replace directory only";
@@ -274,16 +276,17 @@ namespace RT64 {
                     ImGui::OpenPopup(ReplaceOutdatedModalId);
                 }
                 else {
-                    FileDialog::getOpenFilename({ FileFilter("Image Files", "dds,png") }, [&, replacementHash](const std::filesystem::path &path) {
-                        replaceTextureFilename = path;
-                        replaceTextureHash = replacementHash;
+                    FileDialog::getOpenFilename({ FileFilter("Image Files", "dds,png") }, [=](const std::filesystem::path &path) {
+                        std::lock_guard lock(dialogResults->mutex);
+                        dialogResults->replaceTextureFilename = path;
+                        dialogResults->replaceTextureHash = replacementHash;
                     });
                 }
             }
 
-            if (!replaceTextureFilename.empty() && (replaceTextureHash == replacementHash)) {
+            if (!dialogResults->replaceTextureFilename.empty() && (dialogResults->replaceTextureHash == replacementHash)) {
                 std::filesystem::path directoryPath = textureCache.textureMap.replacementMap.replacementDirectories.front().dirOrZipPath;
-                std::filesystem::path relativePath = std::filesystem::relative(replaceTextureFilename, directoryPath);
+                std::filesystem::path relativePath = std::filesystem::relative(dialogResults->replaceTextureFilename, directoryPath);
                 if (!relativePath.empty()) {
                     textureCache.addReplacement(replacementHash, relativePath.u8string(), shift);
                 }
@@ -291,7 +294,7 @@ namespace RT64 {
                     ImGui::OpenPopup(ReplaceErrorModalId);
                 }
 
-                replaceTextureFilename.clear();
+                dialogResults->replaceTextureFilename.clear();
             }
 
             ImGui::SameLine();
@@ -1243,24 +1246,24 @@ namespace RT64 {
 
                                         uint32_t textureIndex = 0;
                                         const Texture *texture = nullptr;
-
                                         if (ImGui::Button("Dump PNG")) {
-                                            FileDialog::getSaveFilename({ FileFilter("PNG Files", "png") }, [&](const std::filesystem::path &path) {
-                                                dumpPNGPath = path;
-                                                dumpPNGLoadTile = callTile.loadTile;
-                                                dumpPNGTlut = callDesc.otherMode.textLUT();
-                                                dumpTextureHash = callTile.tmemHashOrID;
+                                            FileDialog::getSaveFilename({ FileFilter("PNG Files", "png") }, [=](const std::filesystem::path &path) {
+                                                std::lock_guard lock(dialogResults->mutex);
+                                                dialogResults->dumpPNGPath = path;
+                                                dialogResults->dumpPNGLoadTile = callTile.loadTile;
+                                                dialogResults->dumpPNGTlut = callDesc.otherMode.textLUT();
+                                                dialogResults->dumpTextureHash = callTile.tmemHashOrID;
                                             });
                                         }
 
-                                        if (!dumpPNGPath.empty() && (dumpTextureHash == callTile.tmemHashOrID)) {
+                                        if (!dialogResults->dumpPNGPath.empty() && (dialogResults->dumpTextureHash == callTile.tmemHashOrID)) {
                                             textureCache.useTexture(callTile.tmemHashOrID, workload.submissionFrame, textureIndex);
                                             texture = textureCache.getTexture(textureIndex);
                                             if (texture != nullptr) {
-                                                std::ofstream o(dumpPNGPath, std::ios_base::out | std::ios_base::binary);
+                                                std::ofstream o(dialogResults->dumpPNGPath, std::ios_base::out | std::ios_base::binary);
                                                 if (o.is_open()) {
                                                     std::vector<uint32_t> rgbaPixels;
-                                                    TMEMDecoder::decodeToRGBA32(texture->bytesTMEM.data(), dumpPNGLoadTile, texture->width, texture->height, dumpPNGTlut, rgbaPixels);
+                                                    TMEMDecoder::decodeToRGBA32(texture->bytesTMEM.data(), dialogResults->dumpPNGLoadTile, texture->width, texture->height, dialogResults->dumpPNGTlut, rgbaPixels);
                                                     stbi_write_png_to_func(&stbi_write_func_ofstream, &o, texture->width, texture->height, 4, rgbaPixels.data(), texture->width * sizeof(uint32_t));
                                                 }
                                             }
@@ -1269,23 +1272,24 @@ namespace RT64 {
                                         ImGui::SameLine();
 
                                         if (ImGui::Button("Dump TMEM")) {
-                                            FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") }, [&](const std::filesystem::path &path) {
-                                                dumpTMEMPath = path;
-                                                dumpTextureHash = callTile.tmemHashOrID;
+                                            FileDialog::getSaveFilename({ FileFilter("BIN Files", "bin") }, [=](const std::filesystem::path &path) {
+                                                std::lock_guard lock(dialogResults->mutex);
+                                                dialogResults->dumpTMEMPath = path;
+                                                dialogResults->dumpTextureHash = callTile.tmemHashOrID;
                                             });
                                         }
 
-                                        if (!dumpTMEMPath.empty() && (dumpTextureHash == callTile.tmemHashOrID)) {
-                                            textureCache.useTexture(dumpTextureHash, workload.submissionFrame, textureIndex);
+                                        if (!dialogResults->dumpTMEMPath.empty() && (dialogResults->dumpTextureHash == callTile.tmemHashOrID)) {
+                                            textureCache.useTexture(dialogResults->dumpTextureHash, workload.submissionFrame, textureIndex);
                                             texture = textureCache.getTexture(textureIndex);
                                             if (texture != nullptr) {
-                                                std::ofstream o(dumpTMEMPath, std::ios_base::out | std::ios_base::binary);
+                                                std::ofstream o(dialogResults->dumpTMEMPath, std::ios_base::out | std::ios_base::binary);
                                                 if (o.is_open()) {
                                                     o.write(reinterpret_cast<const char *>(texture->bytesTMEM.data()), texture->bytesTMEM.size());
                                                 }
                                             }
 
-                                            dumpTMEMPath.clear();
+                                            dialogResults->dumpTMEMPath.clear();
                                         }
 
                                         if (callTile.rawTMEM) {
