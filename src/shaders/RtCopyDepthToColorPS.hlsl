@@ -2,10 +2,10 @@
 // RT64
 //
 
+#include "shared/rt64_formats.h"
 #include "shared/rt64_render_target_copy.h"
 
 #include "Depth.hlsli"
-#include "Formats.hlsli"
 
 [[vk::push_constant]] ConstantBuffer<RenderTargetCopyCB> gConstants : register(b0);
 

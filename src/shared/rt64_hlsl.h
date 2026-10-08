@@ -6,6 +6,7 @@
 
 #ifdef HLSL_CPU
 
+#include <algorithm>
 #include <stdint.h>
 
 #include "common/rt64_hlslpp.h"
@@ -156,6 +157,10 @@ namespace interop {
                 float x;
             };
 
+            struct {
+                float r;
+            };
+
             float f32[1];
         };
 
@@ -171,6 +176,10 @@ namespace interop {
         union {
             struct {
                 float x, y;
+            };
+
+            struct {
+                float r, g;
             };
 
             float f32[2];
@@ -190,6 +199,10 @@ namespace interop {
                 float x, y, z;
             };
 
+            struct {
+                float r, g, b;
+            };
+
             float f32[3];
         };
 
@@ -205,6 +218,10 @@ namespace interop {
         union {
             struct {
                 float x, y, z, w;
+            };
+
+            struct {
+                float r, g, b, a;
             };
 
             float f32[4];
@@ -256,6 +273,27 @@ namespace interop {
 
     inline int select_int(bool cond, int val1, int val2) {
         return cond ? val1 : val2;
+    }
+
+    inline uint min(uint a, uint b) {
+        return std::min(a, b);
+    }
+
+    inline float min(float a, float b) {
+        return std::min(a, b);
+    }
+
+    inline float max(float a, float b) {
+        return std::max(a, b);
+    }
+
+    inline float clamp(float v, float a, float b) {
+        return std::clamp(v, a, b);
+    }
+
+    template<typename T>
+    inline T select(bool v, T a, T b) {
+        return v ? a : b;
     }
 };
 

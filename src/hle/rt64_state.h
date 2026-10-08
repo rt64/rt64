@@ -133,6 +133,20 @@ namespace RT64 {
 
         Extended extended;
 
+        struct FileDialogResults {
+            // Hold the results of file dialog functions in a shared pointer that can remain alive even after the
+            // inspector is deleted, as the callback can run later on a different thread depending on the platform.
+            std::recursive_mutex mutex;
+            std::filesystem::path loadPackPath;
+            std::filesystem::path loadDirectoryPath;
+            std::filesystem::path nextDumpingTexturesDirectory;
+            std::vector<ReplacementDirectory> multiLoadReplacementPaths;
+            bool multiLoadPackInProgress = false;
+            bool multiLoadDirectoryInProgress = false;
+        };
+
+        std::shared_ptr<FileDialogResults> dialogResults;
+
         State(uint8_t *RDRAM, uint32_t *MI_INTR_REG, void (*checkInterrupts)());
         ~State();
         void setup(const External &ext);

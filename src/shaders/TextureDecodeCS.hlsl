@@ -2,7 +2,7 @@
 // RT64
 //
 
-#include "TextureDecoder.hlsli"
+#include "shared/rt64_texture_decoder.h"
 
 #define GROUP_SIZE 8
 

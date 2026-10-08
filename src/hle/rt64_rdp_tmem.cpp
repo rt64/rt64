@@ -7,13 +7,21 @@
 #include <cassert>
 #include <cinttypes>
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+
+#include "stb/stb_image_write.h"
 #include "xxHash/xxh3.h"
 
+#include "common/rt64_tmem_decoder.h"
 #include "common/rt64_tmem_hasher.h"
 
 #include "rt64_state.h"
 
 namespace RT64 {
+    static void stbi_write_func_ofstream(void *context, void *data, int size) {
+        ((std::ofstream *)(context))->write((const char *)(data), size);
+    }
+
     // TextureManager
 
     void TextureManager::uploadEmpty(State *state, TextureCache *textureCache, uint64_t creationFrame, uint16_t width, uint16_t height, uint64_t replacementHash) {
@@ -42,7 +50,7 @@ namespace RT64 {
             const bool validTextureCheck = (width > 0x0) && (height > 0x0);
             const bool bigTextureCheck = (width > 0x1000) || (height > 0x1000);
             if (validTextureCheck && !bigTextureCheck) {
-                dumpTexture(hash, state, loadTile, width, height, tlut);
+                dumpTexture(hash, state, loadTile, width, height, tlut, false);
             }
         }
 
@@ -59,13 +67,13 @@ namespace RT64 {
 
         // Dump memory contents into a file if the process is active.
         if (!state->dumpingTexturesDirectory.empty()) {
-            dumpTexture(hash, state, loadTile, width, height, tlut);
+            dumpTexture(hash, state, loadTile, width, height, tlut, true);
         }
 
         return hash;
     }
 
-    void TextureManager::dumpTexture(uint64_t hash, State *state, const LoadTile &loadTile, uint16_t width, uint16_t height, uint32_t tlut) {
+    void TextureManager::dumpTexture(uint64_t hash, State *state, const LoadTile &loadTile, uint16_t width, uint16_t height, uint32_t tlut, bool savePNG) {
         if (dumpedSet.find(hash) != dumpedSet.end()) {
             return;
         }
@@ -82,6 +90,17 @@ namespace RT64 {
             const char *TMEM = reinterpret_cast<const char *>(state->rdp->TMEM);
             dumpTmemStream.write(TMEM, RDP_TMEM_BYTES);
             dumpTmemStream.close();
+        }
+
+        // Dump as a PNG if it was specified.
+        if (savePNG) {
+            std::filesystem::path dumpPngPath = state->dumpingTexturesDirectory / (std::string(baseName) + ".png");
+            std::ofstream dumpPngStream(dumpPngPath, std::ios::binary);
+            if (dumpPngStream.is_open()) {
+                TMEMDecoder::decodeToRGBA32(reinterpret_cast<const uint8_t *>(state->rdp->TMEM), loadTile, width, height, tlut, dumpRGBAPixels);
+                stbi_write_png_to_func(&stbi_write_func_ofstream, &dumpPngStream, width, height, 4, dumpRGBAPixels.data(), width * sizeof(uint32_t));
+                dumpPngStream.close();
+            }
         }
 
         // Dump the RDRAM last loaded into the TMEM address pointed to by the tile. Required for generating hashes used by Rice.

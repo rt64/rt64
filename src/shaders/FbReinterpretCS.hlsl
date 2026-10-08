@@ -5,10 +5,10 @@
 #include "shared/rt64_f3d_defines.h"
 #include "shared/rt64_fb_common.h"
 #include "shared/rt64_fb_reinterpret.h"
+#include "shared/rt64_texture_decoder.h"
 
 #include "Depth.hlsli"
 #include "Random.hlsli"
-#include "TextureDecoder.hlsli"
 
 [[vk::push_constant]] ConstantBuffer<FbReinterpretCB> gConstants : register(b0);
 Texture2D<float4> gInputColor : register(t1);
@@ -25,9 +25,9 @@ float4 RGBA16toCI8(float4 inputColor, uint2 inputCoord, uint2 outputCoord) {
     // Extract the lower or upper half of the value depending on the pixel misalignment.
     uint pixelMisalignment = 1 - (outputCoord.x % 2);
     uint pixelValue = (nativeColor >> (8 * pixelMisalignment)) & 0xFF;
-    uint paletteAddress = RDP_TMEM_PALETTE + (pixelValue << 3);
+    uint paletteAddress = TMEM_RDP_PALETTE + (pixelValue << 3);
     Texture1D<uint> TMEM = gInputTLUT;
-    uint paletteValue = loadTLUT(paletteAddress + 1) | (loadTLUT(paletteAddress) << 8);
+    uint paletteValue = TMEM_TLUT_LOAD(paletteAddress + 1) | (TMEM_TLUT_LOAD(paletteAddress) << 8);
     uint decodedFormat = gConstants.tlutFormat - 1;
     switch (decodedFormat) {
     case G_TT_RGBA16:

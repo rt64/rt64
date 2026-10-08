@@ -18,6 +18,21 @@ namespace RT64 {
             uint32_t drawCallIndex;
         };
 
+        struct FileDialogResults {
+            // Hold the results of file dialog functions in a shared pointer that can remain alive even after the
+            // inspector is deleted, as the callback can run later on a different thread depending on the platform.
+            std::recursive_mutex mutex;
+            std::filesystem::path replaceTextureFilename;
+            uint64_t replaceTextureHash;
+            std::filesystem::path dumpPNGPath;
+            std::filesystem::path dumpTMEMPath;
+            LoadTile dumpPNGLoadTile;
+            uint32_t dumpPNGTlut;
+            uint64_t dumpTextureHash;
+        };
+
+        std::shared_ptr<FileDialogResults> dialogResults;
+
         int32_t openLoadIndex;
         int32_t openTileIndex;
         CallIndices openCallIndices;

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "rt64_preset.h"
 
 #include "gui/rt64_file_dialog.h"
@@ -26,7 +28,20 @@ namespace RT64 {
         std::string deletePresetName = "";
         char newPresetName[256] = "";
         bool renameRequested = false;
-        std::filesystem::path libraryPath;
+
+        struct FileDialogResults {
+            // Hold the results of file dialog functions in a shared pointer that can remain alive even after the
+            // inspector is deleted, as the callback can run later on a different thread depending on the platform.
+            std::recursive_mutex mutex;
+            std::filesystem::path openLibraryPath;
+            std::filesystem::path saveLibraryPath;
+        };
+
+        std::shared_ptr<FileDialogResults> dialogResults;
+
+        PresetLibraryInspector() {
+            dialogResults = std::make_shared<FileDialogResults>();
+        }
 
         bool inspectPresetBegin(L &library, typename std::map<std::string, B>::iterator &presetIt, RenderWindow window) {
             return ImGui::Checkbox("##enabled", &presetIt->second.enabled);
@@ -73,6 +88,7 @@ namespace RT64 {
         }
 
         bool inspectBottom(L &library, RenderWindow window, const B &newTemplate = B()) {
+            std::lock_guard lock(dialogResults->mutex);
             bool changed = false;
 
             // If a preset was specified to be deleted, erase it.
@@ -90,9 +106,24 @@ namespace RT64 {
             ImGui::NewLine();
             const bool newPreset = ImGui::Button("New preset");
             ImGui::SameLine();
-            const bool loadLibrary = ImGui::Button("Load library");
+
+            const FileFilter jsonFilter("JSON", "json");
+            if (ImGui::Button("Load library")) {
+                FileDialog::getOpenFilename({ jsonFilter }, [=](const std::filesystem::path &path) {
+                    std::lock_guard lock(dialogResults->mutex);
+                    dialogResults->openLibraryPath = path;
+                });
+            }
+
             ImGui::SameLine();
-            const bool saveLibrary = ImGui::Button("Save library");
+
+            if (ImGui::Button("Save library")) {
+                FileDialog::getSaveFilename({ jsonFilter }, [=](const std::filesystem::path &path) {
+                    std::lock_guard lock(dialogResults->mutex);
+                    dialogResults->saveLibraryPath = path;
+                });
+            }
+
             if (newPreset) {
                 ImGui::OpenPopup(NewPresetNameModalId);
                 selectedPresetName = std::string();
@@ -104,22 +135,17 @@ namespace RT64 {
                 renameRequested = false;
             }
 
-            const FileFilter jsonFilter("JSON", "json");
-            if (loadLibrary) {
-                libraryPath = FileDialog::getOpenFilename({ jsonFilter });
-                if (!libraryPath.empty()) {
-                    library.presetMap.clear();
-                    library.load(libraryPath);
-                    changed = true;
-                }
+            if (!dialogResults->openLibraryPath.empty()) {
+                library.presetMap.clear();
+                library.load(dialogResults->openLibraryPath);
+                changed = true;
+                dialogResults->openLibraryPath.clear();
             }
 
-            if (saveLibrary) {
-                libraryPath = FileDialog::getSaveFilename({ jsonFilter });
-                if (!libraryPath.empty()) {
-                    library.save(libraryPath);
-                    changed = true;
-                }
+            if (!dialogResults->saveLibraryPath.empty()) {
+                library.save(dialogResults->saveLibraryPath);
+                changed = true;
+                dialogResults->saveLibraryPath.clear();
             }
 
             if (ImGui::BeginPopupModal(NewPresetNameModalId)) {
