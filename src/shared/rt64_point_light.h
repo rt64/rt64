@@ -11,16 +11,16 @@ namespace interop {
 #endif
     struct PointLight {
         float3 position;
-        float3 direction;
-        float3 diffuseColor;
         float attenuationRadius;
+        float3 direction;
         float pointRadius;
+        float3 diffuseColor;
         float spotFalloffCosine;
         float spotMaxCosine;
-        float3 specularColor;
         float shadowOffset;
         float attenuationExponent;
         float flickerIntensity;
+        float3 specularColor;
         uint groupBits;
     };
 #ifdef HLSL_CPU

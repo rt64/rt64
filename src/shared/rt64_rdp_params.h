@@ -17,8 +17,10 @@ namespace interop {
         float4 fogColor;
         float4 blendColor;
         float3 keyCenter;
+        float _padKeyCenter;
         float3 keyScale;
         int convertK[6];
+        int _padEnd[3];
     };
 #ifdef HLSL_CPU
 };
