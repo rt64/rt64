@@ -353,6 +353,12 @@ namespace RT64 {
         state->updateDrawStatusAttribute(DrawAttribute::Texture);
     }
 
+    void RDP::setTileScrollFloat(uint8_t tile, float uls, float ult) {
+        assert(tile < RDP_TILES);
+        extended.tileScrolls[tile] = interop::float2(uls, ult);
+        state->updateDrawStatusAttribute(DrawAttribute::Texture);
+    }
+
     void RDP::clearTileReplacementHash(uint8_t tile) {
         assert(tile < RDP_TILES);
         tileReplacementHashes[tile] = 0;
@@ -1077,6 +1083,7 @@ namespace RT64 {
     }
 
     void RDP::clearExtended() {
+        extended.tileScrolls.fill(hlslpp::float2());
         extended.scissorLeftOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.scissorRightOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.drawExtendedFlags = {};

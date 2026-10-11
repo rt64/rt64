@@ -80,7 +80,8 @@
 #define G_EX_SETVERTEXSEGMENT_V1        0x000031
 #define G_EX_SETTEXCOORDWRAPPOINT_V1    0x000032
 #define G_EX_SETRECTASPECT_V1           0x000033
-#define G_EX_MAX                        0x000034
+#define G_EX_SETTILESCROLLFLOAT_V1      0x000034
+#define G_EX_MAX                        0x000035
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -577,6 +578,14 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETRECTASPECT_V1, 24, 0), \
         PARAM(aspect, 2, 0) \
+    )
+
+#define gEXSetTileScrollFloat(cmd, tile, uls, ult) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETTILESCROLLFLOAT_V1, 24, 0), \
+        PARAM(tile, 3, 0), \
+        __builtin_bit_cast(unsigned, uls), \
+        __builtin_bit_cast(unsigned, ult) \
     )
 
 #endif // RT64_EXTENDED_GBI
