@@ -86,6 +86,7 @@ namespace RT64 {
     void PresentQueue::setup(const External &ext) {
         this->ext = ext;
 
+        librafx = std::make_unique<Librashader>(ext.createdGraphicsAPI);
         viRenderer = std::make_unique<VIRenderer>();
 
         presentThreadRunning = true;
@@ -266,6 +267,27 @@ namespace RT64 {
                 swapChainFramebuffers[i] = ext.device->createFramebuffer(RenderFramebufferDesc(&swapChainTexture, 1));
             }
         }
+
+        // setup intermediate buffer/texture for postprocess pipeline
+        const uint32_t lastIntermediateWidth = intermediateFramebuffer ? intermediateFramebuffer.get()->getWidth() : 0;
+        RenderViewport viewport;
+        // todo: downsample param
+        VIRenderer::getFXViewport(present.screenVI, resolutionScale, 1, removeBlackBorders, viewport);
+        if (colorTarget != nullptr && lastIntermediateWidth != viewport.width) {
+            intermediateFramebuffer.reset();
+            intermediateTexture.reset();
+
+            intermediateTexture = ext.device->createTexture(
+                plume::RenderTextureDesc::ColorTarget(
+                    viewport.width, viewport.height, RenderFormat::B8G8R8A8_UNORM
+                )
+            );
+
+            const RenderTexture* localIntermediateTexture = intermediateTexture.get();
+            intermediateFramebuffer = ext.device->createFramebuffer(RenderFramebufferDesc(&localIntermediateTexture, 1));
+        }
+
+        librafx.get()->updateShader(ext.device, desiredShader);
         
         for (int32_t i = 0; i < framesToPresent; i++) {
             uint32_t frameCountersNextPresented = 0;
@@ -306,11 +328,18 @@ namespace RT64 {
 
             if (presentFrame && swapChainValid) {
                 // Draw the framebuffer with the VI renderer.
+                bool libraReady = librafx.get()->ready();
+                RenderTexture* localIntermediateTexture = intermediateTexture.get();
+                RenderFramebuffer* localIntermediateFramebuffer = intermediateFramebuffer.get();
                 RenderTexture *swapChainTexture = ext.swapChain->getTexture(swapChainIndex);
                 RenderFramebuffer *swapChainFramebuffer = swapChainFramebuffers[swapChainIndex].get();
                 RenderCommandList *commandList = ext.presentGraphicsWorker->commandList.get();
+
+                RenderTexture* targetVITexture = libraReady ? localIntermediateTexture : swapChainTexture;
+                RenderFramebuffer* targetVIFramebuffer = libraReady ? localIntermediateFramebuffer : swapChainFramebuffer;
+
                 commandList->begin();
-                commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(swapChainTexture, RenderTextureLayout::COLOR_WRITE));
+                commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(targetVITexture, RenderTextureLayout::COLOR_WRITE));
                 
                 VIRenderer::RenderParams renderParams;
                 if (colorTarget != nullptr) {
@@ -341,12 +370,25 @@ namespace RT64 {
                     }
                 }
                 
-                commandList->setFramebuffer(swapChainFramebuffer);
+                commandList->setFramebuffer(targetVIFramebuffer);
                 commandList->clearColor();
 
                 if (renderParams.texture != nullptr) {
                     commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(renderParams.texture, RenderTextureLayout::SHADER_READ));
-                    viRenderer->render(renderParams);
+                    viRenderer->render(renderParams, !libraReady);
+
+                    if (libraReady) {
+                        Librashader::LibraFrameParams frameparams;
+                        VIRenderer::getViewportAndScissor(ext.swapChain, present.screenVI, resolutionScale, 1, removeBlackBorders,
+                                                          frameparams.viewport, frameparams.scissor);
+                        frameparams.commandList = commandList;
+                        frameparams.frameCount = frameCounters.count;
+                        frameparams.inputTexture = localIntermediateTexture;
+                        frameparams.outputTexture = swapChainTexture;
+                        frameparams.outputFramebuffer = swapChainFramebuffer;
+                        frameparams.worker = ext.presentGraphicsWorker;
+                        librafx.get()->postprocess(frameparams); // barriers/framebuffer mgmt inside
+                    }
                 }
 
                 RenderHookDraw *drawHook = GetRenderHookDraw();
