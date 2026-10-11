@@ -2312,6 +2312,7 @@ namespace RT64 {
                     }
                     else if (!dialogResults->nextDumpingTexturesDirectory.empty()) {
                         dumpingTexturesDirectory = dialogResults->nextDumpingTexturesDirectory;
+                        dialogResults->nextDumpingTexturesDirectory.clear();
                         textureManager.dumpedSet.clear();
                     }
 
