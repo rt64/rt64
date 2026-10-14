@@ -141,7 +141,7 @@ namespace RT64 {
 
     UserConfiguration::GraphicsAPI UserConfiguration::resolveGraphicsAPI(GraphicsAPI graphicsAPI) {
         if (graphicsAPI == UserConfiguration::GraphicsAPI::Automatic) {
-#       if defined(_WIN64)
+#       if defined(_WIN32)
             // Change the default graphics API when running under Wine to avoid using the D3D12 translation layer when possible. Recreate the default user configuration right afterwards so this new value is assigned.
             return Sommelier::detectWine() ? UserConfiguration::GraphicsAPI::Vulkan : UserConfiguration::GraphicsAPI::D3D12;
 #       elif defined(__APPLE__)
