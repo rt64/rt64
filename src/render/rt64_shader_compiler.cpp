@@ -75,7 +75,6 @@ namespace RT64 {
             break;
         case RenderShaderFormat::SPIRV:
             arguments.push_back(L"-spirv");
-            arguments.push_back(L"-fvk-use-dx-layout");
 
             if (profile.find(L"vs") != std::wstring::npos) {
                 arguments.push_back(L"-fvk-invert-y");
