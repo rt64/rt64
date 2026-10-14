@@ -112,11 +112,11 @@ namespace RT64 {
         if ((size.x > 0) && (size.y > 0)) {
             // Most of the time, the height is missing a few rows because the framebuffer is offset
             // at the origin and an extra row is left at the end to account for filtering.
-            // We add two extra rows to whatever result we get and try to get the closest clean
+            // We add two/four extra rows to whatever result we get and try to get the closest clean
             // multiplier of the specified Division factor.
-            const uint32_t ExtraRows = 2;
+            uint32_t extraRows = width > 320 ? 4 : 2;
             const uint32_t Divisor = 4;
-            size.y += ExtraRows;
+            size.y += extraRows;
             size.y = lround(float(size.y) / Divisor) * Divisor;
             return size;
         } else {
