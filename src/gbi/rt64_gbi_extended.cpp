@@ -331,6 +331,11 @@ namespace RT64 {
             state->rdp->setRectAspect(aspect);
         }
 
+        void setScissorAspectV1(State *state, DisplayList **dl) {
+            const uint8_t aspect = (*dl)->p1(0, 2);
+            state->rdp->setScissorAspect(aspect);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -439,6 +444,7 @@ namespace RT64 {
             Map[G_EX_SETVERTEXSEGMENT_V1] = &setVertexSegmentV1;
             Map[G_EX_SETTEXCOORDWRAPPOINT_V1] = &setTexcoordWrapPointV1;
             Map[G_EX_SETRECTASPECT_V1] = &setRectAspectV1;
+            Map[G_EX_SETSCISSORASPECT_V1] = &setScissorAspectV1;
             MapInitialized = true;
         }
     }

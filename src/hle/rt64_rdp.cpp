@@ -1061,6 +1061,10 @@ namespace RT64 {
         extended.global.rectAspect = aspect;
     }
 
+    void RDP::setScissorAspect(uint8_t aspect) {
+        extended.global.scissorAspect = aspect;
+    }
+
     void RDP::forceUpscale2D(bool force) {
         extended.drawExtendedFlags.forceUpscale2D = force;
         state->updateDrawStatusAttribute(DrawAttribute::ExtendedFlags);
@@ -1083,6 +1087,7 @@ namespace RT64 {
         extended.global.rect = ExtendedAlignment();
         extended.global.scissor = ExtendedAlignment();
         extended.global.rectAspect = G_EX_ASPECT_AUTO;
+        extended.global.scissorAspect = G_EX_ASPECT_AUTO;
     }
     
     void RDP::drawTris(uint32_t triCount, const float *pos, const float *tc, const float *col, uint8_t tile, uint8_t levels) {
@@ -1235,6 +1240,7 @@ namespace RT64 {
         drawCall.rectLeftOrigin = extAlignment.leftOrigin;
         drawCall.rectRightOrigin = extAlignment.rightOrigin;
         drawCall.rectAspect = extended.global.rectAspect;
+        drawCall.scissorAspect = extended.global.scissorAspect;
 
         if (flushedState) {
             state->loadDrawState();
