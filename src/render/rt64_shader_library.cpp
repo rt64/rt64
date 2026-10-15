@@ -183,11 +183,11 @@ namespace RT64 {
 
     ShaderLibrary::~ShaderLibrary() { }
 
-    void ShaderLibrary::setupCommonShaders(RenderInterface *rhi, RenderDevice *device) {
+    void ShaderLibrary::setupCommonShaders(RenderInterface *rhi, RenderDevice *device, int anisotropyLevel) {
         assert(rhi != nullptr);
         assert(device != nullptr);
 
-        // Retrieve the shader format used by the RHI.
+         // Retrieve the shader format used by the RHI.
         const RenderInterfaceCapabilities interfaceCapabilities = rhi->getCapabilities();
         const RenderDeviceCapabilities deviceCapabilities = device->getCapabilities();
         const RenderShaderFormat shaderFormat = interfaceCapabilities.shaderFormat;
@@ -198,13 +198,18 @@ namespace RT64 {
         
         auto fillSamplerSet = [&](SamplerSet &set, RenderFilter filter, bool anisotropyEnabled) {
             RenderSamplerDesc samplerDesc;
-            samplerDesc.anisotropyEnabled = anisotropyEnabled;
+            samplerDesc.anisotropyEnabled = anisotropyEnabled && anisotropyLevel > 1;
+            samplerDesc.maxAnisotropy = anisotropyLevel;
             samplerDesc.minFilter = filter;
             samplerDesc.magFilter = filter;
             samplerDesc.addressW = RenderTextureAddressMode::CLAMP;
 
+            //Set LODBias to 0.0f to eliminate texture aliasing when anisotropic filtering is enabled.
+            if(anisotropyLevel > 1)
+                samplerDesc.mipLODBias = 0.0f;
             // This matches the bias used in the shader when native samplers are not used.
-            samplerDesc.mipLODBias = -0.25f;
+            else
+                samplerDesc.mipLODBias = -0.25f;
 
             // WRAP.
             samplerDesc.addressU = RenderTextureAddressMode::WRAP;
