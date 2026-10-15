@@ -14,6 +14,7 @@ namespace RT64 {
         j["resolution"] = cfg.resolution;
         j["displayBuffering"] = cfg.displayBuffering;
         j["antialiasing"] = cfg.antialiasing;
+		j["anisotropicfiltering"] = cfg.anisotropicfiltering;
         j["resolutionMultiplier"] = cfg.resolutionMultiplier;
         j["downsampleMultiplier"] = cfg.downsampleMultiplier;
         j["filtering"] = cfg.filtering;
@@ -37,6 +38,7 @@ namespace RT64 {
         cfg.resolution = j.value("resolution", defaultCfg.resolution);
         cfg.displayBuffering = j.value("displayBuffering", defaultCfg.displayBuffering);
         cfg.antialiasing = j.value("antialiasing", defaultCfg.antialiasing);
+		cfg.anisotropicfiltering= j.value("anisotropicfiltering", defaultCfg.anisotropicfiltering);
         cfg.resolutionMultiplier = j.value("resolutionMultiplier", defaultCfg.resolutionMultiplier);
         cfg.downsampleMultiplier = j.value("downsampleMultiplier", defaultCfg.downsampleMultiplier);
         cfg.filtering = j.value("filtering", defaultCfg.filtering);
@@ -68,6 +70,7 @@ namespace RT64 {
         resolution = Resolution::WindowIntegerScale;
         displayBuffering = DisplayBuffering::Double;
         antialiasing = Antialiasing::None;
+		anisotropicfiltering = AnisotropicFiltering::AF8X;
         resolutionMultiplier = 2.0f;
         downsampleMultiplier = 1;
         filtering = Filtering::AntiAliasedPixelScaling;
@@ -90,6 +93,7 @@ namespace RT64 {
         clampEnum<Resolution>(resolution);
         clampEnum<DisplayBuffering>(displayBuffering);
         clampEnum<Antialiasing>(antialiasing);
+		clampEnum<AnisotropicFiltering>(anisotropicfiltering);
         clampEnum<Filtering>(filtering);
         clampEnum<AspectRatio>(aspectRatio);
         clampEnum<AspectRatio>(extAspectRatio);
@@ -112,6 +116,10 @@ namespace RT64 {
         return UserConfiguration::msaaSampleCount(antialiasing);
     }
 
+	uint32_t UserConfiguration::AnistropyLevel() const {
+        return UserConfiguration::AnistropyLevel(anisotropicfiltering);
+    }
+
     uint32_t UserConfiguration::msaaSampleCount(Antialiasing antialiasing) {
         switch (antialiasing) {
         case Antialiasing::MSAA2X:
@@ -120,6 +128,21 @@ namespace RT64 {
             return 4;
         case Antialiasing::MSAA8X:
             return 8;
+        default:
+            return 1;
+        }
+    }
+	
+	uint32_t UserConfiguration::AnistropyLevel(AnisotropicFiltering anisotropicfiltering) {
+        switch (anisotropicfiltering) {
+        case AnisotropicFiltering::AF2X:
+            return 2;
+        case AnisotropicFiltering::AF4X:
+            return 4;
+        case AnisotropicFiltering::AF8X:
+            return 8;
+		case AnisotropicFiltering::AF16X:
+            return 16;
         default:
             return 1;
         }

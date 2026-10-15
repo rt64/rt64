@@ -40,6 +40,15 @@ namespace RT64 {
             MSAA8X,
             OptionCount
         };
+		
+		enum class AnisotropicFiltering {
+            None,
+            AF2X,
+            AF4X,
+            AF8X,
+			AF16X,
+            OptionCount
+        };
 
         enum class Filtering {
             Nearest,
@@ -87,6 +96,7 @@ namespace RT64 {
         Resolution resolution;
         DisplayBuffering displayBuffering;
         Antialiasing antialiasing;
+		AnisotropicFiltering anisotropicfiltering;
         double resolutionMultiplier;
         int downsampleMultiplier;
         Filtering filtering;
@@ -106,7 +116,9 @@ namespace RT64 {
         UserConfiguration();
         void validate();
         uint32_t msaaSampleCount() const;
+		uint32_t AnistropyLevel() const;
         static uint32_t msaaSampleCount(Antialiasing antialiasing);
+		static uint32_t AnistropyLevel(AnisotropicFiltering anisotropicfiltering);
         static bool isGraphicsAPISupported(GraphicsAPI graphicsAPI);
         static GraphicsAPI resolveGraphicsAPI(GraphicsAPI graphicsAPI);
     };
@@ -138,6 +150,14 @@ namespace RT64 {
         { UserConfiguration::Antialiasing::MSAA2X, "MSAA2X" },
         { UserConfiguration::Antialiasing::MSAA4X, "MSAA4X" },
         { UserConfiguration::Antialiasing::MSAA8X, "MSAA8X" }
+    });
+	
+	NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::AnisotropicFiltering, {
+        { UserConfiguration::AnisotropicFiltering::None, "None" },
+        { UserConfiguration::AnisotropicFiltering::AF2X, "2X" },
+        { UserConfiguration::AnisotropicFiltering::AF4X, "4X" },
+        { UserConfiguration::AnisotropicFiltering::AF8X, "8X" },
+		{ UserConfiguration::AnisotropicFiltering::AF16X, "16X" }
     });
 
     NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::Filtering, {
