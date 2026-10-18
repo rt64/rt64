@@ -95,7 +95,6 @@ namespace RT64 {
     void PresentQueue::threadPresent(const Present &present, bool &swapChainValid) {
         FramebufferManager &fbManager = ext.sharedResources->framebufferManager;
         RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
-        const bool usingMSAA = (targetManager.multisampling.sampleCount > 1);
         hlslpp::float2 resolutionScale;
         EnhancementConfiguration::Presentation::Mode presentationMode;
         bool removeBlackBorders;
@@ -269,16 +268,15 @@ namespace RT64 {
         
         for (int32_t i = 0; i < framesToPresent; i++) {
             uint32_t frameCountersNextPresented = 0;
-            if ((framesToPresent > 1) && (usingMSAA || (i > 0))) {
+            if (framesToPresent > 1) {
                 // Stall until the interpolated color target is available.
-                const uint32_t targetIndex = usingMSAA ? i : (i - 1);
                 std::unique_lock<std::mutex> interpolatedLock(ext.sharedResources->interpolatedMutex);
                 ext.sharedResources->interpolatedCondition.wait(interpolatedLock, [&]() {
-                    return (frameCounters.available > targetIndex) || ((frameCounters.available == targetIndex) && frameCounters.skipped);
+                    return (frameCounters.available > i) || ((frameCounters.available == i) && frameCounters.skipped);
                 });
 
                 // Do not present any more frames after this one after reaching the last available frame if the workload was skipped.
-                if ((frameCounters.available == targetIndex) && frameCounters.skipped) {
+                if ((frameCounters.available == i) && frameCounters.skipped) {
                     framesToPresent = std::min(int(frameCounters.available), i + 1);
                     frameCountersNextPresented = frameCounters.count;
                 }
@@ -287,8 +285,7 @@ namespace RT64 {
                 }
 
                 if (i < framesToPresent) {
-                    uint32_t targetIndex = usingMSAA ? i : (i - 1);
-                    colorTarget = ext.sharedResources->interpolatedColorTargets[targetIndex].get();
+                    colorTarget = ext.sharedResources->interpolatedColorTargets[i].get();
                 }
                 else {
                     colorTarget = nullptr;

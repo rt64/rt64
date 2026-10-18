@@ -1065,13 +1065,11 @@ namespace RT64 {
 
                 // Create as many render targets as required to store the interpolated targets.
                 auto &interpolatedTargets = ext.sharedResources->interpolatedColorTargets;
-                const bool usingMSAA = (ext.sharedResources->renderTargetManager.multisampling.sampleCount > 1);
                 const bool usesHDR = ext.sharedResources->renderTargetManager.usesHDR;
-                uint32_t requiredFrames = (usingMSAA && generateInterpolatedFrames) ? displayFrames : (displayFrames - 1);
-                if ((requiredFrames > 0) && (interpolatedTargets.size() < requiredFrames)) {
+                if (generateInterpolatedFrames && (displayFrames > 0) && (interpolatedTargets.size() < displayFrames)) {
                     uint32_t previousSize = uint32_t(interpolatedTargets.size());
-                    interpolatedTargets.resize(requiredFrames);
-                    for (uint32_t i = previousSize; i < requiredFrames; i++) {
+                    interpolatedTargets.resize(displayFrames);
+                    for (uint32_t i = previousSize; i < displayFrames; i++) {
                         interpolatedTargets[i] = std::make_unique<RenderTarget>(interpolationTargetKey.address, Framebuffer::Type::Color, RenderMultisampling(), usesHDR);
                     }
                 }
@@ -1106,21 +1104,19 @@ namespace RT64 {
                         curFrameWeight = std::clamp((workloadConfig.targetRate + displayTicks - logicalTicks) / float(workloadConfig.targetRate), 0.0f, 1.0f);
 
                         // Override the render target.
-                        if (usingMSAA || (frame > 0)) {
-                            overrideTarget = interpolatedTargets[targetIndex].get();
-                            overrideModifier = (targetIndex + 1);
+                        overrideTarget = interpolatedTargets[targetIndex].get();
+                        overrideModifier = (targetIndex + 1);
 
-                            if (useDifferentCounters && (prevFrameCounters.available > 0) && (targetIndex < prevFrameCounters.available)) {
-                                // Wait until the target has finished presenting if the alternate frame counter (used by the present queue) is making use of this target.
-                                std::unique_lock<std::mutex> interpolatedLock(ext.sharedResources->interpolatedMutex);
-                                ext.sharedResources->interpolatedCondition.wait(interpolatedLock, [&]() {
-                                    frameReduction = frameReduction || (prevFrameCounters.presented <= targetIndex);
-                                    return prevFrameCounters.presented > targetIndex;
-                                });
-                            }
-
-                            targetIndex++;
+                        if (useDifferentCounters && (prevFrameCounters.available > 0) && (targetIndex < prevFrameCounters.available)) {
+                            // Wait until the target has finished presenting if the alternate frame counter (used by the present queue) is making use of this target.
+                            std::unique_lock<std::mutex> interpolatedLock(ext.sharedResources->interpolatedMutex);
+                            ext.sharedResources->interpolatedCondition.wait(interpolatedLock, [&]() {
+                                frameReduction = frameReduction || (prevFrameCounters.presented <= targetIndex);
+                                return prevFrameCounters.presented > targetIndex;
+                            });
                         }
+
+                        targetIndex++;
                     }
                     else if (workload.paused) {
                         curFrameWeight = workload.debuggerRenderer.interpolationWeight;
@@ -1151,7 +1147,7 @@ namespace RT64 {
                     }
 
                     // For every additional frame, we increase the frames available and notify the present queue.
-                    if (generateInterpolatedFrames && (usingMSAA || (frame > 0))) {
+                    if (generateInterpolatedFrames) {
                         {
                             std::scoped_lock<std::mutex> cursorLock(cursorMutex);
                             skipWorkloadNow = ((frame + 1) < displayFrames) && (writeCursor != threadCursor);
