@@ -114,7 +114,7 @@ namespace RT64 {
 
             inspectPresetBegin(library, presetIt, window);
             ImGui::SameLine();
-            bool expandedHeader = ImGui::CollapsingHeader(presetIt->first.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
+            bool expandedHeader = ImGui::CollapsingHeader(presetIt->first.c_str(), ImGuiTreeNodeFlags_AllowOverlap);
             inspectPresetEnd(library, presetIt, window);
 
             if (expandedHeader) {

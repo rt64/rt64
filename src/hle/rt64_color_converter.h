@@ -11,6 +11,9 @@ namespace RT64 {
         struct RGBA16 {
             static uint16_t toRGBA(hlslpp::float4 src);
             static hlslpp::float4 toRGBAF(uint16_t src);
+
+            // For converting to framebuffer values where the alpha encodes the coverage value.
+            static hlslpp::float4 toRGBCVGF(uint16_t src, bool usesHDR);
         };
 
         struct RGBA32 {

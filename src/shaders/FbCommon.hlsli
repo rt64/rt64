@@ -4,8 +4,7 @@
 
 #include "shared/rt64_f3d_defines.h"
 #include "shared/rt64_fb_common.h"
-
-#include "Formats.hlsli"
+#include "shared/rt64_formats.h"
 
 uint EndianSwapUINT16(uint i) {
     return ((i << 8) & 0xFF00) | ((i >> 8) & 0xFF);

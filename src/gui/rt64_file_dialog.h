@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -35,12 +36,14 @@ namespace RT64 {
     };
 
     struct FileDialog {
+        typedef std::function<void(const std::filesystem::path &)> Callback;
+
         static std::atomic<bool> isOpen;
 
         static void initialize();
         static void finish();
-        static std::filesystem::path getDirectoryPath();
-        static std::filesystem::path getOpenFilename(const std::vector<FileFilter> &filters);
-        static std::filesystem::path getSaveFilename(const std::vector<FileFilter> &filters);
+        static void getDirectoryPath(const Callback &callback);
+        static void getOpenFilename(const std::vector<FileFilter> &filters, const Callback &callback);
+        static void getSaveFilename(const std::vector<FileFilter> &filters, const Callback &callback);
     };
 };

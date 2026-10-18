@@ -40,6 +40,21 @@ namespace RT64 {
         };
     }
 
+    hlslpp::float4 ColorConverter::RGBA16::toRGBCVGF(uint16_t src, bool usesHDR) {
+        // The visible coverage bit is expanded to the hidden bits during fill operations.
+        // This means the alpha bit will either indicate full coverage or no coverage.
+        const float cvgRange = usesHDR ? 65535.0f : 255.0f;
+        uint8_t r = (src >> 11) & 0x1F;
+        uint8_t g = (src >> 6) & 0x1F;
+        uint8_t b = (src >> 1) & 0x1F;
+        return {
+            ((r << 3) | (r >> 2)) / 255.0f,
+            ((g << 3) | (g >> 2)) / 255.0f,
+            ((b << 3) | (b >> 2)) / 255.0f,
+            (src & 1) ? (7.0f / cvgRange) : 0.0f
+        };
+    }
+
     // ColorConverter::RGBA32
 
     uint32_t ColorConverter::RGBA32::toRGBA(hlslpp::float4 src) {

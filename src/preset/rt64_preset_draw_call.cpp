@@ -293,7 +293,7 @@ namespace RT64 {
             ImGui::SameLine();
 
             bool selected = (presetIt->first == selectedPresetName);
-            if (ImGui::Selectable(presetIt->first.c_str(), selected, ImGuiSelectableFlags_AllowItemOverlap)) {
+            if (ImGui::Selectable(presetIt->first.c_str(), selected, ImGuiSelectableFlags_AllowOverlap)) {
                 selectedPresetName = presetIt->first;
             }
 
