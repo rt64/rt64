@@ -268,7 +268,7 @@ namespace RT64 {
         
         for (int32_t i = 0; i < framesToPresent; i++) {
             uint32_t frameCountersNextPresented = 0;
-            if (framesToPresent > 1) {
+            if (frameCounters.usesInterpolatedTargets) {
                 // Stall until the interpolated color target is available.
                 std::unique_lock<std::mutex> interpolatedLock(ext.sharedResources->interpolatedMutex);
                 ext.sharedResources->interpolatedCondition.wait(interpolatedLock, [&]() {
@@ -291,7 +291,7 @@ namespace RT64 {
                     colorTarget = nullptr;
                 }
             }
-            else if (framesToPresent == 1) {
+            else {
                 frameCountersNextPresented = frameCounters.count;
             }
 

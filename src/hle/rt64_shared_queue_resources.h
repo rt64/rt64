@@ -22,6 +22,7 @@ namespace RT64 {
         uint32_t presented = 0;
         uint32_t available = 0;
         uint32_t count = 0;
+        bool usesInterpolatedTargets = false;
         bool skipped = false;
     };
 

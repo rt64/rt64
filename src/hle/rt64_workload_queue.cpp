@@ -1062,6 +1062,7 @@ namespace RT64 {
                 curFrameCounters.presented = 0;
                 curFrameCounters.available = 0;
                 curFrameCounters.count = displayFrames;
+                curFrameCounters.usesInterpolatedTargets = generateInterpolatedFrames;
 
                 // Create as many render targets as required to store the interpolated targets.
                 auto &interpolatedTargets = ext.sharedResources->interpolatedColorTargets;
