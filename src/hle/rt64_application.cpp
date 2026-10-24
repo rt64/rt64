@@ -328,16 +328,40 @@ namespace RT64 {
         swapChainDesc.format = RenderFormat::B8G8R8A8_UNORM;
         swapChainDesc.textureCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
 
-        // Enable present wait if supported by the device. We specify a max latency of 1 as we use it to wait right before the next
-        // presentation call is issued.
-        // 
-        // FIXME: RT64 used to have an error where the swap chain's wait() function would wait for one extra frame under Vulkan. When
-        // updating to using plume, this was corrected, but it exposed an issue with NVIDIA drivers (since 580.105.08 only on Linux)
-        // where the wait() will take far more time than expected and cause stuttering. While this seems to work fine everywhere else,
-        // we stick to the pre-plume approach to be safe.
         if (device->getCapabilities().presentWait) {
-            swapChainDesc.maxFrameLatency = (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan) ? 2 : 1;
-            swapChainDesc.enablePresentWait = true;
+            // Enable present wait if supported by the device. We specify a max latency of 1 as we use it to wait right before the next
+            // presentation call is issued.
+            // 
+            // FIXME: RT64 used to have an error where the swap chain's wait() function would wait for one extra frame under Vulkan. When
+            // updating to using plume, this was corrected, but it exposed an issue with NVIDIA drivers (since 580.105.08 only on Linux)
+            // where the wait() will take far more time than expected and cause stuttering. While this seems to work fine everywhere else,
+            // we stick to the pre-plume approach to be safe.
+            bool usesPresentWait;
+            switch (userConfig.presentWait) {
+            case UserConfiguration::PresentWait::Enabled:
+                usesPresentWait = true;
+                break;
+            case UserConfiguration::PresentWait::Automatic: {
+#if defined(__linux__)
+                // Present wait on NVIDIA seems to be currently broken under some Linux distributions and is waiting one additional frame
+                // by accident, causing the final refresh rate to be 2/3rds of what it should be. Cause is currently unknown.
+                const bool isNVIDIA = deviceDescription.vendor == RenderDeviceVendor::NVIDIA;
+                usesPresentWait = !isNVIDIA;
+#else
+                usesPresentWait = true;
+#endif
+                break;
+            }
+            case UserConfiguration::PresentWait::Disabled:
+            default:
+                usesPresentWait = false;
+                break;
+            }
+
+            if (usesPresentWait) {
+                swapChainDesc.maxFrameLatency = (chosenGraphicsAPI == UserConfiguration::GraphicsAPI::Vulkan) ? 2 : 1;
+                swapChainDesc.enablePresentWait = true;
+            }
         }
 
         swapChain = presentGraphicsWorker->commandQueue->createSwapChain(swapChainDesc);
@@ -431,6 +455,7 @@ namespace RT64 {
         presentExt.sharedResources = sharedQueueResources.get();
         presentExt.shaderLibrary = shaderLibrary.get();
         presentExt.createdGraphicsAPI = chosenGraphicsAPI;
+        presentExt.swapChainPresentWaitEnabled = swapChainDesc.enablePresentWait;
         presentQueue->setup(presentExt);
 
         // Configure the state to use all the created components.

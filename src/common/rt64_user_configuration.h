@@ -83,6 +83,13 @@ namespace RT64 {
             OptionCount
         };
 
+        enum class PresentWait {
+            Disabled,
+            Enabled,
+            Automatic,
+            OptionCount
+        };
+
         GraphicsAPI graphicsAPI;
         Resolution resolution;
         DisplayBuffering displayBuffering;
@@ -100,6 +107,7 @@ namespace RT64 {
         int refreshRateTarget;
         InternalColorFormat internalColorFormat;
         HardwareResolve hardwareResolve;
+        PresentWait presentWait;
         bool idleWorkActive;
         bool developerMode;
 
@@ -168,6 +176,12 @@ namespace RT64 {
         { UserConfiguration::HardwareResolve::Disabled, "Disabled" },
         { UserConfiguration::HardwareResolve::Enabled, "Enabled" },
         { UserConfiguration::HardwareResolve::Automatic, "Automatic" }
+    });
+
+    NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::PresentWait, {
+        { UserConfiguration::PresentWait::Disabled, "Disabled" },
+        { UserConfiguration::PresentWait::Enabled, "Enabled" },
+        { UserConfiguration::PresentWait::Automatic, "Automatic" }
     });
 
     struct ConfigurationJSON {

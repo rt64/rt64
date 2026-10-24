@@ -2113,7 +2113,8 @@ namespace RT64 {
                     
                     genConfigChanged = ImGui::InputInt("Downsample Multiplier", &userConfig.downsampleMultiplier) || genConfigChanged;
                     
-                    ImGui::BeginDisabled(!ext.device->getCapabilities().sampleLocations);
+                    const RenderDeviceCapabilities &capabilities = ext.device->getCapabilities();
+                    ImGui::BeginDisabled(!capabilities.sampleLocations);
                     const bool usesHDR = ext.shaderLibrary->usesHDR;
                     const RenderSampleCounts sampleCountsSupported = ext.device->getSampleCountsSupported(RenderTarget::colorBufferFormat(usesHDR)) & ext.device->getSampleCountsSupported(RenderTarget::depthBufferFormat());
                     const uint32_t antialiasingOptionCount = uint32_t(UserConfiguration::Antialiasing::OptionCount);
@@ -2163,8 +2164,13 @@ namespace RT64 {
 
                     // Store the user configuration that was used during initialization the first time we check this.
                     static UserConfiguration::InternalColorFormat configColorFormat = UserConfiguration::InternalColorFormat::OptionCount;
+                    static UserConfiguration::PresentWait configPresentWait = UserConfiguration::PresentWait::OptionCount;
                     if (configColorFormat == UserConfiguration::InternalColorFormat::OptionCount) {
                         configColorFormat = userConfig.internalColorFormat;
+                    }
+
+                    if (configPresentWait == UserConfiguration::PresentWait::OptionCount) {
+                        configPresentWait = userConfig.presentWait;
                     }
 
                     genConfigChanged = ImGui::Combo("Color Format", reinterpret_cast<int *>(&userConfig.internalColorFormat), "Standard\0High\0Automatic\0") || genConfigChanged;
@@ -2177,6 +2183,14 @@ namespace RT64 {
                         ext.shaderLibrary->usesHardwareResolve = (userConfig.hardwareResolve != UserConfiguration::HardwareResolve::Disabled);
                         genConfigChanged = true;
                     }
+
+                    ImGui::BeginDisabled(!capabilities.presentWait);
+                    genConfigChanged = ImGui::Combo("Present Wait", reinterpret_cast<int *>(&userConfig.presentWait), "Disabled\0Enabled\0Automatic\0") || genConfigChanged;
+                    if (userConfig.presentWait != configPresentWait) {
+                        ImGui::Text("You must restart the application for this change to be applied.");
+                    }
+
+                    ImGui::EndDisabled();
 
                     genConfigChanged = ImGui::Checkbox("Three-Point Filtering", &userConfig.threePointFiltering) || genConfigChanged;
                     genConfigChanged = ImGui::Checkbox("High Performance State", &userConfig.idleWorkActive) || genConfigChanged;
