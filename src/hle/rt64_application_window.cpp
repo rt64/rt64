@@ -37,7 +37,7 @@ namespace RT64 {
             HookedApplicationWindow = nullptr;
         }
 
-#   ifdef _WIN32
+#   if defined(_WIN32)
         if (windowHook != nullptr) {
             UnhookWindowsHookEx(windowHook);
         }
@@ -69,7 +69,7 @@ namespace RT64 {
             }
 
             if (sdlWindow == nullptr) {
-#           ifdef _WIN32
+#           if defined(_WIN32)
                 assert(HookedApplicationWindow == nullptr);
                 assert(threadId != 0);
                 windowHook = SetWindowsHookEx(WH_GETMESSAGE, &windowHookCallback, NULL, threadId);
@@ -160,7 +160,7 @@ namespace RT64 {
         static_assert(false && "Unimplemented");
 #   endif
 
-#   ifdef _WIN32
+#   if defined(_WIN32)
         setup(windowHandle, listener, GetCurrentThreadId());
 #   elif defined(__APPLE__)
         uint64_t tid;
@@ -176,7 +176,7 @@ namespace RT64 {
             return;
         }
 
-#   ifdef _WIN32
+#   if defined(_WIN32)
         if (newFullScreen) {
             // Save if window is maximized or not
             WINDOWPLACEMENT windowPlacement;
@@ -240,7 +240,7 @@ namespace RT64 {
     }
 
     void ApplicationWindow::makeResizable() {
-#   ifdef _WIN32
+#   if defined(_WIN32)
         LONG_PTR lStyle = GetWindowLongPtr(windowHandle, GWL_STYLE);
         windowMenu = GetMenu(windowHandle);
         lStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
@@ -342,7 +342,7 @@ namespace RT64 {
         int32_t newWindowLeft = INT32_MAX;
         int32_t newWindowTop = INT32_MAX;
 
-#   if defined(_WIN64)
+#   if defined(_WIN32)
         RECT rect;
         GetWindowRect(windowHandle, &rect);
         newWindowLeft = rect.left;
@@ -371,7 +371,7 @@ namespace RT64 {
         }
     }
 
-#ifdef _WIN32
+#if defined(_WIN32)
     void ApplicationWindow::windowMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         if (listener->windowMessageFilter(message, wParam, lParam)) {
             return;
