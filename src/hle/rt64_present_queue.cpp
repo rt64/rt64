@@ -395,7 +395,7 @@ namespace RT64 {
                     Timer::preciseSleepUntil(presentTimestamp + std::chrono::nanoseconds(1'000'000'000 / targetRate));
                 }
 
-                if (presentWaitEnabled) {
+                if (ext.swapChainPresentWaitEnabled) {
                     ext.swapChain->wait();
                 }
 
@@ -441,9 +441,6 @@ namespace RT64 {
         while (drawSemaphores.size() < ext.swapChain->getTextureCount()) {
             drawSemaphores.emplace_back(ext.device->createCommandSemaphore());
         }
-
-        // Since the swap chain might not need a resize right away, detect present wait.
-        presentWaitEnabled = ext.device->getCapabilities().presentWait;
 
         int processCursor = -1;
         bool skipPresent = false;
