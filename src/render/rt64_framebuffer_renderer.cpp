@@ -1484,13 +1484,20 @@ namespace RT64 {
             float projInvRatioScale = 1.0f / aspectRatioScale;
             const int16_t *viewportClipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
             const uint16_t viewportOrigin = drawData.viewportOrigins[proj.transformsIndex];
+            const uint16_t viewportAspect = drawData.viewportAspects[proj.transformsIndex];
             if (proj.usesViewport()) {
                 // The call's scissor spans the whole width of the framebuffer pair scissor. Custom origin must not be in use to be able to use the stretched viewport.
                 const auto &viewport = drawData.rspViewports[proj.transformsIndex];
-                FixedRect intersectionRect = proj.scissorRect.intersection(viewport.rect(viewportClipRatios));
-                bool coversWholeWidth = !intersectionRect.isEmpty() && (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
-                bool horizontalRatio = !intersectionRect.isEmpty() && (intersectionRect.width(true, true) > intersectionRect.height(true, true));
-                bool useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                bool useWideViewport = false;
+                if (viewportAspect == G_EX_ASPECT_AUTO) {
+                    FixedRect intersectionRect = proj.scissorRect.intersection(viewport.rect(viewportClipRatios));
+                    bool coversWholeWidth = !intersectionRect.isEmpty() && (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
+                    bool horizontalRatio = !intersectionRect.isEmpty() && (intersectionRect.width(true, true) > intersectionRect.height(true, true));
+                    useWideViewport = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
+                } else {
+                    useWideViewport = (viewportAspect == G_EX_ASPECT_STRETCH);
+                }
+
                 if (useWideViewport) {
                     projInvRatioScale = 1.0f;
                 }

@@ -68,6 +68,7 @@ namespace RT64 {
         drawData.rspViewports.clear();
         drawData.viewportClipRatios.clear();
         drawData.viewportOrigins.clear();
+        drawData.viewportAspects.clear();
         drawData.rspFog.clear();
         drawData.rspLights.clear();
         drawData.rspLookAt.clear();
@@ -113,6 +114,7 @@ namespace RT64 {
         drawData.worldTransformPhysicalAddresses.push_back(0);
         drawData.worldTransformVertexIndices.push_back(0);
         drawData.viewportOrigins.push_back(0);
+        drawData.viewportAspects.push_back(G_EX_ASPECT_AUTO);
     }
 
     void Workload::resetDrawDataRanges() {

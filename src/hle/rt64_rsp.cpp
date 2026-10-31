@@ -471,6 +471,7 @@ namespace RT64 {
             drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdGroupIndex);
             drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
             drawData.viewportOrigins.emplace_back(extended.viewportOriginStack[viewportStackSize - 1]);
+            drawData.viewportAspects.emplace_back(extended.viewportAspectStack[viewportStackSize - 1]);
 
             for (uint32_t j = 0; j < 4; j++) {
                 drawData.viewportClipRatios.emplace_back(clipRatios[j]);
@@ -917,6 +918,7 @@ namespace RT64 {
         if (viewportStackSize < RSP_EXTENDED_STACK_SIZE) {
             viewportStack[viewportStackSize] = viewportStack[viewportStackSize - 1];
             extended.viewportOriginStack[viewportStackSize] = extended.viewportOriginStack[viewportStackSize - 1];
+            extended.viewportAspectStack[viewportStackSize] = extended.viewportAspectStack[viewportStackSize - 1];
             viewportStackSize++;
         }
     }
@@ -1174,6 +1176,11 @@ namespace RT64 {
         extended.global.viewportOffsetY = offy;
     }
 
+    void RSP::setViewportAspect(uint8_t aspect) {
+        extended.viewportAspectStack[viewportStackSize - 1] = aspect;
+        viewportChanged = true;
+    }
+
     void RSP::vertexTestZ(uint8_t vtxIndex) {
         extended.drawExtendedType = DrawExtendedType::VertexTestZ;
         extended.drawExtendedData.vertexTestZ.vertexIndex = indices[vtxIndex];
@@ -1271,6 +1278,7 @@ namespace RT64 {
         extended.drawExtendedType = DrawExtendedType::None;
         extended.drawExtendedData = {};
         extended.viewportOriginStack[0] = G_EX_ORIGIN_NONE;
+        extended.viewportAspectStack[0] = G_EX_ASPECT_AUTO;
         extended.global.viewportOrigin = G_EX_ORIGIN_NONE;
         extended.global.viewportOffsetX = 0;
         extended.global.viewportOffsetY = 0;
