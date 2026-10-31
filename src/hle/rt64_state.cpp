@@ -1296,7 +1296,7 @@ namespace RT64 {
                         drawParams.resolutionScale = resolutionScale;
                         drawParams.aspectRatioSource = 1.0f;
                         drawParams.aspectRatioTarget = 1.0f;
-                        drawParams.extAspectPercentage = 0.0f;
+                        drawParams.extAspectRatioTarget = 1.0f;
                         drawParams.horizontalMisalignment = 0.0f;
                         drawParams.rtEnabled = false;
                         drawParams.submissionFrame = workload.submissionFrame;

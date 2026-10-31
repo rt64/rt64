@@ -137,7 +137,7 @@ namespace RT64 {
             hlslpp::float2 resolutionScale;
             float aspectRatioSource;
             float aspectRatioTarget;
-            float extAspectPercentage;
+            float extAspectRatioTarget;
             float horizontalMisalignment;
             PresetScene presetScene;
             bool rtEnabled;

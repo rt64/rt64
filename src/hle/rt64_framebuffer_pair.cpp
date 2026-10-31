@@ -44,10 +44,10 @@ namespace RT64 {
         ditherPatterns[ditherIndex]++;
     }
 
-    bool FramebufferPair::inProjection(uint32_t transformsIndex, Projection::Type type) const {
+    bool FramebufferPair::inProjection(uint32_t transformsIndex, Projection::Type type, uint64_t screenAreaBounds) const {
         if (projectionCount > 0) {
             const Projection &lastProj = projections[projectionCount - 1];
-            if ((lastProj.transformsIndex == transformsIndex) && (lastProj.type == type)) {
+            if ((lastProj.transformsIndex == transformsIndex) && (lastProj.type == type) && (lastProj.screenAreaBounds == screenAreaBounds)) {
                 return true;
             }
         }
@@ -55,13 +55,14 @@ namespace RT64 {
         return false;
     }
 
-    int FramebufferPair::changeProjection(uint32_t transformsIndex, Projection::Type type) {
+    int FramebufferPair::changeProjection(uint32_t transformsIndex, Projection::Type type, uint64_t screenAreaBounds) {
         adjustVector(projections, ++projectionCount);
         const uint32_t projectionIndex = projectionCount - 1;
         auto &projection = projections[projectionIndex];
         projection.reset();
         projection.transformsIndex = transformsIndex;
         projection.type = type;
+        projection.screenAreaBounds = screenAreaBounds;
         return projectionIndex;
     }
 

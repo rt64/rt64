@@ -100,8 +100,12 @@ namespace RT64 {
                 }
 
                 if (!autoIntersectionRect.isEmpty()) {
-                    bool coversWholeWidth = (autoIntersectionRect.ulx <= fbPair.scissorRect.ulx) && (autoIntersectionRect.lrx >= fbPair.scissorRect.lrx);
-                    bool horizontalRatio = (autoIntersectionRect.width(true, true) > autoIntersectionRect.height(true, true));
+                    // Automatic detection checks against the extended screen area if it's set, or the scissor of the framebuffer pair otherwise.
+                    const bool projUsesScreenArea = proj.screenAreaBounds != 0;
+                    const int32_t fbLeft = projUsesScreenArea ? int32_t(proj.screenAreaLeft) * 4 : fbPair.scissorRect.ulx;
+                    const int32_t fbRight = projUsesScreenArea ? int32_t(proj.screenAreaRight) * 4 : fbPair.scissorRect.lrx;
+                    const bool coversWholeWidth = (autoIntersectionRect.ulx <= fbLeft) && (autoIntersectionRect.lrx >= fbRight);
+                    const bool horizontalRatio = (autoIntersectionRect.width(true, true) > autoIntersectionRect.height(true, true));
                     adjustAspectRatio = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
                 }
             } else {

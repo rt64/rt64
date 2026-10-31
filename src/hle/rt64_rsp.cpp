@@ -481,7 +481,7 @@ namespace RT64 {
             viewportChanged = false;
         }
 
-        projectionIndex = fbPair.changeProjection(curViewProjIndex, type);
+        projectionIndex = fbPair.changeProjection(curViewProjIndex, type, state->rdp->extended.screenAreaBounds);
     }
 
     template<uint32_t floatCount, uint32_t vertexSize>
@@ -1069,7 +1069,7 @@ namespace RT64 {
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
         FramebufferPair &fbPair = workload.fbPairs[workload.currentFramebufferPairIndex()];
         const Projection::Type projType = getCurrentProjectionType();
-        if (!fbPair.inProjection(curViewProjIndex, projType)) {
+        if (!fbPair.inProjection(curViewProjIndex, projType, state->rdp->extended.screenAreaBounds)) {
             state->flush();
             addCurrentProjection(projType);
         }

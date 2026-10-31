@@ -13,6 +13,7 @@ namespace RT64 {
         gameCallCount = 0;
         pointLightCount = 0;
         transformsIndex = 0;
+        screenAreaBounds = 0;
         scissorRect.reset();
         lightManager.reset();
     }

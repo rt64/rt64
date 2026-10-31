@@ -82,7 +82,8 @@
 #define G_EX_SETRECTASPECT_V1           0x000033
 #define G_EX_SETSCISSORASPECT_V1        0x000034
 #define G_EX_SETVIEWPORTASPECT_V1       0x000035
-#define G_EX_MAX                        0x000036
+#define G_EX_SETSCREENAREA_V1           0x000036
+#define G_EX_MAX                        0x000037
 
 #define G_EX_ORIGIN_NONE            0x800
 #define G_EX_ORIGIN_LEFT            0x0
@@ -591,6 +592,14 @@ typedef union {
     G_EX_COMMAND1(cmd, \
         PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETVIEWPORTASPECT_V1, 24, 0), \
         PARAM(aspect, 2, 0) \
+    )
+
+#define gEXSetScreenArea(cmd, ulx, uly, lrx, lry) \
+    G_EX_COMMAND2(cmd, \
+        PARAM(RT64_EXTENDED_OPCODE, 8, 24) | PARAM(G_EX_SETSCREENAREA_V1, 24, 0), \
+        0, \
+        PARAM(ulx, 16, 16) | PARAM(uly, 16, 0), \
+        PARAM(lrx, 16, 16) | PARAM(lry, 16, 0) \
     )
 
 #endif // RT64_EXTENDED_GBI

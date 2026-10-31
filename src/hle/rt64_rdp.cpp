@@ -229,7 +229,8 @@ namespace RT64 {
     
     int32_t RDP::movedFromOrigin(int32_t x, uint16_t ori) {
         if (ori < G_EX_ORIGIN_NONE) {
-            return x + ((ori * colorImage.width * 4) / G_EX_ORIGIN_RIGHT);
+            uint16_t screenAreaWidth = (extended.screenAreaBounds != 0) ? (extended.screenAreaRight - extended.screenAreaLeft) : colorImage.width;
+            return (extended.screenAreaLeft * 4) + x + ((ori * screenAreaWidth * 4) / G_EX_ORIGIN_RIGHT);
         }
         else {
             return x;
@@ -1065,6 +1066,13 @@ namespace RT64 {
         extended.global.scissorAspect = aspect;
     }
 
+    void RDP::setScreenArea(uint16_t ulx, uint16_t uly, uint16_t lrx, uint16_t lry) {
+        extended.screenAreaLeft = ulx;
+        extended.screenAreaTop = uly;
+        extended.screenAreaRight = lrx;
+        extended.screenAreaBottom = lry;
+    }
+
     void RDP::forceUpscale2D(bool force) {
         extended.drawExtendedFlags.forceUpscale2D = force;
         state->updateDrawStatusAttribute(DrawAttribute::ExtendedFlags);
@@ -1081,6 +1089,7 @@ namespace RT64 {
     }
 
     void RDP::clearExtended() {
+        extended.screenAreaBounds = 0;
         extended.scissorLeftOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.scissorRightOriginStack[0] = G_EX_ORIGIN_NONE;
         extended.drawExtendedFlags = {};
@@ -1110,9 +1119,9 @@ namespace RT64 {
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
         FramebufferPair &fbPair = workload.fbPairs[workload.currentFramebufferPairIndex()];
-        if (!fbPair.inProjection(0, Projection::Type::Triangle)) {
+        if (!fbPair.inProjection(0, Projection::Type::Triangle, extended.screenAreaBounds)) {
             state->flush();
-            fbPair.changeProjection(0, Projection::Type::Triangle);
+            fbPair.changeProjection(0, Projection::Type::Triangle, extended.screenAreaBounds);
         }
 
         bool flushedState = state->checkDrawState();
@@ -1212,8 +1221,8 @@ namespace RT64 {
         const int workloadCursor = state->ext.workloadQueue->writeCursor;
         Workload &workload = state->ext.workloadQueue->workloads[workloadCursor];
         FramebufferPair &fbPair = workload.fbPairs[workload.currentFramebufferPairIndex()];
-        if (!fbPair.inProjection(0, Projection::Type::Rectangle)) {
-            fbPair.changeProjection(0, Projection::Type::Rectangle);
+        if (!fbPair.inProjection(0, Projection::Type::Rectangle, extended.screenAreaBounds)) {
+            fbPair.changeProjection(0, Projection::Type::Rectangle, extended.screenAreaBounds);
         }
 
         if (!scissorRect.isNull()) {

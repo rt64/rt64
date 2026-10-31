@@ -341,6 +341,16 @@ namespace RT64 {
             state->rsp->setViewportAspect(aspect);
         }
 
+        void setScreenAreaV1(State *state, DisplayList **dl) {
+            *dl = *dl + 1;
+
+            const uint16_t ulx = (*dl)->p0(16, 16);
+            const uint16_t uly = (*dl)->p0(0, 16);
+            const uint16_t lrx = (*dl)->p1(16, 16);
+            const uint16_t lry = (*dl)->p1(0, 16);
+            state->rdp->setScreenArea(ulx, uly, lrx, lry);
+        }
+
         void noOpHook(State *state, DisplayList **dl) {
             uint32_t magicNumber = (*dl)->p0(0, 24);
             if (magicNumber == RT64_HOOK_MAGIC_NUMBER) {
@@ -451,6 +461,7 @@ namespace RT64 {
             Map[G_EX_SETRECTASPECT_V1] = &setRectAspectV1;
             Map[G_EX_SETSCISSORASPECT_V1] = &setScissorAspectV1;
             Map[G_EX_SETVIEWPORTASPECT_V1] = &setViewportAspectV1;
+            Map[G_EX_SETSCREENAREA_V1] = &setScreenAreaV1;
             MapInitialized = true;
         }
     }

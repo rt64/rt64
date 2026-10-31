@@ -158,27 +158,21 @@ namespace RT64 {
         const auto extRatioMode = ext.sharedResources->userConfig.extAspectRatio;
         switch (extRatioMode) {
         case UserConfiguration::AspectRatio::Expand:
-            workloadConfig.extAspectPercentage = 1.0f;
-            break;
-        case UserConfiguration::AspectRatio::Manual:
             if ((ext.sharedResources->swapChainWidth > 0) && (ext.sharedResources->swapChainHeight > 0)) {
-                const float reducedExtTarget = float(ext.sharedResources->userConfig.extAspectTarget) - workloadConfig.aspectRatioSource;
-                const float reducedDisplayTarget = workloadConfig.aspectRatioTarget - workloadConfig.aspectRatioSource;
-                if ((reducedExtTarget > 0.0f) && (reducedDisplayTarget > 0.0f)) {
-                    workloadConfig.extAspectPercentage = std::clamp((reducedExtTarget / reducedDisplayTarget), 0.0f, 1.0f);
-                }
-                else {
-                    workloadConfig.extAspectPercentage = 0.0f;
-                }
+                const float derivedRatioTarget = float(ext.sharedResources->swapChainWidth) / float(ext.sharedResources->swapChainHeight);
+                workloadConfig.extAspectRatioTarget = std::max(derivedRatioTarget, workloadConfig.aspectRatioSource);
             }
             else {
-                workloadConfig.extAspectPercentage = 0.0f;
+                workloadConfig.extAspectRatioTarget = workloadConfig.aspectRatioSource;
             }
 
             break;
+        case UserConfiguration::AspectRatio::Manual:
+            workloadConfig.extAspectRatioTarget = float(ext.sharedResources->userConfig.extAspectTarget);
+            break;
         case UserConfiguration::AspectRatio::Original:
         default:
-            workloadConfig.extAspectPercentage = 0.0f;
+            workloadConfig.extAspectRatioTarget = workloadConfig.aspectRatioSource;
             break;
         }
 
@@ -629,7 +623,7 @@ namespace RT64 {
                     drawParams.resolutionScale = fixedResScale;
                     drawParams.aspectRatioSource = workloadConfig.aspectRatioSource;
                     drawParams.aspectRatioTarget = workloadConfig.aspectRatioTarget;
-                    drawParams.extAspectPercentage = workloadConfig.extAspectPercentage;
+                    drawParams.extAspectRatioTarget = workloadConfig.extAspectRatioTarget;
                     drawParams.horizontalMisalignment = (colorTarget != nullptr) ? float(colorTarget->misalignX) : float(depthTarget->misalignX);
                     drawParams.presetScene = curFrame.presetScene;
                     drawParams.rtEnabled = workloadConfig.raytracingEnabled;
