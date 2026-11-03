@@ -955,6 +955,14 @@ namespace RT64 {
                     if (headerOpen) {
                         ImGui::Indent();
                         ImGui::Text("Scissor: %d %d %d %d", proj.scissorRect.ulx, proj.scissorRect.uly, proj.scissorRect.lrx, proj.scissorRect.lry);
+
+                        if (proj.screenAreaBounds != 0) {
+                            ImGui::Text("Screen Area (EX): %u %u %u %u", proj.screenAreaLeft, proj.screenAreaTop, proj.screenAreaRight, proj.screenAreaBottom);
+                        }
+                        else {
+                            ImGui::Text("Screen Area (EX): Auto");
+                        }
+
                         ImGui::NewLine();
 
                         if (proj.usesViewport()) {
