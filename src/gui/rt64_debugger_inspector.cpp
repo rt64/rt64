@@ -1047,6 +1047,7 @@ namespace RT64 {
 
                                     ImGui::Text("Dsdx: %u (%0.6f)", call.callDesc.rectDsdx, call.callDesc.rectDsdx / 1024.0f);
                                     ImGui::Text("Dtdy: %u (%0.6f)", call.callDesc.rectDtdy, call.callDesc.rectDtdy / 1024.0f);
+                                    ImGui::Text("Origins (EX): 0x%X 0x%X", call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
                                 }
 
                                 ImGui::NewLine();

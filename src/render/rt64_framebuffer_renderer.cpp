@@ -52,11 +52,11 @@ namespace interop {
 namespace RT64 {
     // Helper functions.
     
-    RenderRect convertFixedRect(FixedRect rect, hlslpp::float2 resScale, uint16_t fbLeft, uint16_t fbRight, float aspectRatioScale, float extOriginPercentage, int32_t horizontalMisalignment, uint16_t leftOrigin, uint16_t rightOrigin) {
+    RenderRect convertFixedRect(FixedRect rect, hlslpp::float2 resScale, int32_t fbLeft, int32_t fbRight, float aspectRatioScale, float extOriginPercentage, int32_t horizontalMisalignment, int32_t leftOrigin, int32_t rightOrigin) {
         if (!rect.isNull()) {
-            auto computeOrigin = [=](uint16_t origin) {
+            auto computeOrigin = [=](int32_t origin) {
                 if (origin < G_EX_ORIGIN_NONE) {
-                    return std::lround((((fbRight - fbLeft) * origin) / G_EX_ORIGIN_RIGHT) * extOriginPercentage + (float(fbLeft + fbRight) / 2.0f) * (1.0f - extOriginPercentage));
+                    return std::lround((fbLeft + (((fbRight - fbLeft) * origin) / G_EX_ORIGIN_RIGHT)) * extOriginPercentage + (float(fbLeft + fbRight) / 2.0f) * (1.0f - extOriginPercentage));
                 }
                 else {
                     return (fbLeft + fbRight) / 2L;
@@ -85,17 +85,17 @@ namespace RT64 {
         }
     }
     
-    RenderViewport convertViewportRect(FixedRect rect, hlslpp::float2 resScale, uint16_t fbLeft, uint16_t fbRight, float aspectRatioScale, float extOriginPercentage, float horizontalMisalignment, uint16_t leftOrigin, uint16_t rightOrigin) {
-        auto computeOrigin = [=](uint16_t origin) {
+    RenderViewport convertViewportRect(FixedRect rect, hlslpp::float2 resScale, int32_t fbLeft, int32_t fbRight, float aspectRatioScale, float extOriginPercentage, float horizontalMisalignment, int32_t leftOrigin, int32_t rightOrigin) {
+        auto computeOrigin = [=](int32_t origin) {
             if (origin < G_EX_ORIGIN_NONE) {
-                return (((fbRight - fbLeft) * origin) / G_EX_ORIGIN_RIGHT) * extOriginPercentage + (float(fbLeft + fbRight) / 2.0f) * (1.0f - extOriginPercentage);
+                return (fbLeft + (((fbRight - fbLeft) * origin) / G_EX_ORIGIN_RIGHT)) * extOriginPercentage + (float(fbLeft + fbRight) / 2.0f) * (1.0f - extOriginPercentage);
             }
             else {
                 return float(fbLeft + fbRight) / 2;
             }
         };
         
-        auto correctMisalignment = [=](float coord, uint16_t origin) {
+        auto correctMisalignment = [=](float coord, int32_t origin) {
             if (origin < G_EX_ORIGIN_NONE) {
                 return (coord - std::fmod(coord, resScale[1])) - horizontalMisalignment;
             }
