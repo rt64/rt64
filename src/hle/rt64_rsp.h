@@ -149,13 +149,14 @@ namespace RT64 {
         uint8_t curLightCount;
         bool projectionMatrixChanged;
         bool projectionMatrixInversed;
-        bool viewportChanged;
+        bool vpChanged;
         hlslpp::float4x4 modelViewProjMatrix;
         bool modelViewProjChanged;
         bool modelViewProjInserted;
         int projectionIndex;
-        std::array<interop::RSPViewport, RSP_EXTENDED_STACK_SIZE> viewportStack;
-        int viewportStackSize;
+        interop::RSPViewport curViewport;
+        std::array<Vp_t, RSP_EXTENDED_STACK_SIZE> vpStack;
+        int vpStackSize;
         std::array<int16_t, 4> clipRatios;
         std::array<Vertex, RSP_MAX_VERTICES> vertices;
         std::array<uint32_t, RSP_MAX_VERTICES> indices;
@@ -197,15 +198,10 @@ namespace RT64 {
         } S2D;
 
         struct {
-            // For stateful methods.
-            struct {
-                uint16_t viewportOrigin;
-                int16_t viewportOffsetX;
-                int16_t viewportOffsetY;
-            } global;
-
-            std::array<uint16_t, RSP_EXTENDED_STACK_SIZE> viewportOriginStack;
-            std::array<uint8_t, RSP_EXTENDED_STACK_SIZE> viewportAspectStack;
+            std::array<uint16_t, RSP_EXTENDED_STACK_SIZE> vpOriginStack;
+            std::array<int16_t, RSP_EXTENDED_STACK_SIZE> vpOffsetXStack;
+            std::array<int16_t, RSP_EXTENDED_STACK_SIZE> vpOffsetYStack;
+            std::array<uint8_t, RSP_EXTENDED_STACK_SIZE> vpAspectStack;
 
             DrawExtendedType drawExtendedType;
             DrawExtendedData drawExtendedData;
@@ -270,6 +266,7 @@ namespace RT64 {
         void setObjRenderMode(uint32_t value);
         void setViewport(uint32_t address);
         void setViewport(uint32_t address, uint16_t ori, int16_t offx, int16_t offy);
+        void computeViewport();
         void pushViewport();
         void popViewport();
         void setLight(uint8_t index, uint32_t address);

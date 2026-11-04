@@ -40,7 +40,7 @@ namespace RT64 {
     void RSP::reset() {
         modelMatrixStackSize = 1;
         projectionMatrixStackSize = 1;
-        viewportStackSize = 1;
+        vpStackSize = 1;
         geometryModeStackSize = 1;
         otherModeStackSize = 1;
         modelMatrixStack.fill(hlslpp::float4x4(0.0f));
@@ -55,7 +55,8 @@ namespace RT64 {
         used.reset();
         lights.fill({});
         segments.fill(0);
-        viewportStack[0] = {};
+        curViewport = interop::RSPViewport();
+        vpStack[0] = {};
         clipRatios[0] = 1;
         clipRatios[1] = 1;
         clipRatios[2] = -1;
@@ -70,7 +71,7 @@ namespace RT64 {
         projectionIndex = -1;
         projectionMatrixChanged = false;
         projectionMatrixInversed = false;
-        viewportChanged = false;
+        vpChanged = false;
         modelViewProjMatrix = hlslpp::float4x4(0.0f);
         modelViewProjChanged = false;
         modelViewProjInserted = false;
@@ -458,7 +459,7 @@ namespace RT64 {
         }
 
         FramebufferPair &fbPair = workload.fbPairs[workload.currentFramebufferPairIndex()];
-        if (projectionMatrixChanged || viewportChanged) {
+        if (projectionMatrixChanged || vpChanged) {
             DrawData &drawData = workload.drawData;
             uint32_t transformsIndex = uint32_t(drawData.viewTransforms.size());
             curViewProjIndex = transformsIndex;
@@ -469,16 +470,16 @@ namespace RT64 {
             drawData.projTransforms.emplace_back(hlslpp::mul(extended.invProjMatrix, projMatrixStack[projectionMatrixStackSize - 1]));
             drawData.viewProjTransforms.emplace_back(hlslpp::mul(extended.invViewProjMatrix, viewProjMatrixStack[projectionMatrixStackSize - 1]));
             drawData.viewProjTransformGroups.emplace_back(extended.curViewProjMatrixIdGroupIndex);
-            drawData.rspViewports.emplace_back(viewportStack[viewportStackSize - 1]);
-            drawData.viewportOrigins.emplace_back(extended.viewportOriginStack[viewportStackSize - 1]);
-            drawData.viewportAspects.emplace_back(extended.viewportAspectStack[viewportStackSize - 1]);
+            drawData.rspViewports.emplace_back(curViewport);
+            drawData.viewportOrigins.emplace_back(extended.vpOriginStack[vpStackSize - 1]);
+            drawData.viewportAspects.emplace_back(extended.vpAspectStack[vpStackSize - 1]);
 
             for (uint32_t j = 0; j < 4; j++) {
                 drawData.viewportClipRatios.emplace_back(clipRatios[j]);
             }
 
             projectionMatrixChanged = false;
-            viewportChanged = false;
+            vpChanged = false;
         }
 
         projectionIndex = fbPair.changeProjection(curViewProjIndex, type, state->rdp->extended.screenAreaBounds);
@@ -552,7 +553,7 @@ namespace RT64 {
         }
 
         // Push a new projection if it's changed.
-        if ((projectionIndex < 0) || projectionMatrixChanged || viewportChanged) {
+        if ((projectionIndex < 0) || projectionMatrixChanged || vpChanged) {
             state->flush();
             addCurrentProjection(getCurrentProjectionType());
         }
@@ -710,9 +711,8 @@ namespace RT64 {
         uint32_t floatIndex = globalIndex * 3;
         for (uint32_t i = dstIndex; i < dstMax; i++) {
             const hlslpp::float4 tfPos = hlslpp::mul(hlslpp::float4(posFloats[floatIndex + 0], posFloats[floatIndex + 1], posFloats[floatIndex + 2], 1.0f), mvp);
-            const interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
             posTransformed.emplace_back(tfPos);
-            posScreen.emplace_back((tfPos.xyz / hlslpp::float3(tfPos.w, -tfPos.w, tfPos.w)) * viewport.scale + viewport.translate);
+            posScreen.emplace_back((tfPos.xyz / hlslpp::float3(tfPos.w, -tfPos.w, tfPos.w)) * curViewport.scale + curViewport.translate);
             floatIndex += 3;
         }
 
@@ -897,36 +897,49 @@ namespace RT64 {
     }
 
     void RSP::setViewport(uint32_t address) {
-        setViewport(address, extended.global.viewportOrigin, extended.global.viewportOffsetX, extended.global.viewportOffsetY);
+        const uint32_t rdramAddress = fromSegmentedMasked(address);
+        vpStack[vpStackSize - 1] = *reinterpret_cast<const Vp_t *>(state->fromRDRAM(rdramAddress));
+        computeViewport();
+        vpChanged = true;
     }
     
     void RSP::setViewport(uint32_t address, uint16_t ori, int16_t offx, int16_t offy) {
-        const uint32_t rdramAddress = fromSegmentedMasked(address);
-        const Vp_t *vp = reinterpret_cast<const Vp_t *>(state->fromRDRAM(rdramAddress));
-        interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
-        viewport.scale.x = float(vp->vscale[1]) / 4.0f;
-        viewport.scale.y = float(vp->vscale[0]) / 4.0f;
-        viewport.scale.z = float(vp->vscale[3]) / DepthRange;
-        viewport.translate.x = float(state->rdp->movedFromOrigin(vp->vtrans[1], ori) + offx) / 4.0f;
-        viewport.translate.y = float(vp->vtrans[0] + offy) / 4.0f;
-        viewport.translate.z = float(vp->vtrans[3]) / DepthRange;
-        extended.viewportOriginStack[viewportStackSize - 1] = ori;
-        viewportChanged = true;
+        extended.vpOffsetXStack[vpStackSize - 1] = offx;
+        extended.vpOffsetYStack[vpStackSize - 1] = offy;
+        extended.vpOriginStack[vpStackSize - 1] = ori;
+
+        setViewport(address);
+    }
+
+    void RSP::computeViewport() {
+        const Vp_t &vp = vpStack[vpStackSize - 1];
+        const int16_t vpOffX = extended.vpOffsetXStack[vpStackSize - 1];
+        const int16_t vpOffY = extended.vpOffsetYStack[vpStackSize - 1];
+        const uint16_t vpOrigin = extended.vpOriginStack[vpStackSize - 1];
+        curViewport.scale.x = float(vp.vscale[1]) / 4.0f;
+        curViewport.scale.y = float(vp.vscale[0]) / 4.0f;
+        curViewport.scale.z = float(vp.vscale[3]) / DepthRange;
+        curViewport.translate.x = float(state->rdp->movedFromOrigin(vp.vtrans[1], vpOrigin) + vpOffX) / 4.0f;
+        curViewport.translate.y = float(vp.vtrans[0] + vpOffY) / 4.0f;
+        curViewport.translate.z = float(vp.vtrans[3]) / DepthRange;
     }
 
     void RSP::pushViewport() {
-        if (viewportStackSize < RSP_EXTENDED_STACK_SIZE) {
-            viewportStack[viewportStackSize] = viewportStack[viewportStackSize - 1];
-            extended.viewportOriginStack[viewportStackSize] = extended.viewportOriginStack[viewportStackSize - 1];
-            extended.viewportAspectStack[viewportStackSize] = extended.viewportAspectStack[viewportStackSize - 1];
-            viewportStackSize++;
+        if (vpStackSize < RSP_EXTENDED_STACK_SIZE) {
+            vpStack[vpStackSize] = vpStack[vpStackSize - 1];
+            extended.vpOffsetXStack[vpStackSize] = extended.vpOffsetXStack[vpStackSize - 1];
+            extended.vpOffsetYStack[vpStackSize] = extended.vpOffsetYStack[vpStackSize - 1];
+            extended.vpOriginStack[vpStackSize] = extended.vpOriginStack[vpStackSize - 1];
+            extended.vpAspectStack[vpStackSize] = extended.vpAspectStack[vpStackSize - 1];
+            vpStackSize++;
         }
     }
 
     void RSP::popViewport() {
-        if (viewportStackSize > 1) {
-            viewportStackSize--;
-            viewportChanged = true;
+        if (vpStackSize > 1) {
+            computeViewport();
+            vpStackSize--;
+            vpChanged = true;
         }
     }
     
@@ -954,7 +967,7 @@ namespace RT64 {
     void RSP::setClipRatioEdge(uint8_t index, int16_t value) {
         assert(index < clipRatios.size());
         clipRatios[index] = value;
-        viewportChanged = true;
+        vpChanged = true;
     }
 
     void RSP::setClipRatioAll(int16_t value) {
@@ -1152,8 +1165,7 @@ namespace RT64 {
                 drawRect.lry = std::max(drawRect.lry, int32_t(hlslpp::ceil(v.y).x * 4.0f));
             }
 
-            const interop::RSPViewport &viewport = viewportStack[viewportStackSize - 1];
-            const FixedRect viewportClipRect = viewport.rect(clipRatios.data());
+            const FixedRect viewportClipRect = curViewport.rect(clipRatios.data());
             drawRect = viewportClipRect.intersection(scissorRect.intersection(drawRect));
             if (!drawRect.isNull()) {
                 fbPair.drawColorRect.merge(drawRect);
@@ -1171,14 +1183,17 @@ namespace RT64 {
     }
 
     void RSP::setViewportAlign(uint16_t ori, int16_t offx, int16_t offy) {
-        extended.global.viewportOrigin = ori;
-        extended.global.viewportOffsetX = offx;
-        extended.global.viewportOffsetY = offy;
+        extended.vpOffsetXStack[vpStackSize - 1] = offx;
+        extended.vpOffsetYStack[vpStackSize - 1] = offy;
+        extended.vpOriginStack[vpStackSize - 1] = ori;
+        vpChanged = true;
+
+        computeViewport();
     }
 
     void RSP::setViewportAspect(uint8_t aspect) {
-        extended.viewportAspectStack[viewportStackSize - 1] = aspect;
-        viewportChanged = true;
+        extended.vpAspectStack[vpStackSize - 1] = aspect;
+        vpChanged = true;
     }
 
     void RSP::vertexTestZ(uint8_t vtxIndex) {
@@ -1277,11 +1292,10 @@ namespace RT64 {
     void RSP::clearExtended() {
         extended.drawExtendedType = DrawExtendedType::None;
         extended.drawExtendedData = {};
-        extended.viewportOriginStack[0] = G_EX_ORIGIN_NONE;
-        extended.viewportAspectStack[0] = G_EX_ASPECT_AUTO;
-        extended.global.viewportOrigin = G_EX_ORIGIN_NONE;
-        extended.global.viewportOffsetX = 0;
-        extended.global.viewportOffsetY = 0;
+        extended.vpOriginStack[0] = G_EX_ORIGIN_NONE;
+        extended.vpOffsetXStack[0] = 0;
+        extended.vpOffsetYStack[0] = 0;
+        extended.vpAspectStack[0] = G_EX_ASPECT_AUTO;
         extended.modelMatrixIdStack[0] = TransformGroup();
         extended.modelMatrixIdStackSize = 1;
         extended.modelMatrixIdStackChanged = false;

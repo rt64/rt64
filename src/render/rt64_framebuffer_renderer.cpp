@@ -1510,9 +1510,10 @@ namespace RT64 {
                     triangles.screenScale.x = p.resolutionScale.y / p.resolutionScale.x;
 
                     if (viewportOrigin < G_EX_ORIGIN_NONE) {
-                        const float middleViewport = (((fbLeft + fbRight) * p.resolutionScale.x) / 2.0f) - (originalWidth / 2.0f);
-                        const float centerOffset = ((middleViewport * viewportOrigin) / G_EX_ORIGIN_CENTER) * extAspectPercentage + middleViewport * (1.0f - extAspectPercentage);
-                        triangles.screenOffset.x = halfPixelOffset.x + ((centerOffset - middleViewport) / halfViewportSize.x);
+                        // TODO: Rewrite as it currently doesn't work. Replicate logic from convertViewportRect instead, maybe by pretending the rect is always at the middle.
+                        const float middleFb = float(fbLeft + fbRight) / 2.0f;
+                        const float middleViewport = (fbLeft + (((fbRight - fbLeft) * viewportOrigin) / G_EX_ORIGIN_RIGHT)) * extAspectPercentage + middleFb * (1.0f - extAspectPercentage);
+                        triangles.screenOffset.x = halfPixelOffset.x + (((middleViewport - (p.fbWidth / 2.0f)) * p.resolutionScale.x) / halfViewportSize.x);
                     }
                 }
 
