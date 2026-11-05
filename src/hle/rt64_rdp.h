@@ -96,6 +96,17 @@ namespace RT64 {
                 uint8_t scissorAspect;
             } global;
 
+            union {
+                struct {
+                    uint16_t screenAreaLeft;
+                    uint16_t screenAreaTop;
+                    uint16_t screenAreaRight;
+                    uint16_t screenAreaBottom;
+                };
+
+                uint64_t screenAreaBounds;
+            };
+
             uint16_t scissorLeftOriginStack[RDP_EXTENDED_STACK_SIZE];
             uint16_t scissorRightOriginStack[RDP_EXTENDED_STACK_SIZE];
             DrawExtendedFlags drawExtendedFlags;
@@ -198,6 +209,7 @@ namespace RT64 {
         void setScissorAlign(const ExtendedAlignment &extAlignment);
         void setRectAspect(uint8_t aspect);
         void setScissorAspect(uint8_t aspect);
+        void setScreenArea(uint16_t ulx, uint16_t uly, uint16_t lrx, uint16_t lry);
         void forceUpscale2D(bool force);
         void forceTrueBilerp(uint8_t mode);
         void forceScaleLOD(bool force);

@@ -56,8 +56,8 @@ namespace RT64 {
 
         void reset();
         void addGameCall(const GameCall &gameCall);
-        bool inProjection(uint32_t transformsIndex, Projection::Type type) const;
-        int changeProjection(uint32_t transformsIndex, Projection::Type type);
+        bool inProjection(uint32_t transformsIndex, Projection::Type type, uint64_t screenAreaBounds) const;
+        int changeProjection(uint32_t transformsIndex, Projection::Type type, uint64_t screenAreaBounds);
         bool isEmpty() const;
         bool earlyPresentCandidate() const;
     };

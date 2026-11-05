@@ -58,6 +58,7 @@ namespace RT64 {
             const FramebufferPair &fbPair = workload.fbPairs[sceneProj.fbPairIndex];
             const Projection &proj = fbPair.projections[sceneProj.projectionIndex];
             const uint16_t viewportOrigin = drawData.viewportOrigins[proj.transformsIndex];
+            const uint16_t viewportAspect = drawData.viewportAspects[proj.transformsIndex];
             assert(proj.transformsIndex > 0);
 
             // Skip projections that didn't actually draw anything.
@@ -80,22 +81,35 @@ namespace RT64 {
                 }
             }
 
+            // The projection's aspect mode is prioritized over the viewports's aspect mode.
             const uint32_t curProjGroupIndex = workload.drawData.viewProjTransformGroups[proj.transformsIndex];
             const TransformGroup &curProjGroup = workload.drawData.transformGroups[curProjGroupIndex];
-            bool adjustAspectRatio = (curProjGroup.aspectMode == G_EX_ASPECT_ADJUST);
+            bool adjustAspectRatio = false;
             if (curProjGroup.aspectMode == G_EX_ASPECT_AUTO) {
-                FixedRect intersectionRect = proj.scissorRect;
+                FixedRect autoIntersectionRect;
                 if (proj.usesViewport()) {
-                    const interop::RSPViewport &viewport = drawData.rspViewports[proj.transformsIndex];
-                    const int16_t *viewportClipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
-                    intersectionRect = intersectionRect.intersection(viewport.rect(viewportClipRatios));
+                    if (viewportAspect == G_EX_ASPECT_AUTO) {
+                        const interop::RSPViewport &viewport = drawData.rspViewports[proj.transformsIndex];
+                        const int16_t *viewportClipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
+                        autoIntersectionRect = proj.scissorRect.intersection(viewport.rect(viewportClipRatios));
+                    } else {
+                        adjustAspectRatio = (viewportAspect == G_EX_ASPECT_STRETCH);
+                    }
+                } else {
+                    autoIntersectionRect = proj.scissorRect;
                 }
 
-                if (!intersectionRect.isEmpty()) {
-                    bool coversWholeWidth = (intersectionRect.ulx <= fbPair.scissorRect.ulx) && (intersectionRect.lrx >= fbPair.scissorRect.lrx);
-                    bool horizontalRatio = (intersectionRect.width(true, true) > intersectionRect.height(true, true));
+                if (!autoIntersectionRect.isEmpty()) {
+                    // Automatic detection checks against the extended screen area if it's set, or the scissor of the framebuffer pair otherwise.
+                    const bool projUsesScreenArea = proj.screenAreaBounds != 0;
+                    const int32_t fbLeft = projUsesScreenArea ? int32_t(proj.screenAreaLeft) * 4 : fbPair.scissorRect.ulx;
+                    const int32_t fbRight = projUsesScreenArea ? int32_t(proj.screenAreaRight) * 4 : fbPair.scissorRect.lrx;
+                    const bool coversWholeWidth = (autoIntersectionRect.ulx <= fbLeft) && (autoIntersectionRect.lrx >= fbRight);
+                    const bool horizontalRatio = (autoIntersectionRect.width(true, true) > autoIntersectionRect.height(true, true));
                     adjustAspectRatio = (viewportOrigin == G_EX_ORIGIN_NONE) && coversWholeWidth && horizontalRatio;
                 }
+            } else {
+                adjustAspectRatio = (curProjGroup.aspectMode == G_EX_ASPECT_ADJUST);
             }
  
             float projRatioScale = adjustAspectRatio ? (1.0f / p.aspectRatioScale) : 1.0f;

@@ -955,17 +955,27 @@ namespace RT64 {
                     if (headerOpen) {
                         ImGui::Indent();
                         ImGui::Text("Scissor: %d %d %d %d", proj.scissorRect.ulx, proj.scissorRect.uly, proj.scissorRect.lrx, proj.scissorRect.lry);
+
+                        if (proj.screenAreaBounds != 0) {
+                            ImGui::Text("Screen Area (EX): %u %u %u %u", proj.screenAreaLeft, proj.screenAreaTop, proj.screenAreaRight, proj.screenAreaBottom);
+                        }
+                        else {
+                            ImGui::Text("Screen Area (EX): Auto");
+                        }
+
                         ImGui::NewLine();
 
                         if (proj.usesViewport()) {
                             const auto &viewport = drawData.rspViewports[proj.transformsIndex];
                             const int16_t *clipRatios = &drawData.viewportClipRatios[proj.transformsIndex * 4];
                             const FixedRect viewportRect = viewport.rect(clipRatios);
+                            const uint16_t viewportOrigin = drawData.viewportOrigins[proj.transformsIndex];
                             ImGui::NewLine();
                             ImGui::Text("Viewport Scale: %f %f %f", viewport.scale[0], viewport.scale[1], viewport.scale[2]);
                             ImGui::Text("Viewport Translate: %f %f %f", viewport.translate[0], viewport.translate[1], viewport.translate[2]);
                             ImGui::Text("Viewport Clip Ratios: %d %d %d %d", clipRatios[0], clipRatios[1], clipRatios[2], clipRatios[3]);
                             ImGui::Text("Viewport Rect: %d %d %d %d", viewportRect.ulx, viewportRect.uly, viewportRect.lrx, viewportRect.lry);
+                            ImGui::Text("Viewport Origin (EX): 0x%X", viewportOrigin);
                             ImGui::NewLine();
                             textTransformGroup("Matrix group:", drawData.transformGroups[drawData.viewProjTransformGroups[proj.transformsIndex]]);
                             textMatrix("View (estimate):", drawData.viewTransforms[proj.transformsIndex]);
@@ -1039,6 +1049,7 @@ namespace RT64 {
 
                                     ImGui::Text("Dsdx: %u (%0.6f)", call.callDesc.rectDsdx, call.callDesc.rectDsdx / 1024.0f);
                                     ImGui::Text("Dtdy: %u (%0.6f)", call.callDesc.rectDtdy, call.callDesc.rectDtdy / 1024.0f);
+                                    ImGui::Text("Origins (EX): 0x%X 0x%X", call.callDesc.rectLeftOrigin, call.callDesc.rectRightOrigin);
                                 }
 
                                 ImGui::NewLine();

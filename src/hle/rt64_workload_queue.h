@@ -54,7 +54,7 @@ namespace RT64 {
             float aspectRatioSource = 1.0f;
             float aspectRatioTarget = 1.0f;
             float aspectRatioScale = 1.0f;
-            float extAspectPercentage = 1.0f;
+            float extAspectRatioTarget = 1.0f;
             uint32_t targetRate = 0;
             bool postBlendNoise = false;
             bool postBlendNoiseNegative = false;

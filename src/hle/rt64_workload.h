@@ -62,6 +62,7 @@ namespace RT64 {
         std::vector<interop::RSPViewport> rspViewports;
         std::vector<int16_t> viewportClipRatios;
         std::vector<uint16_t> viewportOrigins;
+        std::vector<uint8_t> viewportAspects;
         std::vector<interop::RSPFog> rspFog;
         std::vector<interop::RSPLight> rspLights;
         std::vector<interop::RSPLookAt> rspLookAt;

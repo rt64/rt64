@@ -27,6 +27,18 @@ namespace RT64 {
         std::vector<interop::PointLight> pointLights;
         uint32_t pointLightCount;
         FixedRect scissorRect;
+
+        union {
+            struct {
+                uint16_t screenAreaLeft;
+                uint16_t screenAreaTop;
+                uint16_t screenAreaRight;
+                uint16_t screenAreaBottom;
+            };
+
+            uint64_t screenAreaBounds;
+        };
+
         bool used;
 
         void reset();
