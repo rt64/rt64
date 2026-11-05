@@ -1440,7 +1440,7 @@ namespace RT64 {
         uint32_t globalCallIndex = 0;
         const float originalWidth = p.fbWidth * p.resolutionScale.y;
         framebuffer.viewport = RenderViewport(0.0f, 0.0f, p.fbWidth * p.resolutionScale.x, float(p.targetHeight));
-        
+
         const interop::float2 halfViewportSize = { framebuffer.viewport.width / 2.0f, framebuffer.viewport.height / 2.0f };
         const interop::float2 halfPixelOffset = { 1.0f / framebuffer.viewport.width, -1.0f / framebuffer.viewport.height };
         uint32_t vertexTestZFaceIndicesStart = 0;
@@ -1510,10 +1510,9 @@ namespace RT64 {
                     triangles.screenScale.x = p.resolutionScale.y / p.resolutionScale.x;
 
                     if (viewportOrigin < G_EX_ORIGIN_NONE) {
-                        // TODO: Rewrite as it currently doesn't work. Replicate logic from convertViewportRect instead, maybe by pretending the rect is always at the middle.
-                        const float middleFb = float(fbLeft + fbRight) / 2.0f;
-                        const float middleViewport = (fbLeft + (((fbRight - fbLeft) * viewportOrigin) / G_EX_ORIGIN_RIGHT)) * extAspectPercentage + middleFb * (1.0f - extAspectPercentage);
-                        triangles.screenOffset.x = halfPixelOffset.x + (((middleViewport - (p.fbWidth / 2.0f)) * p.resolutionScale.x) / halfViewportSize.x);
+                        const float middleOrigin = (fbLeft + (((fbRight - fbLeft) * viewportOrigin) / G_EX_ORIGIN_RIGHT)) * extAspectPercentage + ((fbLeft + fbRight) / 2.0f) * (1.0f - extAspectPercentage);
+                        const float middleViewport = (middleOrigin + ((p.fbWidth / 2.0f) - middleOrigin) * projInvRatioScale) * p.resolutionScale.x;
+                        triangles.screenOffset.x = halfPixelOffset.x + (middleViewport - halfViewportSize.x) / halfViewportSize.x;
                     }
                 }
 
