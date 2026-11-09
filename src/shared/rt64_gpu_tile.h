@@ -55,9 +55,12 @@ namespace interop {
         float2 tcScale;
         uint2 texelShift;
         uint2 texelMask;
-        uint textureIndex;
         float3 textureDimensions;
+        uint textureIndex;
         GPUTileFlags flags;
+        uint _padEnd0;
+        uint _padEnd1;
+        uint _padEnd2;
     };
 #ifdef HLSL_CPU
 };
