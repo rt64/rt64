@@ -116,6 +116,22 @@ namespace RT64 {
 
             interop::float4x4 &prevViewTransform = drawData.prevViewTransforms[proj.transformsIndex];
             interop::float4x4 &prevProjTransform = drawData.prevProjTransforms[proj.transformsIndex];
+            const bool debuggerCameraUsed = workload.debuggerCamera.enabled && (proj.type == Projection::Type::Perspective) && (workload.debuggerCamera.sceneIndex == sceneIndex);
+            if (!debuggerCameraUsed && ((prevProjMatrix == nullptr) || (prevViewMatrix == nullptr) || (rigidBody == nullptr))) {
+                // Nothing is interpolated, so keep the game's own view-projection and apply the aspect adjustment to it
+                // directly: scaling the projection's first column scales the product's first column by the same factor.
+                // Recomputing it as view * projection in floats drifts from the RSP's product by around 1e-4 of its
+                // largest term, which is enough to flip the depth test of distant geometry near the far plane against
+                // the surface behind it (GoldenEye's far props blinked out at Expand). Without interpolation this
+                // processor only runs when the aspect ratio is adjusted, so the drift showed only with Expand.
+                prevViewTransform = viewMatrix;
+                prevProjTransform = projMatrix;
+                viewProjMatrix = drawData.viewProjTransforms[proj.transformsIndex];
+                adjustProjectionMatrix(viewProjMatrix, projRatioScale);
+                drawData.prevViewProjTransforms[proj.transformsIndex] = viewProjMatrix;
+                continue;
+            }
+
             if ((prevProjMatrix != nullptr) && (prevViewMatrix != nullptr) && (rigidBody != nullptr)) {
                 const interop::float4x4 curViewTransform = viewMatrix;
                 const interop::float4x4 curProjTransform = projMatrix;
