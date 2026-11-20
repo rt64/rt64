@@ -41,7 +41,7 @@ namespace RT64 {
         return windowCenter + relativeCoordinate * relativeScale;
     }
 
-    void VIRenderer::render(const RenderParams &p) {
+    void VIRenderer::render(const RenderParams &p, bool finalPass) {
         const ShaderRecord *shader = nullptr;
         const RenderSampler *sampler = nullptr;
         switch (p.filtering) {
@@ -69,7 +69,15 @@ namespace RT64 {
 
         RenderViewport viewport;
         RenderRect scissor;
-        getViewportAndScissor(p.swapChain, *p.vi, p.resolutionScale, p.downsamplingScale, p.removeBlackBorders, viewport, scissor);
+
+        if (finalPass) {
+            getViewportAndScissor(p.swapChain, *p.vi, p.resolutionScale, p.downsamplingScale, p.removeBlackBorders, viewport, scissor);
+        } else {
+            getFXViewport(*p.vi, p.resolutionScale, p.downsamplingScale, p.removeBlackBorders, viewport);
+            scissor.right = viewport.width;
+            scissor.bottom = viewport.height;
+        }
+
         p.commandList->setViewports(viewport);
         p.commandList->setScissors(scissor);
 
@@ -84,6 +92,13 @@ namespace RT64 {
         p.commandList->setGraphicsPushConstants(0, &pushConstants);
         p.commandList->setVertexBuffers(0, nullptr, 0, nullptr);
         p.commandList->drawInstanced(3, 1, 0, 0);
+    }
+
+    void VIRenderer::getFXViewport(const VI &vi, hlslpp::float2 resolutionScale, uint32_t downsamplingScale, bool removeBlackBorders, RenderViewport &viewport) {
+        const hlslpp::float2 sdSize = removeBlackBorders ? hlslpp::float2(vi.fbSize()) : hlslpp::float2(320.0f, 240.0f);
+        const hlslpp::float2 hdSize = computeHDSize(sdSize, resolutionScale, downsamplingScale);
+
+        viewport = RenderViewport(0, 0, hdSize.x, hdSize.y);
     }
 
     void VIRenderer::getViewportAndScissor(const RenderSwapChain *swapChain, const VI &vi, hlslpp::float2 resolutionScale, uint32_t downsamplingScale, bool removeBlackBorders, RenderViewport &viewport, RenderRect &scissor) {
